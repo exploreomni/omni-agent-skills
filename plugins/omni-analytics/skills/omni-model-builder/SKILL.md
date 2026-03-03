@@ -25,19 +25,19 @@ Always work in a branch. Never write directly to production.
 ### Step 1: Write YAML to a Branch
 
 ```bash
-curl -L -X POST "$OMNI_BASE_URL/api/unstable/models/{modelId}/yaml" \
+curl -L -X POST "$OMNI_BASE_URL/api/v1/models/{modelId}/yaml" \
   -H "Authorization: Bearer $OMNI_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "fileName": "my_new_view.view",
     "yaml": "dimensions:\n  order_id:\n    primary_key: true\n  status:\n    label: Order Status\nmeasures:\n  count:\n    aggregate_type: count",
     "mode": "extension",
-    "branchId": "my-feature-branch",
+    "branchId": "{branchId}",
     "commitMessage": "Add my_new_view with status dimension and count measure"
   }'
 ```
 
-Branches are created implicitly — if the `branchId` doesn't exist, Omni creates it.
+`branchId` is a UUID — retrieve it from the List Models endpoint with `?include=activeBranches`. If the branch doesn't exist yet, Omni creates it.
 
 ### Step 2: Validate
 

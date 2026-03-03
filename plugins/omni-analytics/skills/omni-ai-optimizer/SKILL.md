@@ -36,7 +36,7 @@ Impact order: ai_context > ai_fields > sample_queries > field descriptions.
 Add via the YAML API:
 
 ```bash
-curl -L -X POST "$OMNI_BASE_URL/api/unstable/models/{modelId}/yaml" \
+curl -L -X POST "$OMNI_BASE_URL/api/v1/models/{modelId}/yaml" \
   -H "Authorization: Bearer $OMNI_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
