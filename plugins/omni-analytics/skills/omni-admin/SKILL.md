@@ -225,3 +225,4 @@ curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/git" \
 - **omni-model-builder** — edit the model that access controls apply to
 - **omni-content-explorer** — find documents before setting permissions
 - **omni-content-builder** — create dashboards before scheduling delivery
+- **omni-embed** — manage embed users and user attributes for embedded dashboards

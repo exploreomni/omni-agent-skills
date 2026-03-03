@@ -331,3 +331,4 @@ curl -L "$OMNI_BASE_URL/api/v1/jobs/{jobId}/status" \
 - **omni-model-builder** — create shared model fields
 - **omni-query** — test queries before adding to dashboards
 - **omni-content-explorer** — find existing dashboards to learn from
+- **omni-embed** — embed dashboards you've built in external apps

@@ -154,4 +154,5 @@ Omni has no dedicated search endpoint. Find content by: **label** (`?labels=`), 
 
 - **omni-query** — run queries behind dashboards you've found
 - **omni-content-builder** — create or update dashboards
+- **omni-embed** — embed dashboards you've found in external apps
 - **omni-admin** — manage permissions on documents and folders
