@@ -7,6 +7,9 @@ description: Create, update, and manage Omni Analytics documents and dashboards 
 
 Create, update, and manage Omni documents and dashboards programmatically via the REST API — document lifecycle, workbook models, filters, and dashboard content.
 
+> **Always check the official Omni docs first:** https://docs.omni.co/llms.txt
+> This skill covers patterns not fully documented elsewhere — especially the `queryPresentations` format for creating dashboards with tiles.
+
 > **Tip**: Use `omni-model-explorer` to understand available fields and `omni-content-explorer` to find existing dashboards to modify or learn from.
 
 ## Prerequisites
@@ -43,7 +46,9 @@ Returns the new document's `identifier`, `workbookId`, and `dashboardId`.
 
 ### Create Document with Queries and Visualizations
 
-Use `queryPresentations` to create a document pre-populated with query tabs and visualization configurations:
+Use `queryPresentations` to create a document pre-populated with query tabs and visualization configurations.
+
+> **Doc gap**: The [create-document API docs](https://docs.omni.co/api/documents/create-document.md) mention queryPresentations but don't show the complete structure. This section documents the full format.
 
 ```bash
 curl -L -X POST "$OMNI_BASE_URL/api/v1/documents" \
@@ -103,6 +108,14 @@ curl -L -X POST "$OMNI_BASE_URL/api/v1/documents" \
   }'
 ```
 
+#### Key Parameters (not fully documented elsewhere)
+
+| Parameter | Notes |
+|-----------|-------|
+| `modelId` | Use the **base shared model UUID**, not a branchId. Get this from the List Models API. |
+| Field format | `table.field_name` or `table.field_name[week\|month\|day\|quarter\|year]` for time granularity |
+| `sorts` | `column_name` must match the **exact field string** (e.g., `"order_items.created_at[month]"`), with `sort_descending` boolean |
+
 #### Query Object Reference
 
 The `query` object within each query presentation uses the same structure as the [Query API](https://docs.omni.co/api/queries.md):
@@ -121,18 +134,25 @@ The `query` object within each query presentation uses the same structure as the
 
 #### visConfig Object
 
-The `visConfig` object controls how each query is visualized. The `chartType` field sets the visualization type. Common values include:
+The `visConfig` object controls how each query is visualized. The `chartType` field sets the visualization type.
+
+**Core chartType values** (most commonly used):
 
 | chartType | Visualization |
 |-----------|--------------|
+| `kpi` | KPI / single value |
 | `lineColor` | Line chart |
 | `barColor` | Bar chart |
-| `stackedBarColor` | Stacked bar chart |
 | `areaColor` | Area chart |
-| `scatter` | Scatter plot |
 | `pie` | Pie / donut chart |
-| `kpi` | KPI / single value |
 | `table` | Data table |
+
+**Additional chartType values**:
+
+| chartType | Visualization |
+|-----------|--------------|
+| `stackedBarColor` | Stacked bar chart |
+| `scatter` | Scatter plot |
 | `heatmap` | Heatmap |
 | `map` | Map visualization |
 
