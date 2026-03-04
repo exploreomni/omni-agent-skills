@@ -148,7 +148,7 @@ Omni has no dedicated search endpoint. Find content by: **label** (`?labels=`), 
 
 ## Docs Reference
 
-- [Content API](https://docs.omni.co/api/content) · [Documents API](https://docs.omni.co/api/documents) · [Folders API](https://docs.omni.co/api/folders) · [Labels API](https://docs.omni.co/api/labels) · [Dashboard Downloads](https://docs.omni.co/api/dashboard-downloads)
+- [Content API](https://docs.omni.co/api/content.md) · [Documents API](https://docs.omni.co/api/documents.md) · [Folders API](https://docs.omni.co/api/folders.md) · [Labels API](https://docs.omni.co/api/labels.md) · [Dashboard Downloads](https://docs.omni.co/api/dashboard-downloads.md)
 
 ## Related Skills
 

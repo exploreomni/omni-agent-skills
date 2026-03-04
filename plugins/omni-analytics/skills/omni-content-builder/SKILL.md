@@ -105,7 +105,7 @@ curl -L -X POST "$OMNI_BASE_URL/api/v1/documents" \
 
 #### Query Object Reference
 
-The `query` object within each query presentation uses the same structure as the [Query API](https://docs.omni.co/api/queries):
+The `query` object within each query presentation uses the same structure as the [Query API](https://docs.omni.co/api/queries.md):
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
@@ -323,7 +323,7 @@ curl -L "$OMNI_BASE_URL/api/v1/jobs/{jobId}/status" \
 
 ## Docs Reference
 
-- [Documents API](https://docs.omni.co/api/documents) · [Dashboard Filters](https://docs.omni.co/api/dashboard-filters) · [Dashboard Downloads](https://docs.omni.co/api/dashboard-downloads) · [Query API](https://docs.omni.co/api/queries) · [Schedules API](https://docs.omni.co/api/schedules) · [Visualization Types](https://docs.omni.co/visualize-present/visualizations)
+- [Documents API](https://docs.omni.co/api/documents.md) · [Dashboard Filters](https://docs.omni.co/api/dashboard-filters.md) · [Dashboard Downloads](https://docs.omni.co/api/dashboard-downloads.md) · [Query API](https://docs.omni.co/api/queries.md) · [Schedules API](https://docs.omni.co/api/schedules.md) · [Visualization Types](https://docs.omni.co/visualize-present/visualizations.md)
 
 ## Related Skills
 

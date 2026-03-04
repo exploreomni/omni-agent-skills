@@ -209,7 +209,7 @@ sql: |
 
 ## Docs Reference
 
-- [Model YAML API](https://docs.omni.co/api/models) · [Views](https://docs.omni.co/modeling/views) · [Topics](https://docs.omni.co/modeling/topics/parameters) · [Dimensions](https://docs.omni.co/modeling/dimensions) · [Measures](https://docs.omni.co/modeling/measures) · [Relationships](https://docs.omni.co/modeling/relationships) · [Query Views](https://docs.omni.co/modeling/query-views) · [Branch Mode](https://docs.omni.co/finding-content/drafting-publishing/branch-mode)
+- [Model YAML API](https://docs.omni.co/api/models.md) · [Views](https://docs.omni.co/modeling/views.md) · [Topics](https://docs.omni.co/modeling/topics/parameters.md) · [Dimensions](https://docs.omni.co/modeling/dimensions.md) · [Measures](https://docs.omni.co/modeling/measures.md) · [Relationships](https://docs.omni.co/modeling/relationships.md) · [Query Views](https://docs.omni.co/modeling/query-views.md) · [Branch Mode](https://docs.omni.co/finding-content/drafting-publishing/branch-mode.md)
 
 ## Related Skills
 

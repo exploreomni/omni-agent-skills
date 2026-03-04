@@ -192,7 +192,7 @@ Good descriptions help both Blobby and human analysts.
 
 ## Docs Reference
 
-- [Optimizing Models for AI](https://docs.omni.co/ai/optimize-models) · [Topic Parameters](https://docs.omni.co/modeling/topics/parameters) · [Model YAML API](https://docs.omni.co/api/models) · [Omni AI Overview](https://docs.omni.co/ai)
+- [Optimizing Models for AI](https://docs.omni.co/ai/optimize-models.md) · [Topic Parameters](https://docs.omni.co/modeling/topics/parameters.md) · [Model YAML API](https://docs.omni.co/api/models.md) · [Omni AI Overview](https://docs.omni.co/ai.md)
 
 ## Related Skills
 
