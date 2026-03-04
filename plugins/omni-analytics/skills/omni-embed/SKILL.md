@@ -425,7 +425,7 @@ When your app stores the embed domain, convert it for API calls by replacing `.e
 
 ## Docs Reference
 
-- [Embed Overview](https://docs.omni.co/embed) · [Custom Themes](https://docs.omni.co/embed/customization/themes) · [Embed Events](https://docs.omni.co/embed/events) · [AI Chat in Embeds](https://docs.omni.co/embed/customization/ai-chat) · [Embed Users API](https://docs.omni.co/api/users/list-embed-users) · [Documents API](https://docs.omni.co/api/documents)
+- [Embed Overview](https://docs.omni.co/embed.md) · [Custom Themes](https://docs.omni.co/embed/customization/themes.md) · [Embed Events](https://docs.omni.co/embed/events.md) · [AI Chat in Embeds](https://docs.omni.co/embed/customization/ai-chat.md) · [Embed Users API](https://docs.omni.co/api/users/list-embed-users.md) · [Documents API](https://docs.omni.co/api/documents.md)
 
 ## Related Skills
 

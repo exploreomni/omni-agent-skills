@@ -123,7 +123,7 @@ When exploring, use the `combined` view to see everything available.
 
 ## Docs Reference
 
-- [Models API](https://docs.omni.co/api/models) · [Topics API](https://docs.omni.co/api/topics) · [Modeling Overview](https://docs.omni.co/modeling) · [Views](https://docs.omni.co/modeling/views) · [Topics](https://docs.omni.co/modeling/topics/parameters) · [Dimensions](https://docs.omni.co/modeling/dimensions) · [Measures](https://docs.omni.co/modeling/measures)
+- [Models API](https://docs.omni.co/api/models.md) · [Topics API](https://docs.omni.co/api/topics.md) · [Modeling Overview](https://docs.omni.co/modeling.md) · [Views](https://docs.omni.co/modeling/views.md) · [Topics](https://docs.omni.co/modeling/topics/parameters.md) · [Dimensions](https://docs.omni.co/modeling/dimensions.md) · [Measures](https://docs.omni.co/modeling/measures.md)
 
 ## Related Skills
 

@@ -218,7 +218,7 @@ curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/git" \
 
 ## Docs Reference
 
-- [Connections](https://docs.omni.co/api/connections) · [Users (SCIM)](https://docs.omni.co/api/users) · [Groups (SCIM)](https://docs.omni.co/api/user-groups) · [User Attributes](https://docs.omni.co/api/user-attributes) · [Document Permissions](https://docs.omni.co/api/document-permissions) · [Folder Permissions](https://docs.omni.co/api/folder-permissions) · [Schedules](https://docs.omni.co/api/schedules) · [Schedule Recipients](https://docs.omni.co/api/schedule-recipients) · [Content Validator](https://docs.omni.co/api/content-validator) · [API Authentication](https://docs.omni.co/api/authentication)
+- [Connections](https://docs.omni.co/api/connections.md) · [Users (SCIM)](https://docs.omni.co/api/users.md) · [Groups (SCIM)](https://docs.omni.co/api/user-groups.md) · [User Attributes](https://docs.omni.co/api/user-attributes.md) · [Document Permissions](https://docs.omni.co/api/document-permissions.md) · [Folder Permissions](https://docs.omni.co/api/folder-permissions.md) · [Schedules](https://docs.omni.co/api/schedules.md) · [Schedule Recipients](https://docs.omni.co/api/schedule-recipients.md) · [Content Validator](https://docs.omni.co/api/content-validator.md) · [API Authentication](https://docs.omni.co/api/authentication.md)
 
 ## Related Skills
 
