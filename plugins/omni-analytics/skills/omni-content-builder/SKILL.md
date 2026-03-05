@@ -61,6 +61,7 @@ curl -L -X POST "$OMNI_BASE_URL/api/v1/documents" \
       {
         "name": "Monthly Revenue Trend",
         "description": "Revenue by month for the current quarter",
+        "topicName": "order_items",
         "query": {
           "table": "order_items",
           "fields": [
@@ -83,6 +84,7 @@ curl -L -X POST "$OMNI_BASE_URL/api/v1/documents" \
       {
         "name": "Top Products",
         "description": "Best selling products by revenue",
+        "topicName": "order_items",
         "query": {
           "table": "order_items",
           "fields": [
@@ -116,6 +118,16 @@ curl -L -X POST "$OMNI_BASE_URL/api/v1/documents" \
 | Field format | `table.field_name` or `table.field_name[week\|month\|day\|quarter\|year]` for time granularity |
 | `sorts` | `column_name` must match the **exact field string** (e.g., `"order_items.created_at[month]"`), with `sort_descending` boolean |
 
+#### queryPresentation Object Reference
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `name` | Yes | Tile/tab title |
+| `topicName` | Recommended | Topic name for the query — set this whenever querying from a topic. Ensures correct join context in the dashboard. |
+| `description` | No | Tile description |
+| `query` | Yes | Query definition (see below) |
+| `visConfig` | No | Visualization settings |
+
 #### Query Object Reference
 
 The `query` object within each query presentation uses the same structure as the [Query API](https://docs.omni.co/api/queries.md):
@@ -127,7 +139,7 @@ The `query` object within each query presentation uses the same structure as the
 | `sorts` | No | Array of `{ "column_name": "...", "sort_descending": bool }` |
 | `filters` | No | Object of `{ "field_name": "expression" }` — supports `"last 90 days"`, `"this quarter"`, `">100"`, etc. |
 | `limit` | No | Row limit (default 1000, max 50000) |
-| `join_paths_from_topic_name` | Recommended | Topic name for join resolution |
+| `join_paths_from_topic_name` | Recommended | Topic name for join resolution — set this alongside `topicName` on the parent queryPresentation. |
 | `pivots` | No | Array of field names to pivot on |
 
 > **Note**: `modelId` is not needed inside the query object — it's inherited from the document's top-level `modelId`.
@@ -158,9 +170,9 @@ The `visConfig` object controls how each query is visualized. The `chartType` fi
 
 The `visConfig` supports many additional fields beyond `chartType` (axis labels, color palettes, legend position, formatting, etc.). These are not fully documented in the public API — **read existing dashboards to discover the full structure**.
 
-### Discovering visConfig from Existing Dashboards
+### Discovering queryPresentation Structure from Existing Dashboards
 
-The most reliable way to learn the full `visConfig` and `query` structure is to read the queries from an existing dashboard:
+The most reliable way to learn the full `visConfig`, `query`, and topic structure is to read an existing dashboard document:
 
 **Step 1: Find a reference dashboard**
 
@@ -169,16 +181,24 @@ curl -L "$OMNI_BASE_URL/api/v1/documents" \
   -H "Authorization: Bearer $OMNI_API_KEY"
 ```
 
-**Step 2: Get its query definitions**
+**Step 2: Get its full document (preferred)**
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/documents/{dashboardId}/queries" \
+curl -L "$OMNI_BASE_URL/api/v1/documents/{documentId}" \
   -H "Authorization: Bearer $OMNI_API_KEY"
 ```
 
-Returns the `query` object for each tile. Study these to understand the exact field names, filter syntax, and sort patterns used in working dashboards, then reuse those patterns in your `queryPresentations`.
+Returns the complete `queryPresentations` array including `topicName`, `visConfig`, and the full `query` object for each tile — use this as the source of truth when recreating or templating dashboards.
 
-> **Tip**: Build a reference dashboard in the Omni UI with the chart types and styling you want, then read its queries to capture the exact configuration values to use as templates.
+> **Note**: The `/queries` endpoint (`GET /documents/{documentId}/queries`) only returns the inner `query` object and omits presentation-level fields like `topicName`. Prefer `get-dashboard-document` when you need the full structure to pass to `create-document`.
+
+> **Tip**: Build a reference dashboard in the Omni UI with the chart types and styling you want, then read it via `get-dashboard-document` to capture the exact `queryPresentations` structure to use as a template.
+
+#### Caveats when using queryPresentations from an existing document
+
+- **Filter to the tiles you want**: `get-dashboard-document` returns all queries including workbook-only tabs not shown on the dashboard. Pass only the `queryPresentations` you want as visible tiles — every entry you include will become a visible tile in the new document.
+- **Strip `model_extension_id`**: Some queries contain a `model_extension_id` that references a model extension scoped to the source document. These IDs are not valid in a new document and will cause "Chart unavailable" errors. Remove `model_extension_id` from each query object before posting.
+- **Queries without a topic are expected**: SQL-mode queries and tab-selector queries (`visType: "spreadsheet-tab"`) will not have a `topicName` — this is correct, do not add one.
 
 ### Rename Document
 
