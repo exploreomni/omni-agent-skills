@@ -59,8 +59,42 @@ curl -L -X POST "$OMNI_BASE_URL/api/v1/documents" \
     "name": "Q1 Revenue Report",
     "queryPresentations": [
       {
+        "name": "Total Revenue",
+        "topicName": "order_items",
+        "prefersChart": true,
+        "visType": "omni-kpi",
+        "fields": ["order_items.total_revenue"],
+        "query": {
+          "table": "order_items",
+          "fields": ["order_items.total_revenue"],
+          "join_paths_from_topic_name": "order_items",
+          "visConfig": { "chartType": "kpi" }
+        },
+        "config": {
+          "alignment": "left",
+          "verticalAlignment": "top",
+          "markdownConfig": [
+            {
+              "id": "kpi-1",
+              "type": "number",
+              "config": {
+                "field": {
+                  "row": "_first",
+                  "field": { "name": "order_items.total_revenue", "pivotMap": {} },
+                  "label": { "value": "Total Revenue" }
+                },
+                "descriptionBefore": ""
+              }
+            }
+          ]
+        }
+      },
+      {
         "name": "Monthly Revenue Trend",
-        "description": "Revenue by month for the current quarter",
+        "topicName": "order_items",
+        "prefersChart": true,
+        "visType": "basic",
+        "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
         "query": {
           "table": "order_items",
           "fields": [
@@ -70,38 +104,59 @@ curl -L -X POST "$OMNI_BASE_URL/api/v1/documents" \
           "sorts": [
             { "column_name": "order_items.created_at[month]", "sort_descending": false }
           ],
-          "filters": {
-            "order_items.created_at": "this quarter"
-          },
+          "filters": { "order_items.created_at": "this quarter" },
           "limit": 100,
-          "join_paths_from_topic_name": "order_items"
+          "join_paths_from_topic_name": "order_items",
+          "visConfig": { "chartType": "lineColor" }
         },
-        "visConfig": {
-          "chartType": "lineColor"
+        "config": {
+          "x": { "field": { "name": "order_items.created_at[month]" } },
+          "mark": { "type": "line" },
+          "color": {},
+          "series": [{ "field": { "name": "order_items.total_revenue" }, "yAxis": "y" }],
+          "tooltip": [
+            { "field": { "name": "order_items.created_at[month]" } },
+            { "field": { "name": "order_items.total_revenue" } }
+          ],
+          "version": 0,
+          "behaviors": { "stackMultiMark": false },
+          "configType": "cartesian",
+          "_dependentAxis": "y"
         }
       },
       {
-        "name": "Top Products",
-        "description": "Best selling products by revenue",
+        "name": "Revenue by Status",
+        "topicName": "order_items",
+        "prefersChart": true,
+        "visType": "basic",
+        "chartType": "barGrouped",
+        "fields": ["order_items.status", "order_items.total_revenue"],
         "query": {
           "table": "order_items",
           "fields": [
-            "products.name",
-            "order_items.total_revenue",
-            "order_items.count"
+            "order_items.status",
+            "order_items.total_revenue"
           ],
           "sorts": [
             { "column_name": "order_items.total_revenue", "sort_descending": true }
           ],
-          "filters": {
-            "order_items.created_at": "this quarter",
-            "order_items.status": "complete"
-          },
           "limit": 10,
-          "join_paths_from_topic_name": "order_items"
+          "join_paths_from_topic_name": "order_items",
+          "visConfig": { "chartType": "barColor" }
         },
-        "visConfig": {
-          "chartType": "barColor"
+        "config": {
+          "y": { "field": { "name": "order_items.status" } },
+          "mark": { "type": "bar" },
+          "color": { "_stack": "group" },
+          "series": [{ "field": { "name": "order_items.total_revenue" }, "xAxis": "x" }],
+          "tooltip": [
+            { "field": { "name": "order_items.status" } },
+            { "field": { "name": "order_items.total_revenue" } }
+          ],
+          "version": 0,
+          "behaviors": { "stackMultiMark": false },
+          "configType": "cartesian",
+          "_dependentAxis": "x"
         }
       }
     ]
@@ -115,6 +170,20 @@ curl -L -X POST "$OMNI_BASE_URL/api/v1/documents" \
 | `modelId` | Use the **base shared model UUID**, not a branchId. Get this from the List Models API. |
 | Field format | `table.field_name` or `table.field_name[week\|month\|day\|quarter\|year]` for time granularity |
 | `sorts` | `column_name` must match the **exact field string** (e.g., `"order_items.created_at[month]"`), with `sort_descending` boolean |
+
+#### queryPresentation Object Reference
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `name` | Yes | Tile/tab title |
+| `topicName` | Recommended | Topic name — set this whenever querying from a topic. Ensures correct join context. |
+| `prefersChart` | Yes | **Must be `true` to render a chart.** Without this, Omni always shows the results table regardless of any other vis settings. |
+| `visType` | Yes | Visualization renderer: `"omni-kpi"` for KPI tiles, `"basic"` for all standard charts (line, bar, area, scatter, pie, etc.). |
+| `fields` | Yes | Duplicate of `query.fields` — must be present at this level too. |
+| `config` | Yes | Chart-specific configuration object. Shape varies by chart type — read a reference dashboard to get the exact structure. |
+| `chartType` | No | Optional chart subtype at the presentation level (e.g. `"barGrouped"`). |
+| `description` | No | Tile description. |
+| `query` | Yes | Query definition (see below). |
 
 #### Query Object Reference
 
@@ -134,9 +203,11 @@ The `query` object within each query presentation uses the same structure as the
 
 #### visConfig Object
 
-The `visConfig` object controls how each query is visualized. The `chartType` field sets the visualization type.
+`visConfig` belongs **inside the `query` object** — not at the `queryPresentation` level. When passed as a sibling of `query`, it is silently dropped by the API.
 
-**Core chartType values** (most commonly used):
+`visConfig` alone does **not** control chart rendering. It stores the chart type hint on the query, but the actual rendering is driven by `prefersChart`, `visType`, and `config` at the `queryPresentation` level.
+
+**chartType values**:
 
 | chartType | Visualization |
 |-----------|--------------|
@@ -144,23 +215,78 @@ The `visConfig` object controls how each query is visualized. The `chartType` fi
 | `lineColor` | Line chart |
 | `barColor` | Bar chart |
 | `areaColor` | Area chart |
-| `pie` | Pie / donut chart |
-| `table` | Data table |
-
-**Additional chartType values**:
-
-| chartType | Visualization |
-|-----------|--------------|
 | `stackedBarColor` | Stacked bar chart |
+| `pie` | Pie / donut chart |
 | `scatter` | Scatter plot |
 | `heatmap` | Heatmap |
 | `map` | Map visualization |
+| `table` | Data table |
 
-The `visConfig` supports many additional fields beyond `chartType` (axis labels, color palettes, legend position, formatting, etc.). These are not fully documented in the public API — **read existing dashboards to discover the full structure**.
+#### config Object
 
-### Discovering visConfig from Existing Dashboards
+The `config` object at the `queryPresentation` level defines the actual chart rendering. Its structure varies by chart type. The most reliable way to get the correct `config` for a given chart type is to **build the chart in the Omni UI and read it back**.
 
-The most reliable way to learn the full `visConfig` and `query` structure is to read the queries from an existing dashboard:
+**KPI config shape:**
+```json
+{
+  "alignment": "left",
+  "verticalAlignment": "top",
+  "markdownConfig": [
+    {
+      "id": "unique-id",
+      "type": "number",
+      "config": {
+        "field": {
+          "row": "_first",
+          "field": { "name": "view.measure_name", "pivotMap": {} },
+          "label": { "value": "Label Text" }
+        },
+        "descriptionBefore": ""
+      }
+    }
+  ]
+}
+```
+
+**Line chart config shape:**
+```json
+{
+  "x": { "field": { "name": "view.date_field[month]" } },
+  "mark": { "type": "line" },
+  "color": {},
+  "series": [{ "field": { "name": "view.measure_name" }, "yAxis": "y" }],
+  "tooltip": [
+    { "field": { "name": "view.date_field[month]" } },
+    { "field": { "name": "view.measure_name" } }
+  ],
+  "version": 0,
+  "behaviors": { "stackMultiMark": false },
+  "configType": "cartesian",
+  "_dependentAxis": "y"
+}
+```
+
+**Bar chart config shape** (horizontal — dimension on y-axis):
+```json
+{
+  "y": { "field": { "name": "view.dimension_name" } },
+  "mark": { "type": "bar" },
+  "color": { "_stack": "group" },
+  "series": [{ "field": { "name": "view.measure_name" }, "xAxis": "x" }],
+  "tooltip": [
+    { "field": { "name": "view.dimension_name" } },
+    { "field": { "name": "view.measure_name" } }
+  ],
+  "version": 0,
+  "behaviors": { "stackMultiMark": false },
+  "configType": "cartesian",
+  "_dependentAxis": "x"
+}
+```
+
+### Discovering the Full queryPresentation Structure from Existing Dashboards
+
+The most reliable way to learn `config`, `visType`, and field names is to read an existing dashboard document:
 
 **Step 1: Find a reference dashboard**
 
@@ -169,16 +295,16 @@ curl -L "$OMNI_BASE_URL/api/v1/documents" \
   -H "Authorization: Bearer $OMNI_API_KEY"
 ```
 
-**Step 2: Get its query definitions**
+**Step 2: Get its full document**
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/documents/{dashboardId}/queries" \
+curl -L "$OMNI_BASE_URL/api/v1/documents/{documentId}" \
   -H "Authorization: Bearer $OMNI_API_KEY"
 ```
 
-Returns the `query` object for each tile. Study these to understand the exact field names, filter syntax, and sort patterns used in working dashboards, then reuse those patterns in your `queryPresentations`.
+Returns the complete `queryPresentations` array including `prefersChart`, `visType`, `config`, `topicName`, and the full `query` object for each tile — use this as the source of truth when recreating or templating dashboards.
 
-> **Tip**: Build a reference dashboard in the Omni UI with the chart types and styling you want, then read its queries to capture the exact configuration values to use as templates.
+> **Tip**: Build a reference dashboard in the Omni UI with the chart types and styling you want, then read it via `get-dashboard-document` to capture the exact `queryPresentations` structure to use as a template.
 
 ### Rename Document
 
@@ -315,8 +441,8 @@ curl -L -X PUT "$OMNI_BASE_URL/api/v1/dashboards/{dashboardId}/filters" \
 ### API-First (Full Programmatic Creation)
 
 1. **Prepare the Model** — use `omni-model-builder` for shared fields, or `update-model` for dashboard-specific fields
-2. **Read a Reference Dashboard** — get query definitions from an existing dashboard to learn field names, filter syntax, and visConfig patterns
-3. **Create Document with queryPresentations** — create the document with all queries and chart types in a single API call
+2. **Read a Reference Dashboard** — use `GET /api/v1/documents/{id}` on a dashboard built in the UI to capture the full `queryPresentations` structure: `prefersChart`, `visType`, `config`, field names, filter syntax
+3. **Create Document with queryPresentations** — create the document with all queries, `prefersChart`, `visType`, and `config` in a single API call
 4. **Set Up Filters** — add dashboard-level filters via the filters API
 5. **Refine in UI** — adjust tile layout, fine-tune styling as needed
 
