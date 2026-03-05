@@ -7,6 +7,9 @@ description: Create and edit Omni Analytics semantic model definitions — views
 
 Create and modify Omni's semantic model through the YAML API — views, topics, dimensions, measures, relationships, and query views.
 
+> **Always check the official Omni docs first:** https://docs.omni.co/llms.txt
+> This skill covers patterns and workflows. For complete YAML syntax and parameters, the docs are the source of truth.
+
 > **Tip**: Always use `omni-model-explorer` first to understand the existing model.
 
 ## Prerequisites
@@ -101,7 +104,7 @@ measures:
 
 ### Measure Parameters
 
-Aggregate types: `count`, `count_distinct`, `sum`, `average`, `min`, `max`, `median`
+See [Measures documentation](https://docs.omni.co/modeling/measures/index.md) for complete syntax and [aggregate_type reference](https://docs.omni.co/modeling/measures/parameters/aggregate-type.md) for all 13 valid values.
 
 Measure filters restrict rows before aggregation:
 
@@ -124,29 +127,15 @@ Filter conditions: `is`, `is_not`, `greater_than`, `less_than`, `contains`, `sta
 
 ## Writing Topics
 
-```yaml
-base_view: order_items
-label: Order Transactions
-description: Line-item order data for revenue and product analysis
+See [Topics setup](https://docs.omni.co/modeling/topics/setup.md) for complete YAML examples with joins, fields, and ai_context, and [Topic parameters](https://docs.omni.co/modeling/topics/parameters.md) for all available options.
 
-ai_context: |
-  Map "revenue" → total_revenue. Map "orders" → count.
-  Status values: complete, pending, cancelled, returned.
-  Only "complete" orders for revenue unless specified otherwise.
-
-joins:
-  users: {}
-  inventory_items:
-    products: {}
-
-default_filters:
-  order_items.status:
-    not: [Returned, Cancelled]
-```
-
-Nested joins indicate join chains. Use `always_where_sql` for non-removable filters.
-
-Field curation: `fields: [order_items.*, users.name, -users.internal_id]`
+Key topic elements:
+- `base_view` — the primary view for this topic
+- `joins` — nested structure for join chains (e.g., `users: {}` or `inventory_items: { products: {} }`)
+- `ai_context` — guides Blobby's field mapping (e.g., "Map 'revenue' → total_revenue")
+- `default_filters` — applied to all queries unless removed
+- `always_where_sql` — non-removable filters
+- `fields` — field curation: `[order_items.*, users.name, -users.internal_id]`
 
 ## Writing Relationships
 
