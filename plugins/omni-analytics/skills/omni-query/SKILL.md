@@ -102,7 +102,9 @@ Expressions: `"last 90 days"`, `"this quarter"`, `"2024-01-01 to 2024-12-31"`, `
 
 ## Handling Results
 
-Default response: base64-encoded Apache Arrow table. Request CSV instead:
+Default response: base64-encoded Apache Arrow table. Arrow results are binary — you cannot parse individual row data from the raw response. To verify a query returned data, check `summary.row_count` in the response.
+
+For human-readable results, request CSV instead:
 
 ```json
 { "query": { ... }, "resultType": "csv" }
@@ -158,6 +160,18 @@ For complex analysis, chain queries:
 **Top N**: fields + metric + descending sort + limit
 
 **Aggregation with Breakdown**: multiple dimensions + multiple measures + descending sort by key metric
+
+## Known Bugs
+
+- **`IS_NOT_NULL` filter generates `IS NULL`** (reported Omni bug) — workaround: invert the filter logic or use the base view to apply the filter differently.
+- **Boolean filters may be silently dropped** when a `pivots` array is present — if boolean filters aren't applying, remove the pivot and test again.
+
+## Linking to Results
+
+Queries are ephemeral — there is no persistent URL for a query result. To give the user a shareable link:
+
+- **For existing dashboards**: `{OMNI_BASE_URL}/dashboards/{identifier}` (the `identifier` comes from the document API response)
+- **For new analysis**: Create a document via `omni-content-builder` with the query as a `queryPresentation`, then share `{OMNI_BASE_URL}/dashboards/{identifier}`
 
 ## Docs Reference
 

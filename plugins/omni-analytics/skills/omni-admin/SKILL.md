@@ -16,6 +16,15 @@ export OMNI_BASE_URL="https://yourorg.omniapp.co"
 export OMNI_API_KEY="your-api-key"
 ```
 
+## Token Security
+
+API tokens in shell commands appear in terminal scrollback via shell variable expansion (`$OMNI_API_KEY` is expanded by the shell before the command runs). Omni Personal Access Tokens are long-lived — treat them with the same care as database credentials.
+
+Mitigations:
+- Load tokens from dotfiles (`~/.zshrc`, `~/.bashrc`) rather than pasting inline
+- For team deployments, consider wrapping API calls in an MCP server or helper script that reads tokens from a secrets manager
+- Never commit tokens to version control
+
 ## Connections
 
 ```bash
@@ -207,8 +216,15 @@ curl -L -X POST "$OMNI_BASE_URL/api/v1/models/{modelId}/cache_reset/{policyName}
   -H "Content-Type: application/json" \
   -d '{ "resetAt": "2025-01-30T22:30:52.872Z" }'
 
-# Content validator (find broken references)
+# Content validator (find broken field references across all dashboards and tiles)
+# Useful for blast-radius analysis: remove a field on a branch, then run the
+# validator against that branch to see what content would break.
+# See the Field Impact Analysis section in omni-model-explorer for the full workflow.
 curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/content-validator" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+
+# Run against a specific branch (e.g., after removing a field)
+curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/content-validator?branchId={branchId}" \
   -H "Authorization: Bearer $OMNI_API_KEY"
 
 # Git configuration
