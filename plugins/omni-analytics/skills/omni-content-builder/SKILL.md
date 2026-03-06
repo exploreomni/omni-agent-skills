@@ -91,6 +91,7 @@ curl -L -X POST "$OMNI_BASE_URL/api/v1/documents" \
       },
       {
         "name": "Monthly Revenue Trend",
+        "description": "Revenue by month for the current quarter",
         "topicName": "order_items",
         "prefersChart": true,
         "visType": "basic",
@@ -176,7 +177,7 @@ curl -L -X POST "$OMNI_BASE_URL/api/v1/documents" \
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `name` | Yes | Tile/tab title |
-| `topicName` | Recommended | Topic name — set this whenever querying from a topic. Ensures correct join context. |
+| `topicName` | Recommended | Topic name for the query — set this whenever querying from a topic. Ensures correct join context in the dashboard. |
 | `prefersChart` | Yes | **Must be `true` to render a chart.** Without this, Omni always shows the results table regardless of any other vis settings. |
 | `visType` | Yes | Visualization renderer: `"omni-kpi"` for KPI tiles, `"basic"` for all standard charts (line, bar, area, scatter, pie, etc.). |
 | `fields` | Yes | Duplicate of `query.fields` — must be present at this level too. |
@@ -196,7 +197,7 @@ The `query` object within each query presentation uses the same structure as the
 | `sorts` | No | Array of `{ "column_name": "...", "sort_descending": bool }` |
 | `filters` | No | Object of `{ "field_name": "expression" }` — supports `"last 90 days"`, `"this quarter"`, `">100"`, etc. |
 | `limit` | No | Row limit (default 1000, max 50000) |
-| `join_paths_from_topic_name` | Recommended | Topic name for join resolution |
+| `join_paths_from_topic_name` | Recommended | Topic name for join resolution — set this alongside `topicName` on the parent queryPresentation. |
 | `pivots` | No | Array of field names to pivot on |
 
 > **Note**: `modelId` is not needed inside the query object — it's inherited from the document's top-level `modelId`.
@@ -304,7 +305,15 @@ curl -L "$OMNI_BASE_URL/api/v1/documents/{documentId}" \
 
 Returns the complete `queryPresentations` array including `prefersChart`, `visType`, `config`, `topicName`, and the full `query` object for each tile — use this as the source of truth when recreating or templating dashboards.
 
+> **Note**: The `/queries` endpoint (`GET /documents/{documentId}/queries`) only returns the inner `query` object and omits presentation-level fields like `topicName`. Prefer `get-dashboard-document` when you need the full structure to pass to `create-document`.
+
 > **Tip**: Build a reference dashboard in the Omni UI with the chart types and styling you want, then read it via `get-dashboard-document` to capture the exact `queryPresentations` structure to use as a template.
+
+#### Caveats when using queryPresentations from an existing document
+
+- **Filter to the tiles you want**: `get-dashboard-document` returns all queries including workbook-only tabs not shown on the dashboard. Pass only the `queryPresentations` you want as visible tiles — every entry you include will become a visible tile in the new document.
+- **Strip `model_extension_id`**: Some queries contain a `model_extension_id` that references a model extension scoped to the source document. These IDs are not valid in a new document and will cause "Chart unavailable" errors. Remove `model_extension_id` from each query object before posting.
+- **Queries without a topic are expected**: SQL-mode queries and tab-selector queries (`visType: "spreadsheet-tab"`) will not have a `topicName` — this is correct, do not add one.
 
 ### Rename Document
 
