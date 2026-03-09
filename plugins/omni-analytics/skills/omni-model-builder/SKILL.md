@@ -103,16 +103,20 @@ measures:
 
 ### Dimension Parameters
 
+See `references/modelParameters.md` for the complete list of 35+ dimension parameters, format values, and timeframes.
+
+Most common parameters:
 - `sql` — SQL expression using `${field_name}` references
 - `label` — display name · `description` — help text (also used by Blobby)
 - `primary_key: true` — unique key (critical for aggregations)
 - `hidden: true` — hides from picker, still usable in SQL
 - `format` — `number_2`, `currency_2`, `percent_2`, `id`
 - `group_label` — groups fields in the picker
+- `synonyms` — alternative names for AI matching (e.g., `[client, account, buyer]`)
 
 ### Measure Parameters
 
-See [Measures documentation](https://docs.omni.co/modeling/measures/index.md) for complete syntax and [aggregate_type reference](https://docs.omni.co/modeling/measures/parameters/aggregate-type.md) for all 13 valid values.
+See `references/modelParameters.md` for the complete list of 24+ measure parameters and all 13 aggregate types.
 
 Measure filters restrict rows before aggregation:
 
