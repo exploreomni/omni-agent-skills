@@ -368,35 +368,29 @@ Only published documents can be duplicated. Draft documents return 404.
 
 ## Updating a Dashboard's Model
 
-Push custom dimensions and measures to a specific dashboard:
+Push custom dimensions and measures to a specific dashboard by writing to its workbook model. This is a two-step flow:
+
+**Step 1 — get the document to find its `workbook_id`:**
 
 ```bash
-curl -L -X POST "$OMNI_BASE_URL/api/unstable/documents/{documentId}/update-model" \
+curl -L "$OMNI_BASE_URL/api/v1/documents/{documentId}" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+# → response includes "workbook_id"
+```
+
+**Step 2 — POST YAML to the workbook model:**
+
+```bash
+curl -L -X POST "$OMNI_BASE_URL/api/unstable/models/{workbookId}/yaml" \
   -H "Authorization: Bearer $OMNI_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "yaml": {
-      "views": {
-        "order_items": {
-          "dimensions": {
-            "is_high_value": {
-              "sql": "${sale_price} > 100",
-              "label": "High Value Order"
-            }
-          },
-          "measures": {
-            "high_value_count": {
-              "sql": "${order_items.id}",
-              "aggregate_type": "count_distinct",
-              "label": "High Value Orders",
-              "filters": { "sale_price": { "greater_than": 100 } }
-            }
-          }
-        }
-      }
-    }
+    "fileName": "order_items.view",
+    "yaml": "views:\n  order_items:\n    dimensions:\n      is_high_value:\n        sql: \"${sale_price} > 100\"\n        label: High Value Order\n    measures:\n      high_value_count:\n        sql: \"${order_items.id}\"\n        aggregate_type: count_distinct\n        label: High Value Orders"
   }'
 ```
+
+`fileName` must be `"model"`, `"relationships"`, or end with `.view` or `.topic`. The `yaml` value is a YAML string (not a JSON object). Writing to a workbook model skips git sync entirely — authorization is still checked against the underlying shared model's permissions.
 
 ## Dashboard Filters
 
@@ -449,7 +443,7 @@ curl -L -X PUT "$OMNI_BASE_URL/api/v1/dashboards/{dashboardId}/filters" \
 
 ### API-First (Full Programmatic Creation)
 
-1. **Prepare the Model** — use `omni-model-builder` for shared fields, or `update-model` for dashboard-specific fields
+1. **Prepare the Model** — use `omni-model-builder` for shared fields, or `models/{workbookId}/yaml` for dashboard-specific fields
 2. **Read a Reference Dashboard** — use `GET /api/v1/documents/{id}` on a dashboard built in the UI to capture the full `queryPresentations` structure: `prefersChart`, `visType`, `config`, field names, filter syntax
 3. **Create Document with queryPresentations** — create the document with all queries, `prefersChart`, `visType`, and `config` in a single API call
 4. **Set Up Filters** — add dashboard-level filters via the filters API
@@ -457,7 +451,7 @@ curl -L -X PUT "$OMNI_BASE_URL/api/v1/dashboards/{dashboardId}/filters" \
 
 ### UI-First (Hybrid Approach)
 
-1. **Prepare the Model** — use `omni-model-builder` for shared fields, or `update-model` for dashboard-specific fields
+1. **Prepare the Model** — use `omni-model-builder` for shared fields, or `models/{workbookId}/yaml` for dashboard-specific fields
 2. **Set Up Filters** — date range + granularity picker + key entity pickers + hidden business logic filters
 3. **Build Layout in UI** — add tiles, choose viz types, arrange the grid
 4. **Iterate via API** — update filters, modify model fields, extract queries
