@@ -7,9 +7,6 @@ description: Create and edit Omni Analytics semantic model definitions — views
 
 Create and modify Omni's semantic model through the YAML API — views, topics, dimensions, measures, relationships, and query views.
 
-> **Always check the official Omni docs first:** https://docs.omni.co/llms.txt
-> This skill covers patterns and workflows. For complete YAML syntax and parameters, the docs are the source of truth.
-
 > **Tip**: Always use `omni-model-explorer` first to understand the existing model.
 
 ## Prerequisites
@@ -20,6 +17,17 @@ export OMNI_API_KEY="your-api-key"
 ```
 
 You need **Modeler** or **Connection Admin** permissions.
+
+## API Discovery
+
+When unsure whether an endpoint or parameter exists, fetch the OpenAPI spec:
+
+```bash
+curl -L "$OMNI_BASE_URL/openapi.json" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+```
+
+Use this to verify endpoints, available parameters, and request/response schemas before making calls.
 
 ## Safe Development Workflow
 
@@ -95,16 +103,20 @@ measures:
 
 ### Dimension Parameters
 
+See `references/modelParameters.md` for the complete list of 35+ dimension parameters, format values, and timeframes.
+
+Most common parameters:
 - `sql` — SQL expression using `${field_name}` references
 - `label` — display name · `description` — help text (also used by Blobby)
 - `primary_key: true` — unique key (critical for aggregations)
 - `hidden: true` — hides from picker, still usable in SQL
 - `format` — `number_2`, `currency_2`, `percent_2`, `id`
 - `group_label` — groups fields in the picker
+- `synonyms` — alternative names for AI matching (e.g., `[client, account, buyer]`)
 
 ### Measure Parameters
 
-See [Measures documentation](https://docs.omni.co/modeling/measures/index.md) for complete syntax and [aggregate_type reference](https://docs.omni.co/modeling/measures/parameters/aggregate-type.md) for all 13 valid values.
+See `references/modelParameters.md` for the complete list of 24+ measure parameters and all 13 aggregate types.
 
 Measure filters restrict rows before aggregation:
 

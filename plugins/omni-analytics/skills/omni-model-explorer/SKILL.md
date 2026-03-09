@@ -20,6 +20,17 @@ export OMNI_API_KEY="your-api-key"
 
 API keys: Settings > API Keys (Organization Admin) or User Profile > Manage Account > Generate Token (Personal Access Token).
 
+## API Discovery
+
+When unsure whether an endpoint or parameter exists, fetch the OpenAPI spec:
+
+```bash
+curl -L "$OMNI_BASE_URL/openapi.json" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+```
+
+Use this to verify endpoints, available parameters, and request/response schemas before making calls.
+
 ## Core Workflow
 
 Explore top-down: **List models → Pick a model → List topics → Inspect a topic → Explore views and fields**.
@@ -120,6 +131,37 @@ When exploring, use the `combined` view to see everything available.
 **"How do these tables relate?"** — Inspect the topic's `relationships[]` — check `join_from_view`, `join_to_view`, `on_sql`, and `relationship_type`.
 
 **"What measures are available for Y?"** — Inspect the topic containing view Y → review the `measures[]` array with `aggregate_type` and `sql` definitions.
+
+## Calculation Fields
+
+Calculation fields in the model use a different format than regular dimensions/measures. The field key is `calc_name` and the expression property is `sql_expression` — not `name`/`sql`.
+
+## Field Impact Analysis
+
+Assess the blast radius of a field migration or removal before pushing changes to dbt:
+
+1. **Create a model branch** with `omni-model-builder` where the field is removed or renamed
+2. **Run the content validator** against that branch:
+
+```bash
+curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/content-validator?branchId={branchId}" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+```
+
+This returns all dashboards and tiles with broken references to the removed field.
+
+3. **Search model YAML** for additional references (run in parallel with step 2):
+
+```bash
+curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/yaml?fileName=.*" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+```
+
+Search the response for the field name to find references in other views, topics, and calculated fields.
+
+4. **Report**: Combine content-validator results (broken dashboards/tiles) with YAML search results (model references) into a structured blast-radius report.
+
+> Do NOT paginate documents and check queries individually — the content validator does this for you in one call.
 
 ## Docs Reference
 

@@ -14,6 +14,17 @@ export OMNI_BASE_URL="https://yourorg.omniapp.co"
 export OMNI_API_KEY="your-api-key"
 ```
 
+## API Discovery
+
+When unsure whether an endpoint or parameter exists, fetch the OpenAPI spec:
+
+```bash
+curl -L "$OMNI_BASE_URL/openapi.json" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+```
+
+Use this to verify endpoints, available parameters, and request/response schemas before making calls.
+
 ## Browsing Content
 
 ### List All Content
@@ -72,6 +83,8 @@ curl -L "$OMNI_BASE_URL/api/v1/documents?creatorId={userId}" \
 ```
 
 Each document includes: `identifier`, `name`, `type`, `scope`, `owner`, `folder`, `labels`, `updatedAt`, `hasDashboard`.
+
+> **Important**: Always use the `identifier` field for API calls, not `id`. The `id` field is null for workbook-type documents and will cause silent failures.
 
 ### Get Document Queries
 
@@ -142,9 +155,20 @@ curl -L "$OMNI_BASE_URL/api/v1/jobs/{jobId}/status" \
 
 Formats: `pdf`, `png`
 
+## URL Patterns
+
+Construct direct links to content:
+
+```
+Dashboard: {OMNI_BASE_URL}/dashboards/{identifier}
+Workbook:  {OMNI_BASE_URL}/w/{identifier}
+```
+
+The `identifier` comes from the document's `identifier` field in API responses. Always provide the user a clickable link after finding content.
+
 ## Search Patterns
 
-Omni has no dedicated search endpoint. Find content by: **label** (`?labels=`), **creator** (`?creatorId=`), **popularity** (`?sortField=favorites`), **recency** (`?sortField=updatedAt`), or list and filter client-side by name.
+When scanning all documents for field references (e.g., for impact analysis), paginate with cursor and call `GET /api/v1/documents/{identifier}/queries` for each document. Launch multiple query-fetch calls in parallel for efficiency. For field impact analysis, prefer the content-validator approach in `omni-model-explorer`.
 
 ## Docs Reference
 

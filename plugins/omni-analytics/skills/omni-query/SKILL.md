@@ -7,9 +7,6 @@ description: Run queries against Omni Analytics' semantic layer using the REST A
 
 Run queries against Omni's semantic layer via the REST API. Omni translates field selections into optimized SQL — you specify what you want (dimensions, measures, filters), not how to get it.
 
-> **Always check the official Omni docs first:** https://docs.omni.co/llms.txt
-> See the [Query API docs](https://docs.omni.co/api/queries.md) for complete parameter reference.
-
 > **Tip**: Use `omni-model-explorer` first if you don't know the available topics and fields.
 
 ## Prerequisites
@@ -20,6 +17,17 @@ export OMNI_API_KEY="your-api-key"
 ```
 
 You also need a **model ID** and knowledge of available **topics and fields**.
+
+## API Discovery
+
+When unsure whether an endpoint or parameter exists, fetch the OpenAPI spec:
+
+```bash
+curl -L "$OMNI_BASE_URL/openapi.json" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+```
+
+Use this to verify endpoints, available parameters, and request/response schemas before making calls.
 
 ## Running a Query
 
@@ -86,7 +94,7 @@ users.created_at[year]      — Yearly
 }
 ```
 
-Expressions: `"last 90 days"`, `"this quarter"`, `"2024-01-01 to 2024-12-31"`, `"not California"`, `"null"`, `"not null"`, `">100"`, `"between 10 and 100"`, `"contains sales"`, `"starts with A"`
+Expressions: `"last 90 days"`, `"this quarter"`, `"2024-01-01 to 2024-12-31"`, `"not California"`, `"null"`, `"not null"`, `">100"`, `"between 10 and 100"`, `"contains sales"`, `"starts with A"`. See [references/filter-expressions.md](references/filter-expressions.md) for the complete expression syntax reference.
 
 ### Pivots
 
@@ -102,7 +110,9 @@ Expressions: `"last 90 days"`, `"this quarter"`, `"2024-01-01 to 2024-12-31"`, `
 
 ## Handling Results
 
-Default response: base64-encoded Apache Arrow table. Request CSV instead:
+Default response: base64-encoded Apache Arrow table. Arrow results are binary — you cannot parse individual row data from the raw response. To verify a query returned data, check `summary.row_count` in the response.
+
+For human-readable results, request CSV instead:
 
 ```json
 { "query": { ... }, "resultType": "csv" }
@@ -122,8 +132,10 @@ df = reader.read_all().to_pandas()
 If the response includes `remaining_job_ids`, poll until complete:
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/query/wait?job_ids={remaining_job_ids}" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+curl -L -X POST "$OMNI_BASE_URL/api/v1/query/wait" \
+  -H "Authorization: Bearer $OMNI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "jobIds": ["job-id-1", "job-id-2"] }'
 ```
 
 ## Running Queries from Dashboards
@@ -138,8 +150,8 @@ curl -L "$OMNI_BASE_URL/api/v1/documents/{dashboardId}/queries" \
 # Run as a specific user
 { "query": { ... }, "userId": "user-uuid-here" }
 
-# Skip cache
-{ "query": { ... }, "cache": "SkipRequery" }
+# Skip cache (valid values: disabled, normal, refresh, refresh_all)
+{ "query": { ... }, "cache": "refresh" }
 ```
 
 ## Multi-Step Analysis Pattern
@@ -158,6 +170,18 @@ For complex analysis, chain queries:
 **Top N**: fields + metric + descending sort + limit
 
 **Aggregation with Breakdown**: multiple dimensions + multiple measures + descending sort by key metric
+
+## Known Bugs
+
+- **`IS_NOT_NULL` filter generates `IS NULL`** (reported Omni bug) — workaround: invert the filter logic or use the base view to apply the filter differently.
+- **Boolean filters may be silently dropped** when a `pivots` array is present — if boolean filters aren't applying, remove the pivot and test again.
+
+## Linking to Results
+
+Queries are ephemeral — there is no persistent URL for a query result. To give the user a shareable link:
+
+- **For existing dashboards**: `{OMNI_BASE_URL}/dashboards/{identifier}` (the `identifier` comes from the document API response)
+- **For new analysis**: Create a document via `omni-content-builder` with the query as a `queryPresentation`, then share `{OMNI_BASE_URL}/dashboards/{identifier}`
 
 ## Docs Reference
 

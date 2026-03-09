@@ -18,18 +18,30 @@ export OMNI_API_KEY="your-api-key"
 
 Requires **Modeler** or **Connection Admin** permissions.
 
+## API Discovery
+
+When unsure whether an endpoint or parameter exists, fetch the OpenAPI spec:
+
+```bash
+curl -L "$OMNI_BASE_URL/openapi.json" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+```
+
+Use this to verify endpoints, available parameters, and request/response schemas before making calls.
+
 ## How Blobby Works
 
 Blobby generates queries by examining:
 
 1. **Topic structure** — which views and fields are joined
 2. **Field labels and descriptions** — how fields are named
-3. **`ai_context`** — explicit instructions you write
-4. **`ai_fields`** — which fields are visible to AI
-5. **`sample_queries`** — example questions with correct queries
-6. **Hidden fields** — `hidden: true` fields are excluded
+3. **`synonyms`** — alternative names for fields
+4. **`ai_context`** — explicit instructions you write
+5. **`ai_fields`** — which fields are visible to AI
+6. **`sample_queries`** — example questions with correct queries
+7. **Hidden fields** — `hidden: true` fields are excluded
 
-Impact order: ai_context > ai_fields > sample_queries > field descriptions.
+Impact order: ai_context > ai_fields > sample_queries > synonyms > field descriptions.
 
 ## Writing ai_context
 
@@ -179,20 +191,41 @@ dimensions:
 
 Good descriptions help both Blobby and human analysts.
 
+## Adding synonyms
+
+Map alternative names, abbreviations, and domain-specific terminology so Blobby matches user queries to the correct field. Works on both dimensions and measures.
+
+```yaml
+dimensions:
+  customer_name:
+    synonyms: [client, account, buyer, purchaser]
+  order_date:
+    synonyms: [purchase date, transaction date, order timestamp]
+
+measures:
+  total_revenue:
+    synonyms: [sales, income, earnings, gross revenue, top line]
+  average_order_value:
+    synonyms: [AOV, avg order, basket size]
+```
+
+**Synonyms vs ai_context**: Use `synonyms` for field-level name mapping. Use `ai_context` for topic-level behavioral guidance, data nuances, and multi-field relationships.
+
 ## Optimization Checklist
 
 1. Inspect current state with `omni-model-explorer`
 2. Check AI usage dashboard for real user questions
 3. Write `ai_context` mapping business terms to fields
-4. Curate `ai_fields` to remove noise
-5. Add `sample_queries` for top 3-5 questions
-6. Improve field `description` values
-7. Consider `extends` for AI-specific topic variants
-8. Test iteratively — ask Blobby and refine
+4. Add `synonyms` to key dimensions and measures
+5. Curate `ai_fields` to remove noise
+6. Add `sample_queries` for top 3-5 questions
+7. Improve field `description` values
+8. Consider `extends` for AI-specific topic variants
+9. Test iteratively — ask Blobby and refine
 
 ## Docs Reference
 
-- [Optimizing Models for AI](https://docs.omni.co/ai/optimize-models.md) · [Topic Parameters](https://docs.omni.co/modeling/topics/parameters.md) · [Model YAML API](https://docs.omni.co/api/models.md) · [Omni AI Overview](https://docs.omni.co/ai.md)
+- [Optimizing Models for AI](https://docs.omni.co/ai/optimize-models.md) · [Synonyms](https://docs.omni.co/modeling/dimensions/parameters/synonyms) · [Topic Parameters](https://docs.omni.co/modeling/topics/parameters.md) · [Model YAML API](https://docs.omni.co/api/models.md) · [Omni AI Overview](https://docs.omni.co/ai.md)
 
 ## Related Skills
 
