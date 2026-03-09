@@ -106,6 +106,7 @@ curl -L -X POST "$OMNI_BASE_URL/api/v1/documents" \
       },
       {
         "name": "Monthly Revenue Trend",
+        "description": "Revenue by month for the current quarter",
         "topicName": "order_items",
         "prefersChart": true,
         "visType": "basic",
@@ -191,7 +192,7 @@ curl -L -X POST "$OMNI_BASE_URL/api/v1/documents" \
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `name` | Yes | Tile/tab title |
-| `topicName` | Recommended | Topic name — set this whenever querying from a topic. Ensures correct join context. |
+| `topicName` | Recommended | Topic name for the query — set this whenever querying from a topic. Ensures correct join context in the dashboard. |
 | `prefersChart` | Yes | **Must be `true` to render a chart.** Without this, Omni always shows the results table regardless of any other vis settings. |
 | `visType` | Yes | Visualization renderer: `"omni-kpi"` for KPI tiles, `"basic"` for all standard charts (line, bar, area, scatter, pie, etc.). |
 | `fields` | Yes | Duplicate of `query.fields` — must be present at this level too. |
@@ -211,7 +212,7 @@ The `query` object within each query presentation uses the same structure as the
 | `sorts` | No | Array of `{ "column_name": "...", "sort_descending": bool }` |
 | `filters` | No | Object of `{ "field_name": "expression" }` — supports `"last 90 days"`, `"this quarter"`, `">100"`, etc. |
 | `limit` | No | Row limit (default 1000, max 50000) |
-| `join_paths_from_topic_name` | Recommended | Topic name for join resolution |
+| `join_paths_from_topic_name` | Recommended | Topic name for join resolution — set this alongside `topicName` on the parent queryPresentation. |
 | `pivots` | No | Array of field names to pivot on |
 
 > **Note**: `modelId` is not needed inside the query object — it's inherited from the document's top-level `modelId`.
@@ -271,6 +272,12 @@ Returns the complete `queryPresentations` array including `topicName`, `visConfi
 - **Filter to the tiles you want** — `GET /api/v1/documents/{id}` returns all queries including workbook-only tabs not shown on the dashboard. Only pass the `queryPresentations` you want as visible tiles.
 - **Queries without `topicName` are valid** — SQL-mode and tab-selector queries won't have a `topicName`. Do not add one.
 
+#### Caveats when using queryPresentations from an existing document
+
+- **Filter to the tiles you want**: `get-dashboard-document` returns all queries including workbook-only tabs not shown on the dashboard. Pass only the `queryPresentations` you want as visible tiles — every entry you include will become a visible tile in the new document.
+- **Strip `model_extension_id`**: Some queries contain a `model_extension_id` that references a model extension scoped to the source document. These IDs are not valid in a new document and will cause "Chart unavailable" errors. Remove `model_extension_id` from each query object before posting.
+- **Queries without a topic are expected**: SQL-mode queries and tab-selector queries (`visType: "spreadsheet-tab"`) will not have a `topicName` — this is correct, do not add one.
+
 ### Rename Document
 
 ```bash
@@ -324,35 +331,29 @@ Only published documents can be duplicated. Draft documents return 404.
 
 ## Updating a Dashboard's Model
 
-Push custom dimensions and measures to a specific dashboard:
+Push custom dimensions and measures to a specific dashboard by writing to its workbook model. This is a two-step flow:
+
+**Step 1 — get the document to find its `workbook_id`:**
 
 ```bash
-curl -L -X POST "$OMNI_BASE_URL/api/unstable/documents/{documentId}/update-model" \
+curl -L "$OMNI_BASE_URL/api/v1/documents/{documentId}" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+# → response includes "workbook_id"
+```
+
+**Step 2 — POST YAML to the workbook model:**
+
+```bash
+curl -L -X POST "$OMNI_BASE_URL/api/unstable/models/{workbookId}/yaml" \
   -H "Authorization: Bearer $OMNI_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "yaml": {
-      "views": {
-        "order_items": {
-          "dimensions": {
-            "is_high_value": {
-              "sql": "${sale_price} > 100",
-              "label": "High Value Order"
-            }
-          },
-          "measures": {
-            "high_value_count": {
-              "sql": "${order_items.id}",
-              "aggregate_type": "count_distinct",
-              "label": "High Value Orders",
-              "filters": { "sale_price": { "greater_than": 100 } }
-            }
-          }
-        }
-      }
-    }
+    "fileName": "order_items.view",
+    "yaml": "views:\n  order_items:\n    dimensions:\n      is_high_value:\n        sql: \"${sale_price} > 100\"\n        label: High Value Order\n    measures:\n      high_value_count:\n        sql: \"${order_items.id}\"\n        aggregate_type: count_distinct\n        label: High Value Orders"
   }'
 ```
+
+`fileName` must be `"model"`, `"relationships"`, or end with `.view` or `.topic`. The `yaml` value is a YAML string (not a JSON object). Writing to a workbook model skips git sync entirely — authorization is still checked against the underlying shared model's permissions.
 
 ## Dashboard Filters
 
