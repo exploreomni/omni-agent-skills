@@ -62,6 +62,9 @@ Lets the user pick a relative date range (e.g., "last 6 months").
 ```
 
 **Last 1 year:**
+
+Note: This will be for the given calendar year, not a rolling 1 year window. For a rolling window, use the last 12 months.
+
 ```json
 {
   "type": "date",
