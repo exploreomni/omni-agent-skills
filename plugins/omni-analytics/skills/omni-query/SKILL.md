@@ -7,9 +7,6 @@ description: Run queries against Omni Analytics' semantic layer using the REST A
 
 Run queries against Omni's semantic layer via the REST API. Omni translates field selections into optimized SQL — you specify what you want (dimensions, measures, filters), not how to get it.
 
-> **Always check the official Omni docs first:** https://docs.omni.co/llms.txt
-> See the [Query API docs](https://docs.omni.co/api/queries.md) for complete parameter reference.
-
 > **Tip**: Use `omni-model-explorer` first if you don't know the available topics and fields.
 
 ## Prerequisites

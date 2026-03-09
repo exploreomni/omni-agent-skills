@@ -7,9 +7,6 @@ description: Create and edit Omni Analytics semantic model definitions — views
 
 Create and modify Omni's semantic model through the YAML API — views, topics, dimensions, measures, relationships, and query views.
 
-> **Always check the official Omni docs first:** https://docs.omni.co/llms.txt
-> This skill covers patterns and workflows. For complete YAML syntax and parameters, the docs are the source of truth.
-
 > **Tip**: Always use `omni-model-explorer` first to understand the existing model.
 
 ## Prerequisites

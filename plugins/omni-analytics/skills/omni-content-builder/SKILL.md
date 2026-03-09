@@ -7,9 +7,6 @@ description: Create, update, and manage Omni Analytics documents and dashboards 
 
 Create, update, and manage Omni documents and dashboards programmatically via the REST API — document lifecycle, workbook models, filters, and dashboard content.
 
-> **Always check the official Omni docs first:** https://docs.omni.co/llms.txt
-> This skill covers patterns not fully documented elsewhere — especially the `queryPresentations` format for creating dashboards with tiles.
-
 > **Tip**: Use `omni-model-explorer` to understand available fields and `omni-content-explorer` to find existing dashboards to modify or learn from.
 
 ## Known Issues & Safe Defaults
