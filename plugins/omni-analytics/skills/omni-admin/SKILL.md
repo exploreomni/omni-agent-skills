@@ -147,8 +147,8 @@ curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/group-roles" \
 ## Document Permissions
 
 ```bash
-# Get permissions
-curl -L "$OMNI_BASE_URL/api/v1/documents/{documentId}/permissions" \
+# Get permissions for a user (userId required)
+curl -L "$OMNI_BASE_URL/api/v1/documents/{documentId}/permissions?userId={userId}" \
   -H "Authorization: Bearer $OMNI_API_KEY"
 
 # Set permissions
