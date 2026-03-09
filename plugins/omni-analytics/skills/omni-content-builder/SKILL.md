@@ -239,65 +239,9 @@ The `query` object within each query presentation uses the same structure as the
 
 #### config Object
 
-The `config` object at the `queryPresentation` level defines the actual chart rendering. Its structure varies by chart type. See [references/queryPresentations.md](references/queryPresentations.md) for complete config examples by chart type. The most reliable way to get the correct `config` for a given chart type is to **build the chart in the Omni UI and read it back**.
+The `config` object at the `queryPresentation` level defines the actual chart rendering. Its structure varies by chart type — see [references/queryPresentations.md](references/queryPresentations.md) for complete config examples by chart type.
 
-**KPI config shape:**
-```json
-{
-  "alignment": "left",
-  "verticalAlignment": "top",
-  "markdownConfig": [
-    {
-      "id": "unique-id",
-      "type": "number",
-      "config": {
-        "field": {
-          "row": "_first",
-          "field": { "name": "view.measure_name", "pivotMap": {} },
-          "label": { "value": "Label Text" }
-        },
-        "descriptionBefore": ""
-      }
-    }
-  ]
-}
-```
-
-**Line chart config shape:**
-```json
-{
-  "x": { "field": { "name": "view.date_field[month]" } },
-  "mark": { "type": "line" },
-  "color": {},
-  "series": [{ "field": { "name": "view.measure_name" }, "yAxis": "y" }],
-  "tooltip": [
-    { "field": { "name": "view.date_field[month]" } },
-    { "field": { "name": "view.measure_name" } }
-  ],
-  "version": 0,
-  "behaviors": { "stackMultiMark": false },
-  "configType": "cartesian",
-  "_dependentAxis": "y"
-}
-```
-
-**Bar chart config shape** (horizontal — dimension on y-axis):
-```json
-{
-  "y": { "field": { "name": "view.dimension_name" } },
-  "mark": { "type": "bar" },
-  "color": { "_stack": "group" },
-  "series": [{ "field": { "name": "view.measure_name" }, "xAxis": "x" }],
-  "tooltip": [
-    { "field": { "name": "view.dimension_name" } },
-    { "field": { "name": "view.measure_name" } }
-  ],
-  "version": 0,
-  "behaviors": { "stackMultiMark": false },
-  "configType": "cartesian",
-  "_dependentAxis": "x"
-}
-```
+The most reliable way to get the correct `config` for a given chart type is to **build the chart in the Omni UI and read it back** via `GET /api/v1/documents/{documentId}`.
 
 ### Discovering the Full queryPresentation Structure from Existing Dashboards
 
