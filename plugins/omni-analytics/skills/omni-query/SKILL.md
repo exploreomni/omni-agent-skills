@@ -21,6 +21,17 @@ export OMNI_API_KEY="your-api-key"
 
 You also need a **model ID** and knowledge of available **topics and fields**.
 
+## API Discovery
+
+When unsure whether an endpoint or parameter exists, fetch the OpenAPI spec:
+
+```bash
+curl -L "$OMNI_BASE_URL/openapi.json" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+```
+
+Use this to verify endpoints, available parameters, and request/response schemas before making calls.
+
 ## Running a Query
 
 ### Basic Query
@@ -86,7 +97,7 @@ users.created_at[year]      — Yearly
 }
 ```
 
-Expressions: `"last 90 days"`, `"this quarter"`, `"2024-01-01 to 2024-12-31"`, `"not California"`, `"null"`, `"not null"`, `">100"`, `"between 10 and 100"`, `"contains sales"`, `"starts with A"`
+Expressions: `"last 90 days"`, `"this quarter"`, `"2024-01-01 to 2024-12-31"`, `"not California"`, `"null"`, `"not null"`, `">100"`, `"between 10 and 100"`, `"contains sales"`, `"starts with A"`. See [references/filter-expressions.md](references/filter-expressions.md) for the complete expression syntax reference.
 
 ### Pivots
 
@@ -124,8 +135,10 @@ df = reader.read_all().to_pandas()
 If the response includes `remaining_job_ids`, poll until complete:
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/query/wait?job_ids={remaining_job_ids}" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+curl -L -X POST "$OMNI_BASE_URL/api/v1/query/wait" \
+  -H "Authorization: Bearer $OMNI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "jobIds": ["job-id-1", "job-id-2"] }'
 ```
 
 ## Running Queries from Dashboards
@@ -140,8 +153,8 @@ curl -L "$OMNI_BASE_URL/api/v1/documents/{dashboardId}/queries" \
 # Run as a specific user
 { "query": { ... }, "userId": "user-uuid-here" }
 
-# Skip cache
-{ "query": { ... }, "cache": "SkipRequery" }
+# Skip cache (valid values: disabled, normal, refresh, refresh_all)
+{ "query": { ... }, "cache": "refresh" }
 ```
 
 ## Multi-Step Analysis Pattern

@@ -23,6 +23,17 @@ export OMNI_API_KEY="your-api-key"                         # For user/content AP
 
 The embed secret is found in **Admin → Embed** in your Omni instance. The `OMNI_BASE_URL` for embedding uses the `.embed-omniapp.co` domain, not the standard `.omniapp.co` domain.
 
+## API Discovery
+
+When unsure whether an endpoint or parameter exists, fetch the OpenAPI spec:
+
+```bash
+curl -L "$OMNI_BASE_URL/openapi.json" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+```
+
+Use this to verify endpoints, available parameters, and request/response schemas before making calls.
+
 ## Signing Embed URLs
 
 Use `embedSsoDashboard()` from the `@omni-co/embed` SDK to generate a signed URL server-side, then load it in an iframe client-side.

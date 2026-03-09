@@ -16,14 +16,16 @@ export OMNI_BASE_URL="https://yourorg.omniapp.co"
 export OMNI_API_KEY="your-api-key"
 ```
 
-## Token Security
+## API Discovery
 
-API tokens in shell commands appear in terminal scrollback via shell variable expansion (`$OMNI_API_KEY` is expanded by the shell before the command runs). Omni Personal Access Tokens are long-lived — treat them with the same care as database credentials.
+When unsure whether an endpoint or parameter exists, fetch the OpenAPI spec:
 
-Mitigations:
-- Load tokens from dotfiles (`~/.zshrc`, `~/.bashrc`) rather than pasting inline
-- For team deployments, consider wrapping API calls in an MCP server or helper script that reads tokens from a secrets manager
-- Never commit tokens to version control
+```bash
+curl -L "$OMNI_BASE_URL/openapi.json" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+```
+
+Use this to verify endpoints, available parameters, and request/response schemas before making calls.
 
 ## Connections
 

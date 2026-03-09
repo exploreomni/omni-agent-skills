@@ -14,11 +14,10 @@ Create, update, and manage Omni documents and dashboards programmatically via th
 
 ## Known Issues & Safe Defaults
 
-- **Chart rendering**: If a chart shows "No chart available," fall back to `chartType: "table"` which always renders. Line charts (`lineColor`) may require `config.x.field` + `config.series` — if these aren't rendering, use `table` and configure the chart in the Omni UI.
+- **Chart rendering**: Complex chart types may show "No chart available" in the Omni UI if `config`, `visType`, or `prefersChart` are misconfigured. Default to `chartType: "table"` for reliable rendering, and configure chart visualizations in the Omni UI.
 - **Every query must include at least one measure** — a query with only dimensions produces empty/nonsense tiles (e.g., just months with no data).
 - **Use `identifier` not `id`** for all document API calls — `.id` is null for workbook-type documents and will silently fail.
 - **Boolean filters may be silently dropped** when a `pivots` array is present (reported Omni bug). If boolean filters aren't applying, remove the pivot and test again.
-- **`PUT` to `update-model`** has been reported to return 405 — use `POST` instead (see Updating a Dashboard's Model section).
 
 ## Prerequisites
 
@@ -26,6 +25,17 @@ Create, update, and manage Omni documents and dashboards programmatically via th
 export OMNI_BASE_URL="https://yourorg.omniapp.co"
 export OMNI_API_KEY="your-api-key"
 ```
+
+## API Discovery
+
+When unsure whether an endpoint or parameter exists, fetch the OpenAPI spec:
+
+```bash
+curl -L "$OMNI_BASE_URL/openapi.json" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+```
+
+Use this to verify endpoints, available parameters, and request/response schemas before making calls.
 
 ## Dashboard Architecture
 
@@ -232,7 +242,7 @@ The `query` object within each query presentation uses the same structure as the
 
 #### config Object
 
-The `config` object at the `queryPresentation` level defines the actual chart rendering. Its structure varies by chart type. The most reliable way to get the correct `config` for a given chart type is to **build the chart in the Omni UI and read it back**.
+The `config` object at the `queryPresentation` level defines the actual chart rendering. Its structure varies by chart type. See [references/queryPresentations.md](references/queryPresentations.md) for complete config examples by chart type. The most reliable way to get the correct `config` for a given chart type is to **build the chart in the Omni UI and read it back**.
 
 **KPI config shape:**
 ```json
@@ -416,7 +426,7 @@ curl -L "$OMNI_BASE_URL/api/v1/dashboards/{dashboardId}/filters" \
 
 > **Warning**: `PUT` and `PATCH` on `/dashboards/{id}/filters` have been reported to return 405 or 500 in some configurations. If filter updates fail, include filters during document creation instead (see below).
 
-The most reliable way to create dashboard filters is to include `filterConfig` and `filterOrder` in the initial `POST /api/v1/documents` call:
+The most reliable way to create dashboard filters is to include `filterConfig` and `filterOrder` in the initial `POST /api/v1/documents` call. See [references/filterConfig.md](references/filterConfig.md) for complete examples of each filter type.
 
 ```bash
 curl -L -X POST "$OMNI_BASE_URL/api/v1/documents" \

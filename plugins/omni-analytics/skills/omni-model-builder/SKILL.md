@@ -21,6 +21,17 @@ export OMNI_API_KEY="your-api-key"
 
 You need **Modeler** or **Connection Admin** permissions.
 
+## API Discovery
+
+When unsure whether an endpoint or parameter exists, fetch the OpenAPI spec:
+
+```bash
+curl -L "$OMNI_BASE_URL/openapi.json" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+```
+
+Use this to verify endpoints, available parameters, and request/response schemas before making calls.
+
 ## Safe Development Workflow
 
 Always work in a branch. Never write directly to production.

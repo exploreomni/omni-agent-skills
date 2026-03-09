@@ -20,17 +20,16 @@ export OMNI_API_KEY="your-api-key"
 
 API keys: Settings > API Keys (Organization Admin) or User Profile > Manage Account > Generate Token (Personal Access Token).
 
-## API Boundaries — Endpoints That Do NOT Exist
+## API Discovery
 
-Do not attempt these — they all return 404:
-- `/api/v1/models/{id}/views`
-- `/api/v1/models/{id}/schema`
-- `/api/v1/models/{id}/fields`
-- `/api/unstable/models/{id}`
+When unsure whether an endpoint or parameter exists, fetch the OpenAPI spec:
 
-Also: `/api/v1/documents?search=` returns 400 — there is no search parameter.
+```bash
+curl -L "$OMNI_BASE_URL/openapi.json" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+```
 
-Use the workflow below instead. Topic inspection returns all views, dimensions, measures, and relationships in a single call — you should need at most 2 API calls (list topics → inspect topic). When exploring multiple topics, launch calls in parallel.
+Use this to verify endpoints, available parameters, and request/response schemas before making calls.
 
 ## Core Workflow
 
