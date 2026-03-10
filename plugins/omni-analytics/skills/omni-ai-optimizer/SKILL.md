@@ -112,19 +112,26 @@ Teach Blobby by example. Build the correct query in a workbook, retrieve its str
 
 ```yaml
 sample_queries:
-  - prompt: "What month has the highest sales?"
+  revenue_by_month:
+    prompt: "What month has the highest revenue?"
     ai_context: "Use total_revenue grouped by month, sorted descending, limit 1"
     query:
-      fields:
-        order_items.created_at[month]: created_month
-        order_items.total_revenue: total_revenue
       base_view: order_items
+      fields:
+        - order_items.created_at[month]
+        - order_items.total_revenue
+      topic: order_transactions
+      limit: 1
       sorts:
         - field: order_items.total_revenue
           desc: true
-      limit: 1
-      topic: order_transactions
 ```
+
+> **Note**: When exporting queries from Omni's workbook, you'll get JSON with `table`, `join_paths_from_topic_name`, and `sorts` using `column_name`/`sort_descending`. Map these to YAML as follows:
+> - `table` → `base_view`
+> - `join_paths_from_topic_name` → `topic`
+> - `column_name` → `field`, `sort_descending` → `desc`
+> - Workbook JSON includes `filters`, `pivots`, `limit`, `column_limit` which you can include in YAML (though filter syntax requires consulting the [Model YAML API docs](https://docs.omni.co/api/models.md) directly)
 
 Focus on questions users actually ask — check Analytics > AI usage in Omni.
 
@@ -151,19 +158,18 @@ ai_context: |
   [detailed context here]
 
 sample_queries:
-  - prompt: "Top selling categories last month?"
+  top_categories_last_month:
+    prompt: "Top selling categories last month?"
     query:
-      fields:
-        products.category: category
-        order_items.total_revenue: revenue
       base_view: order_items
-      filters:
-        order_items.created_at: "last month"
+      fields:
+        - products.category
+        - order_items.total_revenue
+      topic: ai_order_transactions
+      limit: 10
       sorts:
         - field: order_items.total_revenue
           desc: true
-      limit: 10
-      topic: ai_order_transactions
 ```
 
 ## Improving Field Descriptions
