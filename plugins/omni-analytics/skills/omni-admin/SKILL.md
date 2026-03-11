@@ -135,13 +135,23 @@ User attributes work with `access_filters` in topics for row-level security.
 ## Model Roles
 
 ```bash
-# User roles on a model
-curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/user-roles" \
+# Get/set model roles for a user
+curl -L "$OMNI_BASE_URL/api/v1/users/{userId}/model-roles" \
   -H "Authorization: Bearer $OMNI_API_KEY"
 
-# Group roles on a model
-curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/group-roles" \
+curl -L -X POST "$OMNI_BASE_URL/api/v1/users/{userId}/model-roles" \
+  -H "Authorization: Bearer $OMNI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "modelId": "{modelId}", "role": "VIEWER" }'
+
+# Get/set model roles for a group
+curl -L "$OMNI_BASE_URL/api/v1/user-groups/{groupId}/model-roles" \
   -H "Authorization: Bearer $OMNI_API_KEY"
+
+curl -L -X POST "$OMNI_BASE_URL/api/v1/user-groups/{groupId}/model-roles" \
+  -H "Authorization: Bearer $OMNI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "modelId": "{modelId}", "role": "VIEWER" }'
 ```
 
 ## Document Permissions
