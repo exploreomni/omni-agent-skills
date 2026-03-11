@@ -452,7 +452,7 @@ curl -L -X POST "$OMNI_BASE_URL/api/v1/dashboards/{dashboardId}/download" \
   -d '{ "format": "pdf" }'
 
 # Poll job
-curl -L "$OMNI_BASE_URL/api/v1/jobs/{jobId}/status" \
+curl -L "$OMNI_BASE_URL/api/v1/dashboards/{dashboardId}/download/{jobId}/status" \
   -H "Authorization: Bearer $OMNI_API_KEY"
 ```
 
