@@ -33,6 +33,31 @@ Use this to verify endpoints, available parameters, and request/response schemas
 
 Always work in a branch. Never write directly to production.
 
+### Step 0: Create a Branch
+
+Omni branches are models with `modelKind: "BRANCH"`. There is no dedicated branch-creation endpoint — create one via `POST /api/v1/models`:
+
+```bash
+curl -L -X POST "$OMNI_BASE_URL/api/v1/models" \
+  -H "Authorization: Bearer $OMNI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "modelKind": "BRANCH",
+    "baseModelId": "{sharedModelId}",
+    "connectionId": "{connectionId}",
+    "modelName": "my-feature-branch"
+  }'
+```
+
+The response `model.id` is your `branchId` — a UUID you'll pass to all subsequent API calls. To list existing branches at any time:
+
+```bash
+curl -L "$OMNI_BASE_URL/api/v1/models?include=activeBranches" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+```
+
+> **Git-connected models**: If your model is connected to a git repo (`GET /api/v1/models/{modelId}/git` returns an `sshUrl`), merging an Omni branch will automatically commit the changes back to your git `baseBranch`. Choose one workflow and stick to it — either edit via the Omni branch API (then `git pull` to sync local files), or edit local files and push via git. Mixing both leads to conflicts.
+
 ### Step 1: Write YAML to a Branch
 
 ```bash
@@ -48,7 +73,7 @@ curl -L -X POST "$OMNI_BASE_URL/api/v1/models/{modelId}/yaml" \
   }'
 ```
 
-`branchId` is a UUID — retrieve it from the List Models endpoint with `?include=activeBranches`. If the branch doesn't exist yet, Omni creates it.
+> **Note**: The `branchId` parameter must be a UUID from the server (Step 0). Passing a string name instead will return `400 Bad Request: Unrecognized key: "branchName"`.
 
 ### Step 2: Validate
 
