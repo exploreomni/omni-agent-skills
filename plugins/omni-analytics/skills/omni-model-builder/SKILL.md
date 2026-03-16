@@ -18,6 +18,24 @@ export OMNI_API_KEY="your-api-key"
 
 You need **Modeler** or **Connection Admin** permissions.
 
+## Determine SQL Dialect
+
+Before writing any SQL expressions, confirm the dialect from the connection — don't guess from the connection name:
+
+```bash
+# 1. Get the model's connectionId
+curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+
+# 2. Look up the connection's dialect
+curl -L "$OMNI_BASE_URL/api/v1/connections" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+# → find your connectionId and read the "dialect" field
+# → e.g. "bigquery", "postgres", "snowflake", "databricks"
+```
+
+Use dialect-appropriate functions in your SQL (e.g. `SAFE_DIVIDE` for BigQuery, `NULLIF(a/b)` for Postgres/Snowflake).
+
 ## API Discovery
 
 When unsure whether an endpoint or parameter exists, fetch the OpenAPI spec:
