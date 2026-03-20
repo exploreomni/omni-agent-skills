@@ -5,6 +5,18 @@ tools. These skills work across assistants that support the `SKILL.md` format
 and help teams explore models, run queries, manage content, administer Omni,
 and update semantic models through Omni's REST APIs and YAML modeling layer.
 
+## Demo
+
+<p align="center">
+  <a href="https://vimeo.com/1175502986/474e7b8c2e">
+    <img src="https://github.com/user-attachments/assets/1e37820c-4641-4c7d-bfb2-11cb39505daa" alt="Watch demo: installing skills for OpenAI Codex with skills.sh" width="720">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://vimeo.com/1175502986/474e7b8c2e">Watch the Codex + skills.sh install walkthrough on Vimeo</a>
+</p>
+
 ## Installation
 
 ### Using skills.sh
