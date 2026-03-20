@@ -14,22 +14,23 @@ rewritten during filtering.
 
 ## Syncing
 
-Run the sync script from the repository root on a clean working tree:
+Run the repo-maintenance script from the repository root on a clean working
+tree:
 
 ```bash
-bin/sync-upstream
+bash .github/scripts/sync-upstream.sh
 ```
 
 To sync from a local checkout instead of GitHub:
 
 ```bash
-bin/sync-upstream --source /Users/ernesto/dev/omni-claude-skills
+bash .github/scripts/sync-upstream.sh --source ~/src/omni-claude-skills
 ```
 
 To sync a different source ref:
 
 ```bash
-bin/sync-upstream --ref main
+bash .github/scripts/sync-upstream.sh --ref main
 ```
 
 The script:

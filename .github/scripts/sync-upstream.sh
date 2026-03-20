@@ -8,7 +8,7 @@ DEFAULT_VENDOR_BRANCH="vendor/omni-claude-skills"
 
 usage() {
   cat <<'EOF'
-Usage: bin/sync-upstream [--source <path-or-url>] [--ref <git-ref>] [--vendor-branch <branch>]
+Usage: bash .github/scripts/sync-upstream.sh [--source <path-or-url>] [--ref <git-ref>] [--vendor-branch <branch>]
 
 Rebuilds a filtered vendor branch from omni-claude-skills and merges it into the
 currently checked out branch.
