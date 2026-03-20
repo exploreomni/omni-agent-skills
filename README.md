@@ -20,8 +20,7 @@ Install a specific skill from this repository:
 ```bash
 npx skills add https://github.com/exploreomni/omni-agent-skills --skill omni-query
 ```
-
-![Installing Omni skills for Codex with skills.sh](https://github.com/user-attachments/assets/bd2fdec7-4386-4467-8742-e3a2e6c5e8c4)
+https://github.com/user-attachments/assets/bd2fdec7-4386-4467-8742-e3a2e6c5e8c4
 
 ### Using Codex
 
