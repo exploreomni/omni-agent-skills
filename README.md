@@ -5,18 +5,6 @@ tools. These skills work across assistants that support the `SKILL.md` format
 and help teams explore models, run queries, manage content, administer Omni,
 and update semantic models through Omni's REST APIs and YAML modeling layer.
 
-## Demo
-
-<p align="center">
-  <a href="https://vimeo.com/1175502986/474e7b8c2e">
-    <img src="https://github.com/user-attachments/assets/1e37820c-4641-4c7d-bfb2-11cb39505daa" alt="Watch demo: installing skills for OpenAI Codex with skills.sh" width="720">
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://vimeo.com/1175502986/474e7b8c2e">Watch the Codex + skills.sh install walkthrough on Vimeo</a>
-</p>
-
 ## Installation
 
 ### Using skills.sh
@@ -32,6 +20,8 @@ Install a specific skill from this repository:
 ```bash
 npx skills add https://github.com/exploreomni/omni-agent-skills --skill omni-query
 ```
+
+![Installing Omni skills for Codex with skills.sh](https://github.com/user-attachments/assets/bd2fdec7-4386-4467-8742-e3a2e6c5e8c4)
 
 ### Using Codex
 
