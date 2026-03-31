@@ -1,5 +1,5 @@
-<p align="center">
-  <img src="assets/omni-agent-skills-banner.svg" alt="Omni Agent Skills" width="640">
+<p align="left">
+  <img src="assets/omni-agent-skills-banner.svg" alt="Omni Agent Skills" width="480">
 </p>
 
 # Omni Analytics Agent Skills
