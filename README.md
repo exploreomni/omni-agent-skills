@@ -4,7 +4,7 @@
 
 # Omni Analytics Agent Skills
 
-Official Omni Analytics skills for Claude Code, Cursor, and skills.sh-compatible agents.
+Official [Omni Analytics](omni.co) skills for Claude Code, Cursor, Codex and other [skills.sh](skills.sh) compatible agents.
 
 Bring governed Omni workflows directly into your agent environment with one install target for model exploration, querying, dashboard creation, semantic modeling, AI optimization, administration, and embed work.
 
