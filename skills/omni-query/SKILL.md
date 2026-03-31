@@ -150,8 +150,8 @@ curl -L "$OMNI_BASE_URL/api/v1/documents/{dashboardId}/queries" \
 # Run as a specific user
 { "query": { ... }, "userId": "user-uuid-here" }
 
-# Skip cache (valid values: disabled, normal, refresh, refresh_all)
-{ "query": { ... }, "cache": "refresh" }
+# Cache policy (valid values: Standard, SkipRequery, SkipCache)
+{ "query": { ... }, "cache": "SkipCache" }
 ```
 
 ## Multi-Step Analysis Pattern

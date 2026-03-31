@@ -11,10 +11,12 @@ Create, update, and manage Omni documents and dashboards programmatically via th
 
 ## Known Issues & Safe Defaults
 
+- **Always test queries before creating a dashboard** — run each planned query via `POST /api/v1/query/run` first, including the filters you intend to use. This catches bad field names, missing joins, and malformed filter expressions before they become broken tiles.
 - **Chart rendering**: Complex chart types may show "No chart available" in the Omni UI if `config`, `visType`, or `prefersChart` are misconfigured. Default to `chartType: "table"` for reliable rendering, and configure chart visualizations in the Omni UI.
 - **Every query must include at least one measure** — a query with only dimensions produces empty/nonsense tiles (e.g., just months with no data).
 - **Use `identifier` not `id`** for all document API calls — `.id` is null for workbook-type documents and will silently fail.
 - **Boolean filters may be silently dropped** when a `pivots` array is present (reported Omni bug). If boolean filters aren't applying, remove the pivot and test again.
+- **Dashboard updates are full replacements** — `PUT /api/v1/documents/{documentId}` replaces the entire document state. Always read the existing document first and modify from there, or you'll lose tiles you didn't include.
 
 ## Prerequisites
 
@@ -74,110 +76,27 @@ curl -L -X POST "$OMNI_BASE_URL/api/v1/documents" \
     "name": "Q1 Revenue Report",
     "queryPresentations": [
       {
-        "name": "Total Revenue",
-        "topicName": "order_items",
-        "prefersChart": true,
-        "visType": "omni-kpi",
-        "fields": ["order_items.total_revenue"],
-        "query": {
-          "table": "order_items",
-          "fields": ["order_items.total_revenue"],
-          "join_paths_from_topic_name": "order_items",
-          "visConfig": { "chartType": "kpi" }
-        },
-        "config": {
-          "alignment": "left",
-          "verticalAlignment": "top",
-          "markdownConfig": [
-            {
-              "id": "kpi-1",
-              "type": "number",
-              "config": {
-                "field": {
-                  "row": "_first",
-                  "field": { "name": "order_items.total_revenue", "pivotMap": {} },
-                  "label": { "value": "Total Revenue" }
-                },
-                "descriptionBefore": ""
-              }
-            }
-          ]
-        }
-      },
-      {
         "name": "Monthly Revenue Trend",
-        "description": "Revenue by month for the current quarter",
         "topicName": "order_items",
         "prefersChart": true,
         "visType": "basic",
         "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
         "query": {
           "table": "order_items",
-          "fields": [
-            "order_items.created_at[month]",
-            "order_items.total_revenue"
-          ],
-          "sorts": [
-            { "column_name": "order_items.created_at[month]", "sort_descending": false }
-          ],
+          "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
+          "sorts": [{ "column_name": "order_items.created_at[month]", "sort_descending": false }],
           "filters": { "order_items.created_at": "this quarter" },
           "limit": 100,
           "join_paths_from_topic_name": "order_items",
           "visConfig": { "chartType": "lineColor" }
         },
-        "config": {
-          "x": { "field": { "name": "order_items.created_at[month]" } },
-          "mark": { "type": "line" },
-          "color": {},
-          "series": [{ "field": { "name": "order_items.total_revenue" }, "yAxis": "y" }],
-          "tooltip": [
-            { "field": { "name": "order_items.created_at[month]" } },
-            { "field": { "name": "order_items.total_revenue" } }
-          ],
-          "version": 0,
-          "behaviors": { "stackMultiMark": false },
-          "configType": "cartesian",
-          "_dependentAxis": "y"
-        }
-      },
-      {
-        "name": "Revenue by Status",
-        "topicName": "order_items",
-        "prefersChart": true,
-        "visType": "basic",
-        "chartType": "barGrouped",
-        "fields": ["order_items.status", "order_items.total_revenue"],
-        "query": {
-          "table": "order_items",
-          "fields": [
-            "order_items.status",
-            "order_items.total_revenue"
-          ],
-          "sorts": [
-            { "column_name": "order_items.total_revenue", "sort_descending": true }
-          ],
-          "limit": 10,
-          "join_paths_from_topic_name": "order_items",
-          "visConfig": { "chartType": "barColor" }
-        },
-        "config": {
-          "y": { "field": { "name": "order_items.status" } },
-          "mark": { "type": "bar" },
-          "color": { "_stack": "group" },
-          "series": [{ "field": { "name": "order_items.total_revenue" }, "xAxis": "x" }],
-          "tooltip": [
-            { "field": { "name": "order_items.status" } },
-            { "field": { "name": "order_items.total_revenue" } }
-          ],
-          "version": 0,
-          "behaviors": { "stackMultiMark": false },
-          "configType": "cartesian",
-          "_dependentAxis": "x"
-        }
+        "config": {}
       }
     ]
   }'
 ```
+
+> **Tip**: Default to `"config": {}` for reliable rendering — Omni will auto-generate chart config. For precise chart styling, build a reference dashboard in the UI and read it back via `GET /api/v1/documents/{documentId}`. See [references/queryPresentations.md](references/queryPresentations.md) for complete config examples by chart type (KPI, line, bar, area, pie, scatter, etc.).
 
 #### Key Parameters (not fully documented elsewhere)
 
@@ -266,17 +185,13 @@ Returns the complete `queryPresentations` array including `topicName`, `visConfi
 
 > **Tip**: Build a reference dashboard in the Omni UI with the chart types and styling you want, then read it via `GET /api/v1/documents/{documentId}` to capture the exact `queryPresentations` structure to use as a template.
 
-#### Caveats When Copying queryPresentations from Existing Dashboards
+#### Caveats When Reusing queryPresentations
 
-- **Strip `model_extension_id`** from each query object — these reference model extensions scoped to the source document and will cause "Chart unavailable" errors in new documents.
-- **Filter to the tiles you want** — `GET /api/v1/documents/{id}` returns all queries including workbook-only tabs not shown on the dashboard. Only pass the `queryPresentations` you want as visible tiles.
+These apply when copying queryPresentations from an existing document (for both creating new dashboards and updating existing ones):
+
+- **Strip `model_extension_id`** from each query object — these reference model extensions scoped to the source document and will cause "Chart unavailable" errors.
+- **Filter to the tiles you want** — `GET /api/v1/documents/{id}` returns all queries including workbook-only tabs not shown on the dashboard. Only include the `queryPresentations` you want as visible tiles.
 - **Queries without `topicName` are valid** — SQL-mode and tab-selector queries won't have a `topicName`. Do not add one.
-
-#### Caveats when using queryPresentations from an existing document
-
-- **Filter to the tiles you want**: `get-dashboard-document` returns all queries including workbook-only tabs not shown on the dashboard. Pass only the `queryPresentations` you want as visible tiles — every entry you include will become a visible tile in the new document.
-- **Strip `model_extension_id`**: Some queries contain a `model_extension_id` that references a model extension scoped to the source document. These IDs are not valid in a new document and will cause "Chart unavailable" errors. Remove `model_extension_id` from each query object before posting.
-- **Queries without a topic are expected**: SQL-mode queries and tab-selector queries (`visType: "spreadsheet-tab"`) will not have a `topicName` — this is correct, do not add one.
 
 ### Rename Document
 
@@ -329,6 +244,77 @@ curl -L -X POST "$OMNI_BASE_URL/api/v1/documents/{documentId}/duplicate" \
 
 Only published documents can be duplicated. Draft documents return 404.
 
+## Update Existing Dashboard
+
+Update the tiles, queries, filters, and visualizations on an existing dashboard using `PUT /api/v1/documents/{documentId}`. This is a **full replacement** — you must pass the complete desired state of the document, not just the fields you want to change.
+
+> **Warning**: This endpoint only works with **dashboard documents**. Workbook-only documents are not supported and return 400.
+
+> **Note**: This endpoint is documented at [docs.omni.co](https://docs.omni.co/api/documents/update-document) but may not appear in the OpenAPI spec at `/openapi.json` yet.
+
+### Update Workflow
+
+**Step 1 — Read the existing document** to get its current state:
+
+```bash
+curl -L "$OMNI_BASE_URL/api/v1/documents/{documentId}" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+```
+
+This returns the full document including `queryPresentations`, `filterConfig`, `filterOrder`, `modelId`, `name`, and other fields. Use this as your starting point.
+
+**Step 2 — Modify the response** as needed:
+
+- To **add a tile**: append a new entry to the `queryPresentations` array
+- To **remove a tile**: remove it from the `queryPresentations` array
+- To **edit a tile**: modify the relevant entry's `query`, `config`, `fields`, etc.
+- To **update filters**: modify `filterConfig` and `filterOrder`
+
+**Step 3 — PUT the updated document:**
+
+```bash
+curl -L -X PUT "$OMNI_BASE_URL/api/v1/documents/{documentId}" \
+  -H "Authorization: Bearer $OMNI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "modelId": "your-model-id",
+    "name": "Q1 Revenue Report",
+    "facetFilters": false,
+    "refreshInterval": null,
+    "filterConfig": {},
+    "filterOrder": [],
+    "clearExistingDraft": true,
+    "queryPresentations": [ ... ]
+  }'
+```
+
+The `queryPresentations` array uses the same structure as document creation — see above.
+
+### Required Fields
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `modelId` | string | Model ID for query transformation |
+| `name` | string | Document name (1–254 characters) |
+| `facetFilters` | boolean | Enable facet filters on the dashboard |
+| `refreshInterval` | integer or null | Auto-refresh interval in seconds (min 60), or `null` to disable |
+| `filterConfig` | object | Dashboard filter configuration — pass `{}` for no filters |
+| `filterOrder` | array | Ordered filter IDs — pass `[]` for no filters |
+| `queryPresentations` | array | At least one query presentation required (same structure as document creation) |
+
+### Optional Fields
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `clearExistingDraft` | boolean | Discard existing draft before updating. **Required when the published document has a draft** — otherwise returns 409 Conflict. |
+| `documentMetadata` | object | Presentation settings including filter collapsibility |
+
+### Caveats
+
+- **Full replacement**: Every `queryPresentation` you include becomes a tile. Any tile you omit from the array is removed. Always start from the existing document's `queryPresentations` and modify from there.
+- **Draft conflict**: Published documents with existing drafts return 409 unless `clearExistingDraft: true` is set.
+- See also [Caveats When Reusing queryPresentations](#caveats-when-reusing-querypresentations) (e.g., stripping `model_extension_id`).
+
 ## Updating a Dashboard's Model
 
 Push custom dimensions and measures to a specific dashboard by writing to its workbook model. This is a two-step flow:
@@ -366,9 +352,12 @@ curl -L "$OMNI_BASE_URL/api/v1/dashboards/{dashboardId}/filters" \
 
 ### Update Filters
 
-> **Warning**: `PUT` and `PATCH` on `/dashboards/{id}/filters` have been reported to return 405 or 500 in some configurations. If filter updates fail, include filters during document creation instead (see below).
+Filters can be updated via two approaches:
 
-The most reliable way to create dashboard filters is to include `filterConfig` and `filterOrder` in the initial `POST /api/v1/documents` call. See [references/filterConfig.md](references/filterConfig.md) for complete examples of each filter type.
+1. **`PUT /api/v1/documents/{documentId}`** (recommended) — update filters as part of a full document update. Include `filterConfig` and `filterOrder` alongside `queryPresentations` and other required fields. See the [Update Existing Dashboard](#update-existing-dashboard) section.
+2. **`PATCH /api/v1/dashboards/{id}/filters`** — partial filter update. Has been reported to return 405 or 500 in some configurations.
+
+For **new dashboards**, the most reliable way is to include `filterConfig` and `filterOrder` in the initial `POST /api/v1/documents` call. See [references/filterConfig.md](references/filterConfig.md) for complete examples of each filter type.
 
 ```bash
 curl -L -X POST "$OMNI_BASE_URL/api/v1/documents" \
@@ -381,6 +370,7 @@ curl -L -X POST "$OMNI_BASE_URL/api/v1/documents" \
       "date_filter": {
         "type": "date",
         "label": "Date Range",
+        "fieldName": "order_items.created_at",
         "kind": "TIME_FOR_INTERVAL_DURATION",
         "ui_type": "PAST",
         "left_side": "6 months ago",
@@ -403,15 +393,27 @@ The keys in `filterConfig` (e.g., `"date_filter"`) are arbitrary IDs — they mu
 
 ### Filter Types
 
-**Date Range** — `type: "date"`, `kind: "TIME_FOR_INTERVAL_DURATION"`
+**Date Range (relative)** — `type: "date"`, `kind: "TIME_FOR_INTERVAL_DURATION"`, requires `fieldName`
 
-**String Dropdown** — `type: "string"`, `kind: "EQUALS"`, `values: []`
+**Date Range (absolute)** — `type: "date"`, `kind: "WITHIN_RANGE"`, requires `fieldName`
 
-**Boolean Toggle** — `type: "boolean"`, `is_negative: false`
+**String Dropdown** — `type: "string"`, `kind: "EQUALS"`, requires `fieldName`, `values: []`
+
+**Boolean Toggle** — `type: "boolean"`, requires `fieldName`
 
 **Hidden Filter** — any filter with `"hidden": true` (applied but not visible)
 
-**Date Granularity Picker** — `type: "FIELD_SELECTION"`, `kind: "TIMEFRAME"` with options array
+> **Critical**: Every filter MUST include `fieldName` with the fully qualified field name (e.g., `"order_items.created_at"`). Without it, the filter won't bind to any column. For date filters, do NOT include a timeframe bracket in `fieldName`.
+
+### Controls (separate from filters)
+
+Controls change what fields or granularity tiles display. They go in a `controls` array (NOT in `filterConfig`), but their IDs are included in `filterOrder`.
+
+**Time Frame Switcher** — `type: "FIELD_SELECTION"`, `kind: "TIMEFRAME"` with options array
+
+**Field Switcher** — `type: "FIELD_SELECTION"`, `kind: "FIELD"` with options array
+
+See [references/filterConfig.md](references/filterConfig.md) for complete filter and control examples.
 
 ## URL Patterns
 
@@ -428,13 +430,19 @@ The `identifier` comes from the document's `identifier` field in API responses (
 
 ### API-First (Full Programmatic Creation)
 
-Aim for minimal API calls. Batch everything into the document creation POST.
-
-1. **Discover fields** — use `omni-model-explorer` to find topic + fields (1-2 calls)
-2. **Optionally read a reference dashboard** — `GET /api/v1/documents/{id}` to capture `queryPresentations` patterns (1 call)
+1. **Discover fields** — use `omni-model-explorer` to find topic + fields
+2. **Test each query** — run every query you plan to include via `POST /api/v1/query/run` (using `omni-query`) before building the dashboard. Include the same filters you plan to use in `filterConfig` as query-level filters to confirm they parse correctly. This catches field name typos, missing join paths, bad filter expressions, and permission errors before they become broken tiles.
 3. **Create document** — single `POST /api/v1/documents` with `queryPresentations` + `filterConfig` + `filterOrder` all in one call
 4. **Share the link** — return `{OMNI_BASE_URL}/dashboards/{identifier}` to the user
 5. **Refine in UI** — tile layout, chart styling, and advanced config are best done in the Omni UI
+
+### Update Existing Dashboard
+
+1. **Find the dashboard** — use `omni-content-explorer` or `GET /api/v1/documents` to locate it
+2. **Read its current state** — `GET /api/v1/documents/{documentId}` to get the full document including `queryPresentations`, `filterConfig`, etc.
+3. **Modify** — add, remove, or edit entries in the `queryPresentations` array; update `filterConfig`/`filterOrder` as needed
+4. **PUT the update** — `PUT /api/v1/documents/{documentId}` with the complete modified document and `clearExistingDraft: true`
+5. **Share the link** — return `{OMNI_BASE_URL}/dashboards/{identifier}` to the user
 
 ### UI-First (Hybrid Approach)
 
@@ -458,7 +466,7 @@ curl -L "$OMNI_BASE_URL/api/v1/dashboards/{dashboardId}/download/{jobId}/status"
 
 ## Docs Reference
 
-- [Documents API](https://docs.omni.co/api/documents.md) · [Dashboard Filters](https://docs.omni.co/api/dashboard-filters.md) · [Dashboard Downloads](https://docs.omni.co/api/dashboard-downloads.md) · [Query API](https://docs.omni.co/api/queries.md) · [Schedules API](https://docs.omni.co/api/schedules.md) · [Visualization Types](https://docs.omni.co/visualize-present/visualizations.md)
+- [Documents API](https://docs.omni.co/api/documents.md) · [Update Document](https://docs.omni.co/api/documents/update-document) · [Dashboard Filters](https://docs.omni.co/api/dashboard-filters.md) · [Dashboard Downloads](https://docs.omni.co/api/dashboard-downloads.md) · [Query API](https://docs.omni.co/api/queries.md) · [Schedules API](https://docs.omni.co/api/schedules.md) · [Visualization Types](https://docs.omni.co/visualize-present/visualizations.md)
 
 ## Related Skills
 
