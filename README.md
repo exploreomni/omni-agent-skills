@@ -1,21 +1,33 @@
+<p align="center">
+  <img src="assets/omni-agent-skills-banner.svg" alt="Omni Agent Skills" width="920">
+</p>
+
 # Omni Analytics Agent Skills
 
-Reusable skills, agents, and rules for working with [Omni Analytics](https://omni.co) programmatically through Omni's REST APIs. Works across coding agents and LLM-powered developer tools that support the `SKILL.md` format.
+<p align="center"><strong>Official Omni Analytics skills for Claude Code, Cursor, and skills.sh / Codex.</strong></p>
+
+<p align="center">Bring governed Omni workflows directly into your agent environment with one install target for model exploration, querying, dashboard creation, semantic modeling, AI optimization, administration, and embed work.</p>
+
+## Why This Repo
+
+- One shared source of truth for Omni workflows across major agent surfaces
+- 8 production-focused skills covering exploration, querying, modeling, content, admin, AI optimization, and embed
+- 3 specialized agents for deeper multi-step work
+- 3 Cursor rules for API, YAML, and terminology consistency
+
+## Platform Support
+
+| Platform | Install path | What loads automatically |
+|----------|--------------|--------------------------|
+| Claude Code | Claude plugin marketplace or Git URL | 8 skills + 3 agents |
+| Cursor | Git URL plugin install | 8 skills + 3 agents + 3 `.mdc` rules |
+| skills.sh / Codex | `npx skills add` | 8 skills |
 
 ## Installation
 
-This repository is the consolidated successor to the former platform-specific repos:
-
-- Claude Code: `exploreomni/omni-claude-skills`
-- Cursor: `exploreomni/omni-cursor-plugin`
-
-Use the commands below to install from `exploreomni/omni-agent-skills`.
-
 ### Claude Code
 
-Equivalent replacement for `exploreomni/omni-claude-skills`.
-
-From the marketplace (recommended, run separately):
+Marketplace install (recommended, run separately):
 
 ```bash
 /plugin marketplace add exploreomni/omni-agent-skills
@@ -24,7 +36,7 @@ From the marketplace (recommended, run separately):
 /plugin install omni-analytics@omni-analytics
 ```
 
-Or from Git URL (run separately):
+Git URL install (run separately):
 
 ```bash
 /plugin marketplace add https://github.com/exploreomni/omni-agent-skills.git
@@ -35,9 +47,9 @@ Or from Git URL (run separately):
 
 ### Cursor
 
-Equivalent replacement for `exploreomni/omni-cursor-plugin`.
+Install from Git URL:
 
-```
+```text
 /add-plugin https://github.com/exploreomni/omni-agent-skills.git
 ```
 
@@ -49,29 +61,10 @@ Install the full collection:
 npx skills add exploreomni/omni-agent-skills
 ```
 
-Install a specific skill:
+Install one skill directly:
 
 ```bash
 npx skills add https://github.com/exploreomni/omni-agent-skills --skill omni-query
-```
-
-### Legacy Standalone Repos
-
-If you specifically want the pre-consolidation repos instead of the unified repo above:
-
-**Claude Code (`exploreomni/omni-claude-skills`)**
-
-```bash
-/plugin marketplace add exploreomni/omni-claude-skills
-```
-```bash
-/plugin install omni-analytics@omni-analytics
-```
-
-**Cursor (`exploreomni/omni-cursor-plugin`)**
-
-```
-/add-plugin https://github.com/exploreomni/omni-cursor-plugin.git
 ```
 
 ## Setup
@@ -83,15 +76,17 @@ export OMNI_BASE_URL="https://yourorg.omniapp.co"
 export OMNI_API_KEY="your-api-key"
 ```
 
-API keys are created in **Settings > API Keys** (Organization Admin) or **User Profile > Manage Account > Generate Token** (Personal Access Token). Some skills, especially admin workflows, require an Organization API Key.
+API keys are created in **Settings > API Keys** (Organization Admin) or **User Profile > Manage Account > Generate Token** (Personal Access Token).
+
+**Admin note**: Some workflows, especially schema refresh, permissions, schedules, and other admin operations, require an Organization API Key.
 
 > **Token security**: These tokens can appear in terminal scrollback when used in shell commands. For team deployments, prefer a secrets manager or an MCP server wrapper where possible.
 
-## What's Included
+## What You Get
 
 ### Skills (8)
 
-Skills activate automatically based on your request:
+These activate from natural-language requests:
 
 | Skill | Description |
 |-------|-------------|
@@ -99,14 +94,14 @@ Skills activate automatically based on your request:
 | **omni-model-builder** | Create and edit views, topics, dimensions, measures, and relationships in YAML |
 | **omni-query** | Run queries against Omni's semantic layer and interpret results |
 | **omni-content-explorer** | Find, browse, and organize dashboards, workbooks, and folders |
-| **omni-content-builder** | Create, update, and manage documents and dashboards programmatically — lifecycle, tiles, filters, layouts |
-| **omni-ai-optimizer** | Optimize your Omni model for Blobby (Omni's AI assistant) |
+| **omni-content-builder** | Create, update, and manage documents and dashboards programmatically - lifecycle, tiles, filters, layouts |
+| **omni-ai-optimizer** | Optimize your Omni model for Blobby, Omni's AI assistant |
 | **omni-admin** | Manage connections, users, groups, permissions, schedules, and schema refreshes |
-| **omni-embed** | Embed Omni dashboards in external applications — URL signing, themes, and postMessage events |
+| **omni-embed** | Embed Omni dashboards in external applications - URL signing, themes, and postMessage events |
 
 ### Agents (3)
 
-Specialized agents for complex multi-step workflows:
+These are built for heavier workflows where explicit delegation is useful:
 
 | Agent | Description |
 |-------|-------------|
@@ -114,36 +109,36 @@ Specialized agents for complex multi-step workflows:
 | **omni-modeler** | Builds semantic models, writes YAML, and optimizes for AI |
 | **omni-admin-agent** | Manages users, permissions, schedules, and connections |
 
-### Rules (3, from omni-cursor-plugin)
+### Cursor Rules (3)
 
-These `.mdc` rules were brought over from `omni-cursor-plugin` and are intended for Cursor's rules system. They are included in this repository for cross-platform sharing and reference, but only Cursor loads them as rules automatically.
+These `.mdc` files are included for Cursor's rules system:
 
 | Rule | Description |
 |------|-------------|
-| **omni-api-conventions** | Auth headers, base URL patterns, error handling, pagination |
-| **omni-yaml-conventions** | YAML file types, field syntax, dimension/measure patterns |
+| **omni-api-conventions** | Auth headers, base URL patterns, error handling, and pagination |
+| **omni-yaml-conventions** | YAML file types, field syntax, and dimension and measure patterns |
 | **omni-terminology** | Maps business intelligence terms to Omni-specific vocabulary |
 
-> **Platform note**: Claude Code and skills.sh / Codex load the `skills/` and `agents/` content from this repo, but they do not automatically load the `rules/` directory as plugin rules. For those tools, treat these rule files as shared reference material unless you copy them into the tool's own rule mechanism.
+> **Platform note**: Cursor loads the `rules/` directory automatically. Claude Code and skills.sh / Codex do not load these files as plugin rules, so outside Cursor they should be treated as shared reference material unless you copy them into that tool's own rule mechanism.
 
-## Usage
+## Example Prompts
 
-Just ask naturally — skills and agents activate automatically. In Cursor, the `.mdc` rules above can also be applied when relevant:
+Ask naturally:
 
+```text
+"What topics are available in our Omni model?"
+"Run a query showing revenue by month"
+"Add a new dimension for customer tier to the users view"
+"Find the dashboard about sales performance"
+"Build a dashboard showing revenue by month"
+"Improve the AI context on our orders topic"
+"Give the marketing team access to the sales dashboard"
+"Generate a signed embed URL for this dashboard"
 ```
-"What topics are available in our Omni model?"          → omni-model-explorer
-"Run a query showing revenue by month"                  → omni-query
-"Add a new dimension for customer tier to the users view" → omni-model-builder
-"Find the dashboard about sales performance"            → omni-content-explorer
-"Build a dashboard showing revenue by month"            → omni-content-builder
-"Improve the AI context on our orders topic"            → omni-ai-optimizer
-"Give the marketing team access to the sales dashboard" → omni-admin
-"Generate a signed embed URL for this dashboard"        → omni-embed
-```
 
-For complex workflows, invoke agents directly:
+For direct agent routing:
 
-```
+```text
 @omni-analyst What are our top 10 products by revenue this quarter?
 @omni-modeler Add customer lifetime value metrics to the users view
 @omni-admin-agent Set up weekly PDF delivery of the executive dashboard
@@ -211,17 +206,20 @@ omni-agent-skills/
 │   ├── omni-yaml-conventions.mdc
 │   └── omni-terminology.mdc
 ├── assets/
-│   └── logo.svg
+│   ├── logo.svg
+│   └── omni-agent-skills-banner.svg
 ├── README.md
 └── LICENSE
 ```
 
 ## Documentation
 
-- [Omni REST API Reference](https://docs.omni.co/api.md)
-- [Omni Modeling Documentation](https://docs.omni.co/modeling.md)
-- [Omni AI Optimization Guide](https://docs.omni.co/ai/optimize-models.md)
-- [Omni MCP Server](https://docs.omni.co/ai/mcp.md)
+- [Omni REST API Reference](https://docs.omni.co/api)
+- [Omni Modeling Documentation](https://docs.omni.co/modeling)
+- [Optimize Models for Omni AI](https://docs.omni.co/modeling/develop/ai-optimization)
+- [Omni MCP Server](https://docs.omni.co/ai/mcp)
+- [Claude Code Plugin Docs](https://code.claude.com/docs/en/plugins)
+- [Cursor Plugin Docs](https://cursor.com/docs/plugins)
 - [skills.sh](https://skills.sh)
 
 ## Contributing

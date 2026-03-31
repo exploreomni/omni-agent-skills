@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="596" viewBox="0 0 960 596" fill="none">
+  <defs>
+    <linearGradient id="thundersalmon" x1="0" y1="0" x2="960" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FF5789"/>
+      <stop offset="52%" stop-color="#FF7D9F"/>
+      <stop offset="100%" stop-color="#FFA1B8"/>
+    </linearGradient>
+    <filter id="soft-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#241118" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <g filter="url(#soft-shadow)">
+    <text
+      xml:space="preserve"
+      fill="url(#thundersalmon)"
+      font-family="SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace"
+      font-size="26"
+      font-weight="700"
+      letter-spacing="0"
+    >
+    <tspan x="28" y="52">   ____  __  __ _   _ _____              </tspan>
+    <tspan x="28" y="86">  / __ \|  \/  | \ | |_   _|             </tspan>
+    <tspan x="28" y="120"> | |  | | \  / |  \| | | |               </tspan>
+    <tspan x="28" y="154"> | |  | | |\/| | . ` | | |               </tspan>
+    <tspan x="28" y="188"> | |__| | |  | | |\  |_| |_              </tspan>
+    <tspan x="28" y="222">  \____/|_|__|_|_|_\_|_____|_ _______    </tspan>
+    <tspan x="28" y="256">     /\   / ____|  ____| \ | |__   __|   </tspan>
+    <tspan x="28" y="290">    /  \ | |  __| |__  |  \| |  | |      </tspan>
+    <tspan x="28" y="324">   / /\ \| | |_ |  __| | . ` |  | |      </tspan>
+    <tspan x="28" y="358">  / ____ \ |__| | |____| |\  |  | |      </tspan>
+    <tspan x="28" y="392"> /_/____\_\_____|______|_| \_|  |_|_____ </tspan>
+    <tspan x="28" y="426">  / ____| |/ /_   _| |    | |     / ____|</tspan>
+    <tspan x="28" y="460"> | (___ | ' /  | | | |    | |    | (___  </tspan>
+    <tspan x="28" y="494">  \___ \|  &lt;   | | | |    | |     \___ \ </tspan>
+    <tspan x="28" y="528">  ____) | . \ _| |_| |____| |____ ____) |</tspan>
+    <tspan x="28" y="562"> |_____/|_|\_\_____|______|______|_____/</tspan>
+    </text>
+  </g>
+</svg>

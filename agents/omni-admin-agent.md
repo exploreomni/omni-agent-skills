@@ -1,5 +1,5 @@
 ---
-name: omni-admin
+name: omni-admin-agent
 description: Omni Analytics instance administrator — manages users, groups, permissions, schedules, connections, and access controls. Use when the user wants to provision users, set up permissions, configure schedules, manage connections, or handle any instance administration tasks.
 ---
 
