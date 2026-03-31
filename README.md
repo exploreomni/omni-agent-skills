@@ -1,12 +1,21 @@
 <p align="center">
-  <img src="assets/omni-agent-skills-banner.svg" alt="Omni Agent Skills" width="920">
+  <img src="assets/omni-agent-skills-banner.svg" alt="Omni Agent Skills" width="640">
 </p>
 
 # Omni Analytics Agent Skills
 
-<p align="center"><strong>Official Omni Analytics skills for Claude Code, Cursor, and skills.sh / Codex.</strong></p>
+Official Omni Analytics skills for Claude Code, Cursor, and skills.sh-compatible agents.
 
-<p align="center">Bring governed Omni workflows directly into your agent environment with one install target for model exploration, querying, dashboard creation, semantic modeling, AI optimization, administration, and embed work.</p>
+Bring governed Omni workflows directly into your agent environment with one install target for model exploration, querying, dashboard creation, semantic modeling, AI optimization, administration, and embed work.
+
+## How It Works
+
+These skills are not slash commands or one-off prompts you have to memorize. Once installed, the agent loads the relevant skill or agent when your request matches the use case.
+
+- Ask in natural language for modeling, querying, dashboard, admin, or embed work
+- Claude Code and Cursor can auto-load the right skills and agents
+- Cursor can also apply the `.mdc` rules in this repo when relevant
+- skills.sh-compatible agents such as OpenAI Codex, Gemini CLI, and GitHub Copilot can load the same skills
 
 ## Why This Repo
 
@@ -17,11 +26,11 @@
 
 ## Platform Support
 
-| Platform | Install path | What loads automatically |
-|----------|--------------|--------------------------|
-| Claude Code | Claude plugin marketplace or Git URL | 8 skills + 3 agents |
-| Cursor | Git URL plugin install | 8 skills + 3 agents + 3 `.mdc` rules |
-| skills.sh / Codex | `npx skills add` | 8 skills |
+| Platform | Install path | What loads automatically | Notes |
+|----------|--------------|--------------------------|-------|
+| Claude Code | Claude plugin marketplace or Git URL | 8 skills + 3 agents | Best fit for Claude-native plugin installs and team rollout |
+| Cursor | Git URL plugin install | 8 skills + 3 agents + 3 `.mdc` rules | Includes Cursor rules support |
+| skills.sh-compatible agents | `npx skills add` | 8 skills | Works with OpenAI Codex, Gemini CLI, GitHub Copilot, and other compatible runtimes |
 
 ## Installation
 
@@ -53,7 +62,15 @@ Install from Git URL:
 /add-plugin https://github.com/exploreomni/omni-agent-skills.git
 ```
 
-### skills.sh / Codex
+### skills.sh-Compatible Agents
+
+Use this path for agents that load skills through [skills.sh](https://skills.sh), including OpenAI Codex, Gemini CLI, GitHub Copilot, and other compatible agent runtimes.
+
+Preview available skills:
+
+```bash
+npx skills add exploreomni/omni-agent-skills --list
+```
 
 Install the full collection:
 
@@ -65,6 +82,24 @@ Install one skill directly:
 
 ```bash
 npx skills add https://github.com/exploreomni/omni-agent-skills --skill omni-query
+```
+
+Install globally:
+
+```bash
+npx skills add exploreomni/omni-agent-skills --global
+```
+
+Check for updates:
+
+```bash
+npx skills check
+```
+
+Update installed skills:
+
+```bash
+npx skills update
 ```
 
 ## Setup
@@ -119,7 +154,7 @@ These `.mdc` files are included for Cursor's rules system:
 | **omni-yaml-conventions** | YAML file types, field syntax, and dimension and measure patterns |
 | **omni-terminology** | Maps business intelligence terms to Omni-specific vocabulary |
 
-> **Platform note**: Cursor loads the `rules/` directory automatically. Claude Code and skills.sh / Codex do not load these files as plugin rules, so outside Cursor they should be treated as shared reference material unless you copy them into that tool's own rule mechanism.
+> **Platform note**: Cursor loads the `rules/` directory automatically. Claude Code and skills.sh-compatible agents do not load these files as plugin rules, so outside Cursor they should be treated as shared reference material unless you copy them into that tool's own rule mechanism.
 
 ## Example Prompts
 
@@ -175,7 +210,7 @@ Enable auto-updates:
 
 Or update manually from the `/plugin` menu.
 
-### Cursor / skills.sh
+### Cursor / skills.sh-Compatible Agents
 
 Re-run the installation command to pull the latest version.
 
