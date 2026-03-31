@@ -1,0 +1,44 @@
+{
+  "name": "omni-analytics",
+  "owner": {
+    "name": "Omni Analytics",
+    "email": "support@omni.co"
+  },
+  "metadata": {
+    "description": "Official Omni Analytics skills for Claude Code — explore models, run queries, build dashboards, embed analytics, and manage your Omni instance. Includes 8 skills, 3 specialized agents, and 3 context rules.",
+    "version": "1.1.0"
+  },
+  "plugins": [
+    {
+      "name": "omni-analytics",
+      "source": ".",
+      "description": "Explore, query, model, embed, and manage Omni Analytics through the REST API and embed SDK. Includes 8 skills, 3 specialized agents, and 3 context rules for model exploration, querying, model building, content browsing, content building, embedding, AI optimization, and administration.",
+      "version": "1.1.0",
+      "author": {
+        "name": "Omni Analytics"
+      },
+      "license": "Apache-2.0",
+      "keywords": [
+        "omni",
+        "ai",
+        "agentic-analytics",
+        "agents",
+        "mcp",
+        "data",
+        "analytics",
+        "bi",
+        "business-intelligence",
+        "semantic-layer",
+        "data-modeling",
+        "dashboards",
+        "queries",
+        "blobby",
+        "ai-context",
+        "embed",
+        "iframe",
+        "white-label"
+      ],
+      "category": "data"
+    }
+  ]
+}

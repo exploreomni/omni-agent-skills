@@ -18,6 +18,22 @@ export OMNI_API_KEY="your-api-key"
 
 You need **Modeler** or **Connection Admin** permissions.
 
+## Omni's Layered Modeling Architecture
+
+Omni uses a **layered approach** where each layer builds on top of the previous:
+
+1. **Schema Layer** — Auto-generated from your database. Reflects tables, views, columns, and their types. Kept in sync via schema refresh.
+
+2. **Shared Model Layer** — Your governed semantic model. Where you define dimensions, measures, joins, and topics that are reusable across the organization.
+
+3. **Workbook Model Layer** — Ad hoc extensions within individual workbooks. Used for experimental fields before promotion to shared model.
+
+4. **Branch Layer** — Intermediate development layer. Used when working in branches before merging changes to shared model.
+
+**Key concept**: The schema layer is the foundation and source of truth for table/column structure. When your database schema changes (new tables, deleted columns, type changes), you refresh the schema to keep Omni in sync. All user-created content (dimensions, measures, relationships, topics) flows through the shared model layer.
+
+**Development workflow**: When building or modifying the model, you work in **branches** (see "Safe Development Workflow" below). Branches are isolated copies where you can safely experiment before merging changes back to shared model. This skill covers creating and editing model definitions in both branches and shared models.
+
 ## Determine SQL Dialect
 
 Before writing any SQL expressions, confirm the dialect from the connection — don't guess from the connection name:
@@ -35,6 +51,37 @@ curl -L "$OMNI_BASE_URL/api/v1/connections" \
 ```
 
 Use dialect-appropriate functions in your SQL (e.g. `SAFE_DIVIDE` for BigQuery, `NULLIF(a/b)` for Postgres/Snowflake).
+
+## Schema Refresh: Syncing with Database Changes
+
+The **schema layer** is auto-generated from your database. When your database schema changes (new/deleted/renamed columns, type changes), refresh Omni's schema layer to stay in sync.
+
+**When to trigger:**
+- New tables added to your database
+- Column added/renamed/deleted in existing tables
+- Creating a new view from scratch and want auto-generated base dimensions
+- Model is out of sync with database
+
+**What it does:**
+- Introspects your data warehouse
+- Auto-generates base dimensions for all columns with correct types and timeframes
+- Detects deletions and broken references
+- Runs as a background job (can take several minutes)
+
+**Side effect:** May auto-generate dimensions for columns you don't need. Suppress with `hidden: true` in your extension layer.
+
+**Trigger via API:**
+
+```bash
+curl -L -X POST "$OMNI_BASE_URL/api/v1/models/{modelId}/refresh" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+
+# With branch:
+curl -L -X POST "$OMNI_BASE_URL/api/v1/models/{modelId}/refresh?branch_id={branchId}" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+```
+
+Requires **Connection Admin** permissions.
 
 ## API Discovery
 
@@ -125,6 +172,8 @@ Write with `mode: "extension"` (shared model layer). To delete a file, send empt
 
 ## Writing Views
 
+> **Every view MUST have a `primary_key: true` dimension.** Without a primary key, queries that join to this view will produce fanout errors or incorrect aggregations. Use the table's natural unique identifier (e.g., `id`, `order_id`, `user_id`). If the table has no single unique column, create a composite key with a SQL expression: `sql: ${schema_name} || '-' || ${table_name}`.
+
 ### Basic View
 
 ```yaml
@@ -143,6 +192,43 @@ measures:
     aggregate_type: sum
     format: currency_2
 ```
+
+### Understanding Schema Layer vs Extension Layer
+
+When you create a view, Omni separates **schema** (database structure) from **model** (your business logic):
+
+- **Schema layer**: Auto-generated base dimensions, one per column. Types come from the database. Read-only, synced via schema refresh.
+- **Extension layer**: Your custom YAML. Can override base dimensions, add new dimensions/measures, hide columns, add business logic.
+
+When both layers exist for a field with the same name, **your extension definition wins** but **type information comes from the schema layer**.
+
+**Example**: Table has columns `created_at` (DATE) and `revenue` (NUMERIC).
+
+```yaml
+# Schema layer (auto-generated)
+dimensions:
+  created_at: {}  # type: DATE, auto-generates timeframes
+  revenue: {}     # type: NUMERIC
+
+# Extension layer (your YAML)
+dimensions:
+  created_at:
+    label: "Order Created"
+    description: "When the order was placed"
+
+  revenue:
+    hidden: true  # Hide the raw column
+
+measures:
+  total_revenue:
+    sql: SUM(${revenue})
+    aggregate_type: sum
+    format: currency_2
+```
+
+Result: `created_at` inherits its type from schema layer (DATE with automatic week/month/year granularities) but gets your label. The raw `revenue` column is hidden, only exposed through the `total_revenue` measure.
+
+**Key insight**: If your extension layer defines a dimension but there's no schema layer base dimension to provide type information, Omni can't infer granularities or types. Solution: trigger schema refresh to auto-generate the schema layer (see "Schema Refresh" section above).
 
 ### Dimension Parameters
 
@@ -213,7 +299,7 @@ Getting `relationship_type` right prevents fanout and symmetric aggregate errors
 
 ## Query Views
 
-Virtual tables defined by a saved query:
+Virtual tables defined by a saved query. Like regular views, query views **must include a `primary_key: true` dimension** to be joinable:
 
 ```yaml
 schema: PUBLIC
@@ -248,8 +334,28 @@ sql: |
 |-------|-----|
 | "No view X" | Check view name spelling |
 | "No join path from X to Y" | Add a relationship |
-| "Duplicate field name" | Remove duplicate or rename |
+| "Duplicate field name" | Remove duplicate or rename (or suppress with `hidden: true` if one is auto-generated) |
 | "Invalid YAML syntax" | Check indentation (2 spaces, no tabs) |
+| Fanout / incorrect aggregations on joins | Add `primary_key: true` to the joined view — every view that participates in a join must have a primary key |
+| Column reference error (e.g., "Column `X` not found") | Check that the table exists and your Omni connection has access |
+
+## Troubleshooting: Model Out of Sync with Database
+
+If your model doesn't reflect the database (missing columns, broken references, wrong types), trigger a schema refresh (see "Schema Refresh" section above). Then validate:
+
+```bash
+curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/validate" \
+  -H "Authorization: Bearer $OMNI_API_KEY"
+```
+
+Common issues and fixes:
+
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| **Broken column references** | Column no longer exists in database | Remove or update the `sql` reference |
+| **Field name collision** | Auto-generated dimension conflicts with your measure | Suppress with `hidden: true` or rename |
+| **Unknown field types** | Type info not available from schema | Verify column exists and connection has access |
+| **Missing tables** | Table not in schema after refresh | Verify table exists and connection includes its database/schema |
 
 ## Docs Reference
 
