@@ -4,9 +4,18 @@ Reusable skills, agents, and rules for working with [Omni Analytics](https://omn
 
 ## Installation
 
+This repository is the consolidated successor to the former platform-specific repos:
+
+- Claude Code: `exploreomni/omni-claude-skills`
+- Cursor: `exploreomni/omni-cursor-plugin`
+
+Use the commands below to install from `exploreomni/omni-agent-skills`.
+
 ### Claude Code
 
-From the marketplace (recommended):
+Equivalent replacement for `exploreomni/omni-claude-skills`.
+
+From the marketplace (recommended, run separately):
 
 ```bash
 /plugin marketplace add exploreomni/omni-agent-skills
@@ -15,7 +24,7 @@ From the marketplace (recommended):
 /plugin install omni-analytics@omni-analytics
 ```
 
-Or from Git URL:
+Or from Git URL (run separately):
 
 ```bash
 /plugin marketplace add https://github.com/exploreomni/omni-agent-skills.git
@@ -25,6 +34,8 @@ Or from Git URL:
 ```
 
 ### Cursor
+
+Equivalent replacement for `exploreomni/omni-cursor-plugin`.
 
 ```
 /add-plugin https://github.com/exploreomni/omni-agent-skills.git
@@ -42,6 +53,25 @@ Install a specific skill:
 
 ```bash
 npx skills add https://github.com/exploreomni/omni-agent-skills --skill omni-query
+```
+
+### Legacy Standalone Repos
+
+If you specifically want the pre-consolidation repos instead of the unified repo above:
+
+**Claude Code (`exploreomni/omni-claude-skills`)**
+
+```bash
+/plugin marketplace add exploreomni/omni-claude-skills
+```
+```bash
+/plugin install omni-analytics@omni-analytics
+```
+
+**Cursor (`exploreomni/omni-cursor-plugin`)**
+
+```
+/add-plugin https://github.com/exploreomni/omni-cursor-plugin.git
 ```
 
 ## Setup
@@ -84,9 +114,9 @@ Specialized agents for complex multi-step workflows:
 | **omni-modeler** | Builds semantic models, writes YAML, and optimizes for AI |
 | **omni-admin-agent** | Manages users, permissions, schedules, and connections |
 
-### Rules (3)
+### Rules (3, from omni-cursor-plugin)
 
-Always-available context applied when relevant:
+These `.mdc` rules were brought over from `omni-cursor-plugin` and are intended for Cursor's rules system. They are included in this repository for cross-platform sharing and reference, but only Cursor loads them as rules automatically.
 
 | Rule | Description |
 |------|-------------|
@@ -94,9 +124,11 @@ Always-available context applied when relevant:
 | **omni-yaml-conventions** | YAML file types, field syntax, dimension/measure patterns |
 | **omni-terminology** | Maps business intelligence terms to Omni-specific vocabulary |
 
+> **Platform note**: Claude Code and skills.sh / Codex load the `skills/` and `agents/` content from this repo, but they do not automatically load the `rules/` directory as plugin rules. For those tools, treat these rule files as shared reference material unless you copy them into the tool's own rule mechanism.
+
 ## Usage
 
-Just ask naturally — skills, agents, and rules activate automatically:
+Just ask naturally — skills and agents activate automatically. In Cursor, the `.mdc` rules above can also be applied when relevant:
 
 ```
 "What topics are available in our Omni model?"          → omni-model-explorer
