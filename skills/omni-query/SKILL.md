@@ -33,6 +33,7 @@ You also need a **model ID** and knowledge of available **topics and fields**.
 ```bash
 omni query --help              # List query operations
 omni query run --help          # Show flags for running a query
+omni ai --help                 # AI-powered query generation
 ```
 
 ## Running a Query
@@ -153,6 +154,95 @@ omni query run --body '{ "query": { ... }, "userId": "user-uuid-here" }'
 omni query run --body '{ "query": { ... }, "cache": "SkipCache" }'
 ```
 
+## AI-Powered Query Generation
+
+Instead of constructing query JSON manually, you can describe what you want in natural language and let Omni's AI generate the query.
+
+### Generate Query (synchronous)
+
+The fastest path — returns a generated query JSON synchronously. Set `runQuery: false` to get only the query structure without executing it, or `true` (default) to also run it against the database.
+
+```bash
+# Just generate the query JSON (no execution)
+omni ai generate-query --body '{
+  "modelId": "your-model-id",
+  "prompt": "Show me revenue by month",
+  "runQuery": false
+}'
+```
+
+Response:
+
+```json
+{
+  "query": {
+    "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
+    "table": "order_items",
+    "filters": {},
+    "sorts": [{"column_name": "order_items.created_at[month]", "sort_descending": false}],
+    "limit": 500
+  },
+  "topic": "order_items",
+  "error": null
+}
+```
+
+```bash
+# Generate and execute in one call
+omni ai generate-query --body '{
+  "modelId": "your-model-id",
+  "prompt": "Top 10 customers by lifetime spend"
+}'
+```
+
+Optional parameters:
+- `branchId` — test against a specific model branch
+- `currentTopicName` — constrain topic selection to a specific topic
+
+### Pick Topic
+
+Check which topic the AI would select for a question, without generating a full query:
+
+```bash
+omni ai pick-topic --body '{
+  "modelId": "your-model-id",
+  "prompt": "How many users signed up last month?"
+}'
+```
+
+### Agentic Queries (async)
+
+For the full Blobby experience — multi-step analysis, tool use, and topic selection as the AI would actually behave in production. This is async: submit a job, poll for status, then retrieve the result.
+
+```bash
+# 1. Submit a job
+omni ai job-submit --body '{
+  "modelId": "your-model-id",
+  "prompt": "Analyze revenue trends and identify our fastest growing product category"
+}'
+# → returns { "jobId": "job-uuid", "conversationId": "conv-uuid" }
+
+# 2. Poll for completion (QUEUED → EXECUTING → COMPLETE)
+omni ai job-status <jobId>
+
+# 3. Get the result
+omni ai job-result <jobId>
+```
+
+The result contains an `actions` array with each step the AI took — look for actions with `type: "generate_query"` to extract the generated queries. The response also includes `resultSummary` with the AI's narrative interpretation.
+
+Additional job commands:
+- `omni ai job-cancel <jobId>` — cancel a running job
+- `omni ai job-visualization <jobId>` — get the visualization output
+
+### When to Use Which Approach
+
+| Approach | Best For |
+|----------|----------|
+| `omni query run` | You know exactly which fields, filters, and sorts you need |
+| `omni ai generate-query` | Translating a natural language question into a single query |
+| `omni ai job-submit` | Complex questions that may need multiple queries or multi-step reasoning |
+
 ## Multi-Step Analysis Pattern
 
 For complex analysis, chain queries:
@@ -191,3 +281,4 @@ Queries are ephemeral — there is no persistent URL for a query result. To give
 - **omni-model-explorer** — discover fields and topics before querying
 - **omni-content-explorer** — find dashboards whose queries you can extract
 - **omni-content-builder** — turn query results into dashboards
+- **omni-eval** — benchmark and test AI query generation accuracy
