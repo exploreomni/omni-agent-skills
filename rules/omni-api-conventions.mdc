@@ -6,6 +6,17 @@ alwaysApply: false
 
 # Omni CLI Conventions
 
+## Installation
+
+If the `omni` command is not available, install it:
+
+```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | sh
+```
+
+Pre-built binaries for macOS (amd64/arm64), Linux (amd64/arm64), and Windows (amd64) are available on the [GitHub Releases page](https://github.com/exploreomni/cli/releases).
+
 ## Authentication
 
 The Omni CLI resolves credentials in this order (highest wins):

@@ -12,10 +12,16 @@ Create and modify Omni's semantic model through the YAML API — views, topics, 
 ## Prerequisites
 
 ```bash
-# Option 1: Interactive profile setup (recommended)
-omni config init
+# Install the CLI (macOS / Linux)
+curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | sh
 
-# Option 2: Environment variables
+# Configure authentication
+omni config init
+```
+
+Or set environment variables instead of using `omni config init`:
+
+```bash
 export OMNI_BASE_URL="https://yourorg.omniapp.co"
 export OMNI_API_TOKEN="your-api-key"
 ```

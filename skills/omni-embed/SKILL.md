@@ -16,7 +16,10 @@ npm install @omni-co/embed
 ```
 
 ```bash
-# For the Omni CLI (API calls use the standard .omniapp.co domain):
+# Install the Omni CLI (macOS / Linux)
+curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | sh
+
+# Configure the CLI (API calls use the standard .omniapp.co domain):
 omni config init
 # Or set environment variables:
 export OMNI_BASE_URL="https://yourorg.omniapp.co"

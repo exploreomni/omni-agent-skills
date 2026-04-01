@@ -131,7 +131,16 @@ npx skills update
 
 ## Setup
 
-Configure the Omni CLI:
+### Install the Omni CLI
+
+```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | sh
+```
+
+This downloads the latest release, verifies the SHA-256 checksum, and installs the `omni` binary to `/usr/local/bin` (or `~/.local/bin` if not writable). Pre-built binaries for all platforms are also available on the [GitHub Releases page](https://github.com/exploreomni/cli/releases).
+
+### Configure authentication
 
 ```bash
 # Option 1: Interactive profile setup (recommended)
