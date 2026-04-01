@@ -4,7 +4,7 @@
 
 # Omni Analytics Agent Skills
 
-Official [Omni Analytics](omni.co) skills for Claude Code, Cursor, Codex and other [skills.sh](skills.sh) compatible agents.
+Official [Omni Analytics](https://omni.co) skills for Claude Code, Cursor, OpenAI Codex, Snowflake Cortex Code, and other [skills.sh](https://skills.sh) compatible agents.
 
 Bring governed Omni workflows directly into your agent environment with one install target for model exploration, querying, dashboard creation, semantic modeling, AI optimization, administration, and embed work.
 
@@ -15,7 +15,8 @@ These skills are not slash commands or one-off prompts you have to memorize. Onc
 - Ask in natural language for modeling, querying, dashboard, admin, or embed work
 - Claude Code and Cursor can auto-load the right skills and agents
 - Cursor can also apply the `.mdc` rules in this repo when relevant
-- skills.sh-compatible agents such as OpenAI Codex, Gemini CLI, and GitHub Copilot can load the same skills
+- OpenAI Codex, Gemini CLI, and GitHub Copilot can load the same skills through [skills.sh](https://skills.sh)
+- Snowflake Cortex Code can load the repo's `SKILL.md` directories as custom skills
 
 ## Why This Repo
 
@@ -26,14 +27,19 @@ These skills are not slash commands or one-off prompts you have to memorize. Onc
 
 ## Platform Support
 
-| Platform | Install path | What loads automatically | Notes |
-|----------|--------------|--------------------------|-------|
-| Claude Code | Claude plugin marketplace or Git URL | 8 skills + 3 agents | Best fit for Claude-native plugin installs and team rollout |
-| Cursor | Git URL plugin install | 8 skills + 3 agents + 3 `.mdc` rules | Includes Cursor rules support |
-| skills.sh-compatible agents | `npx skills add` | 8 skills | Works with OpenAI Codex, Gemini CLI, GitHub Copilot, and other compatible runtimes |
+| Platform | Install method | Notes |
+|----------|----------------|-------|
+| [Claude Code](https://claude.com/product/claude-code) | [Plugin marketplace or Git URL](#install-claude-code) | Full plugin install with 8 skills and 3 agents |
+| [Cursor](https://cursor.com) | [Git URL plugin install](#install-cursor) | Full plugin install plus 3 `.mdc` rules |
+| [OpenAI Codex](https://openai.com/codex/) | [`npx skills add`](#install-skills-sh-compatible-agents) | Uses the shared [skills.sh](https://skills.sh) install flow |
+| [GitHub Copilot](https://github.com/features/copilot) | [`npx skills add`](#install-skills-sh-compatible-agents) | Uses the shared [skills.sh](https://skills.sh) install flow |
+| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | [`npx skills add`](#install-skills-sh-compatible-agents) | Uses the shared [skills.sh](https://skills.sh) install flow |
+| [Snowflake Cortex Code](https://www.snowflake.com/en/product/features/cortex-code/) | [Upload skill folders or copy into `.cortex/skills/`](#install-cortex-code) | Loads the repo's `SKILL.md` directories as custom skills |
+| Other [skills.sh](https://skills.sh)-compatible agents | [`npx skills add`](#install-skills-sh-compatible-agents) | Same install flow as Codex, Copilot, and Gemini CLI |
 
 ## Installation
 
+<a id="install-claude-code"></a>
 ### Claude Code
 
 Marketplace install (recommended, run separately):
@@ -54,6 +60,7 @@ Git URL install (run separately):
 /plugin install omni-analytics@omni-analytics
 ```
 
+<a id="install-cursor"></a>
 ### Cursor
 
 Install from Git URL:
@@ -62,9 +69,29 @@ Install from Git URL:
 /add-plugin https://github.com/exploreomni/omni-agent-skills.git
 ```
 
+<a id="install-cortex-code"></a>
+### Cortex Code
+
+Cortex Code can load these skills directly as custom skill folders. For the CLI, copy one or more folders from this repo's `skills/` directory into project-local `.cortex/skills/` or user-level `~/.snowflake/cortex/skills/`. In Snowsight workspaces, you can upload the same skill folders directly.
+
+Install all repo skills in the current project:
+
+```bash
+mkdir -p .cortex/skills
+cp -R skills/* .cortex/skills/
+```
+
+Install one skill directly:
+
+```bash
+mkdir -p .cortex/skills
+cp -R skills/omni-query .cortex/skills/
+```
+
+<a id="install-skills-sh-compatible-agents"></a>
 ### skills.sh-Compatible Agents
 
-Use this path for agents that load skills through [skills.sh](https://skills.sh), including OpenAI Codex, Gemini CLI, GitHub Copilot, and other compatible agent runtimes.
+Use this path for agents that load skills through [skills.sh](https://skills.sh), including [OpenAI Codex](https://openai.com/codex/), [Gemini CLI](https://github.com/google-gemini/gemini-cli), [GitHub Copilot](https://github.com/features/copilot), and other compatible agent runtimes.
 
 Preview available skills:
 
@@ -154,7 +181,7 @@ These `.mdc` files are included for Cursor's rules system:
 | **omni-yaml-conventions** | YAML file types, field syntax, and dimension and measure patterns |
 | **omni-terminology** | Maps business intelligence terms to Omni-specific vocabulary |
 
-> **Platform note**: Cursor loads the `rules/` directory automatically. Claude Code and skills.sh-compatible agents do not load these files as plugin rules, so outside Cursor they should be treated as shared reference material unless you copy them into that tool's own rule mechanism.
+> **Platform note**: Cursor loads the `rules/` directory automatically. Claude Code, Cortex Code, and skills.sh-compatible agents do not load these files as plugin rules, so outside Cursor they should be treated as shared reference material unless you copy them into that tool's own rule mechanism.
 
 ## Example Prompts
 
@@ -210,9 +237,9 @@ Enable auto-updates:
 
 Or update manually from the `/plugin` menu.
 
-### Cursor / skills.sh-Compatible Agents
+### Cursor / Cortex Code / skills.sh-Compatible Agents
 
-Re-run the installation command to pull the latest version.
+Re-run the installation command or re-copy the updated `skills/` folders to pull the latest version.
 
 ## Repository Structure
 
