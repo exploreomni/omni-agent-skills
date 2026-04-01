@@ -172,7 +172,7 @@ Write with `mode: "extension"` (shared model layer). To delete a file, send empt
 
 ## Writing Views
 
-> **Every view MUST have a `primary_key: true` dimension.** Without a primary key, queries that join to this view will produce fanout errors or incorrect aggregations. Use the table's natural unique identifier (e.g., `id`, `order_id`, `user_id`). If the table has no single unique column, create a composite key with a SQL expression: `sql: ${schema_name} || '-' || ${table_name}`.
+> **Every view that participates in joins MUST have a real `primary_key: true` dimension.** Without a genuine row-unique primary key, queries that join to this view can produce fanout errors or incorrect aggregations. Use the table's natural unique identifier (e.g., `id`, `order_id`, `user_id`). If no single column is unique, build a composite key from row-level columns that are jointly unique, for example `sql: ${order_id} || '-' || ${line_number}`. If you cannot define a row-unique expression, do not mark a dimension as `primary_key: true` yet; fix the grain first or avoid joining the view until a real key exists.
 
 ### Basic View
 
