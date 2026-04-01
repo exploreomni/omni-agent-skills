@@ -1,6 +1,6 @@
 ---
 name: omni-embed
-description: Embed Omni Analytics dashboards in external applications — URL signing, custom themes, iframe events, entity workspaces, and permission-aware content — using the @omni-co/embed SDK and REST API. Use this skill whenever someone wants to embed a dashboard, sign an embed URL, customize the embedded theme, handle embed events, listen for clicks or drills in the iframe, send filters to an embedded dashboard, set up entity workspaces, look up embed users, build a permission-aware content list, white-label an embedded dashboard, or any variant of "embed this dashboard", "customize the iframe theme", "handle click events from the embed", "filter the embedded dashboard", "set up embedding", or "what dashboards can this user see".
+description: Embed Omni Analytics dashboards in external applications — URL signing, custom themes, iframe events, entity workspaces, and permission-aware content — using the @omni-co/embed SDK and Omni CLI. Use this skill whenever someone wants to embed a dashboard, sign an embed URL, customize the embedded theme, handle embed events, listen for clicks or drills in the iframe, send filters to an embedded dashboard, set up entity workspaces, look up embed users, build a permission-aware content list, white-label an embedded dashboard, or any variant of "embed this dashboard", "customize the iframe theme", "handle click events from the embed", "filter the embedded dashboard", "set up embedding", or "what dashboards can this user see".
 ---
 
 # Omni Embed
@@ -16,23 +16,25 @@ npm install @omni-co/embed
 ```
 
 ```bash
-export OMNI_BASE_URL="https://yourorg.embed-omniapp.co"   # Embed domain
-export OMNI_EMBED_SECRET="your-embed-secret"               # Admin → Embed
-export OMNI_API_KEY="your-api-key"                         # For user/content API calls
+# For the Omni CLI (API calls use the standard .omniapp.co domain):
+omni config init
+# Or set environment variables:
+export OMNI_BASE_URL="https://yourorg.omniapp.co"
+export OMNI_API_TOKEN="your-api-key"
+
+# For embed URL signing (uses the .embed-omniapp.co domain):
+export OMNI_EMBED_SECRET="your-embed-secret"   # Admin → Embed
 ```
 
 The embed secret is found in **Admin → Embed** in your Omni instance. The `OMNI_BASE_URL` for embedding uses the `.embed-omniapp.co` domain, not the standard `.omniapp.co` domain.
 
-## API Discovery
-
-When unsure whether an endpoint or parameter exists, fetch the OpenAPI spec:
+## Discovering Commands
 
 ```bash
-curl -L "$OMNI_BASE_URL/openapi.json" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni scim --help        # Embed user lookup
+omni documents --help   # Document listing
+omni folders --help     # Folder listing
 ```
-
-Use this to verify endpoints, available parameters, and request/response schemas before making calls.
 
 ## Signing Embed URLs
 
@@ -372,8 +374,7 @@ When building permission-aware experiences (e.g., a sidebar that only shows dash
 ### Look Up an Embed User
 
 ```bash
-curl -L "$OMNI_API_BASE/api/scim/v2/embed/users?filter=embedExternalId%20eq%20%22user@example.com%22" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni scim embed-users-list --filter 'embedExternalId eq "user@example.com"'
 ```
 
 Returns the Omni user ID for the given `externalId`. If no user is found, the user hasn't accessed any embedded dashboards yet.
@@ -381,8 +382,7 @@ Returns the Omni user ID for the given `externalId`. If no user is found, the us
 ### List Documents by User Permission
 
 ```bash
-curl -L "$OMNI_API_BASE/api/v1/documents?userId={omniUserId}" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni documents list --user-id <omniUserId>
 ```
 
 Response uses `records` array (not `documents`):
@@ -417,8 +417,7 @@ Use `identifier` as the `contentId` for embed signing. Filter for `hasDashboard:
 Entity folders have technical paths like `omni-system-sso-embed-entity-folder-poc`. Map paths to display names:
 
 ```bash
-curl -L "$OMNI_API_BASE/api/v1/folders" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni folders list
 ```
 
 Build a `path → name` mapping from the response to display user-friendly folder names.

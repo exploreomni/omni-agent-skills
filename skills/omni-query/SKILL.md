@@ -1,54 +1,51 @@
 ---
 name: omni-query
-description: Run queries against Omni Analytics' semantic layer using the REST API, interpret results, and chain queries for multi-step analysis. Use this skill whenever someone wants to query data through Omni, run a report, get metrics, pull numbers, analyze data, ask "how many", "what's the trend", "show me the data", retrieve dashboard query results, or perform any data retrieval through Omni's query engine. Also use when someone wants to programmatically extract data from an existing Omni dashboard or workbook.
+description: Run queries against Omni Analytics' semantic layer using the Omni CLI, interpret results, and chain queries for multi-step analysis. Use this skill whenever someone wants to query data through Omni, run a report, get metrics, pull numbers, analyze data, ask "how many", "what's the trend", "show me the data", retrieve dashboard query results, or perform any data retrieval through Omni's query engine. Also use when someone wants to programmatically extract data from an existing Omni dashboard or workbook.
 ---
 
 # Omni Query
 
-Run queries against Omni's semantic layer via the REST API. Omni translates field selections into optimized SQL — you specify what you want (dimensions, measures, filters), not how to get it.
+Run queries against Omni's semantic layer via the Omni CLI. Omni translates field selections into optimized SQL — you specify what you want (dimensions, measures, filters), not how to get it.
 
 > **Tip**: Use `omni-model-explorer` first if you don't know the available topics and fields.
 
 ## Prerequisites
 
 ```bash
+# Option 1: Interactive profile setup (recommended)
+omni config init
+
+# Option 2: Environment variables
 export OMNI_BASE_URL="https://yourorg.omniapp.co"
-export OMNI_API_KEY="your-api-key"
+export OMNI_API_TOKEN="your-api-key"
 ```
 
 You also need a **model ID** and knowledge of available **topics and fields**.
 
-## API Discovery
-
-When unsure whether an endpoint or parameter exists, fetch the OpenAPI spec:
+## Discovering Commands
 
 ```bash
-curl -L "$OMNI_BASE_URL/openapi.json" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni query --help              # List query operations
+omni query run --help          # Show flags for running a query
 ```
-
-Use this to verify endpoints, available parameters, and request/response schemas before making calls.
 
 ## Running a Query
 
 ### Basic Query
 
 ```bash
-curl -L -X POST "$OMNI_BASE_URL/api/v1/query/run" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": {
-      "modelId": "your-model-id",
-      "table": "order_items",
-      "fields": [
-        "order_items.created_at[month]",
-        "order_items.total_revenue"
-      ],
-      "limit": 100,
-      "join_paths_from_topic_name": "order_items"
-    }
-  }'
+omni query run --body '{
+  "query": {
+    "modelId": "your-model-id",
+    "table": "order_items",
+    "fields": [
+      "order_items.created_at[month]",
+      "order_items.total_revenue"
+    ],
+    "limit": 100,
+    "join_paths_from_topic_name": "order_items"
+  }
+}'
 ```
 
 ### Query Parameters
@@ -132,10 +129,7 @@ df = reader.read_all().to_pandas()
 If the response includes `remaining_job_ids`, poll until complete:
 
 ```bash
-curl -L -X POST "$OMNI_BASE_URL/api/v1/query/wait" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{ "jobIds": ["job-id-1", "job-id-2"] }'
+omni query wait --job-ids job-id-1,job-id-2
 ```
 
 ## Running Queries from Dashboards
@@ -144,14 +138,13 @@ Extract and re-run queries powering existing dashboards:
 
 ```bash
 # Get all queries from a dashboard
-curl -L "$OMNI_BASE_URL/api/v1/documents/{dashboardId}/queries" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni documents get-queries <dashboardId>
 
 # Run as a specific user
-{ "query": { ... }, "userId": "user-uuid-here" }
+omni query run --body '{ "query": { ... }, "userId": "user-uuid-here" }'
 
 # Cache policy (valid values: Standard, SkipRequery, SkipCache)
-{ "query": { ... }, "cache": "SkipCache" }
+omni query run --body '{ "query": { ... }, "cache": "SkipCache" }'
 ```
 
 ## Multi-Step Analysis Pattern

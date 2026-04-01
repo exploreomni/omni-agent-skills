@@ -42,8 +42,9 @@ The `mode` parameter in the YAML API controls which layer you write to:
 - Date timeframes use brackets: `orders.created_at[month]`
 - Available timeframes: `[date]`, `[week]`, `[month]`, `[quarter]`, `[year]`
 
-## Key URL Patterns
+## Key References
 
 - Base URL: `$OMNI_BASE_URL` (e.g., `https://yourorg.omniapp.co`)
+- CLI: `omni` command — auto-generated from the OpenAPI spec, handles auth and base URL via configuration
 - API docs: `https://docs.omni.co/api.md`
 - Modeling docs: `https://docs.omni.co/modeling.md`

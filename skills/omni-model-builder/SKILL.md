@@ -1,6 +1,6 @@
 ---
 name: omni-model-builder
-description: Create and edit Omni Analytics semantic model definitions — views, topics, dimensions, measures, relationships, and query views — using YAML through the Omni REST API. Use this skill whenever someone wants to add a field, create a new dimension or measure, define a topic, set up joins between tables, modify the data model, build a new view, add a calculated field, create a relationship, edit YAML, work on a branch, promote model changes, or any variant of "model this data", "add this metric", "create a view for", or "set up a join between". Also use for migrating modeling patterns since Omni's YAML is conceptually similar to other semantic layer definitions.
+description: Create and edit Omni Analytics semantic model definitions — views, topics, dimensions, measures, relationships, and query views — using YAML through the Omni CLI. Use this skill whenever someone wants to add a field, create a new dimension or measure, define a topic, set up joins between tables, modify the data model, build a new view, add a calculated field, create a relationship, edit YAML, work on a branch, promote model changes, or any variant of "model this data", "add this metric", "create a view for", or "set up a join between". Also use for migrating modeling patterns since Omni's YAML is conceptually similar to other semantic layer definitions.
 ---
 
 # Omni Model Builder
@@ -12,8 +12,12 @@ Create and modify Omni's semantic model through the YAML API — views, topics, 
 ## Prerequisites
 
 ```bash
+# Option 1: Interactive profile setup (recommended)
+omni config init
+
+# Option 2: Environment variables
 export OMNI_BASE_URL="https://yourorg.omniapp.co"
-export OMNI_API_KEY="your-api-key"
+export OMNI_API_TOKEN="your-api-key"
 ```
 
 You need **Modeler** or **Connection Admin** permissions.
@@ -39,13 +43,11 @@ Omni uses a **layered approach** where each layer builds on top of the previous:
 Before writing any SQL expressions, confirm the dialect from the connection — don't guess from the connection name:
 
 ```bash
-# 1. Get the model's connectionId
-curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+# 1. List models to find connectionId
+omni models list
 
 # 2. Look up the connection's dialect
-curl -L "$OMNI_BASE_URL/api/v1/connections" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni connections list
 # → find your connectionId and read the "dialect" field
 # → e.g. "bigquery", "postgres", "snowflake", "databricks"
 ```
@@ -73,26 +75,20 @@ The **schema layer** is auto-generated from your database. When your database sc
 **Trigger via API:**
 
 ```bash
-curl -L -X POST "$OMNI_BASE_URL/api/v1/models/{modelId}/refresh" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni models refresh <modelId>
 
 # With branch:
-curl -L -X POST "$OMNI_BASE_URL/api/v1/models/{modelId}/refresh?branch_id={branchId}" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni models refresh <modelId> --branch-id <branchId>
 ```
 
 Requires **Connection Admin** permissions.
 
-## API Discovery
-
-When unsure whether an endpoint or parameter exists, fetch the OpenAPI spec:
+## Discovering Commands
 
 ```bash
-curl -L "$OMNI_BASE_URL/openapi.json" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni models --help              # List all model operations
+omni models yaml-create --help  # Show flags for writing YAML
 ```
-
-Use this to verify endpoints, available parameters, and request/response schemas before making calls.
 
 ## Safe Development Workflow
 
@@ -103,39 +99,32 @@ Always work in a branch. Never write directly to production.
 Omni branches are models with `modelKind: "BRANCH"`. There is no dedicated branch-creation endpoint — create one via `POST /api/v1/models`:
 
 ```bash
-curl -L -X POST "$OMNI_BASE_URL/api/v1/models" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "modelKind": "BRANCH",
-    "baseModelId": "{sharedModelId}",
-    "connectionId": "{connectionId}",
-    "modelName": "my-feature-branch"
-  }'
+omni models create --body '{
+  "modelKind": "BRANCH",
+  "baseModelId": "{sharedModelId}",
+  "connectionId": "{connectionId}",
+  "modelName": "my-feature-branch"
+}'
 ```
 
 The response `model.id` is your `branchId` — a UUID you'll pass to all subsequent API calls. To list existing branches at any time:
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/models?include=activeBranches" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni models list --include activeBranches
 ```
 
-> **Git-connected models**: If your model is connected to a git repo (`GET /api/v1/models/{modelId}/git` returns an `sshUrl`), merging an Omni branch will automatically commit the changes back to your git `baseBranch`. Choose one workflow and stick to it — either edit via the Omni branch API (then `git pull` to sync local files), or edit local files and push via git. Mixing both leads to conflicts.
+> **Git-connected models**: If your model is connected to a git repo (`omni models git-get <modelId>` returns an `sshUrl`), merging an Omni branch will automatically commit the changes back to your git `baseBranch`. Choose one workflow and stick to it — either edit via the Omni branch API (then `git pull` to sync local files), or edit local files and push via git. Mixing both leads to conflicts.
 
 ### Step 1: Write YAML to a Branch
 
 ```bash
-curl -L -X POST "$OMNI_BASE_URL/api/v1/models/{modelId}/yaml" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "fileName": "my_new_view.view",
-    "yaml": "dimensions:\n  order_id:\n    primary_key: true\n  status:\n    label: Order Status\nmeasures:\n  count:\n    aggregate_type: count",
-    "mode": "extension",
-    "branchId": "{branchId}",
-    "commitMessage": "Add my_new_view with status dimension and count measure"
-  }'
+omni models yaml-create <modelId> --body '{
+  "fileName": "my_new_view.view",
+  "yaml": "dimensions:\n  order_id:\n    primary_key: true\n  status:\n    label: Order Status\nmeasures:\n  count:\n    aggregate_type: count",
+  "mode": "extension",
+  "branchId": "{branchId}",
+  "commitMessage": "Add my_new_view with status dimension and count measure"
+}'
 ```
 
 > **Note**: The `branchId` parameter must be a UUID from the server (Step 0). Passing a string name instead will return `400 Bad Request: Unrecognized key: "branchName"`.
@@ -143,8 +132,7 @@ curl -L -X POST "$OMNI_BASE_URL/api/v1/models/{modelId}/yaml" \
 ### Step 2: Validate
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/validate?branchId={branchId}" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni models validate <modelId> --branch-id <branchId>
 ```
 
 Returns validation errors and warnings with `message`, `yaml_path`, and sometimes `auto_fix`.
@@ -154,8 +142,7 @@ Returns validation errors and warnings with `message`, `yaml_path`, and sometime
 > **Important**: Always ask the user for confirmation before merging. Merging applies changes to the production model and cannot be easily undone.
 
 ```bash
-curl -L -X POST "$OMNI_BASE_URL/api/v1/models/{modelId}/branch/{branchName}/merge" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni models merge-branch <modelId> <branchName>
 ```
 
 If git with required PRs is configured, merge through your git workflow instead.
@@ -344,8 +331,7 @@ sql: |
 If your model doesn't reflect the database (missing columns, broken references, wrong types), trigger a schema refresh (see "Schema Refresh" section above). Then validate:
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/validate" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni models validate <modelId>
 ```
 
 Common issues and fixes:
