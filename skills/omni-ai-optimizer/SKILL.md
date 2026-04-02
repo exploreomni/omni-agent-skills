@@ -12,14 +12,8 @@ Optimize your Omni semantic model so Blobby (Omni's AI assistant) returns accura
 ## Prerequisites
 
 ```bash
-# Install the CLI (macOS / Linux)
-curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | sh
-
-# Configure authentication
-omni config init
+command -v omni >/dev/null || curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | sh
 ```
-
-Or set environment variables instead of using `omni config init`:
 
 ```bash
 export OMNI_BASE_URL="https://yourorg.omniapp.co"

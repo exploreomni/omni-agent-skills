@@ -16,17 +16,13 @@ npm install @omni-co/embed
 ```
 
 ```bash
-# Install the Omni CLI (macOS / Linux)
-curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | sh
+command -v omni >/dev/null || curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | sh
+```
 
-# Configure the CLI (API calls use the standard .omniapp.co domain):
-omni config init
-# Or set environment variables:
+```bash
 export OMNI_BASE_URL="https://yourorg.omniapp.co"
 export OMNI_API_TOKEN="your-api-key"
-
-# For embed URL signing (uses the .embed-omniapp.co domain):
-export OMNI_EMBED_SECRET="your-embed-secret"   # Admin → Embed
+export OMNI_EMBED_SECRET="your-embed-secret"   # Admin → Embed (for URL signing)
 ```
 
 The embed secret is found in **Admin → Embed** in your Omni instance. The `OMNI_BASE_URL` for embedding uses the `.embed-omniapp.co` domain, not the standard `.omniapp.co` domain.
