@@ -275,4 +275,4 @@ Queries are ephemeral — there is no persistent URL for a query result. To give
 - **omni-model-explorer** — discover fields and topics before querying
 - **omni-content-explorer** — find dashboards whose queries you can extract
 - **omni-content-builder** — turn query results into dashboards
-- **omni-eval** — benchmark and test AI query generation accuracy
+- **omni-ai-eval** — benchmark and test AI query generation accuracy

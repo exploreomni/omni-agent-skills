@@ -1,5 +1,5 @@
 ---
-name: omni-eval
+name: omni-ai-eval
 description: Evaluate Omni AI query generation accuracy by running test prompts through the Omni CLI, comparing generated query JSON against expected results, and scoring accuracy. Use this skill whenever someone wants to evaluate Omni AI, benchmark Blobby, run regression tests, compare AI output across branches or configurations, test prompt variations, measure AI quality, run A/B tests on model changes, assess impact of context changes, or any variant of "run evals", "test Blobby", "benchmark query generation", "compare AI results", "regression test", "how accurate is the AI", or "measure the impact of my changes".
 ---
 
