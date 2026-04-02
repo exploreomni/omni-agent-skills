@@ -1,63 +1,58 @@
 ---
 name: omni-content-explorer
-description: Find, browse, and organize content in Omni Analytics — dashboards, workbooks, folders, and labels — using the REST API. Use this skill whenever someone wants to find an existing dashboard, search for content, list workbooks, browse folders, see what dashboards exist, find popular reports, download a dashboard as PDF or PNG, favorite content, manage labels on documents, or any variant of "find the dashboard about", "what reports do we have", "show me our dashboards", "where is the sales report", or "download this dashboard".
+description: Find, browse, and organize content in Omni Analytics — dashboards, workbooks, folders, and labels — using the Omni CLI. Use this skill whenever someone wants to find an existing dashboard, search for content, list workbooks, browse folders, see what dashboards exist, find popular reports, download a dashboard as PDF or PNG, favorite content, manage labels on documents, or any variant of "find the dashboard about", "what reports do we have", "show me our dashboards", "where is the sales report", or "download this dashboard".
 ---
 
 # Omni Content Explorer
 
-Find, browse, and organize Omni content — dashboards, workbooks, and folders — through the REST API.
+Find, browse, and organize Omni content — dashboards, workbooks, and folders — through the Omni CLI.
 
 ## Prerequisites
 
 ```bash
-export OMNI_BASE_URL="https://yourorg.omniapp.co"
-export OMNI_API_KEY="your-api-key"
+command -v omni >/dev/null || curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | sh
 ```
-
-## API Discovery
-
-When unsure whether an endpoint or parameter exists, fetch the OpenAPI spec:
 
 ```bash
-curl -L "$OMNI_BASE_URL/openapi.json" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+export OMNI_BASE_URL="https://yourorg.omniapp.co"
+export OMNI_API_TOKEN="your-api-key"
 ```
 
-Use this to verify endpoints, available parameters, and request/response schemas before making calls.
+## Discovering Commands
+
+```bash
+omni content --help     # Content operations
+omni documents --help   # Document operations
+omni folders --help     # Folder operations
+```
 
 ## Browsing Content
 
 ### List All Content
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/content" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni content list
 ```
 
 ### With Counts and Labels
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/content?include=_count,labels" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni content list --include '_count,labels'
 ```
 
 ### Filter and Sort
 
 ```bash
 # By label
-curl -L "$OMNI_BASE_URL/api/v1/content?labels=finance,marketing" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni content list --labels finance,marketing
 
 # By scope
-curl -L "$OMNI_BASE_URL/api/v1/content?scope=organization" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni content list --scope organization
 
 # Sort by popularity or recency
-curl -L "$OMNI_BASE_URL/api/v1/content?sortField=favorites" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni content list --sort-field favorites
 
-curl -L "$OMNI_BASE_URL/api/v1/content?sortField=updatedAt" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni content list --sort-field updatedAt
 ```
 
 ### Pagination
@@ -65,8 +60,7 @@ curl -L "$OMNI_BASE_URL/api/v1/content?sortField=updatedAt" \
 Responses include `pageInfo` with cursor-based pagination. Fetch next page:
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/content?cursor={nextCursor}" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni content list --cursor <nextCursor>
 ```
 
 ## Working with Documents
@@ -74,12 +68,10 @@ curl -L "$OMNI_BASE_URL/api/v1/content?cursor={nextCursor}" \
 ### List Documents
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/documents" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni documents list
 
 # Filter by creator
-curl -L "$OMNI_BASE_URL/api/v1/documents?creatorId={userId}" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni documents list --creator-id <userId>
 ```
 
 Each document includes: `identifier`, `name`, `type`, `scope`, `owner`, `folder`, `labels`, `updatedAt`, `hasDashboard`.
@@ -91,8 +83,7 @@ Each document includes: `identifier`, `name`, `type`, `scope`, `owner`, `folder`
 Retrieve query definitions powering a dashboard's tiles:
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/documents/{identifier}/queries" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni documents get-queries <identifier>
 ```
 
 Useful for understanding what a dashboard computes and re-running queries via `omni-query`.
@@ -101,56 +92,43 @@ Useful for understanding what a dashboard computes and re-running queries via `o
 
 ```bash
 # List
-curl -L "$OMNI_BASE_URL/api/v1/folders" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni folders list
 
 # Create
-curl -L -X POST "$OMNI_BASE_URL/api/v1/folders" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{ "name": "Q1 Reports", "scope": "organization" }'
+omni folders create --body '{ "name": "Q1 Reports", "scope": "organization" }'
 ```
 
 ## Labels
 
 ```bash
 # List labels
-curl -L "$OMNI_BASE_URL/api/v1/labels" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni labels list
 
 # Add label to document
-curl -L -X PUT "$OMNI_BASE_URL/api/v1/documents/{identifier}/labels/{labelName}" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni documents add-label <identifier> <labelName>
 
 # Remove label
-curl -L -X DELETE "$OMNI_BASE_URL/api/v1/documents/{identifier}/labels/{labelName}" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni documents remove-label <identifier> <labelName>
 ```
 
 ## Favorites
 
 ```bash
 # Favorite
-curl -L -X PUT "$OMNI_BASE_URL/api/v1/documents/{identifier}/favorite" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni documents add-favorite <identifier>
 
 # Unfavorite
-curl -L -X DELETE "$OMNI_BASE_URL/api/v1/documents/{identifier}/favorite" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni documents remove-favorite <identifier>
 ```
 
 ## Dashboard Downloads
 
 ```bash
 # Start download (async)
-curl -L -X POST "$OMNI_BASE_URL/api/v1/dashboards/{dashboardId}/download" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{ "format": "pdf" }'
+omni dashboards download <dashboardId> --body '{ "format": "pdf" }'
 
 # Poll job status
-curl -L "$OMNI_BASE_URL/api/v1/dashboards/{dashboardId}/download/{jobId}/status" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni dashboards download-status <dashboardId> <jobId>
 ```
 
 Formats: `pdf`, `png`
@@ -168,7 +146,7 @@ The `identifier` comes from the document's `identifier` field in API responses. 
 
 ## Search Patterns
 
-When scanning all documents for field references (e.g., for impact analysis), paginate with cursor and call `GET /api/v1/documents/{identifier}/queries` for each document. Launch multiple query-fetch calls in parallel for efficiency. For field impact analysis, prefer the content-validator approach in `omni-model-explorer`.
+When scanning all documents for field references (e.g., for impact analysis), paginate with cursor and call `omni documents get-queries <identifier>` for each document. Launch multiple query-fetch calls in parallel for efficiency. For field impact analysis, prefer the content-validator approach in `omni-model-explorer`.
 
 ## Docs Reference
 

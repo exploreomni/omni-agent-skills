@@ -131,18 +131,29 @@ npx skills update
 
 ## Setup
 
-Set these environment variables before using the skills:
+### Install the Omni CLI
 
 ```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | sh
+```
+
+This downloads the latest release, verifies the SHA-256 checksum, and installs the `omni` binary to `/usr/local/bin` (or `~/.local/bin` if not writable). Pre-built binaries for all platforms are also available on the [GitHub Releases page](https://github.com/exploreomni/cli/releases).
+
+### Configure authentication
+
+```bash
+# Option 1: Interactive profile setup (recommended)
+omni config init
+
+# Option 2: Environment variables
 export OMNI_BASE_URL="https://yourorg.omniapp.co"
-export OMNI_API_KEY="your-api-key"
+export OMNI_API_TOKEN="your-api-key"
 ```
 
 API keys are created in **Settings > API Keys** (Organization Admin) or **User Profile > Manage Account > Generate Token** (Personal Access Token).
 
 **Admin note**: Some workflows, especially schema refresh, permissions, schedules, and other admin operations, require an Organization API Key.
-
-> **Token security**: These tokens can appear in terminal scrollback when used in shell commands. For team deployments, prefer a secrets manager or an MCP server wrapper where possible.
 
 ## What You Get
 

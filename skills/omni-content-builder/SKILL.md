@@ -1,17 +1,17 @@
 ---
 name: omni-content-builder
-description: Create, update, and manage Omni Analytics documents and dashboards programmatically — document lifecycle, tiles, visualizations, filters, and layouts — using the REST API. Use this skill whenever someone wants to build a dashboard, create a workbook, add tiles or charts, configure dashboard filters, update an existing dashboard's model, set up a KPI view, create visualizations, lay out a dashboard, create a document, rename a workbook, delete a dashboard, move a document to a folder, duplicate a dashboard, or any variant of "build a dashboard for", "create a report showing", "add a chart to", "make a dashboard", "update the dashboard layout", "rename this document", "move to folder", or "delete this dashboard". Also use when modifying dashboard-level model customizations like workbook-specific joins or fields.
+description: Create, update, and manage Omni Analytics documents and dashboards programmatically — document lifecycle, tiles, visualizations, filters, and layouts — using the Omni CLI. Use this skill whenever someone wants to build a dashboard, create a workbook, add tiles or charts, configure dashboard filters, update an existing dashboard's model, set up a KPI view, create visualizations, lay out a dashboard, create a document, rename a workbook, delete a dashboard, move a document to a folder, duplicate a dashboard, or any variant of "build a dashboard for", "create a report showing", "add a chart to", "make a dashboard", "update the dashboard layout", "rename this document", "move to folder", or "delete this dashboard". Also use when modifying dashboard-level model customizations like workbook-specific joins or fields.
 ---
 
 # Omni Content Builder
 
-Create, update, and manage Omni documents and dashboards programmatically via the REST API — document lifecycle, workbook models, filters, and dashboard content.
+Create, update, and manage Omni documents and dashboards programmatically via the Omni CLI — document lifecycle, workbook models, filters, and dashboard content.
 
 > **Tip**: Use `omni-model-explorer` to understand available fields and `omni-content-explorer` to find existing dashboards to modify or learn from.
 
 ## Known Issues & Safe Defaults
 
-- **Always test queries before creating a dashboard** — run each planned query via `POST /api/v1/query/run` first, including the filters you intend to use. This catches bad field names, missing joins, and malformed filter expressions before they become broken tiles.
+- **Always test queries before creating a dashboard** — run each planned query via `omni query run` first, including the filters you intend to use. This catches bad field names, missing joins, and malformed filter expressions before they become broken tiles.
 - **Chart rendering**: Complex chart types may show "No chart available" in the Omni UI if `config`, `visType`, or `prefersChart` are misconfigured. Default to `chartType: "table"` for reliable rendering, and configure chart visualizations in the Omni UI.
 - **Every query must include at least one measure** — a query with only dimensions produces empty/nonsense tiles (e.g., just months with no data).
 - **Use `identifier` not `id`** for all document API calls — `.id` is null for workbook-type documents and will silently fail.
@@ -21,20 +21,21 @@ Create, update, and manage Omni documents and dashboards programmatically via th
 ## Prerequisites
 
 ```bash
-export OMNI_BASE_URL="https://yourorg.omniapp.co"
-export OMNI_API_KEY="your-api-key"
+command -v omni >/dev/null || curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | sh
 ```
-
-## API Discovery
-
-When unsure whether an endpoint or parameter exists, fetch the OpenAPI spec:
 
 ```bash
-curl -L "$OMNI_BASE_URL/openapi.json" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+export OMNI_BASE_URL="https://yourorg.omniapp.co"
+export OMNI_API_TOKEN="your-api-key"
 ```
 
-Use this to verify endpoints, available parameters, and request/response schemas before making calls.
+## Discovering Commands
+
+```bash
+omni documents --help           # Document operations
+omni dashboards --help          # Dashboard operations
+omni models yaml-create --help  # Writing model YAML
+```
 
 ## Dashboard Architecture
 
@@ -50,13 +51,10 @@ Documents can be created with full query and visualization configurations via `q
 ### Create Document (Name Only)
 
 ```bash
-curl -L -X POST "$OMNI_BASE_URL/api/v1/documents" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "modelId": "your-model-id",
-    "name": "Q1 Revenue Report"
-  }'
+omni documents create --body '{
+  "modelId": "your-model-id",
+  "name": "Q1 Revenue Report"
+}'
 ```
 
 Returns the new document's `identifier`, `workbookId`, and `dashboardId`.
@@ -68,32 +66,29 @@ Use `queryPresentations` to create a document pre-populated with query tabs and 
 > **Doc gap**: The [create-document API docs](https://docs.omni.co/api/documents/create-document.md) mention queryPresentations but don't show the complete structure. This section documents the full format.
 
 ```bash
-curl -L -X POST "$OMNI_BASE_URL/api/v1/documents" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "modelId": "your-model-id",
-    "name": "Q1 Revenue Report",
-    "queryPresentations": [
-      {
-        "name": "Monthly Revenue Trend",
-        "topicName": "order_items",
-        "prefersChart": true,
-        "visType": "basic",
+omni documents create --body '{
+  "modelId": "your-model-id",
+  "name": "Q1 Revenue Report",
+  "queryPresentations": [
+    {
+      "name": "Monthly Revenue Trend",
+      "topicName": "order_items",
+      "prefersChart": true,
+      "visType": "basic",
+      "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
+      "query": {
+        "table": "order_items",
         "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
-        "query": {
-          "table": "order_items",
-          "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
-          "sorts": [{ "column_name": "order_items.created_at[month]", "sort_descending": false }],
-          "filters": { "order_items.created_at": "this quarter" },
-          "limit": 100,
-          "join_paths_from_topic_name": "order_items",
-          "visConfig": { "chartType": "lineColor" }
-        },
-        "config": {}
-      }
-    ]
-  }'
+        "sorts": [{ "column_name": "order_items.created_at[month]", "sort_descending": false }],
+        "filters": { "order_items.created_at": "this quarter" },
+        "limit": 100,
+        "join_paths_from_topic_name": "order_items",
+        "visConfig": { "chartType": "lineColor" }
+      },
+      "config": {}
+    }
+  ]
+}'
 ```
 
 > **Tip**: Default to `"config": {}` for reliable rendering — Omni will auto-generate chart config. For precise chart styling, build a reference dashboard in the UI and read it back via `GET /api/v1/documents/{documentId}`. See [references/queryPresentations.md](references/queryPresentations.md) for complete config examples by chart type (KPI, line, bar, area, pie, scatter, etc.).
@@ -170,39 +165,34 @@ The most reliable way to learn `config`, `visType`, and field names is to read a
 **Step 1: Find a reference dashboard**
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/documents" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni documents list
 ```
 
 **Step 2: Get its full document**
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/documents/{documentId}" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni documents get <documentId>
 ```
 
 Returns the complete `queryPresentations` array including `topicName`, `visConfig`, `config`, and the full `query` object for each tile — use this as the source of truth when recreating or templating dashboards.
 
-> **Tip**: Build a reference dashboard in the Omni UI with the chart types and styling you want, then read it via `GET /api/v1/documents/{documentId}` to capture the exact `queryPresentations` structure to use as a template.
+> **Tip**: Build a reference dashboard in the Omni UI with the chart types and styling you want, then read it via `omni documents get <documentId>` to capture the exact `queryPresentations` structure to use as a template.
 
 #### Caveats When Reusing queryPresentations
 
 These apply when copying queryPresentations from an existing document (for both creating new dashboards and updating existing ones):
 
 - **Strip `model_extension_id`** from each query object — these reference model extensions scoped to the source document and will cause "Chart unavailable" errors.
-- **Filter to the tiles you want** — `GET /api/v1/documents/{id}` returns all queries including workbook-only tabs not shown on the dashboard. Only include the `queryPresentations` you want as visible tiles.
+- **Filter to the tiles you want** — `omni documents get` returns all queries including workbook-only tabs not shown on the dashboard. Only include the `queryPresentations` you want as visible tiles.
 - **Queries without `topicName` are valid** — SQL-mode and tab-selector queries won't have a `topicName`. Do not add one.
 
 ### Rename Document
 
 ```bash
-curl -L -X PATCH "$OMNI_BASE_URL/api/v1/documents/{documentId}" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Q1 Revenue Report (Updated)",
-    "clearExistingDraft": true
-  }'
+omni documents update <documentId> --body '{
+  "name": "Q1 Revenue Report (Updated)",
+  "clearExistingDraft": true
+}'
 ```
 
 Set `clearExistingDraft: true` if the document has an existing draft, otherwise the API returns 409 Conflict.
@@ -210,8 +200,7 @@ Set `clearExistingDraft: true` if the document has an existing draft, otherwise 
 ### Delete Document
 
 ```bash
-curl -L -X DELETE "$OMNI_BASE_URL/api/v1/documents/{documentId}" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni documents delete <documentId>
 ```
 
 Soft-deletes the document (moves to Trash).
@@ -219,13 +208,10 @@ Soft-deletes the document (moves to Trash).
 ### Move Document
 
 ```bash
-curl -L -X PUT "$OMNI_BASE_URL/api/v1/documents/{documentId}/move" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "folderPath": "/Marketing/Reports",
-    "scope": "organization"
-  }'
+omni documents move <documentId> --body '{
+  "folderPath": "/Marketing/Reports",
+  "scope": "organization"
+}'
 ```
 
 Use `"folderPath": null` to move to root. `scope` is optional — auto-computed from the destination folder.
@@ -233,13 +219,10 @@ Use `"folderPath": null` to move to root. `scope` is optional — auto-computed 
 ### Duplicate Document
 
 ```bash
-curl -L -X POST "$OMNI_BASE_URL/api/v1/documents/{documentId}/duplicate" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Copy of Q1 Revenue Report",
-    "folderPath": "/Marketing/Reports"
-  }'
+omni documents duplicate <documentId> --body '{
+  "name": "Copy of Q1 Revenue Report",
+  "folderPath": "/Marketing/Reports"
+}'
 ```
 
 Only published documents can be duplicated. Draft documents return 404.
@@ -257,8 +240,7 @@ Update the tiles, queries, filters, and visualizations on an existing dashboard 
 **Step 1 — Read the existing document** to get its current state:
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/documents/{documentId}" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni documents get <documentId>
 ```
 
 This returns the full document including `queryPresentations`, `filterConfig`, `filterOrder`, `modelId`, `name`, and other fields. Use this as your starting point.
@@ -273,8 +255,10 @@ This returns the full document including `queryPresentations`, `filterConfig`, `
 **Step 3 — PUT the updated document:**
 
 ```bash
+# Note: Full document replacement via PUT is not yet available in the CLI.
+# Use direct HTTP for now, or use omni documents update for partial updates (PATCH).
 curl -L -X PUT "$OMNI_BASE_URL/api/v1/documents/{documentId}" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
+  -H "Authorization: Bearer $OMNI_API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "modelId": "your-model-id",
@@ -322,21 +306,17 @@ Push custom dimensions and measures to a specific dashboard by writing to its wo
 **Step 1 — get the document to find its `workbook_id`:**
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/documents/{documentId}" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni documents get <documentId>
 # → response includes "workbook_id"
 ```
 
 **Step 2 — POST YAML to the workbook model:**
 
 ```bash
-curl -L -X POST "$OMNI_BASE_URL/api/unstable/models/{workbookId}/yaml" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "fileName": "order_items.view",
-    "yaml": "views:\n  order_items:\n    dimensions:\n      is_high_value:\n        sql: \"${sale_price} > 100\"\n        label: High Value Order\n    measures:\n      high_value_count:\n        sql: \"${order_items.id}\"\n        aggregate_type: count_distinct\n        label: High Value Orders"
-  }'
+omni models yaml-create <workbookId> --body '{
+  "fileName": "order_items.view",
+  "yaml": "views:\n  order_items:\n    dimensions:\n      is_high_value:\n        sql: \"${sale_price} > 100\"\n        label: High Value Order\n    measures:\n      high_value_count:\n        sql: \"${order_items.id}\"\n        aggregate_type: count_distinct\n        label: High Value Orders"
+}'
 ```
 
 `fileName` must be `"model"`, `"relationships"`, or end with `.view` or `.topic`. The `yaml` value is a YAML string (not a JSON object). Writing to a workbook model skips git sync entirely — authorization is still checked against the underlying shared model's permissions.
@@ -346,8 +326,7 @@ curl -L -X POST "$OMNI_BASE_URL/api/unstable/models/{workbookId}/yaml" \
 ### Get Current Filters
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/dashboards/{dashboardId}/filters" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni dashboards get-filters <dashboardId>
 ```
 
 ### Update Filters
@@ -355,41 +334,38 @@ curl -L "$OMNI_BASE_URL/api/v1/dashboards/{dashboardId}/filters" \
 Filters can be updated via two approaches:
 
 1. **`PUT /api/v1/documents/{documentId}`** (recommended) — update filters as part of a full document update. Include `filterConfig` and `filterOrder` alongside `queryPresentations` and other required fields. See the [Update Existing Dashboard](#update-existing-dashboard) section.
-2. **`PATCH /api/v1/dashboards/{id}/filters`** — partial filter update. Has been reported to return 405 or 500 in some configurations.
+2. **`omni dashboards update-filters <dashboardId>`** — partial filter update. Has been reported to return 405 or 500 in some configurations.
 
-For **new dashboards**, the most reliable way is to include `filterConfig` and `filterOrder` in the initial `POST /api/v1/documents` call. See [references/filterConfig.md](references/filterConfig.md) for complete examples of each filter type.
+For **new dashboards**, the most reliable way is to include `filterConfig` and `filterOrder` in the initial `omni documents create` call. See [references/filterConfig.md](references/filterConfig.md) for complete examples of each filter type.
 
 ```bash
-curl -L -X POST "$OMNI_BASE_URL/api/v1/documents" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "modelId": "your-model-id",
-    "name": "Filtered Dashboard",
-    "filterConfig": {
-      "date_filter": {
-        "type": "date",
-        "label": "Date Range",
-        "fieldName": "order_items.created_at",
-        "kind": "TIME_FOR_INTERVAL_DURATION",
-        "ui_type": "PAST",
-        "left_side": "6 months ago",
-        "right_side": "6 months"
-      },
-      "state_filter": {
-        "type": "string",
-        "label": "State",
-        "kind": "EQUALS",
-        "fieldName": "users.state",
-        "values": []
-      }
+omni documents create --body '{
+  "modelId": "your-model-id",
+  "name": "Filtered Dashboard",
+  "filterConfig": {
+    "date_filter": {
+      "type": "date",
+      "label": "Date Range",
+      "fieldName": "order_items.created_at",
+      "kind": "TIME_FOR_INTERVAL_DURATION",
+      "ui_type": "PAST",
+      "left_side": "6 months ago",
+      "right_side": "6 months"
     },
-    "filterOrder": ["date_filter", "state_filter"],
-    "queryPresentations": [...]
-  }'
+    "state_filter": {
+      "type": "string",
+      "label": "State",
+      "kind": "EQUALS",
+      "fieldName": "users.state",
+      "values": []
+    }
+  },
+  "filterOrder": ["date_filter", "state_filter"],
+  "queryPresentations": [...]
+}'
 ```
 
-The keys in `filterConfig` (e.g., `"date_filter"`) are arbitrary IDs — they must match the entries in `filterOrder`. To learn the exact filter structure, read filters from an existing dashboard with `GET /api/v1/dashboards/{dashboardId}/filters`.
+The keys in `filterConfig` (e.g., `"date_filter"`) are arbitrary IDs — they must match the entries in `filterOrder`. To learn the exact filter structure, read filters from an existing dashboard with `omni dashboards get-filters <dashboardId>`.
 
 ### Filter Types
 
@@ -431,15 +407,15 @@ The `identifier` comes from the document's `identifier` field in API responses (
 ### API-First (Full Programmatic Creation)
 
 1. **Discover fields** — use `omni-model-explorer` to find topic + fields
-2. **Test each query** — run every query you plan to include via `POST /api/v1/query/run` (using `omni-query`) before building the dashboard. Include the same filters you plan to use in `filterConfig` as query-level filters to confirm they parse correctly. This catches field name typos, missing join paths, bad filter expressions, and permission errors before they become broken tiles.
-3. **Create document** — single `POST /api/v1/documents` with `queryPresentations` + `filterConfig` + `filterOrder` all in one call
+2. **Test each query** — run every query you plan to include via `omni query run` (using `omni-query`) before building the dashboard. Include the same filters you plan to use in `filterConfig` as query-level filters to confirm they parse correctly. This catches field name typos, missing join paths, bad filter expressions, and permission errors before they become broken tiles.
+3. **Create document** — single `omni documents create` with `queryPresentations` + `filterConfig` + `filterOrder` all in one call
 4. **Share the link** — return `{OMNI_BASE_URL}/dashboards/{identifier}` to the user
 5. **Refine in UI** — tile layout, chart styling, and advanced config are best done in the Omni UI
 
 ### Update Existing Dashboard
 
-1. **Find the dashboard** — use `omni-content-explorer` or `GET /api/v1/documents` to locate it
-2. **Read its current state** — `GET /api/v1/documents/{documentId}` to get the full document including `queryPresentations`, `filterConfig`, etc.
+1. **Find the dashboard** — use `omni-content-explorer` or `omni documents list` to locate it
+2. **Read its current state** — `omni documents get <documentId>` to get the full document including `queryPresentations`, `filterConfig`, etc.
 3. **Modify** — add, remove, or edit entries in the `queryPresentations` array; update `filterConfig`/`filterOrder` as needed
 4. **PUT the update** — `PUT /api/v1/documents/{documentId}` with the complete modified document and `clearExistingDraft: true`
 5. **Share the link** — return `{OMNI_BASE_URL}/dashboards/{identifier}` to the user
@@ -454,14 +430,10 @@ The `identifier` comes from the document's `identifier` field in API responses (
 
 ```bash
 # Start async download
-curl -L -X POST "$OMNI_BASE_URL/api/v1/dashboards/{dashboardId}/download" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{ "format": "pdf" }'
+omni dashboards download <dashboardId> --body '{ "format": "pdf" }'
 
 # Poll job
-curl -L "$OMNI_BASE_URL/api/v1/dashboards/{dashboardId}/download/{jobId}/status" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni dashboards download-status <dashboardId> <jobId>
 ```
 
 ## Docs Reference

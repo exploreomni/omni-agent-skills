@@ -96,21 +96,21 @@ Getting `relationship_type` right prevents fanout and symmetric aggregate errors
 
 ## YAML API Write Pattern
 
-Always write via the API with a branch:
+Always write via the CLI with a branch:
 
-```json
-{
+```bash
+omni models yaml-create <modelId> --body '{
   "fileName": "my_view.view",
   "yaml": "...",
   "mode": "extension",
   "branchId": "{branchId}",
   "commitMessage": "Descriptive message"
-}
+}'
 ```
 
 - `mode: "extension"` writes to the shared model layer (most common)
 - To delete a file, send empty `yaml` with `mode: "extension"`
-- Always validate after writing: `GET /api/v1/models/{modelId}/validate?branchId={branchId}`
+- Always validate after writing: `omni models validate <modelId> --branch-id <branchId>`
 
 ## Common Pitfalls
 

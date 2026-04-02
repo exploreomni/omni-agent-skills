@@ -1,6 +1,6 @@
 ---
 name: omni-admin
-description: Administer an Omni Analytics instance — manage connections, users, groups, user attributes, permissions, schedules, and schema refreshes via the REST API. Use this skill whenever someone wants to manage users or groups, set up permissions on a dashboard or folder, configure user attributes, create or modify schedules, manage database connections, refresh a schema, set up access controls, provision users, or any variant of "add a user", "give access to", "set up permissions", "who has access", "configure connection", "refresh the schema", or "schedule a delivery".
+description: Administer an Omni Analytics instance — manage connections, users, groups, user attributes, permissions, schedules, and schema refreshes via the Omni CLI. Use this skill whenever someone wants to manage users or groups, set up permissions on a dashboard or folder, configure user attributes, create or modify schedules, manage database connections, refresh a schema, set up access controls, provision users, or any variant of "add a user", "give access to", "set up permissions", "who has access", "configure connection", "refresh the schema", or "schedule a delivery".
 ---
 
 # Omni Admin
@@ -12,122 +12,100 @@ Manage your Omni instance — connections, users, groups, user attributes, permi
 ## Prerequisites
 
 ```bash
-export OMNI_BASE_URL="https://yourorg.omniapp.co"
-export OMNI_API_KEY="your-api-key"
+command -v omni >/dev/null || curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | sh
 ```
-
-## API Discovery
-
-When unsure whether an endpoint or parameter exists, fetch the OpenAPI spec:
 
 ```bash
-curl -L "$OMNI_BASE_URL/openapi.json" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+export OMNI_BASE_URL="https://yourorg.omniapp.co"
+export OMNI_API_TOKEN="your-api-key"
 ```
 
-Use this to verify endpoints, available parameters, and request/response schemas before making calls.
+## Discovering Commands
+
+```bash
+omni scim --help             # User and group management
+omni schedules --help        # Schedule operations
+omni connections --help      # Connection management
+omni documents --help        # Document permissions
+omni folders --help          # Folder permissions
+```
 
 ## Connections
 
 ```bash
 # List connections
-curl -L "$OMNI_BASE_URL/api/v1/connections" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni connections list
 
 # Schema refresh schedules
-curl -L "$OMNI_BASE_URL/api/v1/connections/{connectionId}/schedules" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni connections schedules-list <connectionId>
 
 # Connection environments
-curl -L "$OMNI_BASE_URL/api/v1/connection-environments" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni connections connection-environments-list
 ```
 
 ## User Management (SCIM 2.0)
 
-Endpoint prefix: `/api/scim/v2/`
-
 ```bash
 # List users
-curl -L "$OMNI_BASE_URL/api/scim/v2/users" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni scim users-list
 
-# Find by email (URL-encode the filter)
-curl -L "$OMNI_BASE_URL/api/scim/v2/users?filter=userName%20eq%20%22user@company.com%22" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+# Find by email
+omni scim users-list --filter 'userName eq "user@company.com"'
 
 # Create user
-curl -L -X POST "$OMNI_BASE_URL/api/scim/v2/users" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
-    "userName": "newuser@company.com",
-    "displayName": "New User",
-    "active": true,
-    "emails": [{ "primary": true, "value": "newuser@company.com" }]
-  }'
+omni scim users-create --body '{
+  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+  "userName": "newuser@company.com",
+  "displayName": "New User",
+  "active": true,
+  "emails": [{ "primary": true, "value": "newuser@company.com" }]
+}'
 
 # Deactivate user
-curl -L -X PATCH "$OMNI_BASE_URL/api/scim/v2/users/{userId}" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
-    "Operations": [{ "op": "replace", "path": "active", "value": false }]
-  }'
+omni scim users-update <userId> --body '{
+  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+  "Operations": [{ "op": "replace", "path": "active", "value": false }]
+}'
 
 # Delete user
-curl -L -X DELETE "$OMNI_BASE_URL/api/scim/v2/users/{userId}" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni scim users-delete <userId>
 ```
 
 ## Group Management (SCIM 2.0)
 
 ```bash
 # List groups
-curl -L "$OMNI_BASE_URL/api/scim/v2/groups" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni scim groups-list
 
 # Create group
-curl -L -X POST "$OMNI_BASE_URL/api/scim/v2/groups" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
-    "displayName": "Analytics Team",
-    "members": [{ "value": "user-uuid-1" }]
-  }'
+omni scim groups-create --body '{
+  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+  "displayName": "Analytics Team",
+  "members": [{ "value": "user-uuid-1" }]
+}'
 
 # Add members
-curl -L -X PATCH "$OMNI_BASE_URL/api/scim/v2/groups/{groupId}" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
-    "Operations": [{ "op": "add", "path": "members", "value": [{ "value": "new-user-uuid" }] }]
-  }'
+omni scim groups-update <groupId> --body '{
+  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+  "Operations": [{ "op": "add", "path": "members", "value": [{ "value": "new-user-uuid" }] }]
+}'
 ```
 
 ## User Attributes
 
 ```bash
 # List attributes
-curl -L "$OMNI_BASE_URL/api/v1/user-attributes" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni user-attributes list
 
 # Set attribute on user (via SCIM)
-curl -L -X PATCH "$OMNI_BASE_URL/api/scim/v2/users/{userId}" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
-    "Operations": [{
-      "op": "replace",
-      "path": "urn:omni:params:1.0:UserAttribute:region",
-      "value": "West Coast"
-    }]
-  }'
+omni scim users-update <userId> --body '{
+  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+  "Operations": [{
+    "op": "replace",
+    "path": "urn:omni:params:1.0:UserAttribute:region",
+    "value": "West Coast"
+  }]
+}'
 ```
 
 User attributes work with `access_filters` in topics for row-level security.
@@ -136,112 +114,82 @@ User attributes work with `access_filters` in topics for row-level security.
 
 ```bash
 # Get/set model roles for a user
-curl -L "$OMNI_BASE_URL/api/v1/users/{userId}/model-roles" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni users get-model-roles <userId>
 
-curl -L -X POST "$OMNI_BASE_URL/api/v1/users/{userId}/model-roles" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{ "modelId": "{modelId}", "role": "VIEWER" }'
+omni users assign-model-role <userId> --body '{ "modelId": "{modelId}", "role": "VIEWER" }'
 
 # Get/set model roles for a group
-curl -L "$OMNI_BASE_URL/api/v1/user-groups/{groupId}/model-roles" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni users user-groups-get-model-roles <groupId>
 
-curl -L -X POST "$OMNI_BASE_URL/api/v1/user-groups/{groupId}/model-roles" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{ "modelId": "{modelId}", "role": "VIEWER" }'
+omni users user-groups-assign-model-role <groupId> --body '{ "modelId": "{modelId}", "role": "VIEWER" }'
 ```
 
 ## Document Permissions
 
 ```bash
 # Get permissions for a user (userId required)
-curl -L "$OMNI_BASE_URL/api/v1/documents/{documentId}/permissions?userId={userId}" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni documents get-permissions <documentId> --user-id <userId>
 
 # Set permissions
-curl -L -X PUT "$OMNI_BASE_URL/api/v1/documents/{documentId}/permissions" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "permissions": [
-      { "type": "group", "id": "group-uuid", "access": "view" },
-      { "type": "user", "id": "user-uuid", "access": "edit" }
-    ]
-  }'
+omni documents update-permission-settings <documentId> --body '{
+  "permissions": [
+    { "type": "group", "id": "group-uuid", "access": "view" },
+    { "type": "user", "id": "user-uuid", "access": "edit" }
+  ]
+}'
 ```
 
 ## Folder Permissions
 
 ```bash
 # Get
-curl -L "$OMNI_BASE_URL/api/v1/folders/{folderId}/permissions" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni folders get-permissions <folderId>
 
 # Set
-curl -L -X PUT "$OMNI_BASE_URL/api/v1/folders/{folderId}/permissions" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "permissions": [{ "type": "group", "id": "group-uuid", "access": "view" }]
-  }'
+omni folders add-permissions <folderId> --body '{
+  "permissions": [{ "type": "group", "id": "group-uuid", "access": "view" }]
+}'
 ```
 
 ## Schedules
 
 ```bash
 # List schedules
-curl -L "$OMNI_BASE_URL/api/v1/schedules" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni schedules list
 
 # Create schedule
-curl -L -X POST "$OMNI_BASE_URL/api/v1/schedules" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "documentId": "dashboard-identifier",
-    "frequency": "weekly",
-    "dayOfWeek": "monday",
-    "hour": 9,
-    "timezone": "America/Los_Angeles",
-    "format": "pdf"
-  }'
+omni schedules create --body '{
+  "documentId": "dashboard-identifier",
+  "frequency": "weekly",
+  "dayOfWeek": "monday",
+  "hour": 9,
+  "timezone": "America/Los_Angeles",
+  "format": "pdf"
+}'
 
 # Manage recipients
-curl -L "$OMNI_BASE_URL/api/v1/schedules/{scheduleId}/recipients" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni schedules recipients-get <scheduleId>
 
-curl -L -X POST "$OMNI_BASE_URL/api/v1/schedules/{scheduleId}/recipients" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{ "recipients": [{ "type": "email", "value": "team@company.com" }] }'
+omni schedules add-recipients <scheduleId> --body '{ "recipients": [{ "type": "email", "value": "team@company.com" }] }'
 ```
 
 ## Cache and Validation
 
 ```bash
 # Reset cache policy
-curl -L -X POST "$OMNI_BASE_URL/api/v1/models/{modelId}/cache_reset/{policyName}" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{ "resetAt": "2025-01-30T22:30:52.872Z" }'
+omni models cache-reset <modelId> <policyName> --body '{ "resetAt": "2025-01-30T22:30:52.872Z" }'
 
 # Content validator (find broken field references across all dashboards and tiles)
 # Useful for blast-radius analysis: remove a field on a branch, then run the
 # validator against that branch to see what content would break.
 # See the Field Impact Analysis section in omni-model-explorer for the full workflow.
-curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/content-validator" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni models content-validator-get <modelId>
 
 # Run against a specific branch (e.g., after removing a field)
-curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/content-validator?branchId={branchId}" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni models content-validator-get <modelId> --branch-id <branchId>
 
 # Git configuration
-curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/git" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni models git-get <modelId>
 ```
 
 ## Docs Reference

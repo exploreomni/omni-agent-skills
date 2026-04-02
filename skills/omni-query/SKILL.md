@@ -1,54 +1,52 @@
 ---
 name: omni-query
-description: Run queries against Omni Analytics' semantic layer using the REST API, interpret results, and chain queries for multi-step analysis. Use this skill whenever someone wants to query data through Omni, run a report, get metrics, pull numbers, analyze data, ask "how many", "what's the trend", "show me the data", retrieve dashboard query results, or perform any data retrieval through Omni's query engine. Also use when someone wants to programmatically extract data from an existing Omni dashboard or workbook.
+description: Run queries against Omni Analytics' semantic layer using the Omni CLI, interpret results, and chain queries for multi-step analysis. Use this skill whenever someone wants to query data through Omni, run a report, get metrics, pull numbers, analyze data, ask "how many", "what's the trend", "show me the data", retrieve dashboard query results, or perform any data retrieval through Omni's query engine. Also use when someone wants to programmatically extract data from an existing Omni dashboard or workbook.
 ---
 
 # Omni Query
 
-Run queries against Omni's semantic layer via the REST API. Omni translates field selections into optimized SQL — you specify what you want (dimensions, measures, filters), not how to get it.
+Run queries against Omni's semantic layer via the Omni CLI. Omni translates field selections into optimized SQL — you specify what you want (dimensions, measures, filters), not how to get it.
 
 > **Tip**: Use `omni-model-explorer` first if you don't know the available topics and fields.
 
 ## Prerequisites
 
 ```bash
+command -v omni >/dev/null || curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | sh
+```
+
+```bash
 export OMNI_BASE_URL="https://yourorg.omniapp.co"
-export OMNI_API_KEY="your-api-key"
+export OMNI_API_TOKEN="your-api-key"
 ```
 
 You also need a **model ID** and knowledge of available **topics and fields**.
 
-## API Discovery
-
-When unsure whether an endpoint or parameter exists, fetch the OpenAPI spec:
+## Discovering Commands
 
 ```bash
-curl -L "$OMNI_BASE_URL/openapi.json" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni query --help              # List query operations
+omni query run --help          # Show flags for running a query
+omni ai --help                 # AI-powered query generation
 ```
-
-Use this to verify endpoints, available parameters, and request/response schemas before making calls.
 
 ## Running a Query
 
 ### Basic Query
 
 ```bash
-curl -L -X POST "$OMNI_BASE_URL/api/v1/query/run" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": {
-      "modelId": "your-model-id",
-      "table": "order_items",
-      "fields": [
-        "order_items.created_at[month]",
-        "order_items.total_revenue"
-      ],
-      "limit": 100,
-      "join_paths_from_topic_name": "order_items"
-    }
-  }'
+omni query run --body '{
+  "query": {
+    "modelId": "your-model-id",
+    "table": "order_items",
+    "fields": [
+      "order_items.created_at[month]",
+      "order_items.total_revenue"
+    ],
+    "limit": 100,
+    "join_paths_from_topic_name": "order_items"
+  }
+}'
 ```
 
 ### Query Parameters
@@ -132,10 +130,7 @@ df = reader.read_all().to_pandas()
 If the response includes `remaining_job_ids`, poll until complete:
 
 ```bash
-curl -L -X POST "$OMNI_BASE_URL/api/v1/query/wait" \
-  -H "Authorization: Bearer $OMNI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{ "jobIds": ["job-id-1", "job-id-2"] }'
+omni query wait --job-ids job-id-1,job-id-2
 ```
 
 ## Running Queries from Dashboards
@@ -144,15 +139,103 @@ Extract and re-run queries powering existing dashboards:
 
 ```bash
 # Get all queries from a dashboard
-curl -L "$OMNI_BASE_URL/api/v1/documents/{dashboardId}/queries" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni documents get-queries <dashboardId>
 
 # Run as a specific user
-{ "query": { ... }, "userId": "user-uuid-here" }
+omni query run --body '{ "query": { ... }, "userId": "user-uuid-here" }'
 
 # Cache policy (valid values: Standard, SkipRequery, SkipCache)
-{ "query": { ... }, "cache": "SkipCache" }
+omni query run --body '{ "query": { ... }, "cache": "SkipCache" }'
 ```
+
+## AI-Powered Query Generation
+
+Instead of constructing query JSON manually, you can describe what you want in natural language and let Omni's AI generate the query.
+
+### Generate Query (synchronous)
+
+The fastest path — returns a generated query JSON synchronously. Set `runQuery: false` to get only the query structure without executing it, or `true` (default) to also run it against the database.
+
+```bash
+# Just generate the query JSON (no execution)
+omni ai generate-query --body '{
+  "modelId": "your-model-id",
+  "prompt": "Show me revenue by month",
+  "runQuery": false
+}'
+```
+
+Response:
+
+```json
+{
+  "query": {
+    "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
+    "table": "order_items",
+    "filters": {},
+    "sorts": [{"column_name": "order_items.created_at[month]", "sort_descending": false}],
+    "limit": 500
+  },
+  "topic": "order_items",
+  "error": null
+}
+```
+
+```bash
+# Generate and execute in one call
+omni ai generate-query --body '{
+  "modelId": "your-model-id",
+  "prompt": "Top 10 customers by lifetime spend"
+}'
+```
+
+Optional parameters:
+- `branchId` — test against a specific model branch
+- `currentTopicName` — constrain topic selection to a specific topic
+
+### Pick Topic
+
+Check which topic the AI would select for a question, without generating a full query:
+
+```bash
+omni ai pick-topic --body '{
+  "modelId": "your-model-id",
+  "prompt": "How many users signed up last month?"
+}'
+```
+
+### Agentic Queries (async)
+
+For the full Blobby experience — multi-step analysis, tool use, and topic selection as the AI would actually behave in production. This is async: submit a job, poll for status, then retrieve the result.
+
+```bash
+# 1. Submit a job
+omni ai job-submit --body '{
+  "modelId": "your-model-id",
+  "prompt": "Analyze revenue trends and identify our fastest growing product category"
+}'
+# → returns { "jobId": "job-uuid", "conversationId": "conv-uuid" }
+
+# 2. Poll for completion (QUEUED → EXECUTING → COMPLETE)
+omni ai job-status <jobId>
+
+# 3. Get the result
+omni ai job-result <jobId>
+```
+
+The result contains an `actions` array with each step the AI took — look for actions with `type: "generate_query"` to extract the generated queries. The response also includes `resultSummary` with the AI's narrative interpretation.
+
+Additional job commands:
+- `omni ai job-cancel <jobId>` — cancel a running job
+- `omni ai job-visualization <jobId>` — get the visualization output
+
+### When to Use Which Approach
+
+| Approach | Best For |
+|----------|----------|
+| `omni query run` | You know exactly which fields, filters, and sorts you need |
+| `omni ai generate-query` | Translating a natural language question into a single query |
+| `omni ai job-submit` | Complex questions that may need multiple queries or multi-step reasoning |
 
 ## Multi-Step Analysis Pattern
 
@@ -192,3 +275,4 @@ Queries are ephemeral — there is no persistent URL for a query result. To give
 - **omni-model-explorer** — discover fields and topics before querying
 - **omni-content-explorer** — find dashboards whose queries you can extract
 - **omni-content-builder** — turn query results into dashboards
+- **omni-eval** — benchmark and test AI query generation accuracy
