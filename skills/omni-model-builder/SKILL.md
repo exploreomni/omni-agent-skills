@@ -96,15 +96,8 @@ Always work in a branch. Never write directly to production.
 
 ### Step 0: Create a Branch
 
-Omni branches are models with `modelKind: "BRANCH"`. There is no dedicated branch-creation endpoint — create one via `POST /api/v1/models`:
-
 ```bash
-omni models create --body '{
-  "modelKind": "BRANCH",
-  "baseModelId": "{sharedModelId}",
-  "connectionId": "{connectionId}",
-  "modelName": "my-feature-branch"
-}'
+omni models create-branch <modelId> --name "my-feature-branch"
 ```
 
 The response `model.id` is your `branchId` — a UUID you'll pass to all subsequent API calls. To list existing branches at any time:

@@ -58,6 +58,7 @@ When building or updating topics, always consider Blobby:
 
 ## Conventions
 
+- Run `omni agent-help` for a quick reference of all CLI commands and common workflows
 - Reference `omni-yaml-conventions` rule for YAML syntax patterns
 - Reference `omni-api-conventions` rule for auth and error handling
 - Prefer `mode: "extension"` (shared model layer) over `combined`

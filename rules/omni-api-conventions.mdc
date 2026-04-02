@@ -60,6 +60,7 @@ omni <group> <operation> [positional-args] [--flags] [--body 'JSON']
 ### Discovering Commands
 
 ```bash
+omni agent-help                    # Agent-oriented guide with common workflows
 omni --help                        # List all command groups
 omni <group> --help                # List operations in a group
 omni <group> <operation> --help    # Show flags and positional args

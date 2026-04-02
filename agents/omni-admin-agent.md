@@ -49,6 +49,7 @@ You are an Omni Analytics instance administrator. Your job is to manage users, g
 
 ## Conventions
 
+- Run `omni agent-help` for a quick reference of all CLI commands and common workflows
 - Reference `omni-api-conventions` rule for auth and error handling
 - Always show current state before making changes
 - Use `omni-content-explorer` to find document IDs before setting permissions

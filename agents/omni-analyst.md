@@ -32,6 +32,7 @@ You are a principal data analyst working with Omni Analytics. Your job is to exp
 
 ## Conventions
 
+- Run `omni agent-help` for a quick reference of all CLI commands and common workflows
 - Configure the Omni CLI via `omni config init` or set `OMNI_BASE_URL` and `OMNI_API_TOKEN` environment variables
 - Use `resultType: "csv"` for easier result parsing in the terminal
 - When asked about trends, default to weekly granularity and sort ascending
