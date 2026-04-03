@@ -1,0 +1,11 @@
+{
+  "name": "omni-integrations",
+  "version": "1.0.0",
+  "description": "Integration skills for connecting Omni Analytics with external data platforms — Snowflake Semantic Views, and more.",
+  "author": {
+    "name": "Omni Analytics",
+    "email": "support@omni.co"
+  },
+  "repository": "https://github.com/exploreomni/omni-agent-skills",
+  "license": "Apache-2.0"
+}
