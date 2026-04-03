@@ -57,7 +57,9 @@ Some skills, especially admin workflows, require an Organization API Key.
 
 ## Skills
 
-This repository currently includes 8 Omni Analytics skills:
+This repository currently includes 9 skills across 2 plugins:
+
+### omni-analytics
 
 | Skill | Description |
 |-------|-------------|
@@ -69,6 +71,12 @@ This repository currently includes 8 Omni Analytics skills:
 | **omni-ai-optimizer** | Optimize Omni models for Blobby by improving AI context, sample queries, and field curation. |
 | **omni-admin** | Manage connections, users, groups, permissions, schedules, and schema refreshes. |
 | **omni-embed** | Build embedded Omni experiences with signed URLs, theming, iframe events, and permission-aware workflows. |
+
+### omni-integrations
+
+| Skill | Description |
+|-------|-------------|
+| **omni-to-snowflake-semantic-view** | Convert an Omni Analytics topic into a Snowflake Semantic View YAML definition. |
 
 ## Usage
 
@@ -84,6 +92,7 @@ the same:
 "Improve the AI context on our orders topic"                  -> omni-ai-optimizer
 "Give the marketing team access to the sales dashboard"       -> omni-admin
 "Generate a signed embed URL for this dashboard"              -> omni-embed
+"Convert this Omni topic to a Snowflake Semantic View"        -> omni-to-snowflake-semantic-view
 ```
 
 ## Documentation
@@ -98,29 +107,38 @@ the same:
 
 ```text
 omni-agent-skills/
+├── .claude-plugin/
+│   └── marketplace.json
 ├── .github/
 │   └── scripts/
 │       └── sync-upstream.sh
 ├── docs/
 │   └── upstream-sync.md
-└── plugins/
-    └── omni-analytics/
+├── plugins/
+│   └── omni-analytics/
+│       └── skills/
+│           ├── omni-model-explorer/
+│           │   └── SKILL.md
+│           ├── omni-query/
+│           │   └── SKILL.md
+│           ├── omni-model-builder/
+│           │   └── SKILL.md
+│           ├── omni-content-explorer/
+│           │   └── SKILL.md
+│           ├── omni-content-builder/
+│           │   └── SKILL.md
+│           ├── omni-ai-optimizer/
+│           │   └── SKILL.md
+│           ├── omni-admin/
+│           │   └── SKILL.md
+│           └── omni-embed/
+│               └── SKILL.md
+└── skills/
+    └── omni-integrations/
+        ├── .claude-plugin/
+        │   └── plugin.json
         └── skills/
-            ├── omni-model-explorer/
-            │   └── SKILL.md
-            ├── omni-query/
-            │   └── SKILL.md
-            ├── omni-model-builder/
-            │   └── SKILL.md
-            ├── omni-content-explorer/
-            │   └── SKILL.md
-            ├── omni-content-builder/
-            │   └── SKILL.md
-            ├── omni-ai-optimizer/
-            │   └── SKILL.md
-            ├── omni-admin/
-            │   └── SKILL.md
-            └── omni-embed/
+            └── omni-to-snowflake-semantic-view/
                 └── SKILL.md
 ```
 

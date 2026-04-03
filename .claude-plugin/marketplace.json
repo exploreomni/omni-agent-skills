@@ -1,0 +1,14 @@
+{
+  "plugins": [
+    {
+      "name": "omni-analytics",
+      "description": "Reusable Omni Analytics skills for coding agents — explore models, run queries, manage content, administer Omni, and update semantic models.",
+      "source": "./plugins/omni-analytics"
+    },
+    {
+      "name": "omni-integrations",
+      "description": "Integration skills for connecting Omni Analytics with external data platforms — Snowflake Semantic Views, and more.",
+      "source": "./skills/omni-integrations"
+    }
+  ]
+}
