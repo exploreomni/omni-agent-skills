@@ -95,7 +95,7 @@ These apply when copying queryPresentations from an existing document (for both 
 
 ## Chart Type Examples
 
-## Table (Safe Default)
+### Table (Safe Default)
 
 The simplest and most reliable visualization. Use when unsure about chart config.
 
@@ -123,7 +123,7 @@ Key differences from chart types:
 - `config` is an empty object `{}`
 - `visConfig.chartType` is `"table"`
 
-## KPI (Single Value)
+### KPI (Single Value)
 
 Displays one or more big numbers. Uses `visType: "omni-kpi"` (not `"basic"`).
 
@@ -209,7 +209,7 @@ Add more entries to `markdownConfig`. Each entry gets a unique `id`:
 | `markdownConfig[].config.field.label.value` | Yes | Display label for the KPI |
 | `markdownConfig[].config.descriptionBefore` | No | Text shown above the number |
 
-## Line Chart
+### Line Chart
 
 Time-series or continuous data. Uses `visType: "basic"` with cartesian config.
 
@@ -264,7 +264,7 @@ Add more entries to `series`, and include them in `tooltip`:
 ]
 ```
 
-## Bar Chart (Horizontal)
+### Bar Chart (Horizontal)
 
 Dimension on y-axis, measure on x-axis. Good for ranked lists (Top N).
 
@@ -303,7 +303,7 @@ Dimension on y-axis, measure on x-axis. Good for ranked lists (Top N).
 }
 ```
 
-## Bar Chart (Vertical)
+### Bar Chart (Vertical)
 
 Dimension on x-axis, measure on y-axis. The axes and `_dependentAxis` flip compared to horizontal.
 
@@ -342,7 +342,7 @@ Dimension on x-axis, measure on y-axis. The axes and `_dependentAxis` flip compa
 }
 ```
 
-## Area Chart
+### Area Chart
 
 Same structure as line chart but with `mark.type: "area"` and `visConfig.chartType: "areaColor"`.
 
@@ -380,7 +380,7 @@ Same structure as line chart but with `mark.type: "area"` and `visConfig.chartTy
 }
 ```
 
-## Stacked Bar Chart
+### Stacked Bar Chart
 
 Uses `"_stack": "stack"` instead of `"_stack": "group"` in `color`, and `visConfig.chartType: "stackedBarColor"`.
 
