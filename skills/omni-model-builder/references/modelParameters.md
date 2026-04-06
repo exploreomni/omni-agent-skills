@@ -16,8 +16,8 @@ Complete parameter reference for views, topics, dimensions, and measures. Use th
 | `group_label` | Groups fields in the picker |
 | `tags` | Metadata for field search and curation (e.g., `[internal, pii]`) |
 | `synonyms` | Alternative names for AI matching (e.g., `[client, account, buyer]`) |
-| `ai_context` | Free text providing context to the AI query helper |
-| `all_values` | Complete list of possible values for AI helper |
+| `ai_context` | Free text providing context to the Workbook Agent |
+| `all_values` | Complete list of possible values for the Workbook Agent |
 | `sample_values` | Representative values for AI content understanding |
 | `display_order` | Overrides sort order in field picker |
 | `view_label` | Nests field under a different view in the picker |
@@ -94,8 +94,8 @@ dimensions:
 | `group_label` | Groups fields in the picker |
 | `tags` | Metadata for field search and curation |
 | `synonyms` | Alternative names for AI matching |
-| `ai_context` | Free text providing context to the AI query helper |
-| `all_values` | Complete list of possible values for AI helper |
+| `ai_context` | Free text providing context to the Workbook Agent |
+| `all_values` | Complete list of possible values for the Workbook Agent |
 | `sample_values` | Sample values for AI to understand magnitude |
 | `filters` | Filtered aggregations (see Measure Filters below) |
 | `custom_primary_key_sql` | Custom dedup key for `*_distinct_on` aggregate types |
