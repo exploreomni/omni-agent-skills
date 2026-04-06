@@ -139,21 +139,24 @@ Check the response:
 
 **2b. Test new/modified fields with a query:**
 
-Run a query that exercises the fields you just created or modified. Use `omni ai generate-query` with `branchId` to test against the branch (the standard `omni query run` endpoint does not support `branchId`):
+Run a query that exercises the fields you just created or modified:
+
+> **Note**: `omni query run` does not currently support `branchId` — queries always run against the production model. This means you can only fully test new fields after merging. Use model validation (2a) and field verification (2d) as your pre-merge safety net, and run query tests immediately after merging.
 
 ```bash
-omni ai generate-query --body '{
-  "modelId": "<modelId>",
-  "branchId": "<branchId>",
-  "prompt": "Show me your_view.new_dimension and your_view.new_measure limit 10",
-  "runQuery": true
+omni query run --body '{
+  "query": {
+    "modelId": "<modelId>",
+    "table": "your_view",
+    "fields": ["your_view.new_dimension", "your_view.new_measure"],
+    "limit": 10,
+    "join_paths_from_topic_name": "your_topic"
+  }
 }'
 ```
 
-Alternatively, if you want full control over the query structure, merge the branch first and test with `omni query run` against the production model — but this is riskier since you can't undo a merge easily.
-
 **What to check:**
-- **No `error` in response** — if the query returns an error, the field SQL is broken (bad column reference, wrong aggregate, dialect mismatch)
+- **No error in response** — if the query returns an error, the field SQL is broken (bad column reference, wrong aggregate, dialect mismatch)
 - **`summary.row_count` > 0** — confirms the field resolves to actual data
 - **Values look correct** — spot-check that a `sum` isn't returning a `count`, that a boolean dimension returns true/false (not 0/1 unexpectedly), etc.
 - **Joins work** — if your field references another view (e.g., `${users.id}`), include fields from both views to confirm the join resolves
@@ -161,11 +164,14 @@ Alternatively, if you want full control over the query structure, merge the bran
 **2c. If you modified a relationship or topic join, test the join path:**
 
 ```bash
-omni ai generate-query --body '{
-  "modelId": "<modelId>",
-  "branchId": "<branchId>",
-  "prompt": "Show base_view.id and joined_view.some_field limit 10",
-  "runQuery": true
+omni query run --body '{
+  "query": {
+    "modelId": "<modelId>",
+    "table": "base_view",
+    "fields": ["base_view.id", "joined_view.some_field"],
+    "limit": 10,
+    "join_paths_from_topic_name": "your_topic"
+  }
 }'
 ```
 
