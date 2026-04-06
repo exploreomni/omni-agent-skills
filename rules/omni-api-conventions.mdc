@@ -1,0 +1,107 @@
+---
+description: Omni CLI conventions — authentication, command patterns, output handling, and error codes. Apply when making any Omni API call via the CLI.
+globs: []
+alwaysApply: false
+---
+
+# Omni CLI Conventions
+
+## Installation
+
+If the `omni` command is not available, install it:
+
+```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | sh
+```
+
+Pre-built binaries for macOS (amd64/arm64), Linux (amd64/arm64), and Windows (amd64) are available on the [GitHub Releases page](https://github.com/exploreomni/cli/releases).
+
+## Authentication
+
+The Omni CLI resolves credentials in this order (highest wins):
+
+1. `--token` flag on the command
+2. `OMNI_API_TOKEN` environment variable
+3. Profile's `apiKey` from config file (set via `omni config init`)
+
+Two API key types exist:
+
+- **Organization API Key** — created in Settings > API Keys by an org admin. Required for SCIM user management, connection management, and most admin endpoints.
+- **Personal Access Token** — created in User Profile > Manage Account > Generate Token. Scoped to the user's permissions. Sufficient for querying, model exploration, and content browsing.
+
+### Setup
+
+```bash
+# Option 1: Interactive profile setup (recommended, one-time)
+omni config init
+
+# Option 2: Environment variables
+export OMNI_BASE_URL="https://yourorg.omniapp.co"
+export OMNI_API_TOKEN="your-api-key"
+```
+
+Base URL is resolved in this order: `--base-url` flag > `OMNI_BASE_URL` env var > profile's `apiEndpoint`.
+
+## Command Pattern
+
+All CLI commands follow:
+
+```
+omni <group> <operation> [positional-args] [--flags] [--body 'JSON']
+```
+
+- **Group**: the API resource (e.g., `models`, `documents`, `scim`, `query`)
+- **Operation**: the action (e.g., `list`, `create`, `yaml-get`)
+- **Positional args**: path parameters like `<modelId>`, `<identifier>`
+- **Flags**: query parameters as `--flag-name value`
+- **Body**: request body as `--body '{"key": "value"}'` or `--body -` to read from stdin
+
+### Discovering Commands
+
+```bash
+omni agent-help                    # Agent-oriented guide with common workflows
+omni --help                        # List all command groups
+omni <group> --help                # List operations in a group
+omni <group> <operation> --help    # Show flags and positional args
+```
+
+## Output
+
+- All responses are JSON to stdout (pretty-printed by default)
+- Use `--compact` for single-line JSON (good for piping to `jq`)
+- Errors go to stderr as JSON with `error` and `status` fields
+
+## Error Handling
+
+Omni returns standard HTTP status codes:
+
+| Code | Meaning | Action |
+|------|---------|--------|
+| 401 | Invalid or expired API key | Check your token / `omni config show` |
+| 403 | Insufficient permissions | Need higher role or org-level key |
+| 404 | Resource not found | Verify ID/identifier |
+| 422 | Validation error | Check request body |
+| 429 | Rate limited | Back off and retry |
+
+## Rate Limits
+
+The Omni API enforces rate limits per API key. If you receive a 429, wait before retrying. For batch operations, add a small delay between requests.
+
+## Pagination
+
+List endpoints return cursor-based pagination:
+
+```json
+{
+  "pageInfo": {
+    "hasNextPage": true,
+    "nextCursor": "...",
+    "pageSize": 20,
+    "totalRecords": 58
+  },
+  "records": [...]
+}
+```
+
+Pass `--cursor <nextCursor>` to fetch subsequent pages.

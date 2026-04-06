@@ -1,35 +1,37 @@
 ---
 name: omni-model-explorer
-description: Discover and inspect Omni Analytics models, topics, views, fields, dimensions, measures, and relationships using the Omni REST API. Use this skill whenever someone wants to understand what data is available in Omni, explore their semantic model, find specific fields or views, check how tables join together, see what topics exist, or asks any variant of "what can I query", "what fields are available", "show me the model", "what data do we have", or "how is this data modeled". Also use when you need to understand the Omni model structure before building or modifying anything.
+description: Discover and inspect Omni Analytics models, topics, views, fields, dimensions, measures, and relationships using the Omni CLI. Use this skill whenever someone wants to understand what data is available in Omni, explore their semantic model, find specific fields or views, check how tables join together, see what topics exist, or asks any variant of "what can I query", "what fields are available", "show me the model", "what data do we have", or "how is this data modeled". Also use when you need to understand the Omni model structure before building or modifying anything.
 ---
 
 # Omni Model Explorer
 
-Explore and understand an Omni semantic model through the REST API. This is the starting point — understand what exists before building, querying, or modifying anything.
+Explore and understand an Omni semantic model through the Omni CLI. This is the starting point — understand what exists before building, querying, or modifying anything.
 
 > **Tip**: Start with the **Shared** model — it contains the curated analytics layer.
 
 ## Prerequisites
 
-Set environment variables:
+Configure the Omni CLI:
+
+```bash
+command -v omni >/dev/null || curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | sh
+```
 
 ```bash
 export OMNI_BASE_URL="https://yourorg.omniapp.co"
-export OMNI_API_KEY="your-api-key"
+export OMNI_API_TOKEN="your-api-key"
 ```
 
 API keys: Settings > API Keys (Organization Admin) or User Profile > Manage Account > Generate Token (Personal Access Token).
 
-## API Discovery
+## Discovering Commands
 
-When unsure whether an endpoint or parameter exists, fetch the OpenAPI spec:
+When unsure what operations or flags are available:
 
 ```bash
-curl -L "$OMNI_BASE_URL/openapi.json" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni models --help              # List all model operations
+omni models <operation> --help  # Show flags and positional args
 ```
-
-Use this to verify endpoints, available parameters, and request/response schemas before making calls.
 
 ## Core Workflow
 
@@ -38,8 +40,7 @@ Explore top-down: **List models → Pick a model → List topics → Inspect a t
 ### Step 1: List Available Models
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/models" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni models list
 ```
 
 Returns models with `id`, `name`, `connectionId`, and `modelKind` (SCHEMA or SHARED). Use the SHARED model — it contains the curated semantic layer.
@@ -47,8 +48,7 @@ Returns models with `id`, `name`, `connectionId`, and `modelKind` (SCHEMA or SHA
 To also see active branches on each model:
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/models?include=activeBranches" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni models list --include activeBranches
 ```
 
 Each model in the response will include a `branches` array. Each branch has an `id` (UUID) and `name` — use the `id` as the `branchId` parameter in other API calls.
@@ -58,8 +58,7 @@ Each model in the response will include a `branches` array. Each branch has an `
 Topics are entry points for querying. Each topic defines a base view and the set of joined views available.
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/topics" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni models list-topics <modelId>
 ```
 
 Returns topic names, base views, labels, and descriptions.
@@ -69,8 +68,7 @@ Returns topic names, base views, labels, and descriptions.
 Get full detail including all views, dimensions, measures, relationships, and AI context:
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/topic/{topicName}" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni models get-topic <modelId> <topicName>
 ```
 
 The response includes:
@@ -86,20 +84,16 @@ For the full semantic model definition:
 
 ```bash
 # All YAML files
-curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/yaml" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni models yaml-get <modelId>
 
 # Specific file
-curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/yaml?fileName=order_items.view" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni models yaml-get <modelId> --file-name order_items.view
 
 # Regex filter
-curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/yaml?fileName=.*sales.*" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni models yaml-get <modelId> --file-name '.*sales.*'
 
 # From a branch (branchId is a UUID from the list models response)
-curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/yaml?branchId={branchId}" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni models yaml-get <modelId> --branch-id <branchId>
 ```
 
 The `mode` parameter: `combined` (default) merges schema + shared model; `extension` shows only shared model customizations.
@@ -144,8 +138,7 @@ Assess the blast radius of a field migration or removal before pushing changes t
 2. **Run the content validator** against that branch:
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/content-validator?branchId={branchId}" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni models content-validator-get <modelId> --branch-id <branchId>
 ```
 
 This returns all dashboards and tiles with broken references to the removed field.
@@ -153,8 +146,7 @@ This returns all dashboards and tiles with broken references to the removed fiel
 3. **Search model YAML** for additional references (run in parallel with step 2):
 
 ```bash
-curl -L "$OMNI_BASE_URL/api/v1/models/{modelId}/yaml?fileName=.*" \
-  -H "Authorization: Bearer $OMNI_API_KEY"
+omni models yaml-get <modelId> --file-name '.*'
 ```
 
 Search the response for the field name to find references in other views, topics, and calculated fields.
