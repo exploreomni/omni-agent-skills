@@ -93,98 +93,25 @@ omni documents create --body '{
 
 > **Tip**: Default to `"config": {}` for reliable rendering — Omni will auto-generate chart config. For precise chart styling, build a reference dashboard in the UI and read it back via `GET /api/v1/documents/{documentId}`. See [references/queryPresentations.md](references/queryPresentations.md) for complete config examples by chart type (KPI, line, bar, area, pie, scatter, etc.).
 
-#### Key Parameters (not fully documented elsewhere)
+#### queryPresentation Structure
 
-| Parameter | Notes |
-|-----------|-------|
-| `modelId` | Use the **base shared model UUID**, not a branchId. Get this from the List Models API. |
-| Field format | `table.field_name` or `table.field_name[week\|month\|day\|quarter\|year]` for time granularity |
-| `sorts` | `column_name` must match the **exact field string** (e.g., `"order_items.created_at[month]"`), with `sort_descending` boolean |
+See [references/queryPresentations.md](references/queryPresentations.md) for the complete reference — parameter tables for `queryPresentation` and `query` objects, `visConfig` chartType values, `config` object details, chart type examples, and caveats when reusing presentations from existing dashboards.
 
-#### queryPresentation Object Reference
+**Key points:**
+- `prefersChart` must be `true` to render a chart (otherwise always shows table)
+- `visType`: `"omni-kpi"` for KPI tiles, `"basic"` for all other charts
+- `visConfig` goes **inside** the `query` object (silently dropped if placed as sibling)
+- `fields` must be duplicated at both the `queryPresentation` and `query` levels
+- `modelId` is inherited from the document — not needed inside `query`
+- Default to `"config": {}` for reliable rendering — Omni auto-generates chart config
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `name` | Yes | Tile/tab title |
-| `topicName` | Recommended | Topic name for the query — set this whenever querying from a topic. Ensures correct join context in the dashboard. |
-| `prefersChart` | Yes | **Must be `true` to render a chart.** Without this, Omni always shows the results table regardless of any other vis settings. |
-| `visType` | Yes | Visualization renderer: `"omni-kpi"` for KPI tiles, `"basic"` for all standard charts (line, bar, area, scatter, pie, etc.). |
-| `fields` | Yes | Duplicate of `query.fields` — must be present at this level too. |
-| `config` | Yes | Chart-specific configuration object. Shape varies by chart type — read a reference dashboard to get the exact structure. |
-| `chartType` | No | Optional chart subtype at the presentation level (e.g. `"barGrouped"`). |
-| `description` | No | Tile description. |
-| `query` | Yes | Query definition (see below). |
-
-#### Query Object Reference
-
-The `query` object within each query presentation uses the same structure as the [Query API](https://docs.omni.co/api/queries.md):
-
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `table` | Yes | Base view name |
-| `fields` | Yes | Array of `view.field_name` references (supports timeframe brackets like `[month]`) |
-| `sorts` | No | Array of `{ "column_name": "...", "sort_descending": bool }` |
-| `filters` | No | Object of `{ "field_name": "expression" }` — supports `"last 90 days"`, `"this quarter"`, `">100"`, etc. |
-| `limit` | No | Row limit (default 1000, max 50000) |
-| `join_paths_from_topic_name` | Recommended | Topic name for join resolution — set this alongside `topicName` on the parent queryPresentation. |
-| `pivots` | No | Array of field names to pivot on |
-
-> **Note**: `modelId` is not needed inside the query object — it's inherited from the document's top-level `modelId`.
-
-#### visConfig Object
-
-`visConfig` belongs **inside the `query` object** — not at the `queryPresentation` level. When passed as a sibling of `query`, it is silently dropped by the API.
-
-`visConfig` alone does **not** control chart rendering. It stores the chart type hint on the query, but the actual rendering is driven by `prefersChart`, `visType`, and `config` at the `queryPresentation` level.
-
-**chartType values**:
-
-| chartType | Visualization |
-|-----------|--------------|
-| `kpi` | KPI / single value |
-| `lineColor` | Line chart |
-| `barColor` | Bar chart |
-| `areaColor` | Area chart |
-| `stackedBarColor` | Stacked bar chart |
-| `pie` | Pie / donut chart |
-| `scatter` | Scatter plot |
-| `heatmap` | Heatmap |
-| `map` | Map visualization |
-| `table` | Data table |
-
-#### config Object
-
-The `config` object at the `queryPresentation` level defines the actual chart rendering. Its structure varies by chart type — see [references/queryPresentations.md](references/queryPresentations.md) for complete config examples by chart type.
-
-The most reliable way to get the correct `config` for a given chart type is to **build the chart in the Omni UI and read it back** via `GET /api/v1/documents/{documentId}`.
-
-### Discovering the Full queryPresentation Structure from Existing Dashboards
-
-The most reliable way to learn `config`, `visType`, and field names is to read an existing dashboard document:
-
-**Step 1: Find a reference dashboard**
-
-```bash
-omni documents list
-```
-
-**Step 2: Get its full document**
+**To learn the exact structure for a chart type**, build a reference dashboard in the Omni UI and read it back:
 
 ```bash
 omni documents get <documentId>
 ```
 
-Returns the complete `queryPresentations` array including `topicName`, `visConfig`, `config`, and the full `query` object for each tile — use this as the source of truth when recreating or templating dashboards.
-
-> **Tip**: Build a reference dashboard in the Omni UI with the chart types and styling you want, then read it via `omni documents get <documentId>` to capture the exact `queryPresentations` structure to use as a template.
-
-#### Caveats When Reusing queryPresentations
-
-These apply when copying queryPresentations from an existing document (for both creating new dashboards and updating existing ones):
-
-- **Strip `model_extension_id`** from each query object — these reference model extensions scoped to the source document and will cause "Chart unavailable" errors.
-- **Filter to the tiles you want** — `omni documents get` returns all queries including workbook-only tabs not shown on the dashboard. Only include the `queryPresentations` you want as visible tiles.
-- **Queries without `topicName` are valid** — SQL-mode and tab-selector queries won't have a `topicName`. Do not add one.
+**When reusing queryPresentations from existing documents**, always strip `model_extension_id` from query objects (causes "Chart unavailable" errors) and filter to only the tiles you want.
 
 ### Rename Document
 
