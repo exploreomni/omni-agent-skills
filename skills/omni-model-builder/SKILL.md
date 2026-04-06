@@ -122,23 +122,84 @@ omni models yaml-create <modelId> --body '{
 
 > **Note**: The `branchId` parameter must be a UUID from the server (Step 0). Passing a string name instead will return `400 Bad Request: Unrecognized key: "branchName"`.
 
-### Step 2: Validate
+### Step 2: Validate and Test
+
+Every YAML write must be validated and tested before merging. Silent failures are common — a field can be syntactically valid YAML but produce wrong results or broken queries.
+
+**2a. Run model validation:**
 
 ```bash
 omni models validate <modelId> --branch-id <branchId>
 ```
 
-Returns validation errors and warnings with `message`, `yaml_path`, and sometimes `auto_fix`.
+Check the response:
+- If any issue has `is_warning: false`, it's an error — fix before proceeding
+- Common errors: broken column references, duplicate field names, invalid SQL syntax, missing join paths
+- If `auto_fix` is present, review the suggestion before applying
+
+**2b. Test new/modified fields with a query:**
+
+Run a query that exercises the fields you just created or modified:
+
+```bash
+omni query run --body '{
+  "query": {
+    "modelId": "<modelId>",
+    "branchId": "<branchId>",
+    "table": "your_view",
+    "fields": ["your_view.new_dimension", "your_view.new_measure"],
+    "limit": 10,
+    "join_paths_from_topic_name": "your_topic"
+  }
+}'
+```
+
+**What to check:**
+- **No error in response** — if the query returns an error, the field SQL is broken (bad column reference, wrong aggregate, dialect mismatch)
+- **`summary.row_count` > 0** — confirms the field resolves to actual data
+- **Values look correct** — spot-check that a `sum` isn't returning a `count`, that a boolean dimension returns true/false (not 0/1 unexpectedly), etc.
+- **Joins work** — if your field references another view (e.g., `${users.id}`), include fields from both views to confirm the join resolves
+
+**2c. If you modified a relationship or topic join, test the join path:**
+
+```bash
+omni query run --body '{
+  "query": {
+    "modelId": "<modelId>",
+    "branchId": "<branchId>",
+    "table": "base_view",
+    "fields": ["base_view.id", "joined_view.some_field"],
+    "limit": 10,
+    "join_paths_from_topic_name": "your_topic"
+  }
+}'
+```
+
+A working join returns rows with data from both views. A broken join returns an error or null values in the joined columns.
+
+**2d. Verify the field appears in the model:**
+
+```bash
+omni models get <modelId> --branch-id <branchId>
+```
+
+Confirm your new fields are listed in the model response. If they're missing, the YAML write may have silently failed (e.g., wrong `fileName`, malformed YAML string).
 
 ### Step 3: Merge the Branch
 
-> **Important**: Always ask the user for confirmation before merging. Merging applies changes to the production model and cannot be easily undone.
+> **Important**: Always ask the user for confirmation before merging. Merging applies changes to the production model and cannot be easily undone. Only merge after validation and testing pass (Step 2).
 
 ```bash
 omni models merge-branch <modelId> <branchName>
 ```
 
 If git with required PRs is configured, merge through your git workflow instead.
+
+After merging, run one final validation against the production model to confirm the merge didn't introduce conflicts:
+
+```bash
+omni models validate <modelId>
+```
 
 ## YAML File Types
 
