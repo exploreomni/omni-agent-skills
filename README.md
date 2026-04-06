@@ -168,7 +168,7 @@ These activate from natural-language requests:
 | **omni-query** | Run queries against Omni's semantic layer and interpret results |
 | **omni-content-explorer** | Find, browse, and organize dashboards, workbooks, and folders |
 | **omni-content-builder** | Create, update, and manage documents and dashboards programmatically - lifecycle, tiles, filters, layouts |
-| **omni-ai-optimizer** | Optimize your Omni model for Blobby, Omni's AI assistant |
+| **omni-ai-optimizer** | Optimize your Omni model for Blobby, the Omni Agent |
 | **omni-admin** | Manage connections, users, groups, permissions, schedules, and schema refreshes |
 | **omni-embed** | Embed Omni dashboards in external applications - URL signing, themes, and postMessage events |
 | **omni-ai-eval** | Evaluate AI query generation accuracy — run test prompts, compare results, and score across dimensions |

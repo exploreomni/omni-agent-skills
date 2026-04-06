@@ -18,7 +18,7 @@ alwaysApply: false
 | **Relationship** | A join definition between two views |
 | **Workbook** | An interactive analysis document |
 | **Dashboard** | Published, shareable view of a workbook |
-| **Blobby** | Omni's built-in AI assistant |
+| **Blobby** | Omni's built-in agent |
 | **Query View** | Virtual table defined by a saved query |
 | **Branch** | Development branch for model changes |
 | **User Attribute** | Per-user value for row-level security |

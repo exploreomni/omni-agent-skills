@@ -1,11 +1,11 @@
 ---
 name: omni-ai-optimizer
-description: Optimize your Omni Analytics model for Blobby, Omni's AI assistant — configure ai_context, ai_fields, sample_queries, and create AI-specific topic extensions. Use this skill whenever someone wants to improve AI accuracy in Omni, make Blobby smarter, configure AI context, add example questions, tune AI responses, set up sample queries, curate fields for AI, create AI-optimized topics, troubleshoot why Blobby gives wrong answers, or any variant of "make the AI better", "Blobby isn't answering correctly", "add context for AI", "optimize for AI", or "teach the AI about our data".
+description: Optimize your Omni Analytics model for Blobby, the Omni Agent — configure ai_context, ai_fields, sample_queries, and create AI-specific topic extensions. Use this skill whenever someone wants to improve AI accuracy in Omni, make Blobby smarter, configure AI context, add example questions, tune AI responses, set up sample queries, curate fields for AI, create AI-optimized topics, troubleshoot why Blobby gives wrong answers, or any variant of "make the AI better", "Blobby isn't answering correctly", "add context for AI", "optimize for AI", or "teach the AI about our data".
 ---
 
 # Omni AI Optimizer
 
-Optimize your Omni semantic model so Blobby (Omni's AI assistant) returns accurate, contextual answers.
+Optimize your Omni semantic model so Blobby (the Omni Agent) returns accurate, contextual answers.
 
 > **Tip**: Use `omni-model-explorer` to inspect current AI context before making changes.
 
