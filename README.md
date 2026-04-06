@@ -21,7 +21,7 @@ These skills are not slash commands or one-off prompts you have to memorize. Onc
 ## Why This Repo
 
 - One shared source of truth for Omni workflows across major agent surfaces
-- 8 production-focused skills covering exploration, querying, modeling, content, admin, AI optimization, and embed
+- 9 production-focused skills covering exploration, querying, modeling, content, admin, AI optimization, AI eval, and embed
 - 3 specialized agents for deeper multi-step work
 - 3 Cursor rules for API, YAML, and terminology consistency
 
@@ -29,7 +29,7 @@ These skills are not slash commands or one-off prompts you have to memorize. Onc
 
 | Platform | Install method | Notes |
 |----------|----------------|-------|
-| [Claude Code](https://claude.com/product/claude-code) | [Plugin marketplace or Git URL](#install-claude-code) | Full plugin install with 8 skills and 3 agents |
+| [Claude Code](https://claude.com/product/claude-code) | [Plugin marketplace or Git URL](#install-claude-code) | Full plugin install with 9 skills and 3 agents |
 | [Cursor](https://cursor.com) | [Git URL plugin install](#install-cursor) | Full plugin install plus 3 `.mdc` rules |
 | [OpenAI Codex](https://openai.com/codex/) | [`npx skills add`](#install-skills-sh-compatible-agents) | Uses the shared [skills.sh](https://skills.sh) install flow |
 | [GitHub Copilot](https://github.com/features/copilot) | [`npx skills add`](#install-skills-sh-compatible-agents) | Uses the shared [skills.sh](https://skills.sh) install flow |
@@ -157,7 +157,7 @@ API keys are created in **Settings > API Keys** (Organization Admin) or **User P
 
 ## What You Get
 
-### Skills (8)
+### Skills (9)
 
 These activate from natural-language requests:
 
@@ -171,6 +171,7 @@ These activate from natural-language requests:
 | **omni-ai-optimizer** | Optimize your Omni model for Blobby, Omni's AI assistant |
 | **omni-admin** | Manage connections, users, groups, permissions, schedules, and schema refreshes |
 | **omni-embed** | Embed Omni dashboards in external applications - URL signing, themes, and postMessage events |
+| **omni-ai-eval** | Evaluate AI query generation accuracy — run test prompts, compare results, and score across dimensions |
 
 ### Agents (3)
 
