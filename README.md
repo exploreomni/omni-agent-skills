@@ -157,7 +157,7 @@ API keys are created in **Settings > API Keys** (Organization Admin) or **User P
 
 ## What You Get
 
-### Skills (9)
+### omni-analytics — Skills (9)
 
 These activate from natural-language requests:
 
@@ -172,6 +172,12 @@ These activate from natural-language requests:
 | **omni-admin** | Manage connections, users, groups, permissions, schedules, and schema refreshes |
 | **omni-embed** | Embed Omni dashboards in external applications - URL signing, themes, and postMessage events |
 | **omni-ai-eval** | Evaluate AI query generation accuracy — run test prompts, compare results, and score across dimensions |
+
+### omni-integrations — Skills (1)
+
+| Skill | Description |
+|-------|-------------|
+| **omni-to-snowflake-semantic-view** | Convert an Omni Analytics topic into a Snowflake Semantic View YAML definition |
 
 ### Agents (3)
 
@@ -208,6 +214,7 @@ Ask naturally:
 "Improve the AI context on our orders topic"
 "Give the marketing team access to the sales dashboard"
 "Generate a signed embed URL for this dashboard"
+"Convert this Omni topic to a Snowflake Semantic View"
 ```
 
 For direct agent routing:
@@ -269,8 +276,14 @@ omni-agent-skills/
 │   ├── omni-content-explorer/
 │   ├── omni-content-builder/
 │   ├── omni-ai-optimizer/
+│   ├── omni-ai-eval/
 │   ├── omni-admin/
-│   └── omni-embed/
+│   ├── omni-embed/
+│   └── omni-integrations/
+│       ├── .claude-plugin/
+│       │   └── plugin.json
+│       └── skills/
+│           └── omni-to-snowflake-semantic-view/
 ├── agents/
 │   ├── omni-analyst.md
 │   ├── omni-modeler.md

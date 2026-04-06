@@ -39,6 +39,25 @@
         "white-label"
       ],
       "category": "data"
+    },
+    {
+      "name": "omni-integrations",
+      "source": "./skills/omni-integrations",
+      "description": "Integration skills for connecting Omni Analytics with external data platforms — Snowflake Semantic Views, and more.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Omni Analytics"
+      },
+      "license": "Apache-2.0",
+      "keywords": [
+        "omni",
+        "snowflake",
+        "semantic-view",
+        "integrations",
+        "data",
+        "analytics"
+      ],
+      "category": "data"
     }
   ]
 }
