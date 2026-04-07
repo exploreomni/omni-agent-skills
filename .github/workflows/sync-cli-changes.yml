@@ -1,0 +1,68 @@
+name: Sync CLI Changes to Skills
+
+on:
+  repository_dispatch:
+    types: [cli-update]
+  workflow_dispatch:
+    inputs:
+      cli_pr:
+        description: "exploreomni/cli PR number to process"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve PR number
+        id: pr
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo "number=${{ github.event.client_payload.pr_number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "number=${{ inputs.cli_pr }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch CLI PR diff
+        env:
+          GH_TOKEN: ${{ secrets.CLI_REPO_TOKEN }}
+        run: |
+          PR=${{ steps.pr.outputs.number }}
+          gh pr view "$PR" --repo exploreomni/cli --json title,body,files > /tmp/cli-pr-meta.json
+          gh pr diff "$PR" --repo exploreomni/cli > /tmp/cli-pr-diff.txt
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          direct_prompt: |
+            PR #${{ steps.pr.outputs.number }} was merged in the exploreomni/cli repo.
+
+            The CLI diff is saved at /tmp/cli-pr-diff.txt and PR metadata at /tmp/cli-pr-meta.json.
+
+            Your task: determine whether any files in this repo need updating to match the CLI changes.
+
+            This repo contains Omni Analytics skill definitions (.md), agent instructions (.md),
+            and rule files (.mdc) that include CLI command examples, parameter tables, and
+            instructional prose. When the CLI changes — new shorthand syntax, new commands,
+            renamed flags, changed defaults — these docs must be updated to match.
+
+            Steps:
+            1. Read /tmp/cli-pr-diff.txt and /tmp/cli-pr-meta.json to understand what changed
+            2. Search ALL .md and .mdc files for references to affected commands (grep broadly)
+            3. Update code examples, parameter tables, prose descriptions, and batch scripts
+            4. Also update surrounding prose that references old parameter names (e.g. "Set `runQuery: false`" should become "Pass `--run-query false`")
+            5. Verify markdown formatting — table separator rows, code fences, no duplicate headers
+            6. Do a final pass: grep again for any remaining stale references you missed
+
+            If changes were made, commit them to a new branch and create a PR titled:
+            "Sync skills with exploreomni/cli#${{ steps.pr.outputs.number }}"
+
+            The PR body should list each file changed and summarize what was updated.
+
+            If no files in this repo reference the changed commands, exit without making changes.
