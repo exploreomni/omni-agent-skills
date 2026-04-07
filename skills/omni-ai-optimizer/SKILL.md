@@ -40,6 +40,7 @@ Blobby generates queries by examining:
 5. **`ai_fields`** — which fields are visible to AI
 6. **`sample_queries`** — example questions with correct queries
 7. **Hidden fields** — `hidden: true` fields are excluded
+8. **`ai_chat_topics`** — which topics are included/excluded from AI chat (model-level)
 
 Impact order: ai_context > ai_fields > sample_queries > synonyms > field descriptions.
 
@@ -93,7 +94,17 @@ ai_context: |
   Default to monetary values in USD with 2 decimal places.
 ```
 
+### Keeping Context Concise
+
+Every token in `ai_context`, `description`, and `label` is sent to the AI on every query. Verbose values waste context window and push out other fields.
+
+- Target 1-2 sentences per `ai_context` entry. Focus on disambiguation and gotchas, not general explanation.
+- Keep labels short and human-readable — avoid redundant qualification (e.g., "Order Total Revenue Amount" → "Total Revenue").
+- Rewrite long `description` values to be direct. If a description restates the field name, remove it.
+
 ## Curating Fields with ai_fields
+
+The AI context window holds ~550 fields before truncation. If a topic approaches this limit, use `ai_fields` to curate which fields are included.
 
 Reduce noise for large models:
 
@@ -114,6 +125,16 @@ ai_fields:
 ```
 
 Same operators as topic `fields`: wildcard (`*`), negation (`-`), tags (`tag:`).
+
+## Controlling Topic Visibility with ai_chat_topics
+
+`ai_chat_topics` is a model-level property that controls which topics Blobby can see:
+
+- **No `ai_chat_topics` property** (default) — Blobby can query across all topics.
+- **`ai_chat_topics: []`** (empty list) — Blobby cannot query any topics. This effectively disables AI chat for the model.
+- **Explicit list** — only the listed topics (or tag matches) are available. Supports `all_topics`, tag selectors (`tag:customer_facing`), and negation (`-tag:internal`, `-staging_events`).
+
+Check this first — if a topic isn't in `ai_chat_topics`, no amount of `ai_context` or `ai_fields` on it will matter. Use `omni-model-builder` to modify this property.
 
 ## Adding sample_queries
 
@@ -194,6 +215,28 @@ dimensions:
 
 Good descriptions help both Blobby and human analysts.
 
+### Enumerating Values for Categorical Fields
+
+For closed-set enums, use `all_values` so Blobby knows every valid filter value:
+
+```yaml
+dimensions:
+  status:
+    all_values: [complete, pending, cancelled, returned]
+  payment_method:
+    all_values: [credit_card, debit_card, bank_transfer, paypal, gift_card]
+```
+
+For open-ended categoricals where a full list isn't practical, use `sample_values` to give representative examples:
+
+```yaml
+dimensions:
+  product_category:
+    sample_values: [Electronics, Clothing, Home & Garden, Sports, Books]
+  city:
+    sample_values: [New York, Los Angeles, Chicago, Houston, Phoenix]
+```
+
 ## Adding synonyms
 
 Map alternative names, abbreviations, and domain-specific terminology so Blobby matches user queries to the correct field. Works on both dimensions and measures.
@@ -214,17 +257,58 @@ measures:
 
 **Synonyms vs ai_context**: Use `synonyms` for field-level name mapping. Use `ai_context` for topic-level behavioral guidance, data nuances, and multi-field relationships.
 
+**Pruning caveat**: When the model is large and context is tight, synonyms are pruned before descriptions. Reserve synonyms for high-value fields where users commonly use alternative names.
+
+**Avoid redundancy**: Don't add synonyms that duplicate the field's label or field name — they add no signal and waste tokens.
+
+## Avoiding Duplication
+
+`ai_context` and `description` serve different audiences. `description` is human-facing (shown in the field picker and docs). `ai_context` is an AI-only hint. Don't put the same text in both — `ai_context` should add guidance the description doesn't cover (disambiguation, gotchas, when to use one field over another).
+
+**Consolidate shared context at the view level.** If multiple fields in a view share the same `ai_context` (e.g., "all monetary values are in USD"), move it to the view-level `ai_context` instead of repeating it on each field. Field-level `ai_context` should be specific to that field.
+
+**Example — before:**
+
+```yaml
+dimensions:
+  gross_revenue:
+    ai_context: "Monetary value in USD. This is revenue before refunds."
+    description: "Monetary value in USD. This is revenue before refunds."
+  net_revenue:
+    ai_context: "Monetary value in USD. This is revenue after refunds."
+    description: "Monetary value in USD. This is revenue after refunds."
+```
+
+**After:**
+
+```yaml
+ai_context: "All monetary values in this view are in USD."
+
+dimensions:
+  gross_revenue:
+    ai_context: "Revenue before refunds."
+    description: "Total revenue before refunds and cancellations are applied."
+  net_revenue:
+    ai_context: "Revenue after refunds. Use this for profitability analysis."
+    description: "Total revenue after refunds and cancellations."
+```
+
 ## Optimization Checklist
 
+Prioritize high-impact changes. Improve wording without changing semantics.
+
 1. Inspect current state with `omni-model-explorer`
-2. Check AI usage dashboard for real user questions
-3. Write `ai_context` mapping business terms to fields
-4. Add `synonyms` to key dimensions and measures
-5. Curate `ai_fields` to remove noise
-6. Add `sample_queries` for top 3-5 questions
-7. Improve field `description` values
-8. Consider `extends` for AI-specific topic variants
-9. Test iteratively — ask Blobby and refine
+2. Check model-level `ai_chat_topics` — ensure the right topics are visible to AI
+3. Check AI usage dashboard for real user questions
+4. Count fields — curate with `ai_fields` if approaching 550
+5. Write `ai_context` mapping business terms to fields (keep to 1-2 sentences)
+6. Add `synonyms` to key dimensions and measures (skip if they duplicate the label)
+7. Improve field `description` and `label` values
+8. Add `all_values`/`sample_values` for categorical fields
+9. Add `sample_queries` for top 3-5 questions
+10. Remove duplication between `ai_context` and `description`; consolidate shared context at view level
+11. Consider `extends` for AI-specific topic variants
+12. Test iteratively — ask Blobby and refine
 
 ## Docs Reference
 
