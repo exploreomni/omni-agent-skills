@@ -173,6 +173,80 @@ omni schedules recipients-get <scheduleId>
 omni schedules add-recipients <scheduleId> --body '{ "recipients": [{ "type": "email", "value": "team@company.com" }] }'
 ```
 
+## Verification After Changes
+
+Admin operations can silently fail or partially apply. Always read back the state after any write to confirm the change took effect.
+
+### After User Operations
+
+```bash
+# After creating or updating a user, verify they exist with correct state
+omni scim users-list --filter 'userName eq "newuser@company.com"'
+```
+
+Check that: `active` matches what you set, `displayName` is correct, and the user ID was returned (not an error).
+
+### After Group Operations
+
+```bash
+# After creating a group or modifying members, verify membership
+omni scim groups-list
+```
+
+Check that: the group exists with the expected `displayName`, and `members` array contains the expected user UUIDs.
+
+### After Permission Changes
+
+```bash
+# After setting document permissions, verify for the target user
+omni documents get-permissions <documentId> --user-id <userId>
+
+# After setting folder permissions, verify
+omni folders get-permissions <folderId>
+```
+
+Check that: the permission `access` level matches what you set (`view`, `edit`), and the target user/group ID is listed.
+
+### After User Attribute Changes
+
+```bash
+# Verify the attribute value was set
+omni user-attributes list
+```
+
+If the attribute is used for row-level security (`access_filters`), test it by running a query as the target user:
+
+```bash
+omni query run --body '{ "query": { ... }, "userId": "<target-user-uuid>" }'
+```
+
+Verify the results are correctly filtered — the user should only see rows matching their attribute value.
+
+### After Schedule Operations
+
+```bash
+# Verify schedule was created with correct settings
+omni schedules list
+
+# Verify recipients were added
+omni schedules recipients-get <scheduleId>
+```
+
+Check that: `frequency`, `dayOfWeek`, `hour`, `timezone`, and `format` match what you set, and all intended recipients are listed.
+
+### Verification Checklist
+
+| Operation | Verify With | What to Check |
+|-----------|-------------|---------------|
+| Create/update user | `omni scim users-list --filter ...` | User exists, `active` status correct |
+| Create/update group | `omni scim groups-list` | Group exists, members list correct |
+| Set document permissions | `omni documents get-permissions` | Access level and target correct |
+| Set folder permissions | `omni folders get-permissions` | Access level and target correct |
+| Set user attribute | `omni user-attributes list` | Attribute value set |
+| User attribute + access filter | `omni query run` with `userId` | Row-level filtering works |
+| Create schedule | `omni schedules list` | Schedule settings correct |
+| Add recipients | `omni schedules recipients-get` | All recipients listed |
+
 ## Cache and Validation
 
 ```bash

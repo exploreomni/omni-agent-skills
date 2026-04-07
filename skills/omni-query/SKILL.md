@@ -106,7 +106,7 @@ Expressions: `"last 90 days"`, `"this quarter"`, `"2024-01-01 to 2024-12-31"`, `
 }
 ```
 
-## Handling Results
+## Handling and Validating Results
 
 Default response: base64-encoded Apache Arrow table. Arrow results are binary — you cannot parse individual row data from the raw response. To verify a query returned data, check `summary.row_count` in the response.
 
@@ -115,6 +115,59 @@ For human-readable results, request CSV instead:
 ```json
 { "query": { ... }, "resultType": "csv" }
 ```
+
+### Result Validation
+
+Every query response should be checked before trusting the results or presenting them to the user.
+
+**Check for errors:**
+- If the response contains an `error` key, the query failed. Common causes: bad field name, missing join path, malformed filter expression, permission error.
+- If the response contains `remaining_job_ids`, the query is still running — poll with `omni query wait` before checking results.
+
+**Check row count:**
+- `summary.row_count == 0` — the query returned no data. This may be valid (e.g., no data in the filter range) but is worth flagging to the user. Common causes: overly restrictive filters, wrong date range, field that doesn't match any rows.
+- `summary.row_count` equals the `limit` you set — results may be truncated. If the user needs complete data, re-run with a higher limit or `null` for unlimited.
+
+**Spot-check data with CSV:**
+
+When accuracy matters, request CSV and scan the output:
+
+```bash
+omni query run --body '{
+  "query": { ... },
+  "resultType": "csv"
+}'
+```
+
+Check that:
+- Column headers match the fields you requested
+- Values are in expected ranges (e.g., revenue isn't negative, dates aren't in the future)
+- Aggregations make sense (e.g., a count isn't returning a sum)
+
+**Validate filter behavior:**
+
+If your query includes filters, verify they're being applied:
+
+```bash
+# Run the same query without filters
+omni query run --body '{ "query": { ... (no filters) ... }, "resultType": "csv" }'
+
+# Compare row counts — filtered should be <= unfiltered
+```
+
+If both queries return the same row count, the filter may not be binding (wrong field name, unsupported expression, or the known bug where boolean filters are dropped with pivots).
+
+### Validation Checklist
+
+| Check | How | When |
+|-------|-----|------|
+| No error in response | Check for `error` key | Every query |
+| Data was returned | `summary.row_count > 0` | Every query |
+| Results not truncated | `row_count < limit` | When completeness matters |
+| Columns are correct | CSV column headers match requested fields | When building dashboards or reports |
+| Values are reasonable | Spot-check CSV output | When presenting to users |
+| Filters are applied | Compare filtered vs unfiltered row counts | When using filters |
+| Long-running query completed | No `remaining_job_ids` in final response | Queries on large tables |
 
 ### Decoding Arrow Results
 
