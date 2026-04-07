@@ -51,16 +51,12 @@ Each eval case pairs a natural language prompt with the expected query structure
 
 ## Running Evals: Fast Path (Generate Query API)
 
-The synchronous generate-query endpoint is the fastest way to eval query generation. Set `runQuery: false` to get only the generated query JSON without executing it against the database.
+The synchronous generate-query endpoint is the fastest way to eval query generation. Pass `--run-query false` to get only the generated query JSON without executing it against the database.
 
 ### Single Eval Call
 
 ```bash
-omni ai generate-query --body '{
-  "modelId": "your-model-id",
-  "prompt": "Show me revenue by month",
-  "runQuery": false
-}'
+omni ai generate-query your-model-id "Show me revenue by month" --run-query false
 ```
 
 ### Response Structure
@@ -81,13 +77,13 @@ omni ai generate-query --body '{
 
 ### Request Parameters
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `modelId` | Yes | UUID of the Omni model |
-| `prompt` | Yes | Natural language question |
-| `runQuery` | No | Set `false` to skip query execution (faster, default `true`) |
-| `branchId` | No | Branch UUID for branch-specific testing |
-| `currentTopicName` | No | Constrain topic selection to a specific topic |
+| Arg/Flag | Required | Description |
+|----------|----------|-------------|
+| `<model-id>` | Yes | UUID of the Omni model (positional arg) |
+| `<prompt>` | Yes | Natural language question (positional arg) |
+| `--run-query` | No | Set `false` to skip query execution (faster, default `true`) |
+| `--branch-id` | No | Branch UUID for branch-specific testing |
+| `--current-topic-name` | No | Constrain topic selection to a specific topic |
 
 ### Batch Loop (bash)
 
@@ -98,13 +94,12 @@ while IFS= read -r line; do
   model_id=$(echo "$line" | jq -r '.modelId')
   branch_id=$(echo "$line" | jq -r '.branchId // empty')
 
-  body=$(jq -n \
-    --arg p "$prompt" \
-    --arg m "$model_id" \
-    --arg b "$branch_id" \
-    '{modelId: $m, prompt: $p, runQuery: false} + (if $b != "" then {branchId: $b} else {} end)')
+  branch_flag=""
+  if [ -n "$branch_id" ]; then
+    branch_flag="--branch-id $branch_id"
+  fi
 
-  result=$(omni ai generate-query --body "$body" --compact)
+  result=$(omni ai generate-query "$model_id" "$prompt" --run-query false $branch_flag --compact)
 
   echo "{\"id\": \"$id\", \"generated\": $result}" >> eval_results.jsonl
 done < eval_cases.jsonl
@@ -117,10 +112,7 @@ Use the async AI Jobs API when you want to test the full agentic workflow — mu
 ### Submit a Job
 
 ```bash
-omni ai job-submit --body '{
-  "modelId": "your-model-id",
-  "prompt": "Show me revenue by month"
-}'
+omni ai job-submit your-model-id "Show me revenue by month"
 ```
 
 Response:
@@ -183,10 +175,7 @@ The result contains an `actions` array. Look for actions with `type: "generate_q
 Eval topic selection independently with the pick-topic endpoint:
 
 ```bash
-omni ai pick-topic --body '{
-  "modelId": "your-model-id",
-  "prompt": "How many users signed up last month?"
-}'
+omni ai pick-topic your-model-id "How many users signed up last month?"
 ```
 
 Response:
@@ -266,8 +255,8 @@ Run the same eval suite with one variable changed to measure impact. This is the
 
 ### Common Variables to Compare
 
-- **Model branches** — pass different `branchId` values to test context changes on a branch before merging
-- **Topic scope** — `currentTopicName: "orders"` vs omitted (auto-select)
+- **Model branches** — pass different `--branch-id` values to test context changes on a branch before merging
+- **Topic scope** — `--current-topic-name "orders"` vs omitted (auto-select)
 - **Model context changes** — `ai_context`, `sample_queries`, field descriptions (apply via `omni-model-builder` on a branch, then eval against that branch)
 - **Prompt wording** — same expected query, different prompt text
 - **AI configuration** — model type, thinking level, or other AI parameters

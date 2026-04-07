@@ -95,7 +95,7 @@ Useful for understanding what a dashboard computes and re-running queries via `o
 omni folders list
 
 # Create
-omni folders create --body '{ "name": "Q1 Reports", "scope": "organization" }'
+omni folders create "Q1 Reports" --scope organization
 ```
 
 ## Labels

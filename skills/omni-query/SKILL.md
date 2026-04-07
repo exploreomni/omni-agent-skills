@@ -207,15 +207,11 @@ Instead of constructing query JSON manually, you can describe what you want in n
 
 ### Generate Query (synchronous)
 
-The fastest path — returns a generated query JSON synchronously. Set `runQuery: false` to get only the query structure without executing it, or `true` (default) to also run it against the database.
+The fastest path — returns a generated query JSON synchronously. Pass `--run-query false` to get only the query structure without executing it (default runs the query).
 
 ```bash
 # Just generate the query JSON (no execution)
-omni ai generate-query --body '{
-  "modelId": "your-model-id",
-  "prompt": "Show me revenue by month",
-  "runQuery": false
-}'
+omni ai generate-query your-model-id "Show me revenue by month" --run-query false
 ```
 
 Response:
@@ -236,25 +232,19 @@ Response:
 
 ```bash
 # Generate and execute in one call
-omni ai generate-query --body '{
-  "modelId": "your-model-id",
-  "prompt": "Top 10 customers by lifetime spend"
-}'
+omni ai generate-query your-model-id "Top 10 customers by lifetime spend"
 ```
 
-Optional parameters:
-- `branchId` — test against a specific model branch
-- `currentTopicName` — constrain topic selection to a specific topic
+Optional flags:
+- `--branch-id` — test against a specific model branch
+- `--current-topic-name` — constrain topic selection to a specific topic
 
 ### Pick Topic
 
 Check which topic the AI would select for a question, without generating a full query:
 
 ```bash
-omni ai pick-topic --body '{
-  "modelId": "your-model-id",
-  "prompt": "How many users signed up last month?"
-}'
+omni ai pick-topic your-model-id "How many users signed up last month?"
 ```
 
 ### Agentic Queries (async)
@@ -263,10 +253,7 @@ For the full Blobby experience — multi-step analysis, tool use, and topic sele
 
 ```bash
 # 1. Submit a job
-omni ai job-submit --body '{
-  "modelId": "your-model-id",
-  "prompt": "Analyze revenue trends and identify our fastest growing product category"
-}'
+omni ai job-submit your-model-id "Analyze revenue trends and identify our fastest growing product category"
 # → returns { "jobId": "job-uuid", "conversationId": "conv-uuid" }
 
 # 2. Poll for completion (QUEUED → EXECUTING → COMPLETE)

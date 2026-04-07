@@ -53,9 +53,9 @@ omni <group> <operation> [positional-args] [--flags] [--body 'JSON']
 
 - **Group**: the API resource (e.g., `models`, `documents`, `scim`, `query`)
 - **Operation**: the action (e.g., `list`, `create`, `yaml-get`)
-- **Positional args**: path parameters like `<modelId>`, `<identifier>`
-- **Flags**: query parameters as `--flag-name value`
-- **Body**: request body as `--body '{"key": "value"}'` or `--body -` to read from stdin
+- **Positional args**: path parameters like `<modelId>`, `<identifier>`, plus shorthand body args (e.g., `omni ai generate-query <model-id> "prompt"`)
+- **Flags**: query parameters and promoted body fields as `--flag-name value`
+- **Body**: request body as `--body '{"key": "value"}'` or `--body -` to read from stdin (still supported, but prefer shorthand args/flags when available)
 
 ### Discovering Commands
 
