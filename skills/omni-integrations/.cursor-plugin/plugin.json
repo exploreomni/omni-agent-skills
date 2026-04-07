@@ -6,6 +6,15 @@
     "name": "Omni Analytics",
     "email": "support@omni.co"
   },
-  "repository": "https://github.com/exploreomni/omni-agent-skills",
-  "license": "Apache-2.0"
+  "logo": "assets/logo.svg",
+  "keywords": [
+    "omni",
+    "integrations",
+    "snowflake",
+    "semantic-views",
+    "databricks",
+    "metric-views",
+    "data-platforms",
+    "analytics"
+  ]
 }
