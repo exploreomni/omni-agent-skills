@@ -116,13 +116,10 @@ omni documents get <documentId>
 ### Rename Document
 
 ```bash
-omni documents update <documentId> --body '{
-  "name": "Q1 Revenue Report (Updated)",
-  "clearExistingDraft": true
-}'
+omni documents update <documentId> --name "Q1 Revenue Report (Updated)" --clear-existing-draft
 ```
 
-Set `clearExistingDraft: true` if the document has an existing draft, otherwise the API returns 409 Conflict.
+Pass `--clear-existing-draft` if the document has an existing draft, otherwise the API returns 409 Conflict.
 
 ### Delete Document
 
@@ -135,21 +132,15 @@ Soft-deletes the document (moves to Trash).
 ### Move Document
 
 ```bash
-omni documents move <documentId> --body '{
-  "folderPath": "/Marketing/Reports",
-  "scope": "organization"
-}'
+omni documents move <documentId> "/Marketing/Reports" --scope organization
 ```
 
-Use `"folderPath": null` to move to root. `scope` is optional — auto-computed from the destination folder.
+Use `"null"` as the folder path to move to root. `--scope` is optional — auto-computed from the destination folder.
 
 ### Duplicate Document
 
 ```bash
-omni documents duplicate <documentId> --body '{
-  "name": "Copy of Q1 Revenue Report",
-  "folderPath": "/Marketing/Reports"
-}'
+omni documents duplicate <documentId> "Copy of Q1 Revenue Report" --folder-path "/Marketing/Reports"
 ```
 
 Only published documents can be duplicated. Draft documents return 404.
