@@ -291,6 +291,7 @@ databricks api post /api/2.0/sql/statements \
 17. **`decimal_places` unsupported**: Omit it entirely — causes a parse error
 18. **CLI execution**: Use `databricks api post /api/2.0/sql/statements`; `wait_timeout` must be `5s`–`50s`
 19. **Omni CLI flag**: Use `--filename` (not `--file-name`)
+20. **Field description key**: Use `comment:` not `description:` — `description` is not a recognized field and causes a parse error
 
 ---
 
