@@ -313,6 +313,8 @@ omni-agent-skills/
 │   └── omni-integrations/
 │       ├── .claude-plugin/
 │       │   └── plugin.json
+│       ├── .cursor-plugin/
+│       │   └── plugin.json
 │       └── skills/
 │           └── omni-to-snowflake-semantic-view/
 ├── agents/
