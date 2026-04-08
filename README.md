@@ -51,6 +51,12 @@ Marketplace install (recommended, run separately):
 /plugin install omni-analytics@omni-analytics
 ```
 
+To also install the integrations plugin (Snowflake Semantic Views, etc.):
+
+```bash
+/plugin install omni-integrations@omni-analytics
+```
+
 Git URL install (run separately):
 
 ```bash
@@ -58,6 +64,12 @@ Git URL install (run separately):
 ```
 ```bash
 /plugin install omni-analytics@omni-analytics
+```
+
+To also install the integrations plugin:
+
+```bash
+/plugin install omni-integrations@omni-analytics
 ```
 
 <a id="install-cursor"></a>
@@ -68,6 +80,8 @@ Install from Git URL:
 ```text
 /add-plugin https://github.com/exploreomni/omni-agent-skills.git
 ```
+
+To also install the integrations plugin (Snowflake Semantic Views, etc.), use [Cursor's team marketplace import](https://cursor.com/docs/plugins) (Dashboard > Settings > Plugins > Import) with the repo URL `https://github.com/exploreomni/omni-agent-skills` — both `omni-analytics` and `omni-integrations` will appear as separate installable plugins.
 
 <a id="install-cortex-code"></a>
 ### Cortex Code
@@ -86,6 +100,13 @@ Install one skill directly:
 ```bash
 mkdir -p .cortex/skills
 cp -R skills/omni-query .cortex/skills/
+```
+
+Install the integrations skills (Snowflake Semantic Views, etc.):
+
+```bash
+mkdir -p .cortex/skills
+cp -R skills/omni-integrations .cortex/skills/
 ```
 
 <a id="install-skills-sh-compatible-agents"></a>
@@ -109,6 +130,12 @@ Install one skill directly:
 
 ```bash
 npx skills add https://github.com/exploreomni/omni-agent-skills --skill omni-query
+```
+
+Install the integrations skills (Snowflake Semantic Views, etc.):
+
+```bash
+npx skills add https://github.com/exploreomni/omni-agent-skills --skill omni-integrations
 ```
 
 Install globally:
@@ -239,7 +266,7 @@ To make this plugin available to your entire team automatically, add it to your 
       }
     }
   },
-  "enabledPlugins": ["omni-analytics@omni-analytics"]
+  "enabledPlugins": ["omni-analytics@omni-analytics", "omni-integrations@omni-analytics"]
 }
 ```
 
@@ -268,6 +295,7 @@ omni-agent-skills/
 │   ├── marketplace.json
 │   └── plugin.json
 ├── .cursor-plugin/
+│   ├── marketplace.json
 │   └── plugin.json
 ├── skills/
 │   ├── omni-model-explorer/
@@ -281,6 +309,8 @@ omni-agent-skills/
 │   ├── omni-embed/
 │   └── omni-integrations/
 │       ├── .claude-plugin/
+│       │   └── plugin.json
+│       ├── .cursor-plugin/
 │       │   └── plugin.json
 │       └── skills/
 │           └── omni-to-snowflake-semantic-view/
