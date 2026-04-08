@@ -12,6 +12,7 @@ city:
   sql: '"CITY"'
   label: City
   description: Customer's city
+  synonyms: [ municipality, location city, town ]
   type: string
 ```
 ```yaml
@@ -21,6 +22,7 @@ dimensions:
     expr: CITY
     display_name: "City"
     comment: "Customer's city"
+    synonyms: [ municipality, location city, town ]
 ```
 
 ---

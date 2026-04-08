@@ -178,7 +178,7 @@ For each field that survived Step 4, translate it using the rules below. See [FI
 | Derived (refs other measures) | `MEASURE(measure_a) op MEASURE(measure_b)` — define atomics first |
 | `filters:` on a measure | `AGG(col) FILTER (WHERE condition)` |
 
-Strip Omni's `${view.column}` refs to bare column names (or `join_name.column` for joined fields). Use `display_name` for the Omni `label`, `comment` for `description`. See [YAML-REFERENCE.md](./references/YAML-REFERENCE.md) for format and aggregate type mapping tables.
+Strip Omni's `${view.column}` refs to bare column names (or `join_name.column` for joined fields). Use `display_name` for the Omni `label`, `comment` for `description`, and carry `synonyms` directly. See [YAML-REFERENCE.md](./references/YAML-REFERENCE.md) for format and aggregate type mapping tables.
 
 If the topic has `ai_context`, carry it into the metric view's top-level `comment`.
 
