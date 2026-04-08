@@ -22,6 +22,81 @@ export OMNI_API_TOKEN="your-api-key"
 
 ---
 
+## Runtime Environment Detection
+
+Before starting, determine which environment you are running in — this controls how SQL is executed against Snowflake in Step 7.
+
+### How to detect
+
+Check for the presence of the built-in Snowflake SQL execution capability:
+
+- **Cortex Code** (Snowflake Notebooks / Cortex Analyst): Native SQL execution is available. No extra tooling required.
+- **Claude Code, Cursor, or any external IDE/agent**: No native Snowflake connection. You must use one of the CLI options below.
+
+### Detection heuristic
+
+```
+If the agent can execute a SQL statement like `SELECT CURRENT_USER()` directly without any shell command → you are in Cortex Code.
+Otherwise → you are in an external environment.
+```
+
+If unsure, ask the user: _"Are you running this inside Snowflake (Cortex Code / Notebooks), or in an external tool like Claude Code or Cursor?"_
+
+### External environment: Snowflake connectivity options
+
+For **Claude Code, Cursor, or any terminal-based agent**, choose one of the following. Check availability in order:
+
+#### Option A — Snowflake CLI (`snow`) ✅ Recommended
+
+```bash
+# Check if available
+command -v snow
+
+# Configure a connection (first time)
+snow connection add
+
+# Execute SQL
+snow sql -q "SELECT CURRENT_USER();" --connection <connection_name>
+```
+
+Set a default connection to avoid repeating `--connection` on every call:
+```bash
+snow connection set-default <connection_name>
+```
+
+#### Option B — SnowSQL (classic CLI)
+
+```bash
+# Check if available
+command -v snowsql
+
+# Execute SQL
+snowsql -a <account> -u <user> -q "SELECT CURRENT_USER();"
+```
+
+#### Option C — Python (`snowflake-connector-python`)
+
+```bash
+pip install snowflake-connector-python
+```
+
+```python
+import snowflake.connector
+conn = snowflake.connector.connect(
+    account="<account>",
+    user="<user>",
+    password="<password>",   # or use key-pair / SSO
+    warehouse="<warehouse>",
+    database="<database>",
+    schema="<schema>",
+)
+conn.cursor().execute("<SQL here>")
+```
+
+> ✋ **STOP** — Confirm the Snowflake connection method with the user before proceeding to Step 7. Record which method is being used so Step 7 generates the correct execution command.
+
+---
+
 ## Workflow
 
 ### Step 1 — Gather Requirements
@@ -49,13 +124,13 @@ Identify the **Shared Model** and note its `id`. Always prefer the Shared Model 
 #### 2b. Fetch the topic file
 
 ```bash
-omni models yaml-get <modelId> --file-name <topic_name>.topic
+omni models yaml-get <modelId> --filename <topic_name>.topic
 ```
 
 #### 2c. Fetch the relationships file
 
 ```bash
-omni models yaml-get <modelId> --file-name relationships
+omni models yaml-get <modelId> --filename relationships
 ```
 
 #### 2d. Fetch each view file referenced in the topic
@@ -63,7 +138,7 @@ omni models yaml-get <modelId> --file-name relationships
 For every view in `base_view` and `joins`, fetch its YAML:
 
 ```bash
-omni models yaml-get <modelId> --file-name <view_name>.view
+omni models yaml-get <modelId> --filename <view_name>.view
 ```
 
 > If a view is prefixed with `omni_dbt_`, fetch the file that also starts with `omni_dbt_` (e.g. `omni_dbt_ecomm__order_items.view`).
@@ -483,13 +558,15 @@ verified_queries:
     use_as_onboarding_question: <boolean>
 ```
 
-> **Valid top-level keys only:** `name`, `description`, `tables`, `relationships`, `metrics`, `verified_queries`
+> **Valid top-level keys only:** `name`, `description`, `tables`, `relationships`, `metrics`, `verified_queries`, `module_custom_instructions`
 
 ---
 
 #### Create the Semantic View
 
-Pass the YAML inline using dollar-quoting — not from a stage file:
+The SQL is the same regardless of environment. The difference is *how* it is executed.
+
+**SQL to run:**
 
 ```sql
 CALL SYSTEM$CREATE_SEMANTIC_VIEW_FROM_YAML('<database>.<schema>', $$
@@ -497,11 +574,29 @@ CALL SYSTEM$CREATE_SEMANTIC_VIEW_FROM_YAML('<database>.<schema>', $$
 $$);
 ```
 
+**Execution by environment:**
+
+| Environment | Command |
+|---|---|
+| Cortex Code | Execute the SQL directly in the active Snowflake session |
+| `snow` CLI | `snow sql -q "CALL SYSTEM$CREATE_SEMANTIC_VIEW_FROM_YAML(...)"` or write YAML to a temp file and pipe it |
+| SnowSQL | `snowsql -a <account> -u <user> -f <sql_file.sql>` |
+| Python | `conn.cursor().execute("<sql>")` |
+
+> **Tip for CLI environments:** If the YAML is long, write it to a temporary `.sql` file first and execute the file rather than passing it inline — this avoids shell escaping issues with the `$$` dollar-quoting.
+
+```bash
+# snow CLI example with a file
+snow sql -f /tmp/create_semantic_view.sql
+```
+
 #### Grant access
 
 ```sql
 GRANT SELECT ON SEMANTIC VIEW <database>.<schema>.<name> TO ROLE <role>;
 ```
+
+Execute this the same way as the `CREATE` call above, using whichever connection method was established during the Runtime Environment Detection step.
 
 ---
 
