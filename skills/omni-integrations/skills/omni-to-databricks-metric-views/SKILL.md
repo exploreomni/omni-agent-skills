@@ -261,12 +261,33 @@ databricks api post /api/2.0/sql/statements \
   }"
 ```
 
+Check the response for `"state": "SUCCEEDED"`. If `"state": "FAILED"`, read `status.error.message` and see the Troubleshooting section below.
+
+> ✋ **STOP** — Confirm which group or user should receive access before running the GRANT. This is a permission change visible to others.
+
 Grant access:
 
 ```bash
 databricks api post /api/2.0/sql/statements \
   --json "{\"warehouse_id\": \"<WAREHOUSE_ID>\", \"statement\": \"GRANT SELECT ON VIEW catalog.schema.orders_mv TO \`group_name\`\", \"wait_timeout\": \"30s\", \"catalog\": \"<CATALOG>\", \"schema\": \"<SCHEMA>\"}"
 ```
+
+---
+
+## Troubleshooting
+
+When the SQL Statements API returns `"state": "FAILED"`, read `status.error.message`:
+
+| Error message contains | Likely cause | Fix |
+|---|---|---|
+| `METRIC_VIEW_INVALID_VIEW_DEFINITION` | Invalid YAML field or value | Check the field name against the valid keys (`name`, `expr`, `display_name`, `comment`, `synonyms`, `format`). Common mistakes: using `description` instead of `comment`, unsupported `decimal_places`. |
+| `warehouse not running` / `RESOURCE_DOES_NOT_EXIST` | Warehouse is stopped or wrong ID | Start the warehouse in the Databricks UI or verify the ID with `databricks api get /api/2.0/sql/warehouses`. |
+| `PERMISSION_DENIED` | The CLI profile lacks privileges | Check the profile's permissions on the catalog/schema with `databricks api get /api/2.0/unity-catalog/permissions/...`. |
+| `TABLE_OR_VIEW_NOT_FOUND` | A source or join table doesn't exist in Unity Catalog | Verify each table reference with `SHOW TABLES IN <catalog>.<schema>`. |
+| `on` parse error / unexpected key | `on:` not quoted | Always write `'on':` (single-quoted) — it is a YAML 1.1 reserved word. |
+| `wait_timeout` value error | Timeout out of range | `wait_timeout` must be between `5s` and `50s`. |
+
+If the error message is truncated, run the same statement with `"wait_timeout": "5s"` to get the full synchronous error response.
 
 ---
 
