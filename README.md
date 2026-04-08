@@ -287,6 +287,52 @@ Or update manually from the `/plugin` menu.
 
 Re-run the installation command or re-copy the updated `skills/` folders to pull the latest version.
 
+### Getting the Latest Version
+
+If your skills appear outdated, or the install command reports the plugin is "already installed" while skills aren't loading, your IDE may be serving a cached version. This can happen when the uninstall process doesn't fully clean up all registry and cache entries.
+
+To ensure you're running the latest version, manually clear the stale plugin data and reinstall.
+
+#### Claude Code
+
+1. Edit `~/.claude/settings.json` and remove:
+   - The `"omni-analytics@omni-analytics"` entry from `enabledPlugins`
+   - The `"omni-analytics"` block from `extraKnownMarketplaces`
+
+2. Edit `~/.claude/plugins/installed_plugins.json` and remove the `omni-analytics` entry
+
+3. Edit `~/.claude/plugins/known_marketplaces.json` and remove the `omni-analytics` entry
+
+4. Delete cached files:
+   ```bash
+   rm -rf ~/.claude/plugins/cache/omni-analytics/
+   rm -rf ~/.claude/plugins/marketplaces/omni-analytics/
+   ```
+
+5. Reinstall the latest version:
+   ```bash
+   /plugin marketplace add exploreomni/omni-agent-skills
+   /plugin install omni-analytics@omni-analytics
+   /reload-plugins
+   ```
+
+#### Cursor
+
+1. Remove the plugin:
+   ```text
+   /remove-plugin omni-analytics
+   ```
+
+2. Delete the cached plugin clone:
+   ```bash
+   rm -rf ~/.cursor/plugins/omni-analytics/
+   ```
+
+3. Reinstall the latest version:
+   ```text
+   /add-plugin https://github.com/exploreomni/omni-agent-skills.git
+   ```
+
 ## Repository Structure
 
 ```
