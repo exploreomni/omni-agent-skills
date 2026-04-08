@@ -81,7 +81,7 @@ Install from Git URL:
 /add-plugin https://github.com/exploreomni/omni-agent-skills.git
 ```
 
-> **Note**: The `omni-integrations` plugin is not yet separately installable via `/add-plugin` in Cursor — subdirectory plugin paths are not currently supported. To make both plugins available, use [Cursor's team marketplace import](https://cursor.com/docs/plugins) (Dashboard > Settings > Plugins > Import) with the same repo URL.
+To also install the integrations plugin (Snowflake Semantic Views, etc.), use [Cursor's team marketplace import](https://cursor.com/docs/plugins) (Dashboard > Settings > Plugins > Import) with the repo URL `https://github.com/exploreomni/omni-agent-skills` — both `omni-analytics` and `omni-integrations` will appear as separate installable plugins.
 
 <a id="install-cortex-code"></a>
 ### Cortex Code
@@ -295,6 +295,7 @@ omni-agent-skills/
 │   ├── marketplace.json
 │   └── plugin.json
 ├── .cursor-plugin/
+│   ├── marketplace.json
 │   └── plugin.json
 ├── skills/
 │   ├── omni-model-explorer/
