@@ -260,6 +260,33 @@ Or update manually from the `/plugin` menu.
 
 Re-run the installation command or re-copy the updated `skills/` folders to pull the latest version.
 
+### Plugin Update / Reinstall Issues (Claude Code)
+
+If `/plugin install` reports the plugin is "already installed globally" but `/reload-plugins` shows 0 skills loaded, the plugin registry is in a stale state. This can happen when `/plugin uninstall` doesn't fully clean up all entries.
+
+To fix, manually remove leftover registry data and reinstall:
+
+1. Edit `~/.claude/settings.json` and remove:
+   - The `"omni-analytics@omni-analytics"` entry from `enabledPlugins`
+   - The `"omni-analytics"` block from `extraKnownMarketplaces`
+
+2. Edit `~/.claude/plugins/installed_plugins.json` and remove the `omni-analytics` entry
+
+3. Edit `~/.claude/plugins/known_marketplaces.json` and remove the `omni-analytics` entry
+
+4. Delete cached files:
+   ```bash
+   rm -rf ~/.claude/plugins/cache/omni-analytics/
+   rm -rf ~/.claude/plugins/marketplaces/omni-analytics/
+   ```
+
+5. Reinstall fresh:
+   ```bash
+   /plugin marketplace add exploreomni/omni-agent-skills
+   /plugin install omni-analytics@omni-analytics
+   /reload-plugins
+   ```
+
 ## Repository Structure
 
 ```
