@@ -50,6 +50,7 @@ jobs:
           gh release view "$TAG" --repo exploreomni/cli --json tagName,name,body > /tmp/cli-release-meta.json
 
       - uses: anthropics/claude-code-action@v1
+        id: sync
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           direct_prompt: |
@@ -79,3 +80,14 @@ jobs:
             The PR body should list each file changed and summarize what was updated.
 
             If no files in this repo reference the changed commands, exit without making changes.
+
+      - name: Trigger review on created PR
+        if: steps.sync.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Find the PR that was just created by the sync step
+          PR_NUMBER=$(gh pr list --repo ${{ github.repository }} --head "claude-sync-" --json number --jq '.[0].number // empty')
+          if [ -n "$PR_NUMBER" ]; then
+            gh pr comment "$PR_NUMBER" --repo ${{ github.repository }} --body "/review"
+          fi
