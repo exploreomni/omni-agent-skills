@@ -1,0 +1,93 @@
+name: Sync CLI Changes to Skills
+
+on:
+  repository_dispatch:
+    types: [cli-update]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "exploreomni/cli release tag to process (e.g. v1.2.3)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve release tag
+        id: release
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo "tag=${{ github.event.client_payload.release_tag }}" >> "$GITHUB_OUTPUT"
+            echo "commit=${{ github.event.client_payload.commit_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ inputs.release_tag }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch CLI changes since previous release
+        env:
+          GH_TOKEN: ${{ secrets.CLI_REPO_TOKEN }}
+        run: |
+          TAG="${{ steps.release.outputs.tag }}"
+          # Get the previous release tag
+          PREV_TAG=$(gh release list --repo exploreomni/cli --limit 2 --json tagName --jq '.[1].tagName // empty')
+          if [ -n "$PREV_TAG" ]; then
+            gh api repos/exploreomni/cli/compare/${PREV_TAG}...${TAG} --jq '.commits, .files' > /tmp/cli-release-diff.json
+            # Also get the full diff
+            gh api repos/exploreomni/cli/compare/${PREV_TAG}...${TAG} -H "Accept: application/vnd.github.v3.diff" > /tmp/cli-release-diff.txt
+          else
+            # First release — diff against the commit
+            echo "First release, no previous tag to compare" > /tmp/cli-release-diff.txt
+            echo "[]" > /tmp/cli-release-diff.json
+          fi
+          # Fetch release notes
+          gh release view "$TAG" --repo exploreomni/cli --json tagName,name,body > /tmp/cli-release-meta.json
+
+      - uses: anthropics/claude-code-action@v1
+        id: sync
+        with:
+          use_claude_code_app: true
+          direct_prompt: |
+            Release ${{ steps.release.outputs.tag }} was published in the exploreomni/cli repo.
+
+            The diff since the previous release is at /tmp/cli-release-diff.txt and
+            release metadata at /tmp/cli-release-meta.json.
+
+            Your task: determine whether any files in this repo need updating to match the CLI changes.
+
+            This repo contains Omni Analytics skill definitions (.md), agent instructions (.md),
+            and rule files (.mdc) that include CLI command examples, parameter tables, and
+            instructional prose. When the CLI changes — new shorthand syntax, new commands,
+            renamed flags, changed defaults — these docs must be updated to match.
+
+            Steps:
+            1. Read /tmp/cli-release-diff.txt and /tmp/cli-release-meta.json to understand what changed
+            2. Search ALL .md and .mdc files for references to affected commands (grep broadly)
+            3. Update code examples, parameter tables, prose descriptions, and batch scripts
+            4. Also update surrounding prose that references old parameter names (e.g. "Set `runQuery: false`" should become "Pass `--run-query false`")
+            5. Verify markdown formatting — table separator rows, code fences, no duplicate headers
+            6. Do a final pass: grep again for any remaining stale references you missed
+
+            If changes were made, commit them to a new branch and create a PR titled:
+            "Sync skills with exploreomni/cli@${{ steps.release.outputs.tag }}"
+
+            The PR body should list each file changed and summarize what was updated.
+
+            If no files in this repo reference the changed commands, exit without making changes.
+
+      - name: Trigger review on created PR
+        if: steps.sync.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Find the PR that was just created by the sync step
+          PR_NUMBER=$(gh pr list --repo ${{ github.repository }} --head "claude-sync-" --json number --jq '.[0].number // empty')
+          if [ -n "$PR_NUMBER" ]; then
+            gh pr comment "$PR_NUMBER" --repo ${{ github.repository }} --body "/review"
+          fi
