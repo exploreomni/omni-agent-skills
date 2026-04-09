@@ -52,7 +52,7 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         id: sync
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          use_claude_code_app: true
           direct_prompt: |
             Release ${{ steps.release.outputs.tag }} was published in the exploreomni/cli repo.
 

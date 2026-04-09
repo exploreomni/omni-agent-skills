@@ -50,7 +50,7 @@ jobs:
         if: steps.changed-files.outputs.files != ''
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          use_claude_code_app: true
           track_progress: true
           include_fix_links: false
 
