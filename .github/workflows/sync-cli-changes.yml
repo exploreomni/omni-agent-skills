@@ -5,8 +5,8 @@ on:
     types: [cli-update]
   workflow_dispatch:
     inputs:
-      cli_pr:
-        description: "exploreomni/cli PR number to process"
+      release_tag:
+        description: "exploreomni/cli release tag to process (e.g. v1.2.3)"
         required: true
         type: string
 
@@ -20,30 +20,43 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Resolve PR number
-        id: pr
+      - name: Resolve release tag
+        id: release
         run: |
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            echo "number=${{ github.event.client_payload.pr_number }}" >> "$GITHUB_OUTPUT"
+            echo "tag=${{ github.event.client_payload.release_tag }}" >> "$GITHUB_OUTPUT"
+            echo "commit=${{ github.event.client_payload.commit_sha }}" >> "$GITHUB_OUTPUT"
           else
-            echo "number=${{ inputs.cli_pr }}" >> "$GITHUB_OUTPUT"
+            echo "tag=${{ inputs.release_tag }}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Fetch CLI PR diff
+      - name: Fetch CLI changes since previous release
         env:
           GH_TOKEN: ${{ secrets.CLI_REPO_TOKEN }}
         run: |
-          PR=${{ steps.pr.outputs.number }}
-          gh pr view "$PR" --repo exploreomni/cli --json title,body,files > /tmp/cli-pr-meta.json
-          gh pr diff "$PR" --repo exploreomni/cli > /tmp/cli-pr-diff.txt
+          TAG="${{ steps.release.outputs.tag }}"
+          # Get the previous release tag
+          PREV_TAG=$(gh release list --repo exploreomni/cli --limit 2 --json tagName --jq '.[1].tagName // empty')
+          if [ -n "$PREV_TAG" ]; then
+            gh api repos/exploreomni/cli/compare/${PREV_TAG}...${TAG} --jq '.commits, .files' > /tmp/cli-release-diff.json
+            # Also get the full diff
+            gh api repos/exploreomni/cli/compare/${PREV_TAG}...${TAG} -H "Accept: application/vnd.github.v3.diff" > /tmp/cli-release-diff.txt
+          else
+            # First release — diff against the commit
+            echo "First release, no previous tag to compare" > /tmp/cli-release-diff.txt
+            echo "[]" > /tmp/cli-release-diff.json
+          fi
+          # Fetch release notes
+          gh release view "$TAG" --repo exploreomni/cli --json tagName,name,body > /tmp/cli-release-meta.json
 
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           direct_prompt: |
-            PR #${{ steps.pr.outputs.number }} was merged in the exploreomni/cli repo.
+            Release ${{ steps.release.outputs.tag }} was published in the exploreomni/cli repo.
 
-            The CLI diff is saved at /tmp/cli-pr-diff.txt and PR metadata at /tmp/cli-pr-meta.json.
+            The diff since the previous release is at /tmp/cli-release-diff.txt and
+            release metadata at /tmp/cli-release-meta.json.
 
             Your task: determine whether any files in this repo need updating to match the CLI changes.
 
@@ -53,7 +66,7 @@ jobs:
             renamed flags, changed defaults — these docs must be updated to match.
 
             Steps:
-            1. Read /tmp/cli-pr-diff.txt and /tmp/cli-pr-meta.json to understand what changed
+            1. Read /tmp/cli-release-diff.txt and /tmp/cli-release-meta.json to understand what changed
             2. Search ALL .md and .mdc files for references to affected commands (grep broadly)
             3. Update code examples, parameter tables, prose descriptions, and batch scripts
             4. Also update surrounding prose that references old parameter names (e.g. "Set `runQuery: false`" should become "Pass `--run-query false`")
@@ -61,7 +74,7 @@ jobs:
             6. Do a final pass: grep again for any remaining stale references you missed
 
             If changes were made, commit them to a new branch and create a PR titled:
-            "Sync skills with exploreomni/cli#${{ steps.pr.outputs.number }}"
+            "Sync skills with exploreomni/cli@${{ steps.release.outputs.tag }}"
 
             The PR body should list each file changed and summarize what was updated.
 
