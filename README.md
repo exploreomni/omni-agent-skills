@@ -156,6 +156,32 @@ Update installed skills:
 npx skills update
 ```
 
+## Migrating from Older Repos
+
+This repo replaces two earlier, platform-specific repos that are now deprecated:
+
+| Deprecated repo | Replacement |
+|-----------------|-------------|
+| [`exploreomni/omni-claude-skills`](https://github.com/exploreomni/omni-claude-skills) | Use the [Claude Code install](#install-claude-code) above |
+| [`exploreomni/omni-cursor-plugin`](https://github.com/exploreomni/omni-cursor-plugin) | Use the [Cursor install](#install-cursor) above |
+
+If you previously installed from either repo, uninstall the old plugin first, then follow the installation instructions above.
+
+**Claude Code**
+
+```bash
+/plugin uninstall omni-analytics@omni-analytics
+/plugin marketplace remove omni-claude-skills
+```
+
+**Cursor**
+
+```text
+/remove-plugin omni-cursor-plugin
+```
+
+Then follow the [installation instructions](#installation) above to install from this repo.
+
 ## Setup
 
 ### Install the Omni CLI
