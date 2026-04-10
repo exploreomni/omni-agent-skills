@@ -2,6 +2,25 @@
 
 Complete reference for the `visConfig` object — accepted `chartType` values, the `config` object structure for each chart family, and worked examples for every supported visualization type.
 
+## Table of Contents
+
+- [Where visConfig Lives](#where-visconfig-lives) — placement inside the query object
+- [chartType Values](#charttype-values) — all 35+ accepted values and mapping to config properties
+- [Config Object: Cartesian Charts](#config-object-cartesian-charts) — line, bar, area, scatter, combo, heatmap, boxplot
+- [Config Object: KPI](#config-object-kpi) — single value and multi-value tiles
+- [Config Object: Pie / Donut](#config-object-pie--donut)
+- [Config Object: Funnel](#config-object-funnel)
+- [Config Object: Sankey](#config-object-sankey)
+- [Config Object: Heatmap](#config-object-heatmap)
+- [Config Object: Map](#config-object-map) — point maps with lat/lng
+- [Config Object: Region Map](#config-object-region-map) — choropleth maps
+- [Complete Examples](#complete-examples) — 17 worked examples covering every chart family
+- [Discovering Config for Advanced Chart Types](#discovering-config-for-advanced-chart-types) — reading configs from the UI
+- [resultConfig](#resultconfig) — column order, hidden columns, widths
+- [aiConfig](#aiconfig) — AI-generated descriptions and subtitles
+- [Common Mistakes](#common-mistakes) — symptoms and fixes
+- [Safe Defaults](#safe-defaults) — fallback patterns when unsure
+
 > **Important**: The `visConfig` schema is not fully documented in Omni's public API docs. The examples below are based on reading back visualizations from dashboards created in the Omni UI via `GET /api/v1/documents/{documentId}`. **Always verify config structure** by building a reference chart in the UI and reading it back before relying on these examples for advanced or uncommon chart types.
 
 ## Where visConfig Lives
