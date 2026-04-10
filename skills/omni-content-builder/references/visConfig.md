@@ -89,13 +89,10 @@ The `chartType` field on `visConfig` (inside `query`) and optionally on `queryPr
 | `"boxplot"` | Statistical | Box-and-whisker plot |
 | `"map"` | Geo | Point map (lat/lng) |
 | `"regionMap"` | Geo | Choropleth / filled region map |
-| `"svgMap"` | Geo | Custom SVG map |
 | `"summaryValue"` | KPI | Summary value display |
 | `"singleRecord"` | Detail | Single record viewer |
 | `"markdown"` | Text | Markdown content tile |
 | `"omni-ai-summary-markdown"` | Text | AI-generated summary tile |
-| `"code"` | Text | Code display |
-| `"omni-spreadsheet"` | Table | Spreadsheet-style table |
 | `"auto"` | Auto | Let Omni choose the best chart type |
 | `null` | Default | No chart type specified (renders as table) |
 
@@ -999,7 +996,7 @@ Same as pie but with `innerRadius` set.
 
 ## Discovering Config for Advanced Chart Types
 
-For chart types not fully documented here (sankey, boxplot, map, regionMap, svgMap, singleRecord), the most reliable approach is to build the chart in the Omni UI and read it back:
+For chart types not fully documented here (sankey, boxplot, map, regionMap, singleRecord), the most reliable approach is to build the chart in the Omni UI and read it back:
 
 ```bash
 # Step 1: Build the visualization in the Omni UI
