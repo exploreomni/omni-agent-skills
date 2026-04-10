@@ -95,7 +95,7 @@ omni documents create --body '{
 
 #### queryPresentation Structure
 
-See [references/queryPresentations.md](references/queryPresentations.md) for the complete reference — parameter tables for `queryPresentation` and `query` objects, `visConfig` chartType values, `config` object details, chart type examples, and caveats when reusing presentations from existing dashboards.
+See [references/queryPresentations.md](references/queryPresentations.md) for the complete reference — parameter tables for `queryPresentation` and `query` objects, chart type examples, and caveats when reusing presentations from existing dashboards. See [references/visConfig.md](references/visConfig.md) for the full `visConfig` and `config` object reference — all accepted `chartType` values, config structure for every chart family (cartesian, KPI, pie, funnel, sankey, heatmap, map), and worked examples.
 
 **Key points:**
 - `prefersChart` must be `true` to render a chart (otherwise always shows table)
@@ -104,6 +104,7 @@ See [references/queryPresentations.md](references/queryPresentations.md) for the
 - `fields` must be duplicated at both the `queryPresentation` and `query` levels
 - `modelId` is inherited from the document — not needed inside `query`
 - Default to `"config": {}` for reliable rendering — Omni auto-generates chart config
+- For full `visConfig` and `config` schema details, see [references/visConfig.md](references/visConfig.md)
 
 **To learn the exact structure for a chart type**, build a reference dashboard in the Omni UI and read it back:
 
@@ -476,6 +477,7 @@ omni dashboards download-status <dashboardId> <jobId>
 ## Docs Reference
 
 - [Documents API](https://docs.omni.co/api/documents.md) · [Update Document](https://docs.omni.co/api/documents/update-document) · [Dashboard Filters](https://docs.omni.co/api/dashboard-filters.md) · [Dashboard Downloads](https://docs.omni.co/api/dashboard-downloads.md) · [Query API](https://docs.omni.co/api/queries.md) · [Schedules API](https://docs.omni.co/api/schedules.md) · [Visualization Types](https://docs.omni.co/visualize-present/visualizations.md)
+- **Skill references**: [queryPresentations.md](references/queryPresentations.md) · [visConfig.md](references/visConfig.md) · [filterConfig.md](references/filterConfig.md)
 
 ## Related Skills
 
