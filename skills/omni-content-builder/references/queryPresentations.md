@@ -48,6 +48,8 @@ The `query` object within each query presentation uses the same structure as the
 
 `visConfig` alone does **not** control chart rendering. It stores the chart type hint on the query, but the actual rendering is driven by `prefersChart`, `visType`, and `config` at the `queryPresentation` level.
 
+> For the complete `visConfig` and `config` object reference — all accepted `chartType` values, config structures for every chart family, and advanced examples — see [visConfig.md](visConfig.md).
+
 **chartType values**:
 
 | chartType | Visualization |
