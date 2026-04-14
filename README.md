@@ -186,12 +186,14 @@ Then follow the [installation instructions](#installation) above to install from
 
 ### Install the Omni CLI
 
+> Requires Homebrew. For other installation methods, see the [CLI README](https://github.com/exploreomni/cli#installation).
+
 ```bash
-# macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | sh
+brew tap exploreomni/tap
+brew install omni
 ```
 
-This downloads the latest release, verifies the SHA-256 checksum, and installs the `omni` binary to `/usr/local/bin` (or `~/.local/bin` if not writable). Pre-built binaries for all platforms are also available on the [GitHub Releases page](https://github.com/exploreomni/cli/releases).
+Pre-built binaries for macOS (amd64/arm64), Linux (amd64/arm64), and Windows (amd64) are also available on the [GitHub Releases page](https://github.com/exploreomni/cli/releases).
 
 ### Configure authentication
 

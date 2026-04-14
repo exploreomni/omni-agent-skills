@@ -11,8 +11,11 @@ Converts an Omni topic into a Snowflake Semantic View YAML definition by first e
 
 ## Prerequisites
 
+> Requires Homebrew. For other installation methods, see the [CLI README](https://github.com/exploreomni/cli#installation).
+
 ```bash
-command -v omni >/dev/null || curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | sh
+brew tap exploreomni/tap
+brew install omni
 ```
 
 ```bash
