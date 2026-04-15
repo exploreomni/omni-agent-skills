@@ -12,7 +12,9 @@ Manage your Omni instance — connections, users, groups, user attributes, permi
 ## Prerequisites
 
 ```bash
-command -v omni >/dev/null || curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | sh
+# Verify the Omni CLI is installed — if not, ask the user to install it
+# See: https://github.com/exploreomni/cli#readme
+command -v omni >/dev/null || echo "ERROR: Omni CLI is not installed."
 ```
 
 ```bash
