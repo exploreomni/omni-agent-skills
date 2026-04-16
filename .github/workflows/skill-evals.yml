@@ -1,0 +1,260 @@
+name: Skill Evals
+
+on:
+  workflow_dispatch:
+    inputs:
+      skill:
+        description: 'Skill to evaluate (or "all")'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - omni-model-explorer
+          - omni-query
+          - omni-model-builder
+          - omni-content-explorer
+          - omni-content-builder
+          - omni-ai-optimizer
+          - omni-admin
+          - omni-embed
+          - omni-ai-eval
+      runs:
+        description: 'Runs per configuration'
+        required: false
+        default: '3'
+        type: string
+
+  schedule:
+    - cron: '0 8 * * 1'  # Weekly Monday 8am UTC
+
+  pull_request:
+    paths:
+      - 'skills/*/SKILL.md'
+      - 'evals/scenarios/*.eval.yaml'
+
+jobs:
+  detect-changes:
+    name: Detect changed skills
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      skills: ${{ steps.changed.outputs.skills }}
+      has_changes: ${{ steps.changed.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed skills
+        id: changed
+        run: |
+          CHANGED_SKILLS=""
+
+          # Check for changed SKILL.md files
+          for f in $(git diff --name-only origin/main...HEAD -- 'skills/*/SKILL.md'); do
+            SKILL_NAME=$(echo "$f" | cut -d'/' -f2)
+            CHANGED_SKILLS="$CHANGED_SKILLS $SKILL_NAME"
+          done
+
+          # Check for changed eval scenario files
+          for f in $(git diff --name-only origin/main...HEAD -- 'evals/scenarios/*.eval.yaml'); do
+            SKILL_NAME=$(basename "$f" .eval.yaml)
+            CHANGED_SKILLS="$CHANGED_SKILLS $SKILL_NAME"
+          done
+
+          # Deduplicate
+          CHANGED_SKILLS=$(echo "$CHANGED_SKILLS" | tr ' ' '\n' | sort -u | tr '\n' ' ' | xargs)
+
+          if [ -z "$CHANGED_SKILLS" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "skills=" >> "$GITHUB_OUTPUT"
+            echo "No skill changes detected"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "skills=$CHANGED_SKILLS" >> "$GITHUB_OUTPUT"
+            echo "Changed skills: $CHANGED_SKILLS"
+          fi
+
+  run-evals:
+    name: Run skill evals
+    runs-on: ubuntu-latest
+    needs: [detect-changes]
+    if: |
+      always() &&
+      (needs.detect-changes.result == 'skipped' || needs.detect-changes.outputs.has_changes == 'true')
+    timeout-minutes: 60
+    env:
+      OMNI_BASE_URL: ${{ secrets.OMNI_BASE_URL }}
+      OMNI_API_TOKEN: ${{ secrets.OMNI_API_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    outputs:
+      results_dir: ${{ steps.run.outputs.results_dir }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          # Install yq
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+          # Install jq (usually pre-installed on GitHub runners)
+          which jq || sudo apt-get install -y jq
+
+          # Install Claude Code CLI
+          npm install -g @anthropic-ai/claude-code
+
+      - name: Make scripts executable
+        run: chmod +x evals/*.sh
+
+      - name: Determine skills to evaluate
+        id: skills
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            SKILL_ARG="${{ needs.detect-changes.outputs.skills }}"
+            # If multiple skills changed, run each
+            SKILL_FLAG=""
+            for s in $SKILL_ARG; do
+              SKILL_FLAG="$SKILL_FLAG --skill $s"
+            done
+            echo "flags=$SKILL_FLAG" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ "${{ inputs.skill }}" == "all" ]; then
+              echo "flags=--all" >> "$GITHUB_OUTPUT"
+            else
+              echo "flags=--skill ${{ inputs.skill }}" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            # Scheduled run: evaluate all
+            echo "flags=--all" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run evals
+        id: run
+        run: |
+          RUNS="${{ inputs.runs || '3' }}"
+          RESULTS_DIR=$(./evals/runner.sh ${{ steps.skills.outputs.flags }} --runs "$RUNS" | tail -1)
+          echo "results_dir=$RESULTS_DIR" >> "$GITHUB_OUTPUT"
+          echo "Results directory: $RESULTS_DIR"
+
+      - name: Score results
+        run: ./evals/scorer.sh ${{ steps.run.outputs.results_dir }}
+
+      - name: Generate report
+        run: ./evals/report.sh ${{ steps.run.outputs.results_dir }}
+
+      - name: Compare against baselines
+        id: baseline
+        run: |
+          RESULTS_DIR="${{ steps.run.outputs.results_dir }}"
+          SCORES_FILE="$RESULTS_DIR/scores.json"
+
+          if [ ! -f "$SCORES_FILE" ]; then
+            echo "No scores.json found, skipping baseline comparison"
+            exit 0
+          fi
+
+          REGRESSIONS=""
+          for baseline_file in evals/baselines/*-baseline.json; do
+            [ -f "$baseline_file" ] || continue
+            SKILL_NAME=$(basename "$baseline_file" -baseline.json)
+
+            BASELINE_RATE=$(jq -r ".pass_rate // empty" "$baseline_file" 2>/dev/null)
+            CURRENT_RATE=$(jq -r ".skills[\"$SKILL_NAME\"].with_skill.pass_rate // empty" "$SCORES_FILE" 2>/dev/null)
+
+            if [ -n "$BASELINE_RATE" ] && [ -n "$CURRENT_RATE" ]; then
+              DELTA=$(echo "$CURRENT_RATE - $BASELINE_RATE" | bc -l 2>/dev/null || echo "0")
+              if [ "$(echo "$DELTA < -5" | bc -l 2>/dev/null)" == "1" ]; then
+                REGRESSIONS="$REGRESSIONS\n- **$SKILL_NAME**: ${CURRENT_RATE}% (was ${BASELINE_RATE}%, delta: ${DELTA}%)"
+              fi
+            fi
+          done
+
+          if [ -n "$REGRESSIONS" ]; then
+            echo "has_regressions=true" >> "$GITHUB_OUTPUT"
+            echo -e "Regressions detected:$REGRESSIONS"
+          else
+            echo "has_regressions=false" >> "$GITHUB_OUTPUT"
+            echo "No regressions detected"
+          fi
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: ${{ steps.run.outputs.results_dir }}
+          retention-days: 30
+
+  comment-on-pr:
+    name: Comment eval results on PR
+    runs-on: ubuntu-latest
+    needs: [run-evals]
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download results
+        uses: actions/download-artifact@v4
+        with:
+          name: eval-results
+          path: eval-results
+
+      - name: Generate PR comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SCORES_FILE="eval-results/scores.json"
+
+          if [ ! -f "$SCORES_FILE" ]; then
+            echo "No scores.json found, skipping PR comment"
+            exit 0
+          fi
+
+          # Build the markdown table
+          COMMENT="## Skill Eval Results\n\n"
+          COMMENT+="| Skill | With Skill | Without Skill | Delta |\n"
+          COMMENT+="|-------|-----------|---------------|-------|\n"
+
+          # Parse scores and build table rows
+          for skill in $(jq -r '.skills | keys[]' "$SCORES_FILE" 2>/dev/null); do
+            WITH=$(jq -r ".skills[\"$skill\"].with_skill.pass_rate // \"N/A\"" "$SCORES_FILE")
+            WITH_STD=$(jq -r ".skills[\"$skill\"].with_skill.std_dev // \"0\"" "$SCORES_FILE")
+            WITHOUT=$(jq -r ".skills[\"$skill\"].without_skill.pass_rate // \"N/A\"" "$SCORES_FILE")
+            WITHOUT_STD=$(jq -r ".skills[\"$skill\"].without_skill.std_dev // \"0\"" "$SCORES_FILE")
+
+            if [ "$WITH" != "N/A" ] && [ "$WITHOUT" != "N/A" ]; then
+              DELTA=$(echo "$WITH - $WITHOUT" | bc -l 2>/dev/null || echo "0")
+              DELTA_SIGN=""
+              if [ "$(echo "$DELTA > 0" | bc -l 2>/dev/null)" == "1" ]; then
+                DELTA_SIGN="+"
+              fi
+              COMMENT+="| $skill | ${WITH}% +/- ${WITH_STD}% | ${WITHOUT}% +/- ${WITHOUT_STD}% | ${DELTA_SIGN}${DELTA}% |\n"
+            else
+              COMMENT+="| $skill | ${WITH}% | ${WITHOUT}% | N/A |\n"
+            fi
+          done
+
+          # Check for regressions
+          HAS_REGRESSION=false
+          for baseline_file in evals/baselines/*-baseline.json; do
+            [ -f "$baseline_file" ] || continue
+            SKILL_NAME=$(basename "$baseline_file" -baseline.json)
+            BASELINE_RATE=$(jq -r ".pass_rate // empty" "$baseline_file" 2>/dev/null)
+            CURRENT_RATE=$(jq -r ".skills[\"$SKILL_NAME\"].with_skill.pass_rate // empty" "$SCORES_FILE" 2>/dev/null)
+
+            if [ -n "$BASELINE_RATE" ] && [ -n "$CURRENT_RATE" ]; then
+              DELTA=$(echo "$CURRENT_RATE - $BASELINE_RATE" | bc -l 2>/dev/null || echo "0")
+              if [ "$(echo "$DELTA < -5" | bc -l 2>/dev/null)" == "1" ]; then
+                HAS_REGRESSION=true
+                COMMENT+="\n> **Warning**: Regression detected for **$SKILL_NAME** -- pass rate dropped from ${BASELINE_RATE}% to ${CURRENT_RATE}%\n"
+              fi
+            fi
+          done
+
+          COMMENT+="\n---\n*Generated by [Skill Evals](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*"
+
+          # Post comment
+          echo -e "$COMMENT" | gh pr comment ${{ github.event.pull_request.number }} --body-file -
