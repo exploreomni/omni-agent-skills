@@ -1,0 +1,90 @@
+skill: omni-content-builder
+skill_path: skills/omni-content-builder/SKILL.md
+
+config:
+  runs_per_config: 3
+  model: claude-sonnet-4-20250514
+
+scenarios:
+  - id: create-dashboard
+    name: "Create a dashboard with a line chart"
+    prompt: "Create a dashboard called 'Revenue Overview' showing monthly revenue as a line chart. Use the Pg model and order_items topic."
+    category: dashboard-creation
+    difficulty: medium
+    assertions:
+      - type: tool_called
+        pattern: "omni models validate"
+        description: "Validated the model before building"
+      - type: tool_called
+        pattern: "omni query run"
+        description: "Tested the query before creating the dashboard"
+      - type: tool_called
+        pattern: "omni documents create"
+        description: "Ran omni documents create to build the dashboard"
+      - type: output_contains
+        value: "queryPresentation"
+        description: "Creation payload includes queryPresentations"
+      - type: tool_called
+        pattern: "omni documents get"
+        description: "Verified the dashboard after creation"
+
+  - id: multi-tile-dashboard
+    name: "Build a multi-tile dashboard"
+    prompt: "Build a dashboard with 2 tiles: monthly revenue trend and top 5 products by revenue."
+    category: dashboard-creation
+    difficulty: hard
+    assertions:
+      - type: output_count_gte
+        pattern: "omni query run"
+        min_count: 2
+        description: "Tested both queries before building the dashboard"
+      - type: output_regex
+        pattern: "queryPresentation.*queryPresentation|tiles.*2|two.*tile"
+        description: "Creation payload has 2 tiles"
+      - type: llm_judge
+        criteria: "The dashboard creation payload includes two tiles with appropriate visualization configurations -- one for a time-series trend and one for a top-N ranking."
+        description: "Tiles have appropriate viz configurations"
+
+  - id: add-filter
+    name: "Add a date filter to an existing dashboard"
+    prompt: "Add a date filter for the last 30 days to an existing dashboard."
+    category: dashboard-update
+    difficulty: medium
+    assertions:
+      - type: tool_called
+        pattern: "omni documents get"
+        description: "Inspected the existing dashboard first"
+      - type: output_contains_any
+        values:
+          - "filterConfig"
+          - "filter"
+          - "update"
+        description: "Used update with filter configuration"
+      - type: output_contains_any
+        values:
+          - "created_at"
+          - "date"
+          - "TIME_FOR_INTERVAL"
+        description: "Filter targets a date field"
+
+  - id: validation-loop
+    name: "Full validation workflow for a KPI dashboard"
+    prompt: "Create a simple KPI dashboard showing total revenue. Follow the full validation workflow."
+    category: workflow
+    difficulty: medium
+    assertions:
+      - type: tool_called
+        pattern: "omni models validate"
+        description: "Pre-build validation: ran model validate"
+      - type: tool_called
+        pattern: "omni query run"
+        description: "Pre-build validation: tested the query"
+      - type: tool_called
+        pattern: "omni documents create"
+        description: "Created the document"
+      - type: tool_called
+        pattern: "omni documents get"
+        description: "Post-build verification: read back the dashboard"
+      - type: step_count_lte
+        max_steps: 15
+        description: "Completed the full workflow within 15 steps"

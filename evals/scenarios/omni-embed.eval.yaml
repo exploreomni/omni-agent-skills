@@ -1,0 +1,81 @@
+skill: omni-embed
+skill_path: skills/omni-embed/SKILL.md
+
+config:
+  runs_per_config: 3
+  model: claude-sonnet-4-20250514
+
+scenarios:
+  - id: sign-embed-url
+    name: "Generate a signed embed URL"
+    prompt: "Generate a signed embed URL for dashboard ID 'abc123' with user email 'viewer@company.com'."
+    category: embed-signing
+    difficulty: medium
+    assertions:
+      - type: output_contains_any
+        values:
+          - "embedSsoDashboard"
+          - "embed"
+          - "@omni-co/embed"
+        description: "References the @omni-co/embed SDK or embed signing function"
+      - type: output_contains_any
+        values:
+          - "secret"
+          - "OMNI_EMBED_SECRET"
+        description: "Mentions the embed secret for URL signing"
+      - type: output_contains
+        value: "viewer@company.com"
+        description: "Includes the user email in the signed payload"
+      - type: output_contains_any
+        values:
+          - "contentId"
+          - "abc123"
+        description: "References the dashboard ID"
+
+  - id: configure-theme
+    name: "Set up a custom embed theme"
+    prompt: "Set up a custom embed theme with our brand colors: primary #1a73e8, background white."
+    category: embed-theming
+    difficulty: medium
+    assertions:
+      - type: output_contains_any
+        values:
+          - "customTheme"
+          - "themeOverrides"
+          - "custom_theme"
+        description: "Describes theme configuration using customTheme"
+      - type: output_contains_any
+        values:
+          - "#1a73e8"
+          - "1a73e8"
+        description: "Includes the specified brand color value"
+      - type: output_contains_any
+        values:
+          - "dashboard-key-color"
+          - "dashboard-background"
+          - "dashboard-tile-background"
+        description: "References specific theme properties"
+
+  - id: entity-workspace
+    name: "Explain entity workspaces for multi-tenant embedding"
+    prompt: "Explain how to set up entity workspaces for multi-tenant embedding where each customer sees only their data."
+    category: embed-architecture
+    difficulty: hard
+    assertions:
+      - type: output_contains_any
+        values:
+          - "entity"
+          - "entity workspace"
+          - "entityFolderContentRole"
+        description: "Output describes entity workspaces"
+      - type: output_contains_any
+        values:
+          - "userAttributes"
+          - "user_attributes"
+          - "user attributes"
+          - "access_filter"
+          - "row-level security"
+        description: "Mentions user attributes or row-level security"
+      - type: llm_judge
+        criteria: "The explanation clearly describes how entity workspaces isolate data between tenants, covering how each customer gets a scoped folder and how user attributes or access filters ensure they only see their own data."
+        description: "Explanation covers data isolation between tenants"

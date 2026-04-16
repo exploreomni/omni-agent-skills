@@ -1,0 +1,81 @@
+skill: omni-query
+skill_path: skills/omni-query/SKILL.md
+
+config:
+  runs_per_config: 3
+  model: claude-sonnet-4-20250514
+
+scenarios:
+  - id: simple-query
+    name: "Run a basic revenue by month query"
+    prompt: "Query the order_items topic for total revenue by month. Use the Pg model."
+    category: query-execution
+    difficulty: easy
+    assertions:
+      - type: tool_called
+        pattern: "omni query run"
+        description: "Ran a query using the Omni CLI"
+      - type: output_contains
+        value: "created_at"
+        description: "Output includes a date dimension"
+      - type: output_contains_any
+        values:
+          - "total_revenue"
+          - "revenue"
+        description: "Output includes a revenue measure"
+      - type: output_not_contains
+        value: "error"
+        description: "No error in the query response"
+
+  - id: filtered-query
+    name: "Run a filtered query with grouping"
+    prompt: "Show me order count by status for orders created in the last 90 days."
+    category: query-execution
+    difficulty: medium
+    assertions:
+      - type: tool_called
+        pattern: "omni query run"
+        description: "Ran a query using the Omni CLI"
+      - type: output_contains
+        value: "last 90 days"
+        description: "Filter expression for last 90 days is present"
+      - type: output_contains
+        value: "status"
+        description: "Groups results by status"
+      - type: output_contains_any
+        values:
+          - "count"
+          - "order_count"
+        description: "Includes a count measure"
+
+  - id: ai-generate-query
+    name: "Generate a query using AI without executing"
+    prompt: "Use Omni's AI to generate a query for 'top 10 customers by spend'. Don't execute it, just show the query structure."
+    category: ai-generation
+    difficulty: medium
+    assertions:
+      - type: tool_called
+        pattern: "omni ai generate-query"
+        description: "Used the AI generate-query command"
+      - type: output_contains
+        value: "--run-query false"
+        description: "Passed --run-query false to skip execution"
+      - type: output_contains
+        value: "sort_descending"
+        description: "Result includes a descending sort for top N pattern"
+
+  - id: multi-step-analysis
+    name: "Multi-step revenue trend analysis"
+    prompt: "What's our revenue trend? Show monthly revenue and identify the best and worst months."
+    category: analysis
+    difficulty: hard
+    assertions:
+      - type: tool_called
+        pattern: "omni query run"
+        description: "Ran at least one query"
+      - type: output_contains
+        value: "csv"
+        description: "Requested CSV format for readable results"
+      - type: llm_judge
+        criteria: "The agent identifies specific months with actual revenue numbers, naming the best and worst performing months with their values."
+        description: "Identifies specific best and worst months with numbers"

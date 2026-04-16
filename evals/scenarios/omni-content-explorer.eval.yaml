@@ -1,0 +1,67 @@
+skill: omni-content-explorer
+skill_path: skills/omni-content-explorer/SKILL.md
+
+config:
+  runs_per_config: 3
+  model: claude-sonnet-4-20250514
+
+scenarios:
+  - id: search-dashboards
+    name: "Search for dashboards by topic"
+    prompt: "Find any dashboards related to 'revenue' or 'sales' in our Omni instance."
+    category: content-discovery
+    difficulty: easy
+    assertions:
+      - type: tool_called
+        pattern: "omni documents list"
+        description: "Ran omni documents list or omni documents search to find content"
+      - type: output_contains_any
+        values:
+          - "name"
+          - "title"
+          - "dashboard"
+        description: "Output lists document names or titles"
+      - type: output_contains
+        value: "identifier"
+        description: "Output includes document identifiers"
+
+  - id: list-content
+    name: "List root folder content"
+    prompt: "Show me what's in the root folder of our Omni instance."
+    category: content-discovery
+    difficulty: easy
+    assertions:
+      - type: tool_called
+        pattern: "omni documents list"
+        description: "Ran omni documents list to browse content"
+      - type: output_contains_any
+        values:
+          - "folder"
+          - "document"
+          - "records"
+        description: "Output shows folders or documents"
+      - type: output_contains_any
+        values:
+          - "dashboard"
+          - "workbook"
+          - "hasDashboard"
+        description: "Mentions document types"
+
+  - id: download-dashboard
+    name: "Download a dashboard as PDF"
+    prompt: "Download a PDF of our most recent dashboard."
+    category: content-export
+    difficulty: medium
+    assertions:
+      - type: tool_called
+        pattern: "omni documents list"
+        description: "Ran omni documents list to find a dashboard first"
+      - type: tool_called
+        pattern: "omni dashboards download"
+        description: "Ran omni dashboards download to export"
+      - type: output_contains_any
+        values:
+          - "pdf"
+          - "png"
+          - "format"
+        description: "Mentioned PDF or PNG format option"

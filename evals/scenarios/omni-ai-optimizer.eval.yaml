@@ -1,0 +1,64 @@
+skill: omni-ai-optimizer
+skill_path: skills/omni-ai-optimizer/SKILL.md
+
+config:
+  runs_per_config: 3
+  model: claude-sonnet-4-20250514
+
+scenarios:
+  - id: inspect-ai-config
+    name: "Inspect AI context on a topic"
+    prompt: "What AI context and configuration exists on the order_items topic in the Pg model?"
+    category: inspection
+    difficulty: easy
+    assertions:
+      - type: tool_called
+        pattern: "omni models"
+        description: "Ran omni models get-topic or yaml-get to inspect the topic"
+      - type: output_contains
+        value: "ai_context"
+        description: "Output mentions ai_context"
+      - type: output_contains_any
+        values:
+          - "sample_queries"
+          - "ai_fields"
+          - "no sample_queries"
+          - "no ai_fields"
+        description: "Output describes sample_queries or ai_fields presence"
+
+  - id: add-sample-queries
+    name: "Add sample queries to a topic"
+    prompt: "Add 3 sample queries to the order_items topic to help the AI understand common questions."
+    category: optimization
+    difficulty: medium
+    assertions:
+      - type: tool_called
+        pattern: "yaml-"
+        description: "Used yaml-update or yaml-create on a branch"
+      - type: output_contains
+        value: "sample_queries"
+        description: "sample_queries field is present in the update"
+      - type: llm_judge
+        criteria: "The sample queries added are realistic data questions that a business user would ask about order items, such as questions about revenue, order counts, trends, or top products."
+        description: "Sample queries are realistic data questions"
+
+  - id: configure-ai-fields
+    name: "Configure ai_fields to hide internal fields"
+    prompt: "Configure ai_fields on the order_items topic to hide internal fields from the AI."
+    category: optimization
+    difficulty: medium
+    assertions:
+      - type: tool_called
+        pattern: "yaml-"
+        description: "Used yaml-update or yaml-create to modify the topic"
+      - type: output_contains
+        value: "ai_fields"
+        description: "ai_fields configuration is present"
+      - type: output_contains_any
+        values:
+          - "-"
+          - "include"
+          - "exclude"
+          - "hidden"
+          - "tag:internal"
+        description: "Specifies include or exclude pattern for fields"

@@ -1,0 +1,75 @@
+skill: omni-ai-eval
+skill_path: skills/omni-ai-eval/SKILL.md
+
+config:
+  runs_per_config: 3
+  model: claude-sonnet-4-20250514
+
+scenarios:
+  - id: run-single-eval
+    name: "Run a single AI eval case"
+    prompt: "Run a single AI eval: test if Blobby can correctly generate a query for 'Show me revenue by month' against the Pg model."
+    category: eval-execution
+    difficulty: easy
+    assertions:
+      - type: tool_called
+        pattern: "omni ai generate-query"
+        description: "Ran omni ai generate-query to test AI output"
+      - type: output_contains
+        value: "--run-query false"
+        description: "Passed --run-query false to get only the query structure"
+      - type: output_contains_any
+        values:
+          - "fields"
+          - "query"
+        description: "Output shows the generated query structure"
+      - type: output_contains_any
+        values:
+          - "revenue"
+          - "month"
+          - "created_at"
+        description: "Compares generated fields against expected"
+
+  - id: batch-eval
+    name: "Run a batch of eval cases"
+    prompt: "Set up and run a batch of 3 eval cases testing different query types: aggregation, filtering, and sorting."
+    category: eval-execution
+    difficulty: hard
+    assertions:
+      - type: output_contains_any
+        values:
+          - "jsonl"
+          - "JSONL"
+          - "eval_cases"
+          - "eval cases"
+        description: "Created eval cases in JSONL or structured format"
+      - type: output_count_gte
+        pattern: "omni ai generate-query"
+        min_count: 3
+        description: "Ran multiple generate-query calls for the batch"
+      - type: output_contains_any
+        values:
+          - "pass"
+          - "fail"
+          - "result"
+          - "score"
+        description: "Output shows per-case results"
+
+  - id: ab-comparison
+    name: "A/B eval comparison across branches"
+    prompt: "Compare AI accuracy on main vs a branch. Explain how to set up an A/B eval comparison."
+    category: eval-methodology
+    difficulty: medium
+    assertions:
+      - type: output_contains
+        value: "--branch-id"
+        description: "Describes running evals with different --branch-id values"
+      - type: output_contains_any
+        values:
+          - "regression"
+          - "comparison"
+          - "delta"
+        description: "Mentions regression detection or comparison methodology"
+      - type: llm_judge
+        criteria: "The response provides a clear A/B comparison methodology: run the same eval set with two configurations (e.g., main vs branch), score both, and compare results side-by-side checking for regressions and improvements."
+        description: "Provides a clear A/B comparison methodology"

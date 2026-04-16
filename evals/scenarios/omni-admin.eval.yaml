@@ -1,0 +1,66 @@
+skill: omni-admin
+skill_path: skills/omni-admin/SKILL.md
+
+config:
+  runs_per_config: 3
+  model: claude-sonnet-4-20250514
+
+scenarios:
+  - id: create-user
+    name: "Create a new user via SCIM"
+    prompt: "Create a new user with email 'testeval@example.com' and display name 'Test Eval User'."
+    category: user-management
+    difficulty: easy
+    assertions:
+      - type: tool_called
+        pattern: "omni scim users-create"
+        description: "Ran omni scim users-create to provision the user"
+      - type: output_contains
+        value: "testeval@example.com"
+        description: "Payload includes the correct email address"
+      - type: output_contains
+        value: "urn:ietf:params:scim:schemas:core:2.0:User"
+        description: "Uses the SCIM 2.0 user schema"
+      - type: tool_called
+        pattern: "omni scim users-list"
+        description: "Attempted verification with users-list after creation"
+
+  - id: set-permissions
+    name: "Set view permissions on a dashboard"
+    prompt: "Give the 'Analytics Team' group view access to a dashboard."
+    category: permissions
+    difficulty: medium
+    assertions:
+      - type: tool_called
+        pattern: "omni documents update-permission"
+        description: "Ran document permission update command"
+      - type: output_contains
+        value: "view"
+        description: "Permission level specified as view"
+      - type: tool_called
+        pattern: "omni documents get-permissions"
+        description: "Attempted to verify permissions after setting them"
+
+  - id: configure-schedule
+    name: "Set up a weekly PDF delivery schedule"
+    prompt: "Set up a weekly PDF delivery of a dashboard every Monday at 9am."
+    category: scheduling
+    difficulty: medium
+    assertions:
+      - type: tool_called
+        pattern: "omni schedules create"
+        description: "Ran schedule creation command"
+      - type: output_contains_all
+        values:
+          - "weekly"
+          - "monday"
+        description: "Schedule specifies weekly on Monday"
+      - type: output_contains
+        value: "pdf"
+        description: "Format is PDF"
+      - type: output_contains_any
+        values:
+          - "recipient"
+          - "email"
+          - "add-recipients"
+        description: "Includes or mentions recipient configuration"

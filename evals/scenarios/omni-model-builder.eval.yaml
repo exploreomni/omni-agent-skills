@@ -1,0 +1,88 @@
+skill: omni-model-builder
+skill_path: skills/omni-model-builder/SKILL.md
+
+config:
+  runs_per_config: 3
+  model: claude-sonnet-4-20250514
+
+scenarios:
+  - id: add-dimension
+    name: "Add a dimension on a model branch"
+    prompt: "Add a new dimension called 'order_year' to the order_items view that extracts the year from created_at. Do this on a branch."
+    category: model-editing
+    difficulty: medium
+    assertions:
+      - type: tool_called
+        pattern: "omni models create-branch"
+        description: "Created a model branch for safe development"
+      - type: tool_called
+        pattern: "yaml-update"
+        description: "Used yaml-update or yaml-set to write the dimension"
+      - type: output_contains_any
+        values:
+          - "EXTRACT(YEAR"
+          - "DATE_PART"
+          - "year"
+        description: "Dimension SQL uses year extraction from created_at"
+      - type: tool_called
+        pattern: "omni models validate"
+        description: "Validated the model changes"
+
+  - id: create-topic
+    name: "Create a new topic with joins"
+    prompt: "Create a new topic called 'user_orders' with users as the base view, joined to order_items."
+    category: model-editing
+    difficulty: hard
+    assertions:
+      - type: output_contains_any
+        values:
+          - "topic"
+          - ".topic"
+        description: "Topic creation was attempted"
+      - type: output_contains
+        value: "users"
+        description: "Specifies users as the base view"
+      - type: output_contains_any
+        values:
+          - "order_items"
+          - "join"
+          - "relationship"
+        description: "Includes a join or relationship definition to order_items"
+      - type: tool_called
+        pattern: "omni models validate"
+        description: "Ran model validation after creating the topic"
+
+  - id: add-measure
+    name: "Add a sum measure to a view"
+    prompt: "Add a sum measure for 'total_quantity' on the order_items view using the quantity field."
+    category: model-editing
+    difficulty: easy
+    assertions:
+      - type: tool_called
+        pattern: "yaml-"
+        description: "Used a yaml modification command"
+      - type: output_contains
+        value: "sum"
+        description: "Measure has aggregate_type sum"
+      - type: output_contains
+        value: "quantity"
+        description: "Measure references the quantity field"
+
+  - id: branch-workflow
+    name: "Demonstrate the full branch workflow"
+    prompt: "Show me how to create a model branch, make a change, validate it, and see the diff."
+    category: workflow
+    difficulty: medium
+    assertions:
+      - type: tool_called
+        pattern: "create-branch"
+        description: "Ran branch-create to start a new branch"
+      - type: tool_called
+        pattern: "yaml-"
+        description: "Ran a yaml modification command"
+      - type: tool_called
+        pattern: "validate"
+        description: "Ran model validation"
+      - type: tool_called
+        pattern: "yaml-get"
+        description: "Ran yaml-get or branch-diff to show changes"
