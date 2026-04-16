@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eval Review</title>
+<style>
+  /* ── Reset & Base ───────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #faf6f0;
+    color: #333;
+    line-height: 1.55;
+  }
+
+  /* ── Header ─────────────────────────────────────────── */
+  .header {
+    background: #2d2d2d;
+    color: #fff;
+    padding: 28px 40px 22px;
+  }
+  .header h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 26px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .header .subtitle {
+    font-size: 14px;
+    color: #b0b0b0;
+  }
+
+  /* ── Tabs ────────────────────────────────────────────── */
+  .tab-bar {
+    display: flex;
+    gap: 0;
+    background: #3a3a3a;
+    padding: 0 40px;
+  }
+  .tab-btn {
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 12px 24px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .tab-btn:hover { color: #ccc; }
+  .tab-btn.active {
+    color: #fff;
+    border-bottom-color: #e8a838;
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── Container ───────────────────────────────────────── */
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 40px 60px;
+  }
+
+  /* ── Section headings ────────────────────────────────── */
+  h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 20px;
+    font-weight: 600;
+    margin: 32px 0 16px;
+    color: #2d2d2d;
+  }
+  h2:first-child { margin-top: 0; }
+
+  h3 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 17px;
+    font-weight: 600;
+    margin: 24px 0 10px;
+    color: #444;
+  }
+
+  /* ── Tables ──────────────────────────────────────────── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    font-size: 14px;
+  }
+  thead th {
+    background: #2d2d2d;
+    color: #fff;
+    font-weight: 500;
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  tbody td {
+    padding: 9px 14px;
+    border-bottom: 1px solid #e5e0d8;
+  }
+  tbody tr:nth-child(even) { background: #f4efe7; }
+  tbody tr:hover { background: #ede7db; }
+
+  /* ── Delta colours ──────────────────────────────────── */
+  .delta-positive { color: #2e7d32; font-weight: 600; }
+  .delta-negative { color: #c62828; font-weight: 600; }
+  .delta-muted    { color: #6d6d3c; font-weight: 500; }
+
+  /* ── Pass / Fail marks ──────────────────────────────── */
+  .mark-pass { color: #2e7d32; font-weight: 700; font-size: 16px; }
+  .mark-fail { color: #c62828; font-weight: 700; font-size: 16px; }
+
+  /* ── Collapsible sections ───────────────────────────── */
+  .eval-section { margin-bottom: 16px; }
+  .eval-toggle {
+    width: 100%;
+    text-align: left;
+    background: #eae4da;
+    border: 1px solid #d9d2c6;
+    border-radius: 6px;
+    padding: 12px 18px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.12s;
+  }
+  .eval-toggle:hover { background: #e0d9cd; }
+  .eval-toggle .arrow {
+    display: inline-block;
+    transition: transform 0.2s;
+    font-size: 12px;
+  }
+  .eval-toggle.open .arrow { transform: rotate(90deg); }
+  .eval-body {
+    display: none;
+    padding: 16px 0 8px;
+  }
+  .eval-body.open { display: block; }
+
+  /* ── Outputs tab ────────────────────────────────────── */
+  .output-controls {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .output-controls label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .output-controls select {
+    font-size: 14px;
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+  }
+
+  .output-viewer {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 20px 24px;
+    min-height: 200px;
+    max-height: 70vh;
+    overflow: auto;
+    white-space: pre-wrap;
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #333;
+  }
+  .output-viewer .code-block {
+    background: #2d2d2d;
+    color: #e6e6e6;
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin: 8px 0;
+    overflow-x: auto;
+    font-size: 12.5px;
+  }
+  .output-viewer .tool-call {
+    background: #f0ebe3;
+    border-left: 3px solid #c8a96e;
+    padding: 8px 14px;
+    margin: 6px 0;
+    border-radius: 0 4px 4px 0;
+  }
+  .output-viewer .assistant-msg {
+    border-left: 3px solid #4a90d9;
+    padding: 8px 14px;
+    margin: 6px 0;
+    background: #f0f4fa;
+    border-radius: 0 4px 4px 0;
+  }
+  .output-viewer .user-msg {
+    border-left: 3px solid #888;
+    padding: 8px 14px;
+    margin: 6px 0;
+    background: #f6f6f6;
+    border-radius: 0 4px 4px 0;
+  }
+
+  .nav-hint {
+    font-size: 12px;
+    color: #999;
+    margin-top: 8px;
+  }
+
+  /* ── Summary stat cards ─────────────────────────────── */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: #fff;
+    border: 1px solid #e0dbd2;
+    border-radius: 8px;
+    padding: 18px 20px;
+    text-align: center;
+  }
+  .stat-card .label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    margin-bottom: 6px;
+  }
+  .stat-card .value {
+    font-size: 22px;
+    font-weight: 700;
+    color: #2d2d2d;
+  }
+
+  /* ── Print ──────────────────────────────────────────── */
+  @media print {
+    .tab-bar { display: none; }
+    .tab-panel { display: block !important; }
+    .eval-body { display: block !important; }
+    .header { background: #2d2d2d; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { background: #fff; }
+  }
+
+  /* ── Responsive ─────────────────────────────────────── */
+  @media (max-width: 720px) {
+    .header, .container, .tab-bar { padding-left: 20px; padding-right: 20px; }
+    table { font-size: 12px; }
+    thead th, tbody td { padding: 7px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<script id="eval-data" type="application/json"></script>
+
+<div class="header">
+  <h1 id="page-title">Eval Review</h1>
+  <div class="subtitle">Review each output and leave feedback below</div>
+</div>
+
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="outputs">Outputs</button>
+  <button class="tab-btn" data-tab="benchmark">Benchmark</button>
+</div>
+
+<!-- ═══════════════ Outputs Tab ═══════════════ -->
+<div id="tab-outputs" class="tab-panel active">
+  <div class="container">
+    <h2>Agent Outputs</h2>
+    <div class="output-controls">
+      <label for="sel-scenario">Scenario</label>
+      <select id="sel-scenario"></select>
+      <label for="sel-config">Config</label>
+      <select id="sel-config"></select>
+      <label for="sel-run">Run</label>
+      <select id="sel-run"></select>
+    </div>
+    <div id="output-content" class="output-viewer">
+      <em>Select a scenario and run to view output.</em>
+    </div>
+    <div class="nav-hint">Tip: use <kbd>&larr;</kbd> / <kbd>&rarr;</kbd> arrow keys to move between evals</div>
+  </div>
+</div>
+
+<!-- ═══════════════ Benchmark Tab ═══════════════ -->
+<div id="tab-benchmark" class="tab-panel">
+  <div class="container">
+    <h2>Summary</h2>
+    <div id="summary-table-wrap"></div>
+
+    <h2>Per-Eval Breakdown</h2>
+    <div id="per-eval-wrap"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ── Data ──────────────────────────────────────────── */
+  var raw = document.getElementById("eval-data").textContent.trim();
+  if (!raw) { document.body.innerHTML = "<p style='padding:40px'>No eval data found.</p>"; return; }
+  var DATA = JSON.parse(raw);
+  var scores = DATA.scores || DATA;
+  var outputs = DATA.outputs || {};
+
+  /* ── Title ─────────────────────────────────────────── */
+  var skillName = scores.skill || scores.skillName || "";
+  if (skillName) {
+    document.getElementById("page-title").textContent = "Eval Review: " + skillName;
+    document.title = "Eval Review: " + skillName;
+  }
+
+  /* ── Helpers ───────────────────────────────────────── */
+  function fmt(n, dec) { return n == null ? "-" : Number(n).toFixed(dec == null ? 1 : dec); }
+  function pct(n) { return n == null ? "-" : (Number(n) * 100).toFixed(0) + "%"; }
+  function pm(mean, std) { return fmt(mean) + " &plusmn; " + fmt(std); }
+  function pctpm(mean, std) { return pct(mean) + " &plusmn; " + pct(std); }
+
+  function el(tag, attrs, children) {
+    var e = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      if (k === "className") e.className = attrs[k];
+      else if (k === "innerHTML") e.innerHTML = attrs[k];
+      else if (k === "textContent") e.textContent = attrs[k];
+      else e.setAttribute(k, attrs[k]);
+    });
+    if (children) children.forEach(function (c) { if (c) e.appendChild(c); });
+    return e;
+  }
+
+  function escapeHtml(s) {
+    if (!s) return "";
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  /* ── Tab switching ─────────────────────────────────── */
+  var tabBtns = document.querySelectorAll(".tab-btn");
+  tabBtns.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      tabBtns.forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      document.querySelectorAll(".tab-panel").forEach(function (p) { p.classList.remove("active"); });
+      document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+    });
+  });
+
+  /* ══════════════════════════════════════════════════════
+     BENCHMARK TAB
+     ══════════════════════════════════════════════════════ */
+
+  var summary = scores.summary || {};
+  var withSkill = summary.with_skill || summary.withSkill || {};
+  var withoutSkill = summary.without_skill || summary.withoutSkill || {};
+
+  /* -- Summary table ----------------------------------- */
+  (function buildSummaryTable() {
+    var wrap = document.getElementById("summary-table-wrap");
+    var tbl = el("table");
+    var thead = el("thead", null, [
+      el("tr", null, [
+        el("th", { textContent: "Metric" }),
+        el("th", { textContent: "With Skill" }),
+        el("th", { textContent: "Without Skill" }),
+        el("th", { textContent: "Delta" })
+      ])
+    ]);
+    tbl.appendChild(thead);
+
+    var tbody = el("tbody");
+
+    var metrics = [
+      {
+        label: "Pass Rate",
+        ws: withSkill.pass_rate || withSkill.passRate || {},
+        wo: withoutSkill.pass_rate || withoutSkill.passRate || {},
+        format: "pct",
+        deltaType: "passrate"
+      },
+      {
+        label: "Time (s)",
+        ws: withSkill.time || withSkill.time_s || {},
+        wo: withoutSkill.time || withoutSkill.time_s || {},
+        format: "num",
+        deltaType: "cost"
+      },
+      {
+        label: "Tokens",
+        ws: withSkill.tokens || {},
+        wo: withoutSkill.tokens || {},
+        format: "num",
+        deltaType: "cost"
+      }
+    ];
+
+    metrics.forEach(function (m) {
+      var wsMean = m.ws.mean != null ? m.ws.mean : m.ws.avg;
+      var woMean = m.wo.mean != null ? m.wo.mean : m.wo.avg;
+      var wsStd = m.ws.std != null ? m.ws.std : m.ws.sd;
+      var woStd = m.wo.std != null ? m.wo.std : m.wo.sd;
+
+      var wsText, woText;
+      if (m.format === "pct") {
+        wsText = pctpm(wsMean, wsStd);
+        woText = pctpm(woMean, woStd);
+      } else {
+        wsText = pm(wsMean, wsStd);
+        woText = pm(woMean, woStd);
+      }
+
+      var delta = (wsMean != null && woMean != null) ? wsMean - woMean : null;
+      var deltaText = "";
+      var deltaCls = "";
+      if (delta != null) {
+        if (m.format === "pct") {
+          deltaText = (delta >= 0 ? "+" : "") + (delta * 100).toFixed(1) + " pp";
+        } else {
+          deltaText = (delta >= 0 ? "+" : "") + fmt(delta);
+        }
+        if (m.deltaType === "passrate") {
+          deltaCls = delta >= 0 ? "delta-positive" : "delta-negative";
+        } else {
+          // For cost metrics, higher = worse
+          deltaCls = "delta-muted";
+        }
+      }
+
+      var tr = el("tr", null, [
+        el("td", { innerHTML: "<strong>" + m.label + "</strong>" }),
+        el("td", { innerHTML: wsText }),
+        el("td", { innerHTML: woText }),
+        el("td", { innerHTML: deltaText, className: deltaCls })
+      ]);
+      tbody.appendChild(tr);
+    });
+
+    tbl.appendChild(tbody);
+    wrap.appendChild(tbl);
+  })();
+
+  /* -- Per-eval breakdown ----------------------------- */
+  (function buildPerEval() {
+    var wrap = document.getElementById("per-eval-wrap");
+    var evals = scores.evals || scores.results || [];
+    if (!evals.length) {
+      wrap.innerHTML = "<p>No per-eval breakdown available.</p>";
+      return;
+    }
+
+    evals.forEach(function (ev, idx) {
+      var section = el("div", { className: "eval-section" });
+      var evalName = ev.name || ev.eval || ev.id || ("Eval " + (idx + 1));
+
+      var toggle = el("button", {
+        className: "eval-toggle",
+        innerHTML: '<span class="arrow">&#9654;</span> ' + escapeHtml(evalName)
+      });
+      var body = el("div", { className: "eval-body" });
+
+      toggle.addEventListener("click", function () {
+        toggle.classList.toggle("open");
+        body.classList.toggle("open");
+      });
+
+      /* Config / Run / Pass Rate / Time table */
+      var configs = ev.configs || [];
+      if (configs.length) {
+        var runTbl = el("table");
+        var runThead = el("thead", null, [
+          el("tr", null, [
+            el("th", { textContent: "Config" }),
+            el("th", { textContent: "Run" }),
+            el("th", { textContent: "Pass Rate" }),
+            el("th", { textContent: "Time (s)" })
+          ])
+        ]);
+        runTbl.appendChild(runThead);
+        var runTbody = el("tbody");
+
+        configs.forEach(function (cfg) {
+          var cfgName = cfg.name || cfg.config || "";
+          var runs = cfg.runs || [];
+          runs.forEach(function (run, ri) {
+            var tr = el("tr", null, [
+              el("td", { textContent: ri === 0 ? cfgName : "" }),
+              el("td", { textContent: run.name || run.run || ("Run " + (ri + 1)) }),
+              el("td", { textContent: pct(run.pass_rate != null ? run.pass_rate : run.passRate) }),
+              el("td", { textContent: fmt(run.time || run.time_s) })
+            ]);
+            runTbody.appendChild(tr);
+          });
+          /* Average row */
+          if (cfg.avg || cfg.average) {
+            var avg = cfg.avg || cfg.average;
+            var tr = el("tr", null, [
+              el("td"),
+              el("td", { innerHTML: "<strong>Average</strong>" }),
+              el("td", { innerHTML: "<strong>" + pct(avg.pass_rate != null ? avg.pass_rate : avg.passRate) + "</strong>" }),
+              el("td", { innerHTML: "<strong>" + fmt(avg.time || avg.time_s) + "</strong>" })
+            ]);
+            runTbody.appendChild(tr);
+          }
+        });
+
+        runTbl.appendChild(runTbody);
+        body.appendChild(el("h3", { textContent: "Runs" }));
+        body.appendChild(runTbl);
+      }
+
+      /* Assertion table */
+      var assertions = ev.assertions || [];
+      if (assertions.length) {
+        body.appendChild(el("h3", { textContent: "Assertions" }));
+        // Collect config names from the first assertion that has results
+        var configNames = [];
+        assertions.forEach(function (a) {
+          var results = a.results || a.configs || {};
+          Object.keys(results).forEach(function (k) {
+            if (configNames.indexOf(k) === -1) configNames.push(k);
+          });
+        });
+
+        var aTbl = el("table");
+        var aHeadRow = el("tr", null, [el("th", { textContent: "Assertion" })]);
+        configNames.forEach(function (cn) {
+          aHeadRow.appendChild(el("th", { textContent: cn }));
+        });
+        aTbl.appendChild(el("thead", null, [aHeadRow]));
+
+        var aTbody = el("tbody");
+        assertions.forEach(function (a) {
+          var name = a.name || a.assertion || "";
+          var results = a.results || a.configs || {};
+          var row = el("tr", null, [el("td", { textContent: name })]);
+          configNames.forEach(function (cn) {
+            var val = results[cn];
+            var cell;
+            if (val === true || val === "pass" || val === 1) {
+              cell = el("td", { innerHTML: '<span class="mark-pass">&#10003;</span>' });
+            } else if (val === false || val === "fail" || val === 0) {
+              cell = el("td", { innerHTML: '<span class="mark-fail">&#10007;</span>' });
+            } else {
+              cell = el("td", { textContent: val != null ? String(val) : "-" });
+            }
+            row.appendChild(cell);
+          });
+          aTbody.appendChild(row);
+        });
+        aTbl.appendChild(aTbody);
+        body.appendChild(aTbl);
+      }
+
+      section.appendChild(toggle);
+      section.appendChild(body);
+      wrap.appendChild(section);
+    });
+  })();
+
+  /* ══════════════════════════════════════════════════════
+     OUTPUTS TAB
+     ══════════════════════════════════════════════════════ */
+
+  var selScenario = document.getElementById("sel-scenario");
+  var selConfig   = document.getElementById("sel-config");
+  var selRun      = document.getElementById("sel-run");
+  var outputDiv   = document.getElementById("output-content");
+
+  var scenarioList = Object.keys(outputs);
+  if (!scenarioList.length) {
+    /* Fall back: try to derive scenarios from scores.evals */
+    var evals = scores.evals || scores.results || [];
+    evals.forEach(function (ev) {
+      var n = ev.name || ev.eval || ev.id;
+      if (n && scenarioList.indexOf(n) === -1) scenarioList.push(n);
+    });
+  }
+
+  scenarioList.forEach(function (s) {
+    selScenario.appendChild(el("option", { value: s, textContent: s }));
+  });
+
+  function populateConfigs() {
+    selConfig.innerHTML = "";
+    var scn = selScenario.value;
+    var data = outputs[scn] || {};
+    var configs = Object.keys(data);
+    if (!configs.length) {
+      ["with-skill", "without-skill"].forEach(function (c) {
+        selConfig.appendChild(el("option", { value: c, textContent: c }));
+      });
+    } else {
+      configs.forEach(function (c) {
+        selConfig.appendChild(el("option", { value: c, textContent: c }));
+      });
+    }
+    populateRuns();
+  }
+
+  function populateRuns() {
+    selRun.innerHTML = "";
+    var scn = selScenario.value;
+    var cfg = selConfig.value;
+    var data = (outputs[scn] || {})[cfg] || [];
+    if (Array.isArray(data)) {
+      data.forEach(function (_, i) {
+        selRun.appendChild(el("option", { value: i, textContent: "Run " + (i + 1) }));
+      });
+    } else if (typeof data === "object") {
+      Object.keys(data).forEach(function (k) {
+        selRun.appendChild(el("option", { value: k, textContent: k }));
+      });
+    }
+    renderOutput();
+  }
+
+  function renderOutput() {
+    var scn = selScenario.value;
+    var cfg = selConfig.value;
+    var runKey = selRun.value;
+    var data = (outputs[scn] || {})[cfg];
+    if (!data) { outputDiv.innerHTML = "<em>No output data available.</em>"; return; }
+
+    var runData = Array.isArray(data) ? data[parseInt(runKey, 10)] : data[runKey];
+    if (!runData) { outputDiv.innerHTML = "<em>No output for this run.</em>"; return; }
+
+    if (typeof runData === "string") {
+      outputDiv.innerHTML = formatTranscript(runData);
+    } else if (runData.transcript || runData.messages || runData.output) {
+      var content = runData.transcript || runData.output || "";
+      if (runData.messages && Array.isArray(runData.messages)) {
+        outputDiv.innerHTML = formatMessages(runData.messages);
+      } else {
+        outputDiv.innerHTML = formatTranscript(content);
+      }
+    } else {
+      outputDiv.innerHTML = "<pre>" + escapeHtml(JSON.stringify(runData, null, 2)) + "</pre>";
+    }
+  }
+
+  function formatTranscript(text) {
+    if (!text) return "<em>Empty</em>";
+    var escaped = escapeHtml(text);
+    // Highlight code blocks (``` ... ```)
+    escaped = escaped.replace(/```(\w*)\n([\s\S]*?)```/g, function (_, lang, code) {
+      return '<div class="code-block">' + code + '</div>';
+    });
+    return escaped;
+  }
+
+  function formatMessages(messages) {
+    return messages.map(function (msg) {
+      var role = msg.role || "unknown";
+      var content = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content, null, 2);
+      var cls = role === "assistant" ? "assistant-msg" : role === "user" ? "user-msg" : "tool-call";
+      return '<div class="' + cls + '"><strong>' + escapeHtml(role) + ':</strong>\n' + escapeHtml(content) + '</div>';
+    }).join("\n");
+  }
+
+  selScenario.addEventListener("change", populateConfigs);
+  selConfig.addEventListener("change", populateRuns);
+  selRun.addEventListener("change", renderOutput);
+
+  if (scenarioList.length) populateConfigs();
+
+  /* ── Keyboard nav ──────────────────────────────────── */
+  var currentEvalIdx = 0;
+  document.addEventListener("keydown", function (e) {
+    if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+      var dir = e.key === "ArrowRight" ? 1 : -1;
+      var opts = selScenario.options;
+      if (!opts.length) return;
+      currentEvalIdx = Math.max(0, Math.min(opts.length - 1, currentEvalIdx + dir));
+      selScenario.selectedIndex = currentEvalIdx;
+      populateConfigs();
+      e.preventDefault();
+    }
+  });
+
+})();
+</script>
+
+</body>
+</html>
