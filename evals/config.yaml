@@ -1,0 +1,9 @@
+# Skill Eval Framework Configuration
+defaults:
+  runs_per_config: 3
+  model: claude-sonnet-4-20250514
+  permission_mode: bypassPermissions
+  configs:
+    - with-skill
+    - without-skill
+  output_dir: evals/results
