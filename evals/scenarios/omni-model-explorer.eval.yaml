@@ -1,0 +1,131 @@
+skill: omni-model-explorer
+skill_path: skills/omni-model-explorer/SKILL.md
+
+config:
+  runs_per_config: 3
+  model: claude-sonnet-4-20250514
+
+scenarios:
+  - id: list-models
+    name: "List available models and identify shared model"
+    prompt: "What models are available in our Omni instance? Which one is the shared model?"
+    category: model-discovery
+    difficulty: easy
+    assertions:
+      - type: tool_called
+        pattern: "omni models list"
+        description: "Ran omni models list to discover available models"
+      - type: output_contains_any
+        values:
+          - "SHARED"
+          - "modelKind"
+        description: "Output mentions SHARED or modelKind"
+      - type: output_contains
+        value: "Pg"
+        description: "Output includes the Pg model"
+      - type: output_regex
+        pattern: "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+        description: "Output includes a model ID UUID"
+
+  - id: explore-views
+    name: "Explore views and fields in a model"
+    prompt: "Show me all the views and example fields in the Pg model. Use the model YAML."
+    category: model-inspection
+    difficulty: medium
+    assertions:
+      - type: tool_called
+        pattern: "omni models yaml-get"
+        description: "Used yaml-get to inspect the model YAML"
+      - type: output_contains_all
+        values:
+          - "order_items"
+          - "users"
+          - "inventory_items"
+          - "products"
+          - "distribution_centers"
+          - "events"
+        description: "Output lists all 6 views in the Pg model"
+      - type: output_regex
+        pattern: "\\w+\\.\\w+"
+        description: "Output includes field names using view.field notation"
+      - type: output_contains
+        value: "count"
+        description: "Output mentions a count measure"
+
+  - id: inspect-relationships
+    name: "Inspect join relationships between views"
+    prompt: "How do the views in the Pg model relate to each other? Show me the join conditions and relationship types."
+    category: model-inspection
+    difficulty: medium
+    assertions:
+      - type: tool_called
+        pattern: "omni models yaml-get"
+        description: "Inspected model via yaml-get"
+      - type: output_contains
+        value: "user_id"
+        description: "Describes order_items to users join with user_id"
+      - type: output_contains_any
+        values:
+          - "inventory_items"
+          - "inventory_item_id"
+        description: "Describes order_items to inventory_items join"
+      - type: output_contains_all
+        values:
+          - "products"
+          - "distribution_centers"
+        description: "Describes products to distribution_centers join"
+      - type: output_contains_any
+        values:
+          - "join_type"
+          - "relationship"
+          - "many_to_one"
+          - "one_to_many"
+        description: "Mentions join type or relationship type"
+
+  - id: list-topics
+    name: "List topics and their views"
+    prompt: "What topics exist in the Pg model? What views are available in each?"
+    category: model-discovery
+    difficulty: medium
+    assertions:
+      - type: output_contains_all
+        values:
+          - "order_items"
+          - "events"
+        description: "Identifies both order_items and events topics"
+      - type: output_contains_any
+        values:
+          - "join"
+          - "view"
+          - "relationship"
+        description: "Describes joins or views available in topics"
+      - type: llm_judge
+        criteria: "If the agent's list-topics command fails or is unavailable, the agent falls back to using yaml-get or another method to discover topics rather than giving up."
+        description: "Falls back gracefully if list-topics is unavailable"
+      - type: output_not_contains
+        value: "access denied"
+        description: "Does not fabricate access errors"
+
+  - id: field-impact
+    name: "Assess field removal impact"
+    prompt: "What would break if we removed the 'sale_price' field from order_items? Check model references and dashboard impact."
+    category: impact-analysis
+    difficulty: hard
+    assertions:
+      - type: tool_called
+        pattern: "omni models yaml-get"
+        description: "Searched model YAML for sale_price references"
+      - type: output_contains_any
+        values:
+          - "content validator"
+          - "content-validator"
+          - "validate"
+        description: "Mentions content validator for dashboard impact"
+      - type: output_contains_all
+        values:
+          - "sale_price"
+          - "order_items"
+        description: "Identifies sale_price in order_items view"
+      - type: llm_judge
+        criteria: "The agent does not fabricate specific dashboard names or content that references sale_price. It either finds real references or honestly states it cannot determine dashboard impact without further investigation."
+        description: "Does not fabricate dashboard names"
