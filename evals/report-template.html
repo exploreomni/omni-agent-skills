@@ -548,7 +548,7 @@
     var cfg = selConfig.value;
     if (!ev) { outputDiv.innerHTML = "<em>No eval selected.</em>"; return; }
     var data = ev[cfg];
-    if (!data || !data.result) { outputDiv.innerHTML = "<em>No output available for this config.</em>"; return; }
+    if (!data || !data.result) { outputDiv.innerHTML = "<em>No output available — raw_output.json was not included in this report.</em>"; return; }
     outputDiv.innerHTML = formatResult(data.result);
   }
 

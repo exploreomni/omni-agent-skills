@@ -1,4 +1,6 @@
 .DS_Store
 .claude/
-evals/workspaces/
+evals/workspaces/**/outputs/
+evals/workspaces/**/stderr.log
+evals/workspaces/**/raw_output.json
 evals/eval-env.local.json
