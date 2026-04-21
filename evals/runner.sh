@@ -177,9 +177,9 @@ TASK
     printf "    [%-13s] running..." "$config"
 
     local t0 t1
-    t0=$(date +%s%3N)
+    t0=$(python3 -c "import time; print(int(time.time() * 1000))")
     run_agent "$task" "$active_skill_md" "$run_dir"
-    t1=$(date +%s%3N)
+    t1=$(python3 -c "import time; print(int(time.time() * 1000))")
 
     local duration_ms=$(( t1 - t0 ))
 
