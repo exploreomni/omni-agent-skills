@@ -106,6 +106,29 @@ next_iteration() {
   echo $(( max + 1 ))
 }
 
+# ── Omni env injection ───────────────────────────────────────────────────────
+# Export OMNI_BASE_URL and OMNI_API_TOKEN from the active omni-cli profile so
+# that agents can authenticate even if they check env vars instead of the
+# config file (common with non-Claude models).
+
+inject_omni_env() {
+  local config="$HOME/.config/omni-cli/config.json"
+  [[ -f "$config" ]] || return 0
+
+  local profile
+  profile=$(jq -r '.defaultProfile // ""' "$config")
+  [[ -z "$profile" ]] && return 0
+
+  local endpoint api_key
+  endpoint=$(jq -r --arg p "$profile" '.profiles[$p].apiEndpoint // ""' "$config")
+  api_key=$(jq -r --arg p "$profile" '.profiles[$p].apiKey // ""' "$config")
+
+  [[ -n "$endpoint" ]] && export OMNI_BASE_URL="$endpoint"
+  [[ -n "$api_key"  ]] && export OMNI_API_TOKEN="$api_key"
+}
+
+inject_omni_env
+
 # ── Core run ─────────────────────────────────────────────────────────────────
 
 run_agent() {
