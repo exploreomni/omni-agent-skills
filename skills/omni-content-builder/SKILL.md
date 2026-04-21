@@ -222,25 +222,48 @@ The `queryPresentations` array uses the same structure as document creation — 
 
 ## Updating a Dashboard's Model
 
-Push custom dimensions and measures to a specific dashboard by writing to its workbook model. This is a two-step flow:
+Push custom dimensions and measures to a specific dashboard by writing to its workbook model. Each workbook has its own model that **extends** the shared model — so the ID you write YAML to is a model ID, not a separate "workbook ID". This is a two-step flow:
 
-**Step 1 — get the document to find its `workbook_id`:**
+**Step 1 — get the document to find its workbook model ID:**
 
 ```bash
 omni documents get <documentId>
-# → response includes "workbook_id"
+# → use the top-level "modelId" field from the response — that IS the workbook model ID
 ```
 
-**Step 2 — POST YAML to the workbook model:**
+> **Note**: The response does not contain a field called `workbook_id`. The top-level `modelId` is the workbook's own model (which extends the shared model) and is what you pass to `omni models yaml-create`.
+
+**Step 2 — POST YAML to the workbook model with `mode: "extension"`:**
 
 ```bash
-omni models yaml-create <workbookId> --body '{
+omni models yaml-create <workbookModelId> --body '{
   "fileName": "order_items.view",
-  "yaml": "views:\n  order_items:\n    dimensions:\n      is_high_value:\n        sql: \"${sale_price} > 100\"\n        label: High Value Order\n    measures:\n      high_value_count:\n        sql: \"${order_items.id}\"\n        aggregate_type: count_distinct\n        label: High Value Orders"
+  "yaml": "views:\n  order_items:\n    dimensions:\n      is_high_value:\n        sql: \"${sale_price} > 100\"\n        label: High Value Order\n    measures:\n      high_value_count:\n        sql: \"${order_items.id}\"\n        aggregate_type: count_distinct\n        label: High Value Orders",
+  "mode": "extension"
 }'
 ```
 
+> **Critical**: Always pass `"mode": "extension"` when editing an existing view in a workbook model. The default is `"combined"`, which treats your YAML body as the *complete* view definition and marks every field you didn't include as `ignored: true` — silently breaking queries that depend on fields from the shared base view. Extension mode layers your new dimensions and measures on top of the inherited view.
+
 `fileName` must be `"model"`, `"relationships"`, or end with `.view` or `.topic`. The `yaml` value is a YAML string (not a JSON object). Writing to a workbook model skips git sync entirely — authorization is still checked against the underlying shared model's permissions.
+
+### Verify the Extension Worked
+
+After writing, confirm the base view's fields are still available by querying one:
+
+```bash
+omni query run --body '{
+  "query": {
+    "modelId": "<workbookModelId>",
+    "table": "order_items",
+    "fields": ["order_items.id", "order_items.high_value_count"],
+    "limit": 1,
+    "join_paths_from_topic_name": "order_items"
+  }
+}'
+```
+
+If the response errors on a field that exists in the shared model (e.g. `order_items.id`), your write likely used combined mode and ignored the inherited fields. Re-run Step 2 with `"mode": "extension"`.
 
 ## Dashboard Filters
 
