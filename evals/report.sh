@@ -39,10 +39,11 @@ command -v jq >/dev/null 2>&1       || { echo "Error: jq is required" >&2; exit 
 META=$(cat "$ITER_DIR/meta.json")
 BENCHMARK=$(cat "$ITER_DIR/benchmark.json")
 
-SKILL=$(echo "$META"     | jq -r '.skill')
-MODEL=$(echo "$META"     | jq -r '.model')
-ITERATION=$(echo "$META" | jq -r '.iteration')
-RUN_DATE=$(echo "$META"  | jq -r '.run_date')
+SKILL=$(echo "$META"             | jq -r '.skill')
+MODEL=$(echo "$META"             | jq -r '.model')
+ITERATION=$(echo "$META"         | jq -r '.iteration')
+RUN_DATE=$(echo "$META"          | jq -r '.run_date')
+REASONING_EFFORT=$(echo "$META"  | jq -r '.reasoning_effort // ""')
 
 # Eval prompts from the skill's evals.json (best-effort)
 EVALS_FILE="$ROOT_DIR/skills/$SKILL/evals/evals.json"
@@ -113,14 +114,16 @@ TMPFILE=$(mktemp /tmp/eval-report-XXXXXX.json)
 trap 'rm -f "$TMPFILE"' EXIT
 
 jq -n \
-  --arg     skill      "$SKILL" \
-  --arg     model      "$MODEL" \
-  --argjson iteration  "$ITERATION" \
-  --arg     run_date   "$RUN_DATE" \
-  --argjson run_summary "$(echo "$BENCHMARK" | jq '.run_summary')" \
-  --argjson evals      "$EVALS_JSON" \
-  '{skill: $skill, model: $model, iteration: $iteration,
-    run_date: $run_date, run_summary: $run_summary, evals: $evals}' \
+  --arg     skill             "$SKILL" \
+  --arg     model             "$MODEL" \
+  --argjson iteration         "$ITERATION" \
+  --arg     run_date          "$RUN_DATE" \
+  --arg     reasoning_effort  "$REASONING_EFFORT" \
+  --argjson run_summary       "$(echo "$BENCHMARK" | jq '.run_summary')" \
+  --argjson evals             "$EVALS_JSON" \
+  '{skill: $skill, model: $model, iteration: $iteration, run_date: $run_date,
+    reasoning_effort: (if $reasoning_effort == "" then null else $reasoning_effort end),
+    run_summary: $run_summary, evals: $evals}' \
   > "$TMPFILE"
 
 OUTPUT_FILE="$ITER_DIR/report.html"

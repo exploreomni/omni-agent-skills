@@ -328,7 +328,10 @@
     year: "numeric", month: "short", day: "numeric"
   }) : "";
   document.getElementById("page-subtitle").textContent =
-    [D.model, D.iteration ? "iteration " + D.iteration : "", date]
+    [D.model,
+     D.reasoning_effort ? "effort: " + D.reasoning_effort : "",
+     D.iteration ? "iteration " + D.iteration : "",
+     date]
       .filter(Boolean).join("  ·  ");
 
   /* ── Helpers ───────────────────────────────────────── */

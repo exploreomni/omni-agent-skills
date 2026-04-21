@@ -112,6 +112,7 @@ def run_agent(
     max_turns: int,
     bash_timeout: int,
     working_dir: str | None,
+    reasoning_effort: str | None = None,
 ) -> dict:
     model_string = f"{provider}/{model}"
 
@@ -124,6 +125,10 @@ def run_agent(
     total_output = 0
     final_text = ""
 
+    extra_kwargs: dict = {}
+    if reasoning_effort:
+        extra_kwargs["reasoning_effort"] = reasoning_effort
+
     for _turn in range(max_turns):
         try:
             response = litellm.completion(
@@ -131,6 +136,7 @@ def run_agent(
                 messages=messages,
                 tools=[BASH_TOOL],
                 tool_choice="auto",
+                **extra_kwargs,
             )
         except Exception as exc:
             return {
@@ -218,6 +224,12 @@ def main() -> None:
         "--working-dir",
         help="Working directory for bash commands (default: current directory)",
     )
+    parser.add_argument(
+        "--reasoning-effort",
+        choices=["low", "medium", "high", "xhigh"],
+        default=None,
+        help="OpenAI reasoning effort (low/medium/high/xhigh); omit for provider default",
+    )
 
     args = parser.parse_args()
 
@@ -243,6 +255,7 @@ def main() -> None:
         max_turns=args.max_turns,
         bash_timeout=args.bash_timeout,
         working_dir=args.working_dir,
+        reasoning_effort=args.reasoning_effort,
     )
 
     print(json.dumps(result))

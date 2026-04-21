@@ -28,6 +28,7 @@ WORKSPACES_DIR="$SCRIPT_DIR/workspaces"
 
 PROVIDER="${EVAL_PROVIDER:-anthropic}"
 MODEL="${EVAL_MODEL:-claude-sonnet-4-6}"
+REASONING_EFFORT="${EVAL_REASONING_EFFORT:-}"
 FORCE_ITERATION=""
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -49,11 +50,12 @@ usage() {
 Usage: $(basename "$0") <skill|all> [--provider PROVIDER] [--model MODEL] [--iteration N]
 
 Options:
-  --provider PROVIDER  LiteLLM provider (default: anthropic, or \$EVAL_PROVIDER)
-                       e.g. anthropic, openai, gemini, bedrock
-  --model MODEL        Model name for the provider (default: claude-sonnet-4-6, or \$EVAL_MODEL)
-                       e.g. claude-sonnet-4-6, gpt-4o, gemini-2.0-flash
-  --iteration N        Force a specific iteration number (default: auto-increment)
+  --provider PROVIDER          LiteLLM provider (default: anthropic, or \$EVAL_PROVIDER)
+                               e.g. anthropic, openai, gemini, bedrock
+  --model MODEL                Model name for the provider (default: claude-sonnet-4-6, or \$EVAL_MODEL)
+                               e.g. claude-sonnet-4-6, gpt-4o, gemini-2.0-flash
+  --reasoning-effort EFFORT    OpenAI reasoning effort: low, medium, high, xhigh (or \$EVAL_REASONING_EFFORT)
+  --iteration N                Force a specific iteration number (default: auto-increment)
 
 Examples:
   ./evals/runner.sh omni-query
@@ -117,6 +119,10 @@ run_agent() {
 
   if [[ -n "$skill_md" ]]; then
     args+=(--system-prompt-file "$skill_md")
+  fi
+
+  if [[ -n "$REASONING_EFFORT" ]]; then
+    args+=(--reasoning-effort "$REASONING_EFFORT")
   fi
 
   args+=(--working-dir "$out_dir/outputs")
@@ -225,8 +231,10 @@ run_skill() {
     --arg slug "$slug" \
     --arg skill "$skill" \
     --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --arg reasoning_effort "$REASONING_EFFORT" \
     --argjson iter "$iter" \
-    '{provider: $provider, model: $model, model_slug: $slug, skill: $skill, iteration: $iter, run_date: $date}' \
+    '{provider: $provider, model: $model, model_slug: $slug, skill: $skill, iteration: $iter,
+      run_date: $date, reasoning_effort: (if $reasoning_effort == "" then null else $reasoning_effort end)}' \
     > "$iter_dir/meta.json"
 
   local n_evals
@@ -263,9 +271,10 @@ shift
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --provider)  PROVIDER="$2"; shift 2 ;;
-    --model)     MODEL="$2"; shift 2 ;;
-    --iteration) FORCE_ITERATION="$2"; shift 2 ;;
+    --provider)          PROVIDER="$2"; shift 2 ;;
+    --model)             MODEL="$2"; shift 2 ;;
+    --reasoning-effort)  REASONING_EFFORT="$2"; shift 2 ;;
+    --iteration)         FORCE_ITERATION="$2"; shift 2 ;;
     -h|--help)   usage ;;
     *)           echo "Unknown flag: $1" >&2; usage ;;
   esac
