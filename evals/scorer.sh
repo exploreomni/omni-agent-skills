@@ -12,14 +12,14 @@
 #   ./evals/scorer.sh omni-query evals/workspaces/omni-query/iteration-1
 #
 # Optional env:
-#   GRADER_MODEL   Claude model for grading (default: claude-haiku-4-5-20251001)
+#   GRADER_MODEL   Claude model for grading (default: claude-sonnet-4-6)
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-GRADER_MODEL="${GRADER_MODEL:-claude-haiku-4-5-20251001}"
+GRADER_MODEL="${GRADER_MODEL:-claude-sonnet-4-6}"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
