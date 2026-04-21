@@ -6,6 +6,13 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.3.1] - 2026-04-21
+
+### omni-analytics
+
+**Fixed**
+- Removed invalid `views: <view_name>:` wrapper from content builder `yaml-create` example — the API rejects it with `saveError: "Invalid property name at \"views\""`. The YAML body must start directly at `dimensions:` / `measures:`.
+
 ## [1.3.0] - 2026-04-21
 
 ### omni-analytics
