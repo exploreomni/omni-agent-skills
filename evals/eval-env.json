@@ -1,0 +1,12 @@
+{
+  "_comment": "Copy this file to eval-env.local.json and fill in real values. eval-env.local.json is gitignored.",
+  "EVAL_DASHBOARD_PERMISSIONS": "replace-with-dashboard-identifier",
+  "EVAL_DASHBOARD_SCHEDULE": "replace-with-dashboard-identifier",
+  "EVAL_DASHBOARD_TILES": "replace-with-dashboard-identifier",
+  "EVAL_DASHBOARD_WORKBOOK": "replace-with-dashboard-identifier",
+  "EVAL_DASHBOARD_LABEL": "replace-with-dashboard-identifier",
+  "EVAL_DASHBOARD_EMBED": "replace-with-dashboard-identifier",
+  "EVAL_BRANCH_ID": "replace-with-branch-id",
+  "EVAL_EXISTING_USER": "analyst@yourinstance.com",
+  "EVAL_EMBED_USER": "jane@acme.com"
+}

@@ -1,0 +1,50 @@
+{
+  "skill_name": "omni-query",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "How many orders were placed in the last 90 days? Use the orders or order_items topic.",
+      "expected_output": "A row count of orders placed in the last 90 days, with the filter clearly applied and the result validated (row count checked, no errors).",
+      "assertions": [
+        "The agent runs omni query run with a JSON body containing a filters field that uses a 'last 90 days' expression",
+        "The query body includes a join_paths_from_topic_name field",
+        "The agent checks the response for errors before presenting the result",
+        "The agent reports the row count from summary.row_count rather than guessing or fabricating a number"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Show me the top 10 customers by total revenue this year. I want to see the actual names and numbers.",
+      "expected_output": "A readable table of the top 10 customers and their revenue, sorted descending, with a 'this year' date filter applied.",
+      "assertions": [
+        "The agent requests CSV output by including resultType: csv in the query body",
+        "The query body includes a sorts field with sort_descending: true on the revenue measure",
+        "The query body includes a limit of 10",
+        "The agent includes a filter for the current year or 'this year' expression",
+        "The output contains actual customer names and revenue values from the CSV response"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Use AI to generate a query for monthly revenue trend over the past year, then run it and tell me which month had the highest revenue.",
+      "expected_output": "Monthly revenue figures for the past 12 months, with the highest month identified by name and value.",
+      "assertions": [
+        "The agent calls omni ai generate-query with a natural language prompt about monthly revenue",
+        "The agent actually executes the generated query (not just returns the query JSON)",
+        "The output identifies the specific month with highest revenue",
+        "The agent requests CSV or checks row_count to validate that data was returned"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "I need a multi-step analysis: first find our top 3 product categories by order count, then for each one show me the monthly trend for the last 6 months.",
+      "expected_output": "Top 3 product categories identified, followed by a monthly trend breakdown for each, synthesized into a clear narrative summary.",
+      "assertions": [
+        "The agent runs at least two separate omni query run calls — one broad query for top categories, then follow-up queries for trends",
+        "The first query uses a sort and limit to identify the top 3 categories",
+        "The follow-up queries include a filter scoped to the last 6 months",
+        "The agent synthesizes results into a narrative that names the categories and describes their trends, rather than just dumping raw data"
+      ]
+    }
+  ]
+}

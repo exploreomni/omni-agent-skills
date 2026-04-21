@@ -1,0 +1,45 @@
+{
+  "skill_name": "omni-admin",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Create a new user with email newanalyst@company.com and display name 'New Analyst', then confirm they were created successfully.",
+      "expected_output": "User created with correct email, displayName, and active: true. A follow-up verification confirms the user exists with correct state.",
+      "assertions": [
+        "The agent includes the full SCIM schema ('urn:ietf:params:scim:schemas:core:2.0:User') in the create request body",
+        "After creating the user, the agent runs a verification step — either omni scim users-list with a filter or a get call — to confirm the user was created",
+        "The agent reports the user's ID or confirms active: true from the verification response rather than assuming success from the create response alone"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Give the 'Analytics Team' group view access to the dashboard with identifier '{{EVAL_DASHBOARD_PERMISSIONS}}'.",
+      "expected_output": "Document permissions updated so the Analytics Team group has view access. A verification step confirms the permission was applied.",
+      "assertions": [
+        "The agent calls omni documents update-permission-settings (not update-permission) with the document identifier",
+        "The permission body includes a type field set to 'group' and an access field set to 'view'",
+        "The agent verifies the change by reading back the document permissions after setting them"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Set up a weekly email schedule for dashboard '{{EVAL_DASHBOARD_SCHEDULE}}' to send every Monday at 9am Pacific time as a PDF, and add team@company.com as a recipient.",
+      "expected_output": "Schedule created with correct frequency, day, hour, timezone, and format. Recipient added and verified.",
+      "assertions": [
+        "The agent creates a schedule with frequency: weekly, dayOfWeek: monday, hour: 9, timezone: America/Los_Angeles, format: pdf",
+        "The agent adds team@company.com as a recipient using omni schedules add-recipients",
+        "The agent verifies the schedule and recipient were configured correctly by reading them back with omni schedules list and omni schedules recipients-get"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Set a user attribute 'region' to 'West Coast' for the user with email {{EVAL_EXISTING_USER}}.",
+      "expected_output": "User found by email, attribute set via SCIM update, and verification confirms the attribute was applied.",
+      "assertions": [
+        "The agent first looks up the user by email using omni scim users-list with a filter before attempting to set the attribute",
+        "The SCIM update uses the Omni user attribute path format: urn:omni:params:1.0:UserAttribute:region",
+        "The agent verifies the attribute was set after the update"
+      ]
+    }
+  ]
+}

@@ -1,2 +1,4 @@
 .DS_Store
 .claude/
+evals/workspaces/
+evals/eval-env.local.json

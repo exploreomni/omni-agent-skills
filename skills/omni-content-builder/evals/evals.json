@@ -1,0 +1,50 @@
+{
+  "skill_name": "omni-content-builder",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Build a dashboard called 'Weekly Sales Overview' with two tiles: monthly revenue trend (line chart) and top 10 customers by revenue (table).",
+      "expected_output": "Dashboard created with two working tiles. Both queries validated before creation. Dashboard read back and queries verified after creation. Share link provided.",
+      "assertions": [
+        "The agent runs omni query run to test each tile's query before creating the dashboard — not after",
+        "The agent checks summary.row_count in each query response before proceeding",
+        "The agent reads the created document back with omni documents get and confirms both queryPresentations are present",
+        "The agent runs omni documents get-queries and executes the dashboard's queries to verify they work after creation",
+        "The agent provides a dashboard URL in the format {OMNI_BASE_URL}/dashboards/{identifier} — using identifier, not id"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Add a KPI tile showing total revenue this quarter to the existing dashboard with identifier '{{EVAL_DASHBOARD_TILES}}'.",
+      "expected_output": "Existing dashboard read first. KPI tile added to the queryPresentations array. Full document PUT with all existing tiles preserved. Verification confirms the new tile is present.",
+      "assertions": [
+        "The agent reads the existing document with omni documents get before making any changes",
+        "The agent's update includes all existing queryPresentations from the read — it does not discard existing tiles",
+        "The KPI tile uses visType: omni-kpi (not visType: basic)",
+        "The agent verifies the tile was added by reading the document back after the update"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Create a dashboard with a date range filter that defaults to the last 90 days, controlling a revenue by month tile.",
+      "expected_output": "Dashboard created with filterConfig including a date filter with left_side: '90 days ago', a queryPresentation that references the order_items.created_at field, and filterOrder set correctly.",
+      "assertions": [
+        "The filterConfig includes a date filter with a fieldName set to the fully qualified field name (e.g., order_items.created_at) — without a timeframe bracket",
+        "The filterOrder array includes the filter key, matching the filterConfig key",
+        "The agent validates the filter expression by including it in an omni query run call before creating the dashboard",
+        "The agent provides the dashboard URL after successful creation and verification"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "I need to add a custom calculated field 'High Value Order' (sale_price > 100) to dashboard '{{EVAL_DASHBOARD_WORKBOOK}}' only — not to the shared model.",
+      "expected_output": "Custom dimension added to the dashboard's workbook model (not the shared model) by first getting the workbook_id and then posting YAML to it.",
+      "assertions": [
+        "The agent calls omni documents get to retrieve the workbook_id before writing YAML",
+        "The agent writes YAML to the workbook model ID (not the shared model ID)",
+        "The YAML file name ends in .view as required by the workbook model API",
+        "The agent does not modify the shared model for this dashboard-specific field"
+      ]
+    }
+  ]
+}
