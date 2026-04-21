@@ -397,6 +397,7 @@ omni-agent-skills/
 ├── assets/
 │   ├── logo.svg
 │   └── omni-agent-skills-banner.svg
+├── CHANGELOG.md
 ├── README.md
 └── LICENSE
 ```
@@ -414,6 +415,17 @@ omni-agent-skills/
 ## Contributing
 
 Contributions welcome! This is the single source of truth for all Omni Analytics agent skills. Please open an issue or PR.
+
+### Versioning and Changelog
+
+Use semantic versioning for published plugin changes. If you change distributed plugin behavior or metadata and do not bump the affected versions, existing installs may not pick up the update cleanly.
+
+This repo currently duplicates version metadata across `plugin.json` and `marketplace.json`. Until that is centralized, keep all affected version fields in sync:
+
+- `omni-analytics`: `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.cursor-plugin/plugin.json`, `.cursor-plugin/marketplace.json`
+- `omni-integrations`: `skills/omni-integrations/.claude-plugin/plugin.json`, `skills/omni-integrations/.cursor-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.cursor-plugin/marketplace.json`
+
+Document user-visible changes in `CHANGELOG.md`. Changelog tracking starts with the next release and does not backfill older versions.
 
 ## License
 
