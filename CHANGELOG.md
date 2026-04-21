@@ -14,12 +14,15 @@ The versions documented here should match the published plugin versions in the a
 - Eval framework for all 9 Omni skills (`evals/` directory with runner, scorer, and per-skill `evals.json`)
 - Comprehensive `visConfig` reference doc for content builder
 - Validation loops to model-builder, admin, query, and content builder skills
+- Migration note for users coming from deprecated repos
 
 **Changed**
 - AI optimizer skill updated for AI topic optimization
 - Replaced CLI auto-install with check-and-prompt behavior across all skills
 - Updated skills to use CLI shorthand syntax
 - Rebranded AI assistant / query helper terminology
+- Updated Omni Agent context and values
+- Removed `svgMap`, `code`, and `omni-spreadsheet` chart types from visConfig reference
 
 **Fixed**
 - Clarified workbook model update flow in content builder
@@ -35,6 +38,11 @@ The versions documented here should match the published plugin versions in the a
 
 **Changed**
 - Improved `omni-to-snowflake-semantic-view` skill with troubleshooting section and synonym support
+
+**Fixed**
+- Fixed Cursor integrations install (subdirectory URLs not supported)
+- Fixed critical rule for `comment` vs `description` field key in Databricks metric view definitions
+- Fixed synonym mapping from Omni fields into Databricks metric view definitions
 
 ## Unreleased
 
