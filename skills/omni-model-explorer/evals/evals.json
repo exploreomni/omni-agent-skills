@@ -1,0 +1,46 @@
+{
+  "skill_name": "omni-model-explorer",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "What data do we have available to query in Omni? Give me an overview of our topics and what they cover.",
+      "expected_output": "Models listed, SHARED model identified, topics listed with descriptions. Each topic's base view and purpose summarized.",
+      "assertions": [
+        "The agent calls omni models list and identifies the SHARED model (not the SCHEMA model) as the one to explore",
+        "The agent calls omni models list-topics with the SHARED model ID to get the topic list",
+        "The agent summarizes each topic by name and purpose — not just by listing raw API response fields"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "I want to query revenue data. What fields and measures are available, and how do the relevant tables join together?",
+      "expected_output": "Most relevant topic inspected. Available revenue measures identified by name and aggregate type. Join relationships between views explained.",
+      "assertions": [
+        "The agent calls omni models get-topic to inspect the relevant topic in detail — not just list topics",
+        "The agent identifies specific measure names (e.g., total_revenue) and their aggregate types from the topic response",
+        "The agent describes the join relationships from the topic's relationships[] — which views join to which, and on what condition"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "I'm about to remove the 'sale_price' field from the model. What will break?",
+      "expected_output": "Field impact analysis run: branch created with field removed, content validator run against the branch, YAML searched for references. Full blast radius reported.",
+      "assertions": [
+        "The agent creates a model branch and removes the field there — it does not touch the production model to assess impact",
+        "The agent runs omni models content-validator-get --branch-id to find broken dashboards and tiles",
+        "The agent also searches the model YAML for references to sale_price in other views, topics, or calculated fields",
+        "The agent reports both broken content (from the validator) and model references (from YAML search) before recommending any action"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Show me the AI context configured on the order_items topic — I want to understand what Blobby knows about this data.",
+      "expected_output": "Topic inspected with get-topic. ai_context, sample_queries, and ai_fields values returned and summarized clearly.",
+      "assertions": [
+        "The agent calls omni models get-topic to retrieve the topic detail — it does not guess or hallucinate the ai_context content",
+        "The agent reports the actual ai_context text from the API response",
+        "If sample_queries are present in the topic, the agent includes them in the summary"
+      ]
+    }
+  ]
+}

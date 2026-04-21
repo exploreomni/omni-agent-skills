@@ -1,0 +1,46 @@
+{
+  "skill_name": "omni-ai-eval",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Run a quick eval of Omni AI on these 3 prompts and tell me the pass rate: 'Show me revenue by month', 'Top 10 customers by spend', 'How many orders were placed last week'.",
+      "expected_output": "Three generate-query calls made with --run-query false, results scored across topic/fields/filters/sorts dimensions, and a pass rate reported.",
+      "assertions": [
+        "The agent uses omni ai generate-query with --run-query false for each prompt (not --run-query true), avoiding unnecessary query execution",
+        "The agent scores each result across at least the topic and fields dimensions — not just a single pass/fail",
+        "The agent reports a numeric pass rate or per-case scores, not just a narrative description of what the AI returned"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Compare AI accuracy on the main model vs branch id '{{EVAL_BRANCH_ID}}' using these prompts: 'Monthly revenue trend', 'Top products by category'. Tell me if the branch is better or worse.",
+      "expected_output": "Each prompt run twice — once against main, once against the branch. Results compared side-by-side with a clear delta and regression check.",
+      "assertions": [
+        "The agent runs each prompt twice — once without --branch-id (main) and once with --branch-id branch-uuid-123",
+        "The agent explicitly checks for regressions — prompts that passed on main but fail on the branch — not just whether the overall score improved",
+        "The output includes a comparison table or structured delta showing the score difference per prompt or dimension"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "I have a JSONL eval file at evals/cases.jsonl with 5 test cases. Run them all against the model and give me aggregate scores by dimension.",
+      "expected_output": "All 5 cases run in a loop using generate-query, scored per dimension (topic, fields, filters, sorts), with aggregate pass rates reported.",
+      "files": ["evals/files/cases.jsonl"],
+      "assertions": [
+        "The agent runs all cases from the file, not just the first one",
+        "Scores are broken out by dimension (topic accuracy, field accuracy, filter accuracy, sorts accuracy) — not just an overall pass/fail",
+        "The agent reports aggregate pass rates across all cases per dimension"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Snapshot the current model state and run evals so my results are reproducible later.",
+      "expected_output": "Model YAML exported and saved, then evals run. Output notes the snapshot was taken before running.",
+      "assertions": [
+        "The agent calls omni models yaml-get to snapshot the model before running evals",
+        "The agent saves the snapshot with a filename that includes a date or version identifier",
+        "The agent validates the model with omni models validate before or alongside the snapshot"
+      ]
+    }
+  ]
+}

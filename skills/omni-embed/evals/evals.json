@@ -1,0 +1,48 @@
+{
+  "skill_name": "omni-embed",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Generate a signed embed URL for dashboard '{{EVAL_DASHBOARD_EMBED}}' for user {{EVAL_EMBED_USER}} (display name 'Jane Doe'). The user should only see data for the Acme brand.",
+      "expected_output": "embedSsoDashboard called with correct contentId, externalId, name, and userAttributes for row-level security. Host is bare hostname only.",
+      "assertions": [
+        "The agent uses embedSsoDashboard from @omni-co/embed — not a manual URL construction or signing",
+        "The host parameter is a bare hostname (e.g., yourorg.embed-omniapp.co) with no protocol prefix (https://) and no port",
+        "The userAttributes parameter includes the brand filter as an array value (e.g., { brand: ['Acme'] })",
+        "The agent uses the .embed-omniapp.co domain for the embed URL, not .omniapp.co"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Add event handling to an embedded dashboard so that when a user drills on a tile, the parent app logs the drilled row data.",
+      "expected_output": "postMessage listener added that filters for source: 'omni', handles the dashboard:tile-drill event, and accesses drill.rowToDrill from the payload.",
+      "assertions": [
+        "The event listener checks event.data.source === 'omni' before processing any event",
+        "The handler specifically listens for the dashboard:tile-drill event name",
+        "The code accesses drill.rowToDrill from the event payload to get the drilled row data",
+        "The agent does not listen for all postMessage events indiscriminately — it filters by source"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Build a permission-aware sidebar that shows only the dashboards that embed user {{EVAL_EMBED_USER}} has access to.",
+      "expected_output": "Embed user looked up by externalId, then documents listed filtered to that user's permissions. Only documents with hasDashboard: true included. Identifiers used for embed signing.",
+      "assertions": [
+        "The agent looks up the embed user with omni scim embed-users-list --filter 'embedExternalId eq \"{{EVAL_EMBED_USER}}\"' to get the Omni user ID",
+        "The agent calls omni documents list --user-id with the retrieved user ID — not with the email directly",
+        "The agent filters results to only documents where hasDashboard: true before presenting them as embeddable",
+        "The agent uses the API domain (.omniapp.co) for the documents list call — not the embed domain (.embed-omniapp.co)"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Apply a custom theme to an embedded dashboard that matches our brand: dark red primary color (#E60000), light red background (#FEF2F2), and white button text.",
+      "expected_output": "customTheme object passed to embedSsoDashboard with dashboard-key-color, dashboard-background, and dashboard-key-text-color set to correct hex values.",
+      "assertions": [
+        "The customTheme is passed as a parameter to embedSsoDashboard — not applied via CSS or injected into the iframe separately",
+        "dashboard-key-color is set to #E60000, dashboard-background to #FEF2F2, and dashboard-key-text-color to #ffffff",
+        "The theme uses solid hex color values — not linear-gradient() or rgba() for background properties"
+      ]
+    }
+  ]
+}

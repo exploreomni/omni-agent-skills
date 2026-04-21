@@ -1,0 +1,45 @@
+{
+  "skill_name": "omni-content-explorer",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Find all dashboards with the 'finance' label and tell me which one was updated most recently.",
+      "expected_output": "Content listed with label filtering or sorted by updatedAt. Most recently updated dashboard identified by name. Direct link provided.",
+      "assertions": [
+        "The agent uses omni content list or omni documents list to retrieve documents — not a manual guess",
+        "The agent provides a direct link to the most recently updated dashboard in the format {OMNI_BASE_URL}/dashboards/{identifier}, using the identifier field",
+        "The agent uses the identifier field for constructing the URL — not the id field"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "I want to understand what data the 'Revenue Overview' dashboard is querying. Show me the underlying query fields.",
+      "expected_output": "Dashboard found by name, then get-queries used to retrieve the tile query definitions. Fields listed for each tile.",
+      "assertions": [
+        "The agent calls omni documents get-queries with the dashboard identifier to retrieve query definitions",
+        "The agent lists the fields from the query objects — not just the dashboard name or description",
+        "The agent finds the dashboard identifier before calling get-queries, either by listing documents or using a known identifier"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Add the label 'finance' to the dashboard with identifier '{{EVAL_DASHBOARD_LABEL}}', then show me all dashboards with that label.",
+      "expected_output": "Label added to the document. Content then filtered by label 'finance' to show all documents with that label. Links provided for each.",
+      "assertions": [
+        "The agent calls omni documents add-label with the document identifier and label name",
+        "The agent then lists content filtered by the finance label using omni content list --labels finance",
+        "The agent provides clickable links for the returned documents"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Download the 'Q1 Sales Report' dashboard as a PDF.",
+      "expected_output": "Dashboard found by name, async download started, job polled until complete, download confirmed.",
+      "assertions": [
+        "The agent starts the download with omni dashboards download using format: pdf",
+        "The agent polls the job status with omni dashboards download-status until the job completes — not just firing and forgetting",
+        "The agent reports when the download is complete, not just that it was initiated"
+      ]
+    }
+  ]
+}
