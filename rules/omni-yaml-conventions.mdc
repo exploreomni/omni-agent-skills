@@ -110,7 +110,7 @@ omni models yaml-create <modelId> --body '{
 
 - `mode: "extension"` writes to the shared model layer (most common)
 - To delete a file, send empty `yaml` with `mode: "extension"`
-- Always validate after writing: `omni models validate <modelId> --branch-id <branchId>`
+- Always validate after writing: `omni models validate <modelId> --branchid <branchId>`
 
 ## Common Pitfalls
 

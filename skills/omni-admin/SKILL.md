@@ -130,7 +130,7 @@ omni users user-groups-assign-model-role <groupId> --body '{ "modelId": "{modelI
 
 ```bash
 # Get permissions for a user (userId required)
-omni documents get-permissions <documentId> --user-id <userId>
+omni documents get-permissions <documentId> --userid <userId>
 
 # Set permissions
 omni documents update-permission-settings <documentId> --body '{
@@ -201,7 +201,7 @@ Check that: the group exists with the expected `displayName`, and `members` arra
 
 ```bash
 # After setting document permissions, verify for the target user
-omni documents get-permissions <documentId> --user-id <userId>
+omni documents get-permissions <documentId> --userid <userId>
 
 # After setting folder permissions, verify
 omni folders get-permissions <folderId>

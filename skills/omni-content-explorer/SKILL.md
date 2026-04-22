@@ -52,9 +52,9 @@ omni content list --labels finance,marketing
 omni content list --scope organization
 
 # Sort by popularity or recency
-omni content list --sort-field favorites
+omni content list --sortfield favorites
 
-omni content list --sort-field updatedAt
+omni content list --sortfield updatedAt
 ```
 
 ### Pagination
@@ -73,7 +73,7 @@ omni content list --cursor <nextCursor>
 omni documents list
 
 # Filter by creator
-omni documents list --creator-id <userId>
+omni documents list --creatorid <userId>
 ```
 
 Each document includes: `identifier`, `name`, `type`, `scope`, `owner`, `folder`, `labels`, `updatedAt`, `hasDashboard`.

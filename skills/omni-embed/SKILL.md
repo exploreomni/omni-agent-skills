@@ -383,7 +383,7 @@ Returns the Omni user ID for the given `externalId`. If no user is found, the us
 ### List Documents by User Permission
 
 ```bash
-omni documents list --user-id <omniUserId>
+omni documents list --userid <omniUserId>
 ```
 
 Response uses `records` array (not `documents`):

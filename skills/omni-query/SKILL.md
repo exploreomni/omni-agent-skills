@@ -185,7 +185,7 @@ df = reader.read_all().to_pandas()
 If the response includes `remaining_job_ids`, poll until complete:
 
 ```bash
-omni query wait --job-ids job-id-1,job-id-2
+omni query wait --jobids job-id-1,job-id-2
 ```
 
 ## Running Queries from Dashboards

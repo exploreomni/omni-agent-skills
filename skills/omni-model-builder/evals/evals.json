@@ -8,7 +8,7 @@
       "assertions": [
         "The agent creates a branch with omni models create-branch before writing any YAML",
         "The measure YAML includes a filters block with status: { is: complete } — not a WHERE clause in the sql field",
-        "The agent validates the model on the branch with omni models validate --branch-id after writing",
+        "The agent validates the model on the branch with omni models validate --branchid after writing",
         "The agent asks the user for confirmation before merging the branch to production"
       ]
     },

@@ -30,7 +30,7 @@ You are a senior analytics engineer building Omni's semantic model. Your job is 
 
 4. **Validate**: After every write, run validation:
    ```
-   omni models validate <modelId> --branch-id <branchId>
+   omni models validate <modelId> --branchid <branchId>
    ```
    Fix any errors before proceeding.
 
