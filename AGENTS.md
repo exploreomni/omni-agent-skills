@@ -14,7 +14,7 @@ omni-agent-skills/
 └── .cursor-plugin/    # Cursor plugin metadata
 ```
 
-Skills are loaded by agents when a user's request matches the `description` field in `SKILL.md`. Agents in `agents/` are invoked directly by name (e.g., `@omni-analyst`). Neither are loaded automatically by platform unless registered in the plugin manifests.
+Skills are loaded by agents when a user's request matches the `description` field in `SKILL.md`. Agents in `agents/` are invoked directly by name (e.g., `@omni-analyst`). Both are auto-discovered from their directories once the plugin is installed — no manual registration is required.
 
 ## Skill Authoring
 
@@ -33,13 +33,7 @@ The `description` field is the primary routing signal. Write it to match how use
 
 ### SKILL.md Body Conventions
 
-Structure skill files consistently:
-
-1. **Prerequisites** — verify the Omni CLI is installed, show how to set env vars
-2. **Discovering Commands** — `omni <command> --help` examples for the relevant CLI surface
-3. **Core Workflows** — the main operations the skill performs, with CLI examples
-4. **Known Issues & Safe Defaults** — document non-obvious behavior, bugs, or constraints that an agent would otherwise learn the hard way
-5. **References** — link to the `omni-api-conventions` or `omni-yaml-conventions` rule when relevant
+Start with **Prerequisites** (Omni CLI check, env vars) and **Discovering Commands** (`omni <command> --help` examples). Organize the rest around the skill's domain — look at existing skills for patterns. Where there is non-obvious behavior, a bug, or a constraint an agent would otherwise learn the hard way, document it under a **Known Issues & Safe Defaults** section near the top.
 
 Use CLI examples over raw API calls where the Omni CLI supports the operation. When using the REST API directly, include the auth header pattern (`-H "Authorization: Bearer $OMNI_API_TOKEN"`).
 
@@ -70,24 +64,11 @@ Agent bodies should define:
 
 Agents orchestrate skills — they do not duplicate skill content. If an agent needs to run a query, it invokes `omni-query`. Do not copy CLI examples or API patterns from skills into agent definitions.
 
-## Plugin Registration
+## Plugins
 
-New skills must be registered in both plugin manifests before they will load in Claude Code or Cursor. The description in the manifest should match the frontmatter `description` in `SKILL.md` (it can be shortened, but must not contradict it).
+Skills and agents are auto-discovered from `skills/` and `agents/` — no manifest registration needed. The plugin manifests (`.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json`, and their `marketplace.json` counterparts) carry only plugin-level metadata: name, version, description, author.
 
-**Claude Code** — `.claude-plugin/plugin.json`:
-```json
-{
-  "skills": [
-    { "name": "my-skill", "path": "skills/my-skill" }
-  ]
-}
-```
-
-**Cursor** — `.cursor-plugin/plugin.json` — same pattern.
-
-New agents must also be registered in both plugin manifests under `"agents"`.
-
-The `omni-integrations` plugin has its own `.claude-plugin/` and `.cursor-plugin/` directories under `skills/omni-integrations/`. Register integrations skills there, not in the root manifests.
+This repo ships two plugins: `omni-analytics` at the root, and `omni-integrations` rooted at `skills/omni-integrations/`. Both are listed as separate entries in the root `.claude-plugin/marketplace.json` and `.cursor-plugin/marketplace.json`. New integrations skills go under `skills/omni-integrations/skills/`; new general skills go under `skills/`.
 
 ## Validation
 
@@ -128,7 +109,7 @@ For the mechanics — which files to update, PATCH/MINOR/MAJOR breakdown, and ch
 ## PR Checklist
 
 - [ ] SKILL.md frontmatter has a `name` and a `description` that routes correctly
-- [ ] New skills and agents are registered in both `.claude-plugin/` and `.cursor-plugin/` manifests
+- [ ] New skills go under the correct plugin (`skills/` for general, `skills/omni-integrations/skills/` for integrations)
 - [ ] Skill validated end-to-end against a real Omni instance
 - [ ] Eval cases added or updated if the change affects query behavior
 - [ ] If skill or agent content changed: version bumped in all affected plugin manifests and `CHANGELOG.md` updated
