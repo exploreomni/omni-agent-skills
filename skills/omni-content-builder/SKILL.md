@@ -119,10 +119,10 @@ omni documents get <documentId>
 ### Rename Document
 
 ```bash
-omni documents update <documentId> --name "Q1 Revenue Report (Updated)" --clear-existing-draft
+omni documents update <documentId> --name "Q1 Revenue Report (Updated)" --clear-existing-draft true
 ```
 
-Pass `--clear-existing-draft` if the document has an existing draft, otherwise the API returns 409 Conflict.
+Pass `--clear-existing-draft true` if the document has an existing draft, otherwise the API returns 409 Conflict.
 
 ### Delete Document
 
@@ -381,7 +381,7 @@ omni query run --body '{
 - **No error field** — if the response contains an `error` key, the query is broken. Fix before proceeding.
 - **`summary.row_count` > 0** — a query that returns zero rows will render as an empty tile. This may be correct (no data for the filter range) but is worth flagging.
 - **Include your dashboard filters** — pass the same filters you plan to use in `filterConfig` as query-level filters here. This catches bad filter expressions (e.g., wrong field name, unsupported syntax) before they become dashboard-level problems.
-- **Long-running queries** — if the response includes `remaining_job_ids`, poll with `omni query wait --job-ids <ids>` until complete, then check the final result for errors.
+- **Long-running queries** — if the response includes `remaining_job_ids`, poll with `omni query wait --jobids <ids>` until complete, then check the final result for errors.
 
 Do this for **every** query you plan to include as a tile. A dashboard with 5 tiles needs 5 validated queries.
 

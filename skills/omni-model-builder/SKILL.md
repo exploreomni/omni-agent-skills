@@ -131,7 +131,7 @@ Every YAML write must be validated and tested before merging. Silent failures ar
 **2a. Run model validation:**
 
 ```bash
-omni models validate <modelId> --branch-id <branchId>
+omni models validate <modelId> --branchid <branchId>
 ```
 
 Check the response:
@@ -186,7 +186,7 @@ A working join returns rows with data from both views. A broken join returns an 
 omni models get-topic <modelId> <topicName> --branch-id <branchId>
 
 # Or read back the YAML you just wrote
-omni models yaml-get <modelId> --file-name your_view.view --branch-id <branchId>
+omni models yaml-get <modelId> --filename your_view.view --branchid <branchId>
 ```
 
 Confirm your new fields are listed in the response. If they're missing, the YAML write may have silently failed (e.g., wrong `fileName`, malformed YAML string).

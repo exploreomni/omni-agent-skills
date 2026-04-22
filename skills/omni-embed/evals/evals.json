@@ -29,7 +29,7 @@
       "expected_output": "Embed user looked up by externalId, then documents listed filtered to that user's permissions. Only documents with hasDashboard: true included. Identifiers used for embed signing.",
       "assertions": [
         "The agent looks up the embed user with omni scim embed-users-list --filter 'embedExternalId eq \"{{EVAL_EMBED_USER}}\"' to get the Omni user ID",
-        "The agent calls omni documents list --user-id with the retrieved user ID — not with the email directly",
+        "The agent calls omni documents list --userid with the retrieved user ID — not with the email directly",
         "The agent filters results to only documents where hasDashboard: true before presenting them as embeddable",
         "The agent uses the API domain (.omniapp.co) for the documents list call — not the embed domain (.embed-omniapp.co)"
       ]

@@ -89,13 +89,13 @@ For the full semantic model definition:
 omni models yaml-get <modelId>
 
 # Specific file
-omni models yaml-get <modelId> --file-name order_items.view
+omni models yaml-get <modelId> --filename order_items.view
 
 # Regex filter
-omni models yaml-get <modelId> --file-name '.*sales.*'
+omni models yaml-get <modelId> --filename '.*sales.*'
 
 # From a branch (branchId is a UUID from the list models response)
-omni models yaml-get <modelId> --branch-id <branchId>
+omni models yaml-get <modelId> --branchid <branchId>
 ```
 
 The `mode` parameter: `combined` (default) merges schema + shared model; `extension` shows only shared model customizations.
@@ -148,7 +148,7 @@ This returns all dashboards and tiles with broken references to the removed fiel
 3. **Search model YAML** for additional references (run in parallel with step 2):
 
 ```bash
-omni models yaml-get <modelId> --file-name '.*'
+omni models yaml-get <modelId> --filename '.*'
 ```
 
 Search the response for the field name to find references in other views, topics, and calculated fields.
