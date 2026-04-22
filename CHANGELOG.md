@@ -6,6 +6,17 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.3.2] - 2026-04-22
+
+### omni-analytics
+
+**Fixed**
+- Corrected CLI flag names across all skills to match actual `omni` CLI flags — the CLI is inconsistent with hyphenation per subcommand, so each flag was verified individually
+- `--branchid` (no hyphen): `models validate`, `models yaml-get`
+- `--branch-id` (with hyphen): `models refresh`, `models get-topic`, `models content-validator-get`, `ai generate-query`
+- `--filename`, `--sortfield`, `--creatorid`, `--userid`, `--jobids` (all no hyphen)
+- `--clear-existing-draft` requires a string value (e.g. `true`), not a bare flag
+
 ## [1.3.1] - 2026-04-21
 
 ### omni-analytics
