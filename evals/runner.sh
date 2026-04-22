@@ -201,7 +201,11 @@ TASK
     local run_dir="$eval_dir/$config"
     local task="${base_task/OUTPUTS_DIR/$run_dir/outputs/}"
     local active_skill_md=""
-    [[ "$config" == "with_skill" ]] && active_skill_md="$skill_md"
+    if [[ "$config" == "with_skill" ]]; then
+      active_skill_md="$skill_md"
+    else
+      active_skill_md="$SCRIPT_DIR/cli-baseline.md"
+    fi
 
     printf "    [%-13s] running..." "$config"
 
