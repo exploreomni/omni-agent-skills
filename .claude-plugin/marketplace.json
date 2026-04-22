@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Official Omni Analytics skills for Claude Code — explore models, run queries, build dashboards, embed analytics, and manage your Omni instance. Includes 9 skills, 3 specialized agents, and 3 context rules.",
-    "version": "1.3.1"
+    "version": "1.3.2"
   },
   "plugins": [
     {
       "name": "omni-analytics",
       "source": "./",
       "description": "Explore, query, model, embed, and manage Omni Analytics through the REST API and embed SDK. Includes 9 skills, 3 specialized agents, and 3 context rules for model exploration, querying, model building, content browsing, content building, embedding, AI optimization, AI eval, and administration.",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "author": {
         "name": "Omni Analytics"
       },
