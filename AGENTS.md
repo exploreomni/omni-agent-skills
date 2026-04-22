@@ -136,8 +136,4 @@ For the mechanics — which files to update, PATCH/MINOR/MAJOR breakdown, and ch
 ## What to Avoid
 
 - **Don't hallucinate CLI flags** — use `omni <command> --help` to discover real flags before writing skill content
-- **Don't use `.id` for document API calls** — use `.identifier` instead; `.id` is null for workbook-type documents and will silently fail
-- **Don't write directly to the production Omni model** — always use a `branchId` when writing YAML
 - **Don't copy rules content into skills** — `omni-api-conventions` and `omni-yaml-conventions` are reference rules; link to them instead of duplicating
-- **Don't register a skill only in one platform's manifest** — Claude Code and Cursor each need their own registration
-- **Don't skip the version bump** — stale plugin versions are hard to diagnose for users who report skills not loading
