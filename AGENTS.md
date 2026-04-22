@@ -123,29 +123,7 @@ Examples that do not warrant a bump:
 - Files in `evals/` or `references/` subdirectories — contributor tooling, not agent content
 - Reformatting or rewording that doesn't change agent behavior
 
-Version bumps belong in the same PR as the content change. Do not batch them.
-
-| Change type | Version component |
-|---|---|
-| Bug fixes or clarifications that change agent behavior | `PATCH` |
-| New skills, new agents, new features | `MINOR` |
-| Breaking changes to existing skill behavior | `MAJOR` |
-
-Only bump the plugin(s) whose content changed. A fix to `omni-integrations` does not require bumping `omni-analytics`.
-
-Files to update for `omni-analytics` changes:
-- `.claude-plugin/plugin.json`
-- `.claude-plugin/marketplace.json`
-- `.cursor-plugin/plugin.json`
-- `.cursor-plugin/marketplace.json`
-
-Files to update for `omni-integrations` changes:
-- `skills/omni-integrations/.claude-plugin/plugin.json`
-- `skills/omni-integrations/.cursor-plugin/plugin.json`
-- `.claude-plugin/marketplace.json` (omni-integrations entry)
-- `.cursor-plugin/marketplace.json` (omni-integrations entry)
-
-When a version bump is warranted, document the change in `CHANGELOG.md` under the new version using `Added`, `Changed`, or `Fixed` sections.
+For the mechanics — which files to update, PATCH/MINOR/MAJOR breakdown, and changelog format — follow the [Versioning and Changelog](README.md#versioning-and-changelog) section of the README.
 
 ## PR Checklist
 
