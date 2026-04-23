@@ -104,32 +104,6 @@ omni models yaml-get <modelId> --branchid <branchId>
 
 The `mode` parameter: `combined` (default) merges schema + shared model; `extension` shows only shared model customizations.
 
-### Step 4a: Schema-Aware Lazy Loading (large models)
-
-Large models with many schemas are slow to load in full. Use the two-step lazy-load pattern to fetch only what you need — this mirrors how the Omni IDE loads schemas on demand.
-
-**Rule: always list schemas before loading YAML when the model has multiple schemas or when your work is scoped to a specific schema.**
-
-> **Note**: These two endpoints are live on the API but not yet exposed in the Omni CLI (tracked in [exploreomni/cli#44](https://github.com/exploreomni/cli/issues/44)). Call them via `curl` until the CLI is updated. The examples below assume `OMNI_BASE_URL` and `OMNI_API_TOKEN` are exported — the CLI profile is not read by curl.
-
-```bash
-# 1. List all available schemas (includes inactive and offloaded schemas)
-curl -H "Authorization: Bearer $OMNI_API_TOKEN" \
-  "$OMNI_BASE_URL/api/v1/models/<modelId>/schemas"
-# → {"schemas": ["ANALYTICS", "PUBLIC", "STAGING"]}
-
-# 2. Load YAML for a single schema only
-curl -H "Authorization: Bearer $OMNI_API_TOKEN" \
-  "$OMNI_BASE_URL/api/v1/models/<modelId>/yaml?includeSchemas=PUBLIC"
-```
-
-**Rules for schema lazy loading:**
-- `includeSchemas` accepts exactly **one schema name** — commas are rejected. Load schemas one at a time.
-- The schemas list includes **inactive and offloaded** schemas — not just currently active ones. Check before deciding to load.
-- When `includeSchemas` is set, the response contains only views belonging to that schema. Relationships are preserved across schemas.
-- To scope to a branch, add `&branchId=<id>` to the yaml query or `?branch_id=<id>` to the schemas query (the API uses different casing per endpoint).
-- Prefer lazy loading over full `yaml-get` whenever your task is schema-specific — it is significantly faster and avoids unnecessary data transfer.
-
 ## Model Architecture
 
 Omni has three layers:
@@ -157,6 +131,34 @@ When exploring, use the `combined` view to see everything available.
 **"How do these tables relate?"** — Inspect the topic's `relationships[]` — check `join_from_view`, `join_to_view`, `on_sql`, and `relationship_type`.
 
 **"What measures are available for Y?"** — Inspect the topic containing view Y → review the `measures[]` array with `aggregate_type` and `sql` definitions.
+
+## Fallback: Expected View Missing from `yaml-get`
+
+Use this pattern only when normal exploration comes up short — the user names a specific view and it's absent from the `yaml-get` or `get-topic` response, or a relationship references a view that doesn't appear. If `yaml-get` returned what you expected, skip this section.
+
+**Why it happens:** `yaml-get` only returns views from currently-loaded schemas. If a schema is **offloaded or inactive**, its views won't show up. The `/schemas` endpoint surfaces *all* schemas the connection knows about — including offloaded and inactive ones — so it's the right next step before telling the user "not found."
+
+> **Note**: These endpoints aren't yet exposed in the Omni CLI (tracked in [exploreomni/cli#44](https://github.com/exploreomni/cli/issues/44)), so they're curl-only for now. Examples assume `OMNI_BASE_URL` and `OMNI_API_TOKEN` are exported — curl does not read the CLI profile.
+
+**Two-step recovery:**
+
+```bash
+# 1. List every schema (loaded, offloaded, and inactive)
+curl -H "Authorization: Bearer $OMNI_API_TOKEN" \
+  "$OMNI_BASE_URL/api/v1/models/<modelId>/schemas"
+# → {"schemas": ["ANALYTICS", "PUBLIC", "STAGING", ...]}
+
+# 2. If the target schema is in the list, load just that schema
+curl -H "Authorization: Bearer $OMNI_API_TOKEN" \
+  "$OMNI_BASE_URL/api/v1/models/<modelId>/yaml?includeSchemas=PUBLIC"
+```
+
+**If the schema isn't in the list at all**, this isn't a lazy-load issue — the connection likely doesn't have access or the schema isn't synced. Check with a Connection Admin.
+
+**Rules for `includeSchemas`:**
+- Accepts exactly **one schema name** — commas are rejected. Load schemas one at a time if you need multiple.
+- When set, the response contains only views belonging to that schema. Relationships are preserved even when they reference views in other schemas.
+- To scope to a branch, add `&branchId=<id>` to the yaml query or `?branch_id=<id>` to the schemas query (the API uses different casing per endpoint).
 
 ## Calculation Fields
 

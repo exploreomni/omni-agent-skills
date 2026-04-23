@@ -192,15 +192,9 @@ omni models get-topic <modelId> <topicName> --branch-id <branchId>
 # Or read back the YAML you just wrote
 omni models yaml-get <modelId> --filename your_view.view --branchid <branchId>
 
-# If you're working in a specific schema and want to avoid loading the full model,
-# use schema-scoped lazy loading via curl (see omni-model-explorer § Schema-Aware Lazy Loading).
-# The `includeSchemas` query param is not yet exposed in the CLI — tracked in
-# https://github.com/exploreomni/cli/issues/44.
-curl -H "Authorization: Bearer $OMNI_API_TOKEN" \
-  "$OMNI_BASE_URL/api/v1/models/<modelId>/yaml?includeSchemas=YOUR_SCHEMA&branchId=<branchId>"
 ```
 
-Confirm your new fields are listed in the response. If they're missing, the YAML write may have silently failed (e.g., wrong `fileName`, malformed YAML string).
+Confirm your new fields are listed in the response. If they're missing, the YAML write may have silently failed (e.g., wrong `fileName`, malformed YAML string) — or the view may live in an offloaded schema that `yaml-get` doesn't surface. See `omni-model-explorer` § Fallback: Expected View Missing from `yaml-get` for how to recover.
 
 ### Step 3: Merge the Branch
 
