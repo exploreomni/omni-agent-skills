@@ -132,6 +132,34 @@ When exploring, use the `combined` view to see everything available.
 
 **"What measures are available for Y?"** — Inspect the topic containing view Y → review the `measures[]` array with `aggregate_type` and `sql` definitions.
 
+## Fallback: Expected View Missing from `yaml-get`
+
+Use this pattern only when normal exploration comes up short — the user names a specific view and it's absent from the `yaml-get` or `get-topic` response, or a relationship references a view that doesn't appear. If `yaml-get` returned what you expected, skip this section.
+
+**Why it happens:** `yaml-get` only returns views from currently-loaded schemas. If a schema is **offloaded or inactive**, its views won't show up. The `/schemas` endpoint surfaces *all* schemas the connection knows about — including offloaded and inactive ones — so it's the right next step before telling the user "not found."
+
+> **Note**: These endpoints aren't yet exposed in the Omni CLI (tracked in [exploreomni/cli#44](https://github.com/exploreomni/cli/issues/44)), so they're curl-only for now. Examples assume `OMNI_BASE_URL` and `OMNI_API_TOKEN` are exported — curl does not read the CLI profile.
+
+**Two-step recovery:**
+
+```bash
+# 1. List every schema (loaded, offloaded, and inactive)
+curl -H "Authorization: Bearer $OMNI_API_TOKEN" \
+  "$OMNI_BASE_URL/api/v1/models/<modelId>/schemas"
+# → {"schemas": ["ANALYTICS", "PUBLIC", "STAGING", ...]}
+
+# 2. If the target schema is in the list, load just that schema
+curl -H "Authorization: Bearer $OMNI_API_TOKEN" \
+  "$OMNI_BASE_URL/api/v1/models/<modelId>/yaml?includeSchemas=PUBLIC"
+```
+
+**If the schema isn't in the list at all**, this isn't a lazy-load issue — the connection likely doesn't have access or the schema isn't synced. Check with a Connection Admin.
+
+**Rules for `includeSchemas`:**
+- Accepts exactly **one schema name** — commas are rejected. Load schemas one at a time if you need multiple.
+- When set, the response contains only views belonging to that schema. Relationships are preserved even when they reference views in other schemas.
+- To scope to a branch, add `&branchId=<id>` to the yaml query or `?branch_id=<id>` to the schemas query (the API uses different casing per endpoint).
+
 ## Calculation Fields
 
 Calculation fields in the model use a different format than regular dimensions/measures. The field key is `calc_name` and the expression property is `sql_expression` — not `name`/`sql`.
@@ -164,6 +192,7 @@ Search the response for the field name to find references in other views, topics
 ## Docs Reference
 
 - [Models API](https://docs.omni.co/api/models.md) · [Topics API](https://docs.omni.co/api/topics.md) · [Modeling Overview](https://docs.omni.co/modeling.md) · [Views](https://docs.omni.co/modeling/views.md) · [Topics](https://docs.omni.co/modeling/topics/parameters.md) · [Dimensions](https://docs.omni.co/modeling/dimensions.md) · [Measures](https://docs.omni.co/modeling/measures.md)
+- [List model schemas](https://docs.omni.co/api/models/list-model-schemas) · [Get model YAML](https://docs.omni.co/api/models/get-model-yaml)
 
 ## Related Skills
 

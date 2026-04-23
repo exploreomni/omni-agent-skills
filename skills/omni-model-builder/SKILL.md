@@ -191,9 +191,10 @@ omni models get-topic <modelId> <topicName> --branch-id <branchId>
 
 # Or read back the YAML you just wrote
 omni models yaml-get <modelId> --filename your_view.view --branchid <branchId>
+
 ```
 
-Confirm your new fields are listed in the response. If they're missing, the YAML write may have silently failed (e.g., wrong `fileName`, malformed YAML string).
+Confirm your new fields are listed in the response. If they're missing, the YAML write may have silently failed (e.g., wrong `fileName`, malformed YAML string) — or the view may live in an offloaded schema that `yaml-get` doesn't surface. See `omni-model-explorer` § Fallback: Expected View Missing from `yaml-get` for how to recover.
 
 ### Step 3: Merge the Branch
 
