@@ -18,8 +18,10 @@ command -v omni >/dev/null || echo "ERROR: Omni CLI is not installed."
 ```
 
 ```bash
-export OMNI_BASE_URL="https://yourorg.omniapp.co"
-export OMNI_API_TOKEN="your-api-key"
+# Show available profiles and select the appropriate one
+omni config show
+# If multiple profiles exist, ask the user which to use, then switch:
+omni config use <profile-name>
 ```
 
 You also need a **model ID** and an **eval set** — a file of test cases with prompts and expected query structures. See the [Eval Design Guide](https://docs.omni.co/ai/eval-design-guide) for best practices on building eval sets.
@@ -29,6 +31,8 @@ You also need a **model ID** and an **eval set** — a file of test cases with p
 ```bash
 omni ai --help    # AI operations (generate-query, jobs, pick-topic)
 ```
+
+> **Tip**: Use `-o json` to force structured output for programmatic parsing, or `-o human` for readable tables. The default is `auto` (human in a TTY, JSON when piped).
 
 ## Eval Input Format
 

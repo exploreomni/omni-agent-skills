@@ -196,13 +196,13 @@ This downloads the latest release, verifies the SHA-256 checksum, and installs t
 ### Configure authentication
 
 ```bash
-# Option 1: Interactive profile setup (recommended)
-omni config init
-
-# Option 2: Environment variables
-export OMNI_BASE_URL="https://yourorg.omniapp.co"
-export OMNI_API_TOKEN="your-api-key"
+# Show available profiles and select the appropriate one
+omni config show
+# If multiple profiles exist, pick one and switch:
+omni config use <profile-name>
 ```
+
+If no profiles exist, run `omni config init` to create one interactively. You can also use `--profile`, `--base-url`, or `--token` flags to override the active profile for a single command.
 
 API keys are created in **Settings > API Keys** (Organization Admin) or **User Profile > Manage Account > Generate Token** (Personal Access Token).
 
