@@ -193,8 +193,11 @@ omni models get-topic <modelId> <topicName> --branch-id <branchId>
 omni models yaml-get <modelId> --filename your_view.view --branchid <branchId>
 
 # If you're working in a specific schema and want to avoid loading the full model,
-# use schema-scoped lazy loading (see omni-model-explorer § Schema-Aware Lazy Loading):
-omni models yaml-get <modelId> --includeschemas YOUR_SCHEMA --branchid <branchId>
+# use schema-scoped lazy loading via curl (see omni-model-explorer § Schema-Aware Lazy Loading).
+# The `includeSchemas` query param is not yet exposed in the CLI — tracked in
+# https://github.com/exploreomni/cli/issues/44.
+curl -H "Authorization: Bearer $OMNI_API_TOKEN" \
+  "$OMNI_BASE_URL/api/v1/models/<modelId>/yaml?includeSchemas=YOUR_SCHEMA&branchId=<branchId>"
 ```
 
 Confirm your new fields are listed in the response. If they're missing, the YAML write may have silently failed (e.g., wrong `fileName`, malformed YAML string).

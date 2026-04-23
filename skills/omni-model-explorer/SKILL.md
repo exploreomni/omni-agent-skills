@@ -110,20 +110,24 @@ Large models with many schemas are slow to load in full. Use the two-step lazy-l
 
 **Rule: always list schemas before loading YAML when the model has multiple schemas or when your work is scoped to a specific schema.**
 
+> **Note**: These two endpoints are live on the API but not yet exposed in the Omni CLI (tracked in [exploreomni/cli#44](https://github.com/exploreomni/cli/issues/44)). Call them via `curl` until the CLI is updated. The examples below assume `OMNI_BASE_URL` and `OMNI_API_TOKEN` are exported — the CLI profile is not read by curl.
+
 ```bash
 # 1. List all available schemas (includes inactive and offloaded schemas)
-omni models get-schemas <modelId>
+curl -H "Authorization: Bearer $OMNI_API_TOKEN" \
+  "$OMNI_BASE_URL/api/v1/models/<modelId>/schemas"
 # → {"schemas": ["ANALYTICS", "PUBLIC", "STAGING"]}
 
 # 2. Load YAML for a single schema only
-omni models yaml-get <modelId> --includeschemas PUBLIC
+curl -H "Authorization: Bearer $OMNI_API_TOKEN" \
+  "$OMNI_BASE_URL/api/v1/models/<modelId>/yaml?includeSchemas=PUBLIC"
 ```
 
 **Rules for schema lazy loading:**
-- `--includeschemas` accepts exactly **one schema name** — commas are rejected. Load schemas one at a time.
+- `includeSchemas` accepts exactly **one schema name** — commas are rejected. Load schemas one at a time.
 - The schemas list includes **inactive and offloaded** schemas — not just currently active ones. Check before deciding to load.
-- When `--includeschemas` is set, the response contains only views belonging to that schema. Relationships are preserved across schemas.
-- Use `--branchid` on `yaml-get` or `--branch-id` on `get-schemas` to inspect in-progress model changes (flag spelling follows each endpoint's underlying query param).
+- When `includeSchemas` is set, the response contains only views belonging to that schema. Relationships are preserved across schemas.
+- To scope to a branch, add `&branchId=<id>` to the yaml query or `?branch_id=<id>` to the schemas query (the API uses different casing per endpoint).
 - Prefer lazy loading over full `yaml-get` whenever your task is schema-specific — it is significantly faster and avoids unnecessary data transfer.
 
 ## Model Architecture
