@@ -104,6 +104,28 @@ omni models yaml-get <modelId> --branchid <branchId>
 
 The `mode` parameter: `combined` (default) merges schema + shared model; `extension` shows only shared model customizations.
 
+### Step 4a: Schema-Aware Lazy Loading (large models)
+
+Large models with many schemas are slow to load in full. Use the two-step lazy-load pattern to fetch only what you need — this mirrors how the Omni IDE loads schemas on demand.
+
+**Rule: always list schemas before loading YAML when the model has multiple schemas or when your work is scoped to a specific schema.**
+
+```bash
+# 1. List all available schemas (includes inactive and offloaded schemas)
+omni models get-schemas <modelId>
+# → {"schemas": ["ANALYTICS", "PUBLIC", "STAGING"]}
+
+# 2. Load YAML for a single schema only
+omni models yaml-get <modelId> --includeschemas PUBLIC
+```
+
+**Rules for schema lazy loading:**
+- `--includeschemas` accepts exactly **one schema name** — commas are rejected. Load schemas one at a time.
+- The schemas list includes **inactive and offloaded** schemas — not just currently active ones. Check before deciding to load.
+- When `--includeschemas` is set, the response contains only views belonging to that schema. Relationships are preserved across schemas.
+- Use `--branchid` on `yaml-get` or `--branch-id` on `get-schemas` to inspect in-progress model changes (flag spelling follows each endpoint's underlying query param).
+- Prefer lazy loading over full `yaml-get` whenever your task is schema-specific — it is significantly faster and avoids unnecessary data transfer.
+
 ## Model Architecture
 
 Omni has three layers:
@@ -164,6 +186,7 @@ Search the response for the field name to find references in other views, topics
 ## Docs Reference
 
 - [Models API](https://docs.omni.co/api/models.md) · [Topics API](https://docs.omni.co/api/topics.md) · [Modeling Overview](https://docs.omni.co/modeling.md) · [Views](https://docs.omni.co/modeling/views.md) · [Topics](https://docs.omni.co/modeling/topics/parameters.md) · [Dimensions](https://docs.omni.co/modeling/dimensions.md) · [Measures](https://docs.omni.co/modeling/measures.md)
+- [List model schemas](https://docs.omni.co/api/models/list-model-schemas) · [Get model YAML](https://docs.omni.co/api/models/get-model-yaml)
 
 ## Related Skills
 

@@ -191,6 +191,10 @@ omni models get-topic <modelId> <topicName> --branch-id <branchId>
 
 # Or read back the YAML you just wrote
 omni models yaml-get <modelId> --filename your_view.view --branchid <branchId>
+
+# If you're working in a specific schema and want to avoid loading the full model,
+# use schema-scoped lazy loading (see omni-model-explorer § Schema-Aware Lazy Loading):
+omni models yaml-get <modelId> --includeschemas YOUR_SCHEMA --branchid <branchId>
 ```
 
 Confirm your new fields are listed in the response. If they're missing, the YAML write may have silently failed (e.g., wrong `fileName`, malformed YAML string).
