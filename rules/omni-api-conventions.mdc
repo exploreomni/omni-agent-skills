@@ -33,15 +33,18 @@ Two API key types exist:
 ### Setup
 
 ```bash
-# Option 1: Interactive profile setup (recommended, one-time)
-omni config init
-
-# Option 2: Environment variables
-export OMNI_BASE_URL="https://yourorg.omniapp.co"
-export OMNI_API_TOKEN="your-api-key"
+# Show available profiles and select the appropriate one
+omni config show
+# If multiple profiles exist, ask the user which to use, then switch:
+omni config use <profile-name>
 ```
 
-Base URL is resolved in this order: `--base-url` flag > `OMNI_BASE_URL` env var > profile's `apiEndpoint`.
+If no profiles exist, run `omni config init` to create one interactively.
+
+Base URL and token are resolved in this order (highest wins):
+1. `--base-url` / `--token` flags on the command
+2. `OMNI_BASE_URL` / `OMNI_API_TOKEN` environment variables
+3. Active profile's `apiEndpoint` / `apiKey`
 
 ## Command Pattern
 
@@ -68,8 +71,9 @@ omni <group> <operation> --help    # Show flags and positional args
 
 ## Output
 
-- All responses are JSON to stdout (pretty-printed by default)
-- Use `--compact` for single-line JSON (good for piping to `jq`)
+- Use `-o json` to force structured output for programmatic parsing, or `-o human` for readable tables.
+- The default is `-o auto` (human in a TTY, JSON when piped or redirected).
+- Use `--compact` for single-line JSON (good for piping to `jq`).
 - Errors go to stderr as JSON with `error` and `status` fields
 
 ## Error Handling

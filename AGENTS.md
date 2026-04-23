@@ -77,8 +77,10 @@ Before opening a PR, validate that your skill or agent works against a real Omni
 1. **Install the Omni CLI** if not already present — see [README Setup](README.md#setup)
 2. **Configure credentials**:
    ```bash
-   export OMNI_BASE_URL="https://yourorg.omniapp.co"
-   export OMNI_API_TOKEN="your-api-key"
+   # Show available profiles and select the appropriate one
+   omni config show
+   # If multiple profiles exist, pick one and switch:
+   omni config use <profile-name>
    ```
 3. **Run the key CLI commands** referenced in your skill — verify they succeed and return expected output
 4. **For query or model skills**: run at least one realistic end-to-end operation (e.g., `omni query run`, `omni models yaml-create`)

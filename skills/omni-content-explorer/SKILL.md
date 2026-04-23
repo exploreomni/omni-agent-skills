@@ -16,8 +16,10 @@ command -v omni >/dev/null || echo "ERROR: Omni CLI is not installed."
 ```
 
 ```bash
-export OMNI_BASE_URL="https://yourorg.omniapp.co"
-export OMNI_API_TOKEN="your-api-key"
+# Show available profiles and select the appropriate one
+omni config show
+# If multiple profiles exist, ask the user which to use, then switch:
+omni config use <profile-name>
 ```
 
 ## Discovering Commands
@@ -27,6 +29,8 @@ omni content --help     # Content operations
 omni documents --help   # Document operations
 omni folders --help     # Folder operations
 ```
+
+> **Tip**: Use `-o json` to force structured output for programmatic parsing, or `-o human` for readable tables. The default is `auto` (human in a TTY, JSON when piped).
 
 ## Browsing Content
 

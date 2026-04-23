@@ -6,6 +6,14 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.3.3] - 2026-04-23
+
+### omni-analytics
+
+**Changed**
+- Replaced env-var auth setup (`export OMNI_BASE_URL` / `export OMNI_API_TOKEN`) with CLI profile workflow (`omni config show` → `omni config use`) across all skills, README, AGENTS.md, and rules
+- Added `-o` / `--format` flag guidance to all skills for controlling JSON vs human-readable output
+
 ## [1.3.2] - 2026-04-22
 
 ### omni-analytics

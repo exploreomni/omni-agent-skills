@@ -27,8 +27,10 @@ command -v omni >/dev/null || echo "ERROR: Omni CLI is not installed."
 ```
 
 ```bash
-export OMNI_BASE_URL="https://yourorg.omniapp.co"
-export OMNI_API_TOKEN="your-api-key"
+# Show available profiles and select the appropriate one
+omni config show
+# If multiple profiles exist, ask the user which to use, then switch:
+omni config use <profile-name>
 ```
 
 ## Discovering Commands
@@ -38,6 +40,8 @@ omni documents --help           # Document operations
 omni dashboards --help          # Dashboard operations
 omni models yaml-create --help  # Writing model YAML
 ```
+
+> **Tip**: Use `-o json` to force structured output for programmatic parsing, or `-o human` for readable tables. The default is `auto` (human in a TTY, JSON when piped).
 
 ## Dashboard Architecture
 
@@ -178,6 +182,7 @@ This returns the full document including `queryPresentations`, `filterConfig`, `
 ```bash
 # Note: Full document replacement via PUT is not yet available in the CLI.
 # Use direct HTTP for now, or use omni documents update for partial updates (PATCH).
+# Derive OMNI_BASE_URL and OMNI_API_TOKEN from the active profile for this call.
 curl -L -X PUT "$OMNI_BASE_URL/api/v1/documents/{documentId}" \
   -H "Authorization: Bearer $OMNI_API_TOKEN" \
   -H "Content-Type: application/json" \
