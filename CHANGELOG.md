@@ -10,9 +10,8 @@ The versions documented here should match the published plugin versions in the a
 
 ### omni-analytics
 
-**Changed**
-- Swapped `curl` calls in the schema-aware lazy-load fallback (omni-model-explorer § Fallback: Expected View Missing from `yaml-get`) for the new first-class CLI commands (`omni models get-schemas` and `omni models yaml-get --includeschemas`), shipped in [exploreomni/cli#46](https://github.com/exploreomni/cli/pull/46). Removes the need to export `OMNI_BASE_URL` / `OMNI_API_TOKEN` for this path — the CLI reads from the active profile.
-- Documented the asymmetric branch-scoping flag names: `yaml-get` uses `--branchid`, `get-schemas` uses `--branch-id` (the CLI is auto-generated from the API spec, which uses different casing per endpoint).
+**Added**
+- Schema-aware lazy-load fallback pattern in omni-model-explorer § Fallback: Expected View Missing from `yaml-get`. When normal exploration can't find a view the user named, it's likely in an offloaded or inactive schema. Fallback uses `omni models get-schemas <modelId>` to surface all schemas (including offloaded/inactive) and `omni models yaml-get <modelId> --includeschemas <schema>` to load views from one of them. Requires CLI commands shipped in [exploreomni/cli#46](https://github.com/exploreomni/cli/pull/46).
 
 ## [1.3.3] - 2026-04-23
 
