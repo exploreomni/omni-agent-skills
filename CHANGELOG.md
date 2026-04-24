@@ -6,6 +6,14 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.3.4] - 2026-04-24
+
+### omni-analytics
+
+**Changed**
+- Swapped `curl` calls in the schema-aware lazy-load fallback (omni-model-explorer § Fallback: Expected View Missing from `yaml-get`) for the new first-class CLI commands (`omni models get-schemas` and `omni models yaml-get --includeschemas`), shipped in [exploreomni/cli#46](https://github.com/exploreomni/cli/pull/46). Removes the need to export `OMNI_BASE_URL` / `OMNI_API_TOKEN` for this path — the CLI reads from the active profile.
+- Documented the asymmetric branch-scoping flag names: `yaml-get` uses `--branchid`, `get-schemas` uses `--branch-id` (the CLI is auto-generated from the API spec, which uses different casing per endpoint).
+
 ## [1.3.3] - 2026-04-23
 
 ### omni-analytics
