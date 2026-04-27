@@ -393,6 +393,125 @@ Array and boolean filter variants:
 
 ---
 
+#### Filter-Only Fields (Templated Filters)
+
+Filter-only fields in Omni are parameterized inputs defined in a `filters:` block in a view YAML. They don't map to a real column — they inject dynamic values into other fields' SQL at query time via Mustache templates. Snowflake Semantic Views have no equivalent runtime parameter system, so these must be resolved to static SQL during conversion.
+
+**Example filter-only field definition:**
+
+```yaml
+# In a view file — under a top-level `filters:` key
+filters:
+  status_filter:
+    type: string
+    default_filter:
+      is: "Complete"
+  order_date_filter:
+    type: timestamp
+```
+
+---
+
+**Two reference patterns to detect in dimension/measure SQL:**
+
+**Pattern 1 — Block (conditional) syntax:**
+
+```sql
+{{# order_items.status_filter.filter }} order_items.status {{/ order_items.status_filter.filter }}
+```
+
+The block is conditionally active when the user applies a filter. A `{{^ }}` block is the fallback when no filter is applied:
+
+```sql
+{{# order_items.status_filter.filter }} order_items.status {{/ order_items.status_filter.filter }}
+{{^ order_items.status_filter.filter }} 1=1 {{/ order_items.status_filter.filter }}
+```
+
+**Pattern 2 — Value (direct injection) syntax:**
+
+```sql
+-- Direct value substitution
+DATE_TRUNC('day', created_at) >= '{{filters.order_items.order_date_filter.value}}'
+
+-- Range variants for date filters
+created_at BETWEEN '{{filters.order_items.order_date_filter.range_start}}' AND '{{filters.order_items.order_date_filter.range_end}}'
+```
+
+Scan all dimension and measure SQL for both patterns using these signatures:
+- `{{# <view>.<field>.filter }}` — block open
+- `{{^ <view>.<field>.filter }}` — block fallback open
+- `{{filters.<view>.<field>.value}}` — direct value
+- `{{filters.<view>.<field>.range_start}}` / `{{filters.<view>.<field>.range_end}}` — date ranges
+
+---
+
+**Resolution logic — apply in order for each reference found:**
+
+**Step 1 — Inline `{{^ }}` fallback (block pattern only):**
+
+If the SQL contains a `{{^ view.field.filter }}` fallback block, use the fallback expression as the static SQL — it's what executes when no filter is applied.
+
+```sql
+-- Input
+{{# order_items.status_filter.filter }} order_items.status {{/ order_items.status_filter.filter }}
+{{^ order_items.status_filter.filter }} 1=1 {{/ order_items.status_filter.filter }}
+
+-- Resolved static SQL
+1=1
+```
+
+**Step 2 — `default_filter` on the filter field definition:**
+
+Find the referenced filter-only field in the view YAML and check for a `default_filter` property. Render it as a static SQL condition:
+
+| `default_filter` value | Rendered SQL |
+|---|---|
+| `is: "Complete"` | `field = 'Complete'` |
+| `is: ["New York", "CA"]` | `field IN ('New York', 'CA')` |
+| `is: true` | `field IS TRUE` |
+| `greater_than: 100` | `field > 100` |
+
+For **value syntax**, substitute the rendered scalar value directly into the SQL string:
+
+```sql
+-- Input
+DATE_TRUNC('day', created_at) >= '{{filters.order_items.order_date_filter.value}}'
+
+-- default_filter: is: "2024-01-01"
+-- Resolved
+DATE_TRUNC('day', created_at) >= '2024-01-01'
+```
+
+For **range syntax**, use `range_start` / `range_end` from the `default_filter` if defined, otherwise warn the user.
+
+**Step 3 — No fallback and no `default_filter` — warn the user:**
+
+> ⚠️ Field `<view>.<field>` references filter-only field `<view>.<filter_field>` but has no `default_filter` and no inline `{{^ }}` fallback. It cannot be statically resolved for a Snowflake Semantic View. Options:
+> 1. Skip this field from the output entirely.
+> 2. Ask the user what static value or condition to hardcode.
+> 3. Use `1=1` (always-true no-op) to preserve the field shape without the filter effect.
+
+**Summary decision tree:**
+
+```
+Does the SQL reference a filter-only field?
+  (via {{# view.field.filter }} OR {{filters.view.field.value}} etc.)
+  │
+  ├── Block pattern → Does SQL have {{^ view.field.filter }} fallback?
+  │     ├── Yes → Use fallback expression as static SQL
+  │     └── No  → Go to default_filter check ↓
+  │
+  ├── Value pattern → Go to default_filter check ↓
+  │
+  └── default_filter check:
+        ├── Yes → Render default_filter as static SQL / value substitution
+        └── No  → Warn user, ask how to proceed
+```
+
+> ⚠️ Filter-only fields themselves are **never** emitted as dimensions, metrics, or filters in the Semantic View output — they exist only to parameterize other fields' SQL.
+
+---
+
 #### AI Context → `module_custom_instructions`
 
 If the topic has an `ai_context` parameter, include it as:
