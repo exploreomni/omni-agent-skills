@@ -194,7 +194,7 @@ omni models yaml-get <modelId> --filename your_view.view --branchid <branchId>
 
 ```
 
-Confirm your new fields are listed in the response. If they're missing, the YAML write may have silently failed (e.g., wrong `fileName`, malformed YAML string) — or the view may live in an offloaded schema that `yaml-get` doesn't surface. See `omni-model-explorer` § Fallback: Expected View Missing from `yaml-get` for how to recover.
+Confirm your new fields are listed in the response. If they're missing, the YAML write may have silently failed (e.g., wrong `fileName`, malformed YAML string) — or the view may live in an offloaded schema that `yaml-get` doesn't surface. Before concluding a view doesn't exist, run the lazy-load fallback (see "Fallback: View Missing from yaml-get" below).
 
 ### Step 3: Merge the Branch
 
@@ -318,7 +318,29 @@ measures:
 
 See `references/yaml-filter-syntax.md` for the complete operator reference covering conditional, numeric, string, and date/time operators, negation, array values, and boolean handling.
 
+## Fallback: View Missing from yaml-get
+
+Before concluding that a view doesn't exist, always run this two-step check. `yaml-get` only returns views from currently-loaded schemas — views in offloaded or inactive schemas won't appear, but they're still available.
+
+```bash
+# 1. List all schemas the connection knows about (loaded, offloaded, and inactive)
+omni models get-schemas <modelId>
+# → {"schemas": ["ANALYTICS", "PUBLIC", "STAGING", ...]}
+
+# 2. If the target schema appears in the list, load it explicitly
+omni models yaml-get <modelId> --includeschemas PUBLIC
+```
+
+**Rules for `--includeschemas`:**
+- Accepts exactly **one schema name** per call — commas are rejected. Load schemas one at a time.
+- The response will contain only views from that schema; relationships to other schemas are preserved.
+- To scope to a branch, add `--branchid <id>` to `yaml-get` or `--branch-id <id>` to `get-schemas` (flag names differ per command).
+
+If the schema isn't in the `get-schemas` list at all, the connection likely doesn't have access or the schema isn't synced — check with a Connection Admin.
+
 ## Writing Topics
+
+> **Before writing a topic, verify all views you plan to reference actually exist.** Run `omni models yaml-get <modelId>` and confirm each view appears. If a view is missing, run the lazy-load fallback above before concluding it doesn't exist — it may simply be in an offloaded schema.
 
 See [Topics setup](https://docs.omni.co/modeling/topics/setup.md) for complete YAML examples with joins, fields, and ai_context, and [Topic parameters](https://docs.omni.co/modeling/topics/parameters.md) for all available options.
 
