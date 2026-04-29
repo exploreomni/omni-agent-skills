@@ -316,7 +316,7 @@ measures:
         is: California
 ```
 
-Filter conditions: `is`, `is_not`, `greater_than`, `less_than`, `contains`, `starts_with`, `ends_with`
+See `references/yaml-filter-syntax.md` for the complete operator reference covering conditional, numeric, string, and date/time operators, negation, array values, and boolean handling.
 
 ## Writing Topics
 
@@ -327,8 +327,23 @@ Key topic elements:
 - `joins` — nested structure for join chains (e.g., `users: {}` or `inventory_items: { products: {} }`)
 - `ai_context` — guides Blobby's field mapping (e.g., "Map 'revenue' → total_revenue")
 - `default_filters` — applied to all queries unless removed
-- `always_where_sql` — non-removable filters
+- `always_where_sql` — non-removable WHERE filter using a SQL expression (cannot be removed by users)
+- `always_where_filters` — non-removable WHERE filter using filter specifications (cannot be removed by users)
+- `always_having_sql` — non-removable HAVING filter using a SQL expression, applied after aggregation (cannot be removed by users)
+- `always_having_filters` — non-removable HAVING filter using filter specifications, applied after aggregation (cannot be removed by users)
 - `fields` — field curation: `[order_items.*, users.name, -users.internal_id]`
+
+### Filter Expressions for Topics
+
+When configuring `default_filters`, `always_where_filters`, or `always_having_filters` on a topic, use the YAML filter condition syntax — the same syntax used in measure filters. See `references/yaml-filter-syntax.md` for the complete reference.
+
+If the right filter configuration for a given use case isn't obvious, use the Omni AI CLI to search the docs:
+
+```bash
+omni ai search-omni-docs "how do I configure always_where_filters on a topic in Omni?"
+```
+
+Use targeted questions to get precise YAML examples for your specific filtering need before writing the model YAML.
 
 ## Writing Relationships
 
