@@ -13,11 +13,13 @@ Complete reference for the filter condition syntax used in Omni model YAML. This
   <operator>: <value>
 ```
 
-For topic-level filters, qualify field names with the view name:
+For topic-level filters, field names must be fully qualified (`view_name.field_name`) when referencing a field from a joined view. Fields on the topic's base view may use the bare field name:
 
 ```yaml
 always_where_filters:
-  users.state:
+  state:           # bare — field is on the base view
+    is: California
+  users.state:     # qualified — field is on a joined view
     is: California
 ```
 
