@@ -409,29 +409,45 @@ relationships:
     join_type: always_left
 ```
 
-Use `join_to_view_as` to alias a view when joining the same table more than once:
-
-```yaml
-relationships:
-  - join_from_view: orders
-    join_to_view: users
-    join_to_view_as: shipping_address
-    on_sql: ${orders.shipping_user_id} = ${shipping_address.id}
-    relationship_type: many_to_one
-    join_type: always_left
-  - join_from_view: orders
-    join_to_view: users
-    join_to_view_as: billing_address
-    on_sql: ${orders.billing_user_id} = ${billing_address.id}
-    relationship_type: many_to_one
-    join_type: always_left
-```
-
 User attributes can be used in `on_sql` for access-filtered joins:
 
 ```yaml
 on_sql: ${orders.region} = '{{ omni_attributes.user_region }}'
 ```
+
+### Joining the Same Table Twice: Extended Views
+
+When you need to join the same table multiple times with different logic or field labels (e.g., a `users` table joined once as the buyer and once as the seller), use the **extended views** pattern rather than `join_to_view_as`. Extended views create a named alias that inherits all fields from the base view and allows full metadata customization.
+
+Define the extended view inline in the topic file using a `views:` block:
+
+```yaml
+# .topic file
+base_view: order_items
+
+views:
+  sellers:
+    extends: [users]
+    display_order: 1
+    dimensions:
+      name:
+        label: Seller Name
+
+relationships:
+  - join_from_view: order_items
+    join_to_view: sellers
+    on_sql: ${order_items.seller_id} = ${sellers.id}
+    relationship_type: many_to_one
+    join_type: always_left
+
+joins:
+  sellers: {}
+  users: {}
+```
+
+The extended view (`sellers`) inherits all dimensions and measures from `users` and can override labels, display order, or any field metadata. The relationship and joins then reference the extended view name directly.
+
+> If you see a `relationship alias duplicates view name` error, this pattern is the fix — it avoids the naming conflict by creating a proper named view rather than an alias.
 
 ### `joins` vs `relationships` in a Topic
 
@@ -457,6 +473,26 @@ joins:
   promotions: {}
   users: {}
 ```
+
+### Topic-Scoped View Definitions
+
+Topics can define or override views inline using a `views:` block. This is how the extended views pattern works, but it applies more broadly — any dimension, measure, label, or field metadata can be overridden within the topic without touching the shared view file:
+
+```yaml
+views:
+  order_items:
+    dimensions:
+      status:
+        label: Fulfillment Status
+    measures:
+      topic_specific_count:
+        aggregate_type: count
+        filters:
+          region:
+            is: US
+```
+
+Topic-scoped view definitions only affect queries run through this topic. Use them when a field label or metric should differ from the global default for a specific business context.
 
 ## Query Views
 
