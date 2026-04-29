@@ -369,6 +369,10 @@ Use targeted questions to get precise YAML examples for your specific filtering 
 
 ## Writing Relationships
 
+### Global Relationships
+
+Global relationships are defined in the shared relationships file and are available across all topics. Use these for standard, reusable joins.
+
 ```yaml
 - join_from_view: order_items
   join_to_view: users
@@ -385,6 +389,74 @@ Use targeted questions to get precise YAML examples for your specific filtering 
 | `many_to_many` | Tags ↔ Products (rare) |
 
 Getting `relationship_type` right prevents fanout and symmetric aggregate errors.
+
+### Topic-Scoped Relationships
+
+Relationships can also be defined inline within a topic file using the `relationships:` parameter. These are scoped to that topic only and do not affect other topics.
+
+**When to use topic-scoped instead of global:**
+- One-off joins that don't belong in the shared model
+- Aliasing the same table multiple times in one topic (e.g., joining `users` twice under different roles)
+- Different join conditions for the same views depending on topic context
+
+```yaml
+# In a .topic file
+relationships:
+  - join_from_view: order_items
+    join_to_view: users
+    on_sql: ${order_items.user_id} = ${users.id}
+    relationship_type: many_to_one
+    join_type: always_left
+```
+
+Use `join_to_view_as` to alias a view when joining the same table more than once:
+
+```yaml
+relationships:
+  - join_from_view: orders
+    join_to_view: users
+    join_to_view_as: shipping_address
+    on_sql: ${orders.shipping_user_id} = ${shipping_address.id}
+    relationship_type: many_to_one
+    join_type: always_left
+  - join_from_view: orders
+    join_to_view: users
+    join_to_view_as: billing_address
+    on_sql: ${orders.billing_user_id} = ${billing_address.id}
+    relationship_type: many_to_one
+    join_type: always_left
+```
+
+User attributes can be used in `on_sql` for access-filtered joins:
+
+```yaml
+on_sql: ${orders.region} = '{{ omni_attributes.user_region }}'
+```
+
+### `joins` vs `relationships` in a Topic
+
+These are two distinct parameters that work together:
+
+- **`joins`** — declares *which* views are included in the topic and their hierarchy. Follows existing global (or topic-scoped) relationship definitions. Nesting reflects the join path.
+- **`relationships`** — defines the join conditions themselves, scoped to this topic. Required when the join doesn't exist globally.
+
+A topic that uses only global relationships needs only `joins`. A topic with a one-off join needs both `relationships` (to define the join) and `joins` (to include the view in the topic hierarchy):
+
+```yaml
+# .topic file with a topic-scoped relationship
+base_view: order_items
+
+relationships:
+  - join_from_view: order_items
+    join_to_view: promotions
+    on_sql: ${order_items.promo_id} = ${promotions.id}
+    relationship_type: many_to_one
+    join_type: always_left
+
+joins:
+  promotions: {}
+  users: {}
+```
 
 ## Query Views
 
