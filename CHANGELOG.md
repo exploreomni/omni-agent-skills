@@ -13,6 +13,19 @@ The versions documented here should match the published plugin versions in the a
 **Fixed**
 - Embedded the lazy-load fallback pattern directly in omni-model-builder rather than cross-referencing omni-model-explorer. Adds a dedicated "Fallback: View Missing from yaml-get" section with the full two-step recovery commands (`get-schemas` + `yaml-get --includeschemas`), and a pre-flight directive in Writing Topics to run the fallback before concluding a view doesn't exist.
 
+## [1.3.7] - 2026-05-01
+
+### omni-analytics
+
+**Added**
+- Topic-scoped relationship guidance in omni-model-builder: documents the `relationships:` parameter inline in a `.topic` file, when to use it over global relationships, user attribute filtering in `on_sql`, and the `joins` vs `relationships` distinction with a complete worked example
+- Extended views pattern for same-table aliasing: replaces `join_to_view_as` with the correct `extends: [base_view]` approach in a topic `views:` block, including the `relationship alias duplicates view name` error fix
+- Topic-scoped view definitions section covering: display ordering, label overrides, topic-specific filtered measures, derived dimensions, cross-view fields, and joining the same view multiple ways with different conditions
+- Pre-check directives: verify all cross-view field references are in `joins:` before writing; check for redundancy or conflicts with shared view definitions before adding topic-scoped fields, and confirm overrides explicitly with the modeler
+
+**Fixed**
+- Restructured "Writing Relationships" to clearly separate global (shared model) from topic-scoped relationship definitions
+
 ## [1.3.5] - 2026-04-29
 
 ### omni-analytics
