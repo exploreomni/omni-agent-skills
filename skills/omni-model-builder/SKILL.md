@@ -491,7 +491,7 @@ joins:
   users: {}
 ```
 
-Use this variant when the aliased join is specific to this topic's context and doesn't belong in the shared model.
+Use this variant when the aliased join is specific to this topic's context and is not generally applicable in other topics.
 
 In both variants, the extended view inherits all dimensions and measures from the base view and can override labels, display order, or any field metadata. The relationship and joins reference the extended view name directly.
 
