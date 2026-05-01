@@ -547,7 +547,7 @@ views:
 
 Cross-view field references use `${view_name.field_name}` syntax and are only valid when the referenced views are joined in the topic. Define these in the topic's `views:` block rather than the shared view file — they'll break in any topic where that join isn't present.
 
-**Aggregate awareness — extending the same fact view multiple times with different join conditions to analyze the same metrics at different points in a lifecycle:**
+**Joining the same view multiple ways — extending a fact view multiple times with different join conditions to analyze the same metrics at different points in a lifecycle:**
 ```yaml
 views:
   contract_start_facts:
@@ -592,7 +592,7 @@ relationships:
     join_type: always_left
 ```
 
-Each extended view inherits all fields from the base fact view but surfaces them under a context-specific label (ARR at Start, ARR (Current), ARR at End). The topic's `relationships:` block joins each alias with a different date condition, enabling side-by-side comparison within a single topic.
+Each extended view inherits all fields from the base fact view but surfaces them under a context-specific label (ARR at Start, ARR (Current), ARR at End). The topic's `relationships:` block joins each alias with a different date condition, enabling the same underlying view to be joined multiple ways within a single topic for side-by-side comparison.
 
 ## Query Views
 
