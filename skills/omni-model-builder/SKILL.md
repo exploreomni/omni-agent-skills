@@ -476,23 +476,63 @@ joins:
 
 ### Topic-Scoped View Definitions
 
-Topics can define or override views inline using a `views:` block. This is how the extended views pattern works, but it applies more broadly — any dimension, measure, label, or field metadata can be overridden within the topic without touching the shared view file:
+Topics can define or override views inline using a `views:` block. This is how the extended views pattern works, but it applies more broadly — any dimension, measure, label, or field metadata can be overridden within the topic without touching the shared view file.
 
+Topic-scoped view definitions only affect queries run through this topic. Common use cases:
+
+**Overriding a field label for business context:**
 ```yaml
 views:
   order_items:
     dimensions:
       status:
         label: Fulfillment Status
+```
+
+**A topic-specific filtered measure (only meaningful in this topic's context):**
+```yaml
+views:
+  order_items:
     measures:
-      topic_specific_count:
-        aggregate_type: count
+      us_revenue:
+        sql: ${sale_price}
+        aggregate_type: sum
+        format: currency_2
         filters:
-          region:
+          users.country:
             is: US
 ```
 
-Topic-scoped view definitions only affect queries run through this topic. Use them when a field label or metric should differ from the global default for a specific business context.
+**A topic-specific dimension not in the shared model (e.g. a derived flag only relevant to this topic):**
+```yaml
+views:
+  order_items:
+    dimensions:
+      is_high_value:
+        sql: CASE WHEN ${sale_price} > 500 THEN TRUE ELSE FALSE END
+        type: boolean
+        label: High Value Order
+```
+
+**Cross-view fields — measures or dimensions that reference fields from multiple joined views. These are almost always topic-specific because they depend on a particular join being present:**
+```yaml
+views:
+  order_items:
+    measures:
+      revenue_per_user:
+        sql: ${total_revenue} / NULLIF(${users.count}, 0)
+        aggregate_type: number
+        format: currency_2
+        label: Revenue per User
+
+      seller_margin:
+        sql: ${sale_price} - ${sellers.cost}
+        aggregate_type: sum
+        format: currency_2
+        label: Seller Margin
+```
+
+Cross-view field references use `${view_name.field_name}` syntax and are only valid when the referenced views are joined in the topic. Define these in the topic's `views:` block rather than the shared view file — they'll break in any topic where that join isn't present.
 
 ## Query Views
 
