@@ -424,7 +424,47 @@ on_sql: ${orders.region} = '{{ omni_attributes.user_region }}'
 
 When you need to join the same table multiple times with different logic or field labels (e.g., a `users` table joined once as the buyer and once as the seller), use the **extended views** pattern rather than `join_to_view_as`. Extended views create a named alias that inherits all fields from the base view and allows full metadata customization.
 
-Define the extended view inline in the topic file using a `views:` block:
+There are two variants depending on whether the join should be reusable across topics or scoped to one topic.
+
+#### Variant 1: Global extended view (reusable across topics)
+
+Create a standalone `.view` file that uses `extends:` to inherit from the base view. Add any context-specific labels, dimensions, or measures to the file. Then define the relationship globally, pointing to the new view by name. Any topic can then join this extended view just like any other global view.
+
+```yaml
+# sellers.view
+extends: [users]
+
+dimensions:
+  name:
+    label: Seller Name
+  email:
+    label: Seller Email
+measures:
+  count:
+    label: Seller Count
+```
+
+```yaml
+# relationships file
+- join_from_view: order_items
+  join_to_view: sellers
+  on_sql: ${order_items.seller_id} = ${sellers.id}
+  relationship_type: many_to_one
+  join_type: always_left
+```
+
+```yaml
+# any .topic file that needs it
+joins:
+  sellers: {}
+  users: {}
+```
+
+Use this variant when the aliased join and its customizations are meaningful across multiple topics.
+
+#### Variant 2: Topic-scoped extended view (inline in the topic file)
+
+Define the extended view inline in the topic file using a `views:` block, with the relationship and joins in the same file. This keeps the alias entirely scoped to the topic.
 
 ```yaml
 # .topic file
@@ -450,7 +490,9 @@ joins:
   users: {}
 ```
 
-The extended view (`sellers`) inherits all dimensions and measures from `users` and can override labels, display order, or any field metadata. The relationship and joins then reference the extended view name directly.
+Use this variant when the aliased join is specific to this topic's context and doesn't belong in the shared model.
+
+In both variants, the extended view inherits all dimensions and measures from the base view and can override labels, display order, or any field metadata. The relationship and joins reference the extended view name directly.
 
 > If you see a `relationship alias duplicates view name` error, this pattern is the fix — it avoids the naming conflict by creating a proper named view rather than an alias.
 
