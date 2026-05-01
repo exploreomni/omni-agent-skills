@@ -480,7 +480,13 @@ See [Topic views parameter](https://docs.omni.co/modeling/topics/parameters/view
 
 Topics can define or override views inline using a `views:` block. This is how the extended views pattern works, but it applies more broadly — any dimension, measure, label, display order, or field metadata can be overridden within the topic without touching the shared view file. The `views:` parameter is a map of view names to topic-specific customizations; configurable properties include `display_order`, `extends`, `dimensions`, and `measures`.
 
-Topic-scoped view definitions only affect queries run through this topic. Common use cases:
+Topic-scoped view definitions only affect queries run through this topic.
+
+> **Before adding any topic-scoped field to an existing view:**
+> 1. **Check for redundancy** — read the existing view YAML (`omni models yaml-get`) and confirm the field doesn't already exist at the view level. If it does and the definition is identical, there is no need to redefine it in the topic.
+> 2. **Check for conflicts** — if a field with the same name exists but uses different SQL or a different filter expression, this is an override of the shared definition. Confirm explicitly with the modeler that they intend to override it in this topic's context, and make sure they understand the impact: queries through this topic will use the topic-scoped definition, while all other topics continue to use the shared view definition.
+
+Common use cases:
 
 **Controlling view display order in the field picker:**
 ```yaml
