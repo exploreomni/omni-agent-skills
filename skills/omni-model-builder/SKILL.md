@@ -318,6 +318,14 @@ measures:
 
 See `references/yaml-filter-syntax.md` for the complete operator reference covering conditional, numeric, string, and date/time operators, negation, array values, and boolean handling.
 
+### Cross-View Fields in Views
+
+Avoid defining cross-view fields (dimensions or measures whose `sql` references `${other_view.field}`) directly in a view file. These fields depend on another view being joined, which is not guaranteed in every topic that includes this view — they will break in any topic where the referenced view isn't present.
+
+**In the vast majority of cases, cross-view fields should be defined in the topic's `views:` block** (see "Topic-Scoped View Definitions"), where the join context is explicit and controlled.
+
+Only define a cross-view field in the view file itself when you are certain the referenced view will always be joined in every topic that includes this view — for example, when the join is defined globally and the two views are inseparable by design.
+
 ## Fallback: View Missing from yaml-get
 
 Before concluding that a view doesn't exist, always run this two-step check. `yaml-get` only returns views from currently-loaded schemas — views in offloaded or inactive schemas won't appear, but they're still available.
