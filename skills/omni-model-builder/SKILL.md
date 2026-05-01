@@ -547,6 +547,8 @@ views:
 
 Cross-view field references use `${view_name.field_name}` syntax and are only valid when the referenced views are joined in the topic. Define these in the topic's `views:` block rather than the shared view file — they'll break in any topic where that join isn't present.
 
+> **Before writing cross-view fields:** confirm that every view referenced in a `${view_name.field_name}` expression is also declared in the topic's `joins:` block. The model validator will throw errors for any reference to a view that isn't joined — even if the relationship exists globally.
+
 **Joining the same view multiple ways — extending a fact view multiple times with different join conditions to analyze the same metrics at different points in a lifecycle:**
 ```yaml
 views:
