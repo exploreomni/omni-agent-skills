@@ -476,9 +476,22 @@ joins:
 
 ### Topic-Scoped View Definitions
 
-Topics can define or override views inline using a `views:` block. This is how the extended views pattern works, but it applies more broadly — any dimension, measure, label, or field metadata can be overridden within the topic without touching the shared view file.
+See [Topic views parameter](https://docs.omni.co/modeling/topics/parameters/views.md) for the full reference.
+
+Topics can define or override views inline using a `views:` block. This is how the extended views pattern works, but it applies more broadly — any dimension, measure, label, display order, or field metadata can be overridden within the topic without touching the shared view file. The `views:` parameter is a map of view names to topic-specific customizations; configurable properties include `display_order`, `extends`, `dimensions`, and `measures`.
 
 Topic-scoped view definitions only affect queries run through this topic. Common use cases:
+
+**Controlling view display order in the field picker:**
+```yaml
+views:
+  order_items:
+    display_order: 0
+  users:
+    display_order: 1
+  products:
+    display_order: 2
+```
 
 **Overriding a field label for business context:**
 ```yaml
@@ -533,6 +546,53 @@ views:
 ```
 
 Cross-view field references use `${view_name.field_name}` syntax and are only valid when the referenced views are joined in the topic. Define these in the topic's `views:` block rather than the shared view file — they'll break in any topic where that join isn't present.
+
+**Aggregate awareness — extending the same fact view multiple times with different join conditions to analyze the same metrics at different points in a lifecycle:**
+```yaml
+views:
+  contract_start_facts:
+    extends: [contract_line_item_facts]
+    display_order: 1
+    measures:
+      arr:
+        label: ARR at Start
+
+  contract_current_facts:
+    extends: [contract_line_item_facts]
+    display_order: 2
+    measures:
+      arr:
+        label: ARR (Current)
+
+  contract_end_facts:
+    extends: [contract_line_item_facts]
+    display_order: 3
+    measures:
+      arr:
+        label: ARR at End
+
+relationships:
+  - join_from_view: opportunities
+    join_to_view: contract_start_facts
+    on_sql: ${opportunities.id} = ${contract_start_facts.opportunity_id}
+      AND ${contract_start_facts.date} = ${opportunities.start_date}
+    relationship_type: one_to_many
+    join_type: always_left
+  - join_from_view: opportunities
+    join_to_view: contract_current_facts
+    on_sql: ${opportunities.id} = ${contract_current_facts.opportunity_id}
+      AND ${contract_current_facts.date} = CURRENT_DATE
+    relationship_type: one_to_many
+    join_type: always_left
+  - join_from_view: opportunities
+    join_to_view: contract_end_facts
+    on_sql: ${opportunities.id} = ${contract_end_facts.opportunity_id}
+      AND ${contract_end_facts.date} = ${opportunities.end_date}
+    relationship_type: one_to_many
+    join_type: always_left
+```
+
+Each extended view inherits all fields from the base fact view but surfaces them under a context-specific label (ARR at Start, ARR (Current), ARR at End). The topic's `relationships:` block joins each alias with a different date condition, enabling side-by-side comparison within a single topic.
 
 ## Query Views
 
