@@ -428,11 +428,12 @@ There are two variants depending on whether the join should be reusable across t
 
 #### Variant 1: Global extended view (reusable across topics)
 
-Create a standalone `.view` file that uses `extends:` to inherit from the base view. Add any context-specific labels, dimensions, or measures to the file. Then define the relationship globally, pointing to the new view by name. Any topic can then join this extended view just like any other global view.
+Create a standalone `.view` file that uses `extends:` to inherit from the base view. **Name the file to reflect its specific role** (e.g. `sellers.view` rather than `users_alias.view`), and **include a `description`** so that the purpose of the extended view is immediately apparent when inspecting the model. Add any context-specific labels, dimensions, or measures to the file. Then define the relationship globally, pointing to the new view by name. Any topic can then join this extended view just like any other global view.
 
 ```yaml
 # sellers.view
 extends: [users]
+description: Represents the selling party on a transaction. Extends the users view with seller-specific field labels.
 
 dimensions:
   name:
