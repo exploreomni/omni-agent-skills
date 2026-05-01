@@ -394,10 +394,15 @@ Getting `relationship_type` right prevents fanout and symmetric aggregate errors
 
 Relationships can also be defined inline within a topic file using the `relationships:` parameter. These are scoped to that topic only and do not affect other topics.
 
+> **Before defining a topic-scoped relationship, check the global relationships file** for any existing relationship between the same two views in either direction (`join_from_view` → `join_to_view` or the reverse):
+>
+> 1. **Same views, same `on_sql`** — the topic-scoped relationship is redundant. Omit it, use the global relationship via `joins:`, and inform the modeler that the global definition already covers this case.
+> 2. **Same views, different `on_sql`** — do not silently override the global relationship. The right approach in the vast majority of cases is the **extended views / join same view multiple ways** pattern (see below), which creates a named alias rather than replacing the global join. Confirm with the modeler before proceeding — if the intent is unclear, ask explicitly whether they want a topic-specific variant (extended views) or a true replacement of the global join for this topic.
+
 **When to use topic-scoped instead of global:**
 - One-off joins that don't belong in the shared model
-- Aliasing the same table multiple times in one topic (e.g., joining `users` twice under different roles)
-- Different join conditions for the same views depending on topic context
+- Joining the same table multiple times in one topic under different conditions (use extended views)
+- Access-filtered joins via user attributes in `on_sql`
 
 ```yaml
 # In a .topic file
