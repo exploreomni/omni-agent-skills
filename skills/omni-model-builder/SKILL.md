@@ -320,7 +320,7 @@ See `references/yaml-filter-syntax.md` for the complete operator reference cover
 
 ### Cross-View Fields in Views
 
-Avoid defining cross-view fields (dimensions or measures whose `sql` references `${other_view.field}`) directly in a view file. These fields depend on another view being joined, which is not guaranteed in every topic that includes this view — they will break in any topic where the referenced view isn't present.
+Avoid defining cross-view fields (dimensions or measures whose `sql` references `${other_view.field}`) directly in a view file. These fields depend on another view being joined, which is not guaranteed in every topic that includes this view. In topics where the referenced view isn't present, the field will be omitted — but more importantly, the model validator will throw errors for any topic that includes this view without also joining the referenced view. This can create a cascade of validator errors across topics that are otherwise valid but happen to include only a subset of the involved views.
 
 **In the vast majority of cases, cross-view fields should be defined in the topic's `views:` block** (see "Topic-Scoped View Definitions"), where the join context is explicit and controlled.
 
