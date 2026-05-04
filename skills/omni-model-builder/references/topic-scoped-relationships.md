@@ -1,4 +1,6 @@
-# Topic-Scoped Relationships
+# Topic-Scoped Relationships — Extended Examples
+
+> **Note for contributors:** This file is an extended YAML example gallery for human reference. It is not loaded at agent runtime. Procedural guidance and agent directives live in `SKILL.md` under "Writing Relationships → Topic-Scoped Relationships."
 
 Relationships can be defined inline within a topic file using the `relationships:` parameter. These are scoped to that topic only and do not affect other topics.
 

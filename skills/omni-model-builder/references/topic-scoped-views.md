@@ -1,4 +1,6 @@
-# Topic-Scoped View Definitions
+# Topic-Scoped View Definitions — Extended Examples
+
+> **Note for contributors:** This file is an extended YAML example gallery for human reference. It is not loaded at agent runtime. Procedural guidance and agent directives live in `SKILL.md` under "Writing Relationships → Topic-Scoped View Definitions."
 
 See [Topic views parameter](https://docs.omni.co/modeling/topics/parameters/views.md) for the full reference.
 

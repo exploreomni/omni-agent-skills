@@ -30,7 +30,14 @@ You need **Modeler** or **Connection Admin** permissions.
 
 ## Omni's Layered Modeling Architecture
 
-Omni layers **schema** (auto-generated from the database, read-only), **shared model** (your governed dimensions, measures, relationships, and topics), **workbook model** (ad-hoc per-workbook extensions), and **branch** (in-progress changes). This skill operates on the shared model and branch layers. Always work in a branch before merging to production.
+Omni uses a **layered approach** where each layer builds on top of the previous:
+
+1. **Schema Layer** — Auto-generated from your database. Reflects tables, views, columns, and their types. Kept in sync via schema refresh.
+2. **Shared Model Layer** — Your governed semantic model. Where you define dimensions, measures, joins, and topics that are reusable across the organization.
+3. **Workbook Model Layer** — Ad hoc extensions within individual workbooks. Used for experimental fields before promotion to shared model.
+4. **Branch Layer** — Intermediate development layer. Used when working in branches before merging changes to shared model.
+
+**Key concept**: The schema layer is the foundation and source of truth for table/column structure. All user-created content (dimensions, measures, relationships, topics) flows through the shared model layer. Always work in a branch before merging to production.
 
 ## Determine SQL Dialect
 
@@ -50,11 +57,19 @@ Use dialect-appropriate functions in your SQL (e.g. `SAFE_DIVIDE` for BigQuery, 
 
 ## Schema Refresh: Syncing with Database Changes
 
-Trigger when tables or columns are added, renamed, or deleted in your database; when creating a new view from scratch; or when the model is out of sync. Refresh introspects the warehouse, regenerates base dimensions with correct types, and detects broken references. Runs as a background job (several minutes). May generate dimensions you don't need — suppress with `hidden: true`.
+The schema layer is auto-generated from your database. When it changes, refresh to stay in sync.
+
+**When to trigger:**
+- New tables added to your database
+- Column added, renamed, or deleted in an existing table
+- Creating a new view from scratch and you want auto-generated base dimensions
+- Model is out of sync with the database
+
+**What it does:** Introspects your data warehouse, auto-generates base dimensions with correct types and timeframes, detects deletions and broken references. Runs as a background job (can take several minutes). May auto-generate dimensions for columns you don't need — suppress with `hidden: true`.
 
 ```bash
 omni models refresh <modelId>
-omni models refresh <modelId> --branch-id <branchId>  # on a branch
+omni models refresh <modelId> --branch-id <branchId>
 ```
 
 Requires **Connection Admin** permissions.
@@ -217,9 +232,29 @@ measures:
 
 ### Understanding Schema Layer vs Extension Layer
 
-Omni separates **schema** (auto-generated, one base dimension per column, types from the database, read-only) from **extension** (your custom YAML — overrides labels, adds measures, hides columns). When both layers define a field with the same name, your extension wins but type information comes from the schema layer.
+When you create a view, Omni separates **schema** (database structure) from **model** (your business logic):
 
-**Key**: If your extension defines a dimension but the schema layer has no base dimension for it, Omni can't infer granularities or types — trigger a schema refresh so the schema layer generates the base dimension first.
+- **Schema layer**: Auto-generated base dimensions, one per column. Types come from the database. Read-only, synced via schema refresh.
+- **Extension layer**: Your custom YAML. Can override base dimensions, add new dimensions/measures, hide columns, add business logic.
+
+When both layers exist for a field with the same name, **your extension definition wins** but **type information comes from the schema layer**.
+
+```yaml
+# Extension layer example — schema layer provides type; extension adds label and hides raw column
+dimensions:
+  created_at:
+    label: "Order Created"      # type (DATE + timeframes) inherited from schema layer
+  revenue:
+    hidden: true                # hide the raw column; expose it only via a measure
+
+measures:
+  total_revenue:
+    sql: ${revenue}
+    aggregate_type: sum
+    format: currency_2
+```
+
+**Key insight**: If your extension defines a dimension but there's no schema layer base dimension to provide type information, Omni can't infer granularities or types. Trigger a schema refresh to auto-generate the schema layer first.
 
 ### Dimension Parameters
 
@@ -428,9 +463,9 @@ views:
 
 > **Cross-view fields in `views:` blocks:** Before writing `${view_name.field_name}` references, confirm every referenced view is declared in the topic's `joins:` block — the model validator throws errors for any reference to a view that isn't joined.
 
-**Joining the same view multiple ways** (e.g., ARR at Start / Current / End): Use `extends:` inside the topic's `views:` block to create named aliases, each with its own `on_sql` in `relationships:`. Each alias inherits all base view fields and can override labels independently.
+**Joining the same view multiple ways** (e.g., ARR at Start / Current / End): Use `extends:` inside the topic's `views:` block to create named aliases, each with its own `on_sql` in `relationships:`. Each alias inherits all base view fields and can override labels independently. For a full YAML example, see `references/topic-scoped-views.md`.
 
-**Topic-scoped query views:** A query view can also be defined inside a topic's `views:` block, scoping it to that topic only. Same primary key rules apply (`primary_key: true` or `custom_compound_primary_key_sql`). Include a `relationships:` entry and a `joins:` entry for the new view — see Query Views section above.
+**Topic-scoped query views:** A query view can also be defined inside a topic's `views:` block, scoping it to that topic only. Same primary key rules apply (`primary_key: true` or `custom_compound_primary_key_sql`). Include a `relationships:` entry and a `joins:` entry for the new view — see Query Views section above, and `references/topic-scoped-views.md` for a complete example.
 
 ## Query Views
 
