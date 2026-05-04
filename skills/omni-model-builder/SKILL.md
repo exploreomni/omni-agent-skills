@@ -237,22 +237,7 @@ When you create a view, Omni separates **schema** (database structure) from **mo
 - **Schema layer**: Auto-generated base dimensions, one per column. Types come from the database. Read-only, synced via schema refresh.
 - **Extension layer**: Your custom YAML. Can override base dimensions, add new dimensions/measures, hide columns, add business logic.
 
-When both layers exist for a field with the same name, **your extension definition wins** but **type information comes from the schema layer**.
-
-```yaml
-# Extension layer example — schema layer provides type; extension adds label and hides raw column
-dimensions:
-  created_at:
-    label: "Order Created"      # type (DATE + timeframes) inherited from schema layer
-  revenue:
-    hidden: true                # hide the raw column; expose it only via a measure
-
-measures:
-  total_revenue:
-    sql: ${revenue}
-    aggregate_type: sum
-    format: currency_2
-```
+When both layers exist for a field with the same name, **your extension definition wins** but **type information comes from the schema layer**. For example: set `label:` to rename a dimension, or `hidden: true` to suppress a raw column while still referencing it in measures — the type and timeframe granularities are still inherited from the schema layer.
 
 **Key insight**: If your extension defines a dimension but there's no schema layer base dimension to provide type information, Omni can't infer granularities or types. Trigger a schema refresh to auto-generate the schema layer first.
 
@@ -273,24 +258,7 @@ Most common parameters:
 
 See `references/modelParameters.md` for the complete list of 24+ measure parameters and all 13 aggregate types.
 
-Measure filters restrict rows before aggregation:
-
-```yaml
-measures:
-  completed_orders:
-    aggregate_type: count
-    filters:
-      status:
-        is: complete
-  california_revenue:
-    sql: ${sale_price}
-    aggregate_type: sum
-    filters:
-      state:
-        is: California
-```
-
-See `references/yaml-filter-syntax.md` for the complete operator reference covering conditional, numeric, string, and date/time operators, negation, array values, and boolean handling.
+Measure filters restrict rows before aggregation using the YAML filter condition syntax. See `references/yaml-filter-syntax.md` for the complete operator reference and measure filter examples.
 
 ### Cross-View Fields in Views
 
@@ -442,49 +410,13 @@ Virtual tables defined by a saved query. **Before writing a query view, ask the 
 
 There are two ways to define the primary key:
 
-**Option 1 — Single unique field:** Mark exactly one dimension with `primary_key: true`.
+**Option 1 — Single unique field:** Mark exactly one dimension `primary_key: true` in the `dimensions:` block.
 
-```yaml
-schema: PUBLIC
-query:
-  fields:
-    order_items.user_id: user_id
-    order_items.count: order_count
-    order_items.total_revenue: lifetime_value
-  base_view: order_items
-  topic: order_items
+**Option 2 — Compound key:** When no single field is unique but a combination is, set `custom_compound_primary_key_sql: [field_a, field_b]` at the view level — no `primary_key: true` dimension needed.
 
-dimensions:
-  user_id:
-    primary_key: true
-  order_count: {}
-  lifetime_value:
-    format: currency_2
-```
-
-**Option 2 — Compound key:** When no single field is unique but a combination of fields is, use `custom_compound_primary_key_sql` at the view level (no `primary_key: true` dimension needed):
-
-```yaml
-# (query: block same as above)
-custom_compound_primary_key_sql: [order_id, product_id]
-
-dimensions:
-  order_id: {}
-  product_id: {}
-  sale_price:
-    format: currency_2
-```
+Both options work with either a `query:` block (field-mapped virtual table) or a `sql:` block (raw SELECT). See `references/query-view-examples.md` for complete YAML for each variant.
 
 > If the user is unsure which field is unique, ask before writing the view. A query view without a primary key will trigger a "Joins fan out the data without a primary key" error when joined. See: https://community.omni.co/t/why-am-i-getting-the-error-joins-fan-out-the-data-without-a-primary-key/37
-
-Or with raw SQL (same primary key options apply):
-
-```yaml
-schema: PUBLIC
-sql: |
-  SELECT user_id, COUNT(*) as order_count, SUM(sale_price) as lifetime_value
-  FROM order_items GROUP BY 1
-```
 
 Query views can also be defined inline within a topic's `views:` block, scoping the virtual table to that topic only. See `references/topic-scoped-views.md` for an example.
 

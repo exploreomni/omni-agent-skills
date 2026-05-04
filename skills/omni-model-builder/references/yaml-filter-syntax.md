@@ -209,6 +209,32 @@ created_at:
   hour_of_day: 1
 ```
 
+## Measure Filter Examples
+
+Measure filters use bare field names for fields on the measure's own view, and qualified names (`view.field`) for fields on joined views.
+
+```yaml
+measures:
+  completed_orders:
+    aggregate_type: count
+    filters:
+      status:           # bare — field is on this view
+        is: complete
+
+  california_revenue:
+    sql: ${sale_price}
+    aggregate_type: sum
+    filters:
+      state:            # bare — own view
+        is: California
+
+  us_orders:
+    aggregate_type: count
+    filters:
+      users.country:    # qualified — field is on a joined view
+        is: US
+```
+
 ## Advanced Operators
 
 | Operator | Description |
