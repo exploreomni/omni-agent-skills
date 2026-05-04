@@ -408,7 +408,11 @@ Topics can define or override views inline using a `views:` block — overriding
 
 ## Query Views
 
-Virtual tables defined by a saved query. Like regular views, query views **must include a `primary_key: true` dimension** to be joinable:
+Virtual tables defined by a saved query. **Before writing a query view, ask the user which field uniquely identifies each row** — a query view must have a primary key or it cannot be joined without producing fanout errors.
+
+There are two ways to define the primary key:
+
+**Option 1 — Single unique field:** Mark exactly one dimension with `primary_key: true`.
 
 ```yaml
 schema: PUBLIC
@@ -428,7 +432,22 @@ dimensions:
     format: currency_2
 ```
 
-Or with raw SQL:
+**Option 2 — Compound key:** When no single field is unique but a combination of fields is, use `custom_compound_primary_key_sql` at the view level (no `primary_key: true` dimension needed):
+
+```yaml
+# (query: block same as above)
+custom_compound_primary_key_sql: [order_id, product_id]
+
+dimensions:
+  order_id: {}
+  product_id: {}
+  sale_price:
+    format: currency_2
+```
+
+> If the user is unsure which field is unique, ask before writing the view. A query view without a primary key will trigger a "Joins fan out the data without a primary key" error when joined. See: https://community.omni.co/t/why-am-i-getting-the-error-joins-fan-out-the-data-without-a-primary-key/37
+
+Or with raw SQL (same primary key options apply):
 
 ```yaml
 schema: PUBLIC
