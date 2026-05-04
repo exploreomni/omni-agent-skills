@@ -30,19 +30,7 @@ You need **Modeler** or **Connection Admin** permissions.
 
 ## Omni's Layered Modeling Architecture
 
-Omni uses a **layered approach** where each layer builds on top of the previous:
-
-1. **Schema Layer** — Auto-generated from your database. Reflects tables, views, columns, and their types. Kept in sync via schema refresh.
-
-2. **Shared Model Layer** — Your governed semantic model. Where you define dimensions, measures, joins, and topics that are reusable across the organization.
-
-3. **Workbook Model Layer** — Ad hoc extensions within individual workbooks. Used for experimental fields before promotion to shared model.
-
-4. **Branch Layer** — Intermediate development layer. Used when working in branches before merging changes to shared model.
-
-**Key concept**: The schema layer is the foundation and source of truth for table/column structure. When your database schema changes (new tables, deleted columns, type changes), you refresh the schema to keep Omni in sync. All user-created content (dimensions, measures, relationships, topics) flows through the shared model layer.
-
-**Development workflow**: When building or modifying the model, you work in **branches** (see "Safe Development Workflow" below). Branches are isolated copies where you can safely experiment before merging changes back to shared model. This skill covers creating and editing model definitions in both branches and shared models.
+Omni layers **schema** (auto-generated from the database, read-only), **shared model** (your governed dimensions, measures, relationships, and topics), **workbook model** (ad-hoc per-workbook extensions), and **branch** (in-progress changes). This skill operates on the shared model and branch layers. Always work in a branch before merging to production.
 
 ## Determine SQL Dialect
 
@@ -62,29 +50,11 @@ Use dialect-appropriate functions in your SQL (e.g. `SAFE_DIVIDE` for BigQuery, 
 
 ## Schema Refresh: Syncing with Database Changes
 
-The **schema layer** is auto-generated from your database. When your database schema changes (new/deleted/renamed columns, type changes), refresh Omni's schema layer to stay in sync.
-
-**When to trigger:**
-- New tables added to your database
-- Column added/renamed/deleted in existing tables
-- Creating a new view from scratch and want auto-generated base dimensions
-- Model is out of sync with database
-
-**What it does:**
-- Introspects your data warehouse
-- Auto-generates base dimensions for all columns with correct types and timeframes
-- Detects deletions and broken references
-- Runs as a background job (can take several minutes)
-
-**Side effect:** May auto-generate dimensions for columns you don't need. Suppress with `hidden: true` in your extension layer.
-
-**Trigger via API:**
+Trigger when tables or columns are added, renamed, or deleted in your database; when creating a new view from scratch; or when the model is out of sync. Refresh introspects the warehouse, regenerates base dimensions with correct types, and detects broken references. Runs as a background job (several minutes). May generate dimensions you don't need — suppress with `hidden: true`.
 
 ```bash
 omni models refresh <modelId>
-
-# With branch:
-omni models refresh <modelId> --branch-id <branchId>
+omni models refresh <modelId> --branch-id <branchId>  # on a branch
 ```
 
 Requires **Connection Admin** permissions.
@@ -247,40 +217,9 @@ measures:
 
 ### Understanding Schema Layer vs Extension Layer
 
-When you create a view, Omni separates **schema** (database structure) from **model** (your business logic):
+Omni separates **schema** (auto-generated, one base dimension per column, types from the database, read-only) from **extension** (your custom YAML — overrides labels, adds measures, hides columns). When both layers define a field with the same name, your extension wins but type information comes from the schema layer.
 
-- **Schema layer**: Auto-generated base dimensions, one per column. Types come from the database. Read-only, synced via schema refresh.
-- **Extension layer**: Your custom YAML. Can override base dimensions, add new dimensions/measures, hide columns, add business logic.
-
-When both layers exist for a field with the same name, **your extension definition wins** but **type information comes from the schema layer**.
-
-**Example**: Table has columns `created_at` (DATE) and `revenue` (NUMERIC).
-
-```yaml
-# Schema layer (auto-generated)
-dimensions:
-  created_at: {}  # type: DATE, auto-generates timeframes
-  revenue: {}     # type: NUMERIC
-
-# Extension layer (your YAML)
-dimensions:
-  created_at:
-    label: "Order Created"
-    description: "When the order was placed"
-
-  revenue:
-    hidden: true  # Hide the raw column
-
-measures:
-  total_revenue:
-    sql: SUM(${revenue})
-    aggregate_type: sum
-    format: currency_2
-```
-
-Result: `created_at` inherits its type from schema layer (DATE with automatic week/month/year granularities) but gets your label. The raw `revenue` column is hidden, only exposed through the `total_revenue` measure.
-
-**Key insight**: If your extension layer defines a dimension but there's no schema layer base dimension to provide type information, Omni can't infer granularities or types. Solution: trigger schema refresh to auto-generate the schema layer (see "Schema Refresh" section above).
+**Key**: If your extension defines a dimension but the schema layer has no base dimension for it, Omni can't infer granularities or types — trigger a schema refresh so the schema layer generates the base dimension first.
 
 ### Dimension Parameters
 
@@ -400,11 +339,98 @@ Getting `relationship_type` right prevents fanout and symmetric aggregate errors
 
 ### Topic-Scoped Relationships
 
-Relationships can be defined inline within a topic file using the `relationships:` parameter, scoped to that topic only. Before defining one, always check the global relationships file for an existing relationship between the same views in either direction — identical `on_sql` is redundant (use `joins:` instead); different `on_sql` should default to the extended views pattern rather than a silent override. See `references/topic-scoped-relationships.md` for the full reference including pre-checks, extended views (both global and topic-scoped variants), and the `joins` vs `relationships` distinction.
+> **Before defining, check the global relationships file** for a join between the same two views in either direction. Same `on_sql` → redundant, use `joins:` only. Different `on_sql` → default to the extended views pattern below rather than a silent override. Confirm intent with the modeler.
+
+Use topic-scoped relationships for one-off joins not in the shared model, or joining the same table multiple times under different conditions.
+
+```yaml
+# .topic file
+relationships:
+  - join_from_view: order_items
+    join_to_view: users
+    on_sql: ${order_items.user_id} = ${users.id}
+    relationship_type: many_to_one
+    join_type: always_left
+
+joins:
+  users: {}
+```
+
+> **`joins` vs `relationships`:** `joins` declares which views are in the topic and their hierarchy; `relationships` defines the join conditions. A topic using only global relationships needs only `joins`. A topic with a one-off join needs both.
+
+#### Extended Views: Joining the Same Table Multiple Ways
+
+When the same table needs multiple joins (e.g., `users` as buyer and seller), use the **extended views** pattern — not `join_to_view_as`. Two variants:
+
+**Variant 1 — Global (reusable):** Create a standalone `.view` file with `extends:`, a role-descriptive name, and a `description:`. Define the relationship globally.
+
+```yaml
+# sellers.view
+extends: [users]
+description: Represents the selling party on a transaction.
+dimensions:
+  name:
+    label: Seller Name
+```
+
+**Variant 2 — Topic-scoped (inline):** Define the alias in the topic's `views:` block with its relationship in the same file. Use when the alias is not generally applicable in other topics.
+
+```yaml
+# .topic file
+views:
+  sellers:
+    extends: [users]
+    dimensions:
+      name:
+        label: Seller Name
+
+relationships:
+  - join_from_view: order_items
+    join_to_view: sellers
+    on_sql: ${order_items.seller_id} = ${sellers.id}
+    relationship_type: many_to_one
+    join_type: always_left
+
+joins:
+  sellers: {}
+  users: {}
+```
+
+> If you see a `relationship alias duplicates view name` error, this pattern is the fix.
 
 ### Topic-Scoped View Definitions
 
-Topics can define or override views inline using a `views:` block — overriding labels, display order, adding topic-specific dimensions or measures, defining cross-view fields that depend on joined views, and joining the same view multiple ways. Before adding any topic-scoped field, check the shared view for redundancy or conflicts and confirm overrides with the modeler. See `references/topic-scoped-views.md` for the full reference including pre-checks and examples.
+Topics can define or override views inline using a `views:` block — controlling `display_order`, overriding `label`, adding topic-specific filtered measures or derived dimensions, defining cross-view fields, and joining the same view multiple ways with per-alias conditions.
+
+> **Before adding any topic-scoped field to an existing view:**
+> 1. Read the view YAML (`omni models yaml-get`) and confirm the field doesn't already exist. If it does with the same definition, skip it.
+> 2. If a field with the same name exists but uses different SQL, this is an override. Confirm explicitly with the modeler — queries through this topic will use the topic-scoped definition; all other topics keep the shared one.
+
+```yaml
+# Example: filtered measure + derived dimension scoped to a topic
+views:
+  order_items:
+    display_order: 0
+    measures:
+      us_revenue:
+        sql: ${sale_price}
+        aggregate_type: sum
+        format: currency_2
+        filters:
+          users.country:
+            is: US
+    dimensions:
+      is_high_value:
+        sql: CASE WHEN ${sale_price} > 500 THEN TRUE ELSE FALSE END
+        type: boolean
+        label: High Value Order
+```
+
+> **Cross-view fields in `views:` blocks:** Before writing `${view_name.field_name}` references, confirm every referenced view is declared in the topic's `joins:` block — the model validator throws errors for any reference to a view that isn't joined.
+
+**Joining the same view multiple ways** (e.g., ARR at Start / Current / End): Use `extends:` inside the topic's `views:` block to create named aliases, each with its own `on_sql` in `relationships:`. Each alias inherits all base view fields and can override labels independently.
+
+**Topic-scoped query views:** A query view can also be defined inside a topic's `views:` block, scoping it to that topic only. Same primary key rules apply (`primary_key: true` or `custom_compound_primary_key_sql`). Include a `relationships:` entry and a `joins:` entry for the new view — see Query Views section above.
 
 ## Query Views
 
