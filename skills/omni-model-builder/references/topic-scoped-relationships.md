@@ -10,7 +10,6 @@ Relationships can be defined inline within a topic file using the `relationships
 **When to use topic-scoped instead of global:**
 - One-off joins that don't belong in the shared model
 - Joining the same table multiple times in one topic under different conditions (use extended views)
-- Access-filtered joins via user attributes in `on_sql`
 
 ```yaml
 # In a .topic file
@@ -20,12 +19,6 @@ relationships:
     on_sql: ${order_items.user_id} = ${users.id}
     relationship_type: many_to_one
     join_type: always_left
-```
-
-User attributes can be used in `on_sql` for access-filtered joins:
-
-```yaml
-on_sql: ${orders.region} = '{{ omni_attributes.user_region }}'
 ```
 
 ## Joining the Same Table Twice: Extended Views
