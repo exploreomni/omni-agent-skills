@@ -397,39 +397,11 @@ joins:
 
 When the same table needs multiple joins (e.g., `users` as buyer and seller), use the **extended views** pattern — not `join_to_view_as`. Two variants:
 
-**Variant 1 — Global (reusable):** Create a standalone `.view` file with `extends:`, a role-descriptive name, and a `description:`. Define the relationship globally.
-
-```yaml
-# sellers.view
-extends: [users]
-description: Represents the selling party on a transaction.
-dimensions:
-  name:
-    label: Seller Name
-```
+**Variant 1 — Global (reusable):** Create a standalone `.view` file with `extends:`, a role-descriptive name, and a `description:`. Define the relationship globally — any topic can then join it like any other view.
 
 **Variant 2 — Topic-scoped (inline):** Define the alias in the topic's `views:` block with its relationship in the same file. Use when the alias is not generally applicable in other topics.
 
-```yaml
-# .topic file
-views:
-  sellers:
-    extends: [users]
-    dimensions:
-      name:
-        label: Seller Name
-
-relationships:
-  - join_from_view: order_items
-    join_to_view: sellers
-    on_sql: ${order_items.seller_id} = ${sellers.id}
-    relationship_type: many_to_one
-    join_type: always_left
-
-joins:
-  sellers: {}
-  users: {}
-```
+See `references/topic-scoped-relationships.md` for full YAML examples of both variants.
 
 > If you see a `relationship alias duplicates view name` error, this pattern is the fix.
 
@@ -442,7 +414,7 @@ Topics can define or override views inline using a `views:` block — controllin
 > 2. If a field with the same name exists but uses different SQL, this is an override. Confirm explicitly with the modeler — queries through this topic will use the topic-scoped definition; all other topics keep the shared one.
 
 ```yaml
-# Example: filtered measure + derived dimension scoped to a topic
+# Example: display order + topic-specific filtered measure
 views:
   order_items:
     display_order: 0
@@ -454,12 +426,9 @@ views:
         filters:
           users.country:
             is: US
-    dimensions:
-      is_high_value:
-        sql: CASE WHEN ${sale_price} > 500 THEN TRUE ELSE FALSE END
-        type: boolean
-        label: High Value Order
 ```
+
+See `references/topic-scoped-views.md` for a full pattern gallery (label overrides, derived dimensions, cross-view fields, multi-join lifecycle, topic-scoped query views).
 
 > **Cross-view fields in `views:` blocks:** Before writing `${view_name.field_name}` references, confirm every referenced view is declared in the topic's `joins:` block — the model validator throws errors for any reference to a view that isn't joined.
 
