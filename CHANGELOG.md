@@ -18,13 +18,22 @@ The versions documented here should match the published plugin versions in the a
 ### omni-analytics
 
 **Added**
-- Topic-scoped relationship guidance in omni-model-builder: documents the `relationships:` parameter inline in a `.topic` file, when to use it over global relationships, user attribute filtering in `on_sql`, and the `joins` vs `relationships` distinction with a complete worked example
-- Extended views pattern for same-table aliasing: replaces `join_to_view_as` with the correct `extends: [base_view]` approach in a topic `views:` block, including the `relationship alias duplicates view name` error fix
-- Topic-scoped view definitions section covering: display ordering, label overrides, topic-specific filtered measures, derived dimensions, cross-view fields, and joining the same view multiple ways with different conditions
-- Pre-check directives: verify all cross-view field references are in `joins:` before writing; check for redundancy or conflicts with shared view definitions before adding topic-scoped fields, and confirm overrides explicitly with the modeler
+- Topic-scoped relationship guidance in omni-model-builder: documents the `relationships:` parameter inline in a `.topic` file, when to use it over global relationships, and the `joins` vs `relationships` distinction with worked example
+- Extended views pattern for same-table aliasing: replaces `join_to_view_as` with the correct `extends: [base_view]` approach; two variants — Variant 1 creates a standalone global `.view` file (reusable, requires a role-descriptive name and `description:`); Variant 2 defines the alias inline in the topic's `views:` block (topic-scoped only). Fixes the `relationship alias duplicates view name` error.
+- Topic-scoped view definitions section covering: display ordering, label overrides, topic-specific filtered measures, derived dimensions, cross-view fields, and joining the same view multiple ways with per-alias `on_sql` conditions
+- Pre-check directives: verify all cross-view `${view_name.field_name}` references are in `joins:` before writing; check for redundancy or conflicts with shared view definitions before adding topic-scoped fields; confirm overrides explicitly with the modeler before proceeding
+- Pre-check directive for topic-scoped relationships: verify no existing global relationship covers the same two views before defining a topic-scoped one; if same views but different `on_sql`, default to extended views rather than a silent override
+- Query view primary key guidance: before writing a query view, confirm which field uniquely identifies each row (unless clearly inferrable from the query and involved views); documents both `primary_key: true` and `custom_compound_primary_key_sql` with a link to the fanout error article
+- `${view_name}` syntax preferred over hard-coded `CATALOG.SCHEMA.TABLE` paths in `sql:` query view blocks
+- `references/topic-scoped-relationships.md` — YAML example gallery for topic-scoped relationship patterns (basic syntax, extended views Variant 1 and Variant 2)
+- `references/topic-scoped-views.md` — YAML example gallery for topic-scoped view patterns (display order, label override, filtered measure, derived dimension, cross-view fields, multi-join lifecycle, topic-scoped query view)
+- `references/query-view-examples.md` — YAML example gallery for query view variants (single primary key, compound key, raw SQL with `${view_name}`)
+- Measure filter examples added to `references/yaml-filter-syntax.md`
 
 **Fixed**
 - Restructured "Writing Relationships" to clearly separate global (shared model) from topic-scoped relationship definitions
+- Cross-view fields warning: clarifies that defining `${view_name.field_name}` references in a shared view file causes validator errors in every topic that includes the view without joining the referenced view — these fields belong in the topic's `views:` block
+- SKILL.md refactored to keep all agent directives inline while moving YAML pattern galleries to `references/`; conceptual illustrations (schema layer vs extension layer) kept in SKILL.md
 
 ## [1.3.5] - 2026-04-29
 
