@@ -440,7 +440,7 @@ See `references/topic-scoped-views.md` for a full pattern gallery (label overrid
 
 ## Query Views
 
-Virtual tables defined by a saved query. **Before writing a query view, ask the user which field uniquely identifies each row** — a query view must have a primary key or it cannot be joined without producing fanout errors.
+Virtual tables defined by a saved query. A query view must have a primary key or it cannot be joined without producing fanout errors. **Before writing, confirm which field uniquely identifies each row — unless the primary key can be clearly inferred from the query itself and the involved views** (e.g. a query that selects `user_id` from a `users` view where `user_id` is the known primary key).
 
 There are two ways to define the primary key:
 
