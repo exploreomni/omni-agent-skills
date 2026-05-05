@@ -245,7 +245,33 @@ When you create a view, Omni separates **schema** (database structure) from **mo
 - **Schema layer**: Auto-generated base dimensions, one per column. Types come from the database. Read-only, synced via schema refresh.
 - **Extension layer**: Your custom YAML. Can override base dimensions, add new dimensions/measures, hide columns, add business logic.
 
-When both layers exist for a field with the same name, **your extension definition wins** but **type information comes from the schema layer**. For example: set `label:` to rename a dimension, or `hidden: true` to suppress a raw column while still referencing it in measures — the type and timeframe granularities are still inherited from the schema layer.
+When both layers exist for a field with the same name, **your extension definition wins** but **type information comes from the schema layer**.
+
+**Example**: Table has columns `created_at` (DATE) and `revenue` (NUMERIC).
+
+```yaml
+# Schema layer (auto-generated)
+dimensions:
+  created_at: {}  # type: DATE, auto-generates timeframes
+  revenue: {}     # type: NUMERIC
+
+# Extension layer (your YAML)
+dimensions:
+  created_at:
+    label: "Order Created"
+    description: "When the order was placed"
+
+  revenue:
+    hidden: true  # Hide the raw column
+
+measures:
+  total_revenue:
+    sql: ${revenue}
+    aggregate_type: sum
+    format: currency_2
+```
+
+Result: `created_at` inherits its type from the schema layer (DATE with automatic week/month/year granularities) but gets your label. The raw `revenue` column is hidden, only exposed through the `total_revenue` measure.
 
 **Key insight**: If your extension defines a dimension but there's no schema layer base dimension to provide type information, Omni can't infer granularities or types. Trigger a schema refresh to auto-generate the schema layer first.
 
