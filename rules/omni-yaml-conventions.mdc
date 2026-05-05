@@ -111,6 +111,7 @@ omni models yaml-create <modelId> --body '{
 - `mode: "extension"` writes to the shared model layer (most common)
 - To delete a file, send empty `yaml` with `mode: "extension"`
 - Always validate after writing: `omni models validate <modelId> --branchid <branchId>`
+- Ship via PR on git-connected models: `omni models commit <modelId> --body '{ "branch_id": "<branchId>", "commit_message": "..." }'` opens or updates a PR and returns `pr_url`. Check `omni models git-get <modelId>` first to confirm git is configured.
 
 ## Common Pitfalls
 

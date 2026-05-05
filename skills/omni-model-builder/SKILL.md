@@ -105,7 +105,7 @@ The response `model.id` is your `branchId` — a UUID you'll pass to all subsequ
 omni models list --include activeBranches
 ```
 
-> **Git-connected models**: If your model is connected to a git repo (`omni models git-get <modelId>` returns an `sshUrl`), merging an Omni branch will automatically commit the changes back to your git `baseBranch`. Choose one workflow and stick to it — either edit via the Omni branch API (then `git pull` to sync local files), or edit local files and push via git. Mixing both leads to conflicts.
+> **Git-connected models**: If your model is connected to a git repo, prefer pushing branch changes through a pull request (Step 3 below) rather than merging directly. Choose one workflow and stick to it — either edit via the Omni branch API (then `git pull` to sync local files), or edit local files and push via git. Mixing both leads to conflicts.
 
 ### Step 1: Write YAML to a Branch
 
@@ -192,15 +192,46 @@ omni models yaml-get <modelId> --filename your_view.view --branchid <branchId>
 
 Confirm your new fields are listed in the response. If they're missing, the YAML write may have silently failed (e.g., wrong `fileName`, malformed YAML string) — or the view may live in an offloaded schema that `yaml-get` doesn't surface. Before concluding a view doesn't exist, run the lazy-load fallback (see "Fallback: View Missing from yaml-get" below).
 
-### Step 3: Merge the Branch
+### Step 3: Ship the Branch
 
-> **Important**: Always ask the user for confirmation before merging. Merging applies changes to the production model and cannot be easily undone. Only merge after validation and testing pass (Step 2).
+> **Important**: Always ask the user for confirmation before shipping. Changes applied to the production model cannot be easily undone. Only ship after validation and testing pass (Step 2).
+
+First, check whether the model is git-connected — this determines which path to take:
+
+```bash
+omni models git-get <modelId>
+```
+
+- **Returns a config with `sshUrl` / `baseBranch`** → git-connected → use **Path A** (open/update a PR).
+- **Returns 404 or no config** → not git-connected → use **Path B** (merge directly in Omni).
+
+#### Path A — Git-connected: open or update a PR
+
+Push the branch contents to git. The backend creates a new git branch + PR if one doesn't exist, or commits to the existing branch (updating the open PR) if it does:
+
+```bash
+omni models commit <modelId> --body '{
+  "branch_id": "<branchId>",
+  "commit_message": "Add my_new_view with status dimension and count measure"
+}'
+```
+
+Response fields to surface back to the user:
+- `pr_url` — link to the PR (or PR creation page for newly-opened PRs); return this to the user
+- `git_sha` — the commit SHA pushed (null if no commit was needed)
+- `did_sync` / `in_sync` — whether a sync ran and whether the branch is now in sync with git
+
+Optional guardrails on the body:
+- `allow_branch_exists: false` — fail if the git branch already exists (only open new PRs, never update)
+- `require_branch_exists: true` — fail if the git branch doesn't exist (only update existing PRs, never open new ones)
+
+The reviewer merges the PR in your git host; the changes flow back to `baseBranch` and into the production model on the next sync.
+
+#### Path B — Not git-connected: merge in Omni
 
 ```bash
 omni models merge-branch <modelId> <branchName>
 ```
-
-If git with required PRs is configured, merge through your git workflow instead.
 
 After merging, run one final validation against the production model to confirm the merge didn't introduce conflicts:
 

@@ -6,6 +6,13 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.3.8] - 2026-05-05
+
+### omni-analytics
+
+**Added**
+- `omni models commit` integration (CLI PR [exploreomni/cli#54](https://github.com/exploreomni/cli/pull/54)) for shipping branch changes through a pull request on git-connected models. Step 3 of the omni-model-builder workflow now branches on `omni models git-get <modelId>`: git-connected models use `omni models commit` to open or update a PR (returning `pr_url`); non-git models use `omni models merge-branch` as before. Same guidance added to the `omni-modeler` agent and `omni-yaml-conventions` rule.
+
 ## [1.3.7] - 2026-05-04
 
 ### omni-analytics
