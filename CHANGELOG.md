@@ -6,6 +6,26 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.3.7] - 2026-05-04
+
+### omni-analytics
+
+**Added**
+- Topic-scoped relationship guidance: `relationships:` parameter inline in a `.topic` file, when to use it over global relationships, `joins` vs `relationships` distinction; YAML gallery in `references/topic-scoped-relationships.md`
+- Extended views pattern for same-table aliasing: replaces `join_to_view_as` with `extends: [base_view]`; Variant 1 global `.view` file, Variant 2 topic-scoped inline. Fixes `relationship alias duplicates view name` error
+- Topic-scoped view definitions: display ordering, label overrides, filtered measures, derived dimensions, cross-view fields, multi-join lifecycle, ratio measures; YAML gallery in `references/topic-scoped-views.md`
+- Pre-check directives for topic-scoped fields and relationships (cross-view reference validation, redundancy/conflict checks, override confirmation)
+- Query view primary key guidance: prompt for unique key before writing; `primary_key: true` and `custom_compound_primary_key_sql` documented with fanout error link; YAML gallery in `references/query-view-examples.md`
+- `${view_name}` syntax preferred over hard-coded `CATALOG.SCHEMA.TABLE` in `sql:` query view blocks
+- Measure filter examples in `references/yaml-filter-syntax.md`, including `not: null` (IS NOT NULL) and `is: null` (IS NULL)
+
+**Fixed**
+- Restructured "Writing Relationships" to clearly separate global (shared model) from topic-scoped relationship definitions
+- Cross-view fields warning: clarifies that defining `${view_name.field_name}` references in a shared view file causes validator errors in every topic that includes the view without joining the referenced view — these fields belong in the topic's `views:` block
+- SKILL.md refactored to keep all agent directives inline while moving YAML pattern galleries to `references/`; conceptual illustrations (schema layer vs extension layer) kept in SKILL.md
+- Null check examples in `references/yaml-filter-syntax.md` use generic `some_field` for consistency
+- Branch validation pattern corrected: `omni ai job-submit --branch-id --topic-name` correctly resolves branch-scoped topics; `omni query run` supports `branchId` via `--body`
+
 ## [1.3.6] - 2026-05-01
 
 ### omni-analytics

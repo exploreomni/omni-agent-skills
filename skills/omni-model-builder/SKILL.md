@@ -33,11 +33,8 @@ You need **Modeler** or **Connection Admin** permissions.
 Omni uses a **layered approach** where each layer builds on top of the previous:
 
 1. **Schema Layer** — Auto-generated from your database. Reflects tables, views, columns, and their types. Kept in sync via schema refresh.
-
 2. **Shared Model Layer** — Your governed semantic model. Where you define dimensions, measures, joins, and topics that are reusable across the organization.
-
 3. **Workbook Model Layer** — Ad hoc extensions within individual workbooks. Used for experimental fields before promotion to shared model.
-
 4. **Branch Layer** — Intermediate development layer. Used when working in branches before merging changes to shared model.
 
 **Key concept**: The schema layer is the foundation and source of truth for table/column structure. When your database schema changes (new tables, deleted columns, type changes), you refresh the schema to keep Omni in sync. All user-created content (dimensions, measures, relationships, topics) flows through the shared model layer.
@@ -66,15 +63,11 @@ The **schema layer** is auto-generated from your database. When your database sc
 
 **When to trigger:**
 - New tables added to your database
-- Column added/renamed/deleted in existing tables
-- Creating a new view from scratch and want auto-generated base dimensions
-- Model is out of sync with database
+- Column added, renamed, or deleted in an existing table
+- Creating a new view from scratch and you want auto-generated base dimensions
+- Model is out of sync with the database
 
-**What it does:**
-- Introspects your data warehouse
-- Auto-generates base dimensions for all columns with correct types and timeframes
-- Detects deletions and broken references
-- Runs as a background job (can take several minutes)
+**What it does:** Introspects your data warehouse, auto-generates base dimensions with correct types and timeframes, detects deletions and broken references. Runs as a background job (can take several minutes).
 
 **Side effect:** May auto-generate dimensions for columns you don't need. Suppress with `hidden: true` in your extension layer.
 
@@ -147,8 +140,6 @@ Check the response:
 
 Run a query that exercises the fields you just created or modified:
 
-> **Note**: `omni query run` does not currently support `branchId` — queries always run against the production model. This means you can only fully test new fields after merging. Use model validation (2a) and field verification (2d) as your pre-merge safety net, and run query tests immediately after merging.
-
 ```bash
 omni query run --body '{
   "query": {
@@ -157,9 +148,14 @@ omni query run --body '{
     "fields": ["your_view.new_dimension", "your_view.new_measure"],
     "limit": 10,
     "join_paths_from_topic_name": "your_topic"
-  }
+  },
+  "branchId": "<branchId>"
 }'
 ```
+
+> **Two complementary validation tools:**
+> - `omni query run` — structured validation using explicit field expressions; use to precisely test specific dimensions, measures, and join paths
+> - `omni ai job-submit --branch-id <branchId> --topic-name <topicName>` — natural language validation; use to confirm the topic answers business questions correctly against live branch data. `omni ai generate-query --run-query true` does not resolve branch-only topics at execution time and should not be used for branch validation.
 
 **What to check:**
 - **No error in response** — if the query returns an error, the field SQL is broken (bad column reference, wrong aggregate, dialect mismatch)
@@ -273,14 +269,14 @@ dimensions:
 
 measures:
   total_revenue:
-    sql: SUM(${revenue})
+    sql: ${revenue}
     aggregate_type: sum
     format: currency_2
 ```
 
-Result: `created_at` inherits its type from schema layer (DATE with automatic week/month/year granularities) but gets your label. The raw `revenue` column is hidden, only exposed through the `total_revenue` measure.
+Result: `created_at` inherits its type from the schema layer (DATE with automatic week/month/year granularities) but gets your label. The raw `revenue` column is hidden, only exposed through the `total_revenue` measure.
 
-**Key insight**: If your extension layer defines a dimension but there's no schema layer base dimension to provide type information, Omni can't infer granularities or types. Solution: trigger schema refresh to auto-generate the schema layer (see "Schema Refresh" section above).
+**Key insight**: If your extension defines a dimension but there's no schema layer base dimension to provide type information, Omni can't infer granularities or types. Trigger a schema refresh to auto-generate the schema layer first.
 
 ### Dimension Parameters
 
@@ -299,24 +295,15 @@ Most common parameters:
 
 See `references/modelParameters.md` for the complete list of 24+ measure parameters and all 13 aggregate types.
 
-Measure filters restrict rows before aggregation:
+Measure filters restrict rows before aggregation using the YAML filter condition syntax. See `references/yaml-filter-syntax.md` for the complete operator reference and measure filter examples.
 
-```yaml
-measures:
-  completed_orders:
-    aggregate_type: count
-    filters:
-      status:
-        is: complete
-  california_revenue:
-    sql: ${sale_price}
-    aggregate_type: sum
-    filters:
-      state:
-        is: California
-```
+### Cross-View Fields in Views
 
-See `references/yaml-filter-syntax.md` for the complete operator reference covering conditional, numeric, string, and date/time operators, negation, array values, and boolean handling.
+Avoid defining cross-view fields (dimensions or measures whose `sql` references `${other_view.field}`) directly in a view file. These fields depend on another view being joined, which is not guaranteed in every topic that includes this view. In topics where the referenced view isn't present, the field will be omitted — but more importantly, the model validator will throw errors for any topic that includes this view without also joining the referenced view. This can create a cascade of validator errors across topics that are otherwise valid but happen to include only a subset of the involved views.
+
+**In the vast majority of cases, cross-view fields should be defined in the topic's `views:` block** (see "Topic-Scoped View Definitions"), where the join context is explicit and controlled.
+
+Only define a cross-view field in the view file itself when you are certain the referenced view will always be joined in every topic that includes this view — for example, when the join is defined globally and the two views are inseparable by design.
 
 ## Fallback: View Missing from yaml-get
 
@@ -369,6 +356,10 @@ Use targeted questions to get precise YAML examples for your specific filtering 
 
 ## Writing Relationships
 
+### Global Relationships
+
+Global relationships are defined in the shared relationships file and are available across all topics. Use these for standard, reusable joins.
+
 ```yaml
 - join_from_view: order_items
   join_to_view: users
@@ -386,36 +377,85 @@ Use targeted questions to get precise YAML examples for your specific filtering 
 
 Getting `relationship_type` right prevents fanout and symmetric aggregate errors.
 
+### Topic-Scoped Relationships
+
+> **Before defining, check the global relationships file** for a join between the same two views in either direction. Same `on_sql` → redundant, use `joins:` only. Different `on_sql` → default to the extended views pattern below rather than a silent override. Confirm intent with the modeler.
+
+Use topic-scoped relationships for one-off joins not in the shared model, or joining the same table multiple times under different conditions.
+
+```yaml
+# .topic file
+relationships:
+  - join_from_view: order_items
+    join_to_view: users
+    on_sql: ${order_items.user_id} = ${users.id}
+    relationship_type: many_to_one
+    join_type: always_left
+
+joins:
+  users: {}
+```
+
+> **`joins` vs `relationships`:** `joins` declares which views are in the topic and their hierarchy; `relationships` defines the join conditions. A topic using only global relationships needs only `joins`. A topic with a one-off join needs both.
+
+#### Extended Views: Joining the Same Table Multiple Ways
+
+When the same table needs multiple joins (e.g., `users` as buyer and seller), use the **extended views** pattern — not `join_to_view_as`. Two variants:
+
+**Variant 1 — Global (reusable):** Create a standalone `.view` file with `extends:`, a role-descriptive name, and a `description:`. Define the relationship globally — any topic can then join it like any other view.
+
+**Variant 2 — Topic-scoped (inline):** Define the alias in the topic's `views:` block with its relationship in the same file. Use when the alias is not generally applicable in other topics.
+
+See `references/topic-scoped-relationships.md` for full YAML examples of both variants.
+
+> If you see a `relationship alias duplicates view name` error, this pattern is the fix.
+
+### Topic-Scoped View Definitions
+
+Topics can define or override views inline using a `views:` block — controlling `display_order`, overriding `label`, adding topic-specific filtered measures or derived dimensions, defining cross-view fields, and joining the same view multiple ways with per-alias conditions.
+
+> **Before adding any topic-scoped field to an existing view:**
+> 1. Read the view YAML (`omni models yaml-get`) and confirm the field doesn't already exist. If it does with the same definition, skip it.
+> 2. If a field with the same name exists but uses different SQL, this is an override. Confirm explicitly with the modeler — queries through this topic will use the topic-scoped definition; all other topics keep the shared one.
+
+```yaml
+# Example: display order + topic-specific filtered measure
+views:
+  order_items:
+    display_order: 0
+    measures:
+      us_revenue:
+        sql: ${sale_price}
+        aggregate_type: sum
+        format: currency_2
+        filters:
+          users.country:
+            is: US
+```
+
+See `references/topic-scoped-views.md` for a full pattern gallery (label overrides, derived dimensions, cross-view fields, multi-join lifecycle, topic-scoped query views).
+
+> **Cross-view fields in `views:` blocks:** Before writing `${view_name.field_name}` references, confirm every referenced view is declared in the topic's `joins:` block — the model validator throws errors for any reference to a view that isn't joined.
+
+**Joining the same view multiple ways** (e.g., ARR at Start / Current / End): Use `extends:` inside the topic's `views:` block to create named aliases, each with its own `on_sql` in `relationships:`. Each alias inherits all base view fields and can override labels independently. For a full YAML example, see `references/topic-scoped-views.md`.
+
+**Topic-scoped query views:** A query view can also be defined inside a topic's `views:` block, scoping it to that topic only. Same primary key rules apply (`primary_key: true` or `custom_compound_primary_key_sql`). Include a `relationships:` entry and a `joins:` entry for the new view — see Query Views section above, and `references/topic-scoped-views.md` for a complete example.
+
 ## Query Views
 
-Virtual tables defined by a saved query. Like regular views, query views **must include a `primary_key: true` dimension** to be joinable:
+Virtual tables defined by a saved query. A query view must have a primary key or it cannot be joined without producing fanout errors. **Before writing, confirm which field uniquely identifies each row — unless the primary key can be clearly inferred from the query itself and the involved views** (e.g. a query that selects `user_id` from a `users` view where `user_id` is the known primary key).
 
-```yaml
-schema: PUBLIC
-query:
-  fields:
-    order_items.user_id: user_id
-    order_items.count: order_count
-    order_items.total_revenue: lifetime_value
-  base_view: order_items
-  topic: order_items
+There are two ways to define the primary key:
 
-dimensions:
-  user_id:
-    primary_key: true
-  order_count: {}
-  lifetime_value:
-    format: currency_2
-```
+**Option 1 — Single unique field:** Mark exactly one dimension `primary_key: true` in the `dimensions:` block.
 
-Or with raw SQL:
+**Option 2 — Compound key:** When no single field is unique but a combination is, set `custom_compound_primary_key_sql: [field_a, field_b]` at the view level — no `primary_key: true` dimension needed.
 
-```yaml
-schema: PUBLIC
-sql: |
-  SELECT user_id, COUNT(*) as order_count, SUM(sale_price) as lifetime_value
-  FROM order_items GROUP BY 1
-```
+Both options work with either a `query:` block (field-mapped virtual table) or a `sql:` block (raw SELECT). In `sql:` blocks, use `${view_name}` to reference a view's underlying table rather than a hard-coded `CATALOG.SCHEMA.TABLE` path — it's preferred and stays correct if the table moves. See `references/query-view-examples.md` for complete YAML for each variant.
+
+> If the user is unsure which field is unique, ask before writing the view. A query view without a primary key will trigger a "Joins fan out the data without a primary key" error when joined. See: https://community.omni.co/t/why-am-i-getting-the-error-joins-fan-out-the-data-without-a-primary-key/37
+
+Query views can also be defined inline within a topic's `views:` block, scoping the virtual table to that topic only. See `references/topic-scoped-views.md` for an example.
 
 ## Common Validation Errors
 
