@@ -41,6 +41,20 @@ views:
             is: US
 ```
 
+## Topic-Specific Ratio Measure
+
+Derived measures that divide two other measures use `sql:` referencing those measures — no `aggregate_type`.
+
+```yaml
+views:
+  order_items:
+    measures:
+      avg_revenue_per_user:
+        sql: ${total_revenue} / NULLIF(${users.count}, 0)
+        format: currency_2
+        label: Avg Revenue per User
+```
+
 ## Topic-Specific Derived Dimension
 
 ```yaml
