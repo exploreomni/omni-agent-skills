@@ -68,6 +68,17 @@ not_between: [ 10, 100 ]
 not: California
 ```
 
+**Null checks** — use `not: null` for IS NOT NULL, `is: null` for IS NULL:
+```yaml
+# IS NOT NULL
+ecomm__order_items.top_100_customers:
+  not: null
+
+# IS NULL
+some_field:
+  is: null
+```
+
 ## Combining Multiple Conditions
 
 Multiple field conditions are AND-combined:
