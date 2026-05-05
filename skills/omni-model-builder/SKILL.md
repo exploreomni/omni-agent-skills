@@ -448,7 +448,7 @@ There are two ways to define the primary key:
 
 **Option 2 — Compound key:** When no single field is unique but a combination is, set `custom_compound_primary_key_sql: [field_a, field_b]` at the view level — no `primary_key: true` dimension needed.
 
-Both options work with either a `query:` block (field-mapped virtual table) or a `sql:` block (raw SELECT). See `references/query-view-examples.md` for complete YAML for each variant.
+Both options work with either a `query:` block (field-mapped virtual table) or a `sql:` block (raw SELECT). In `sql:` blocks, use `${view_name}` to reference a view's underlying table rather than a hard-coded `CATALOG.SCHEMA.TABLE` path — it's preferred and stays correct if the table moves. See `references/query-view-examples.md` for complete YAML for each variant.
 
 > If the user is unsure which field is unique, ask before writing the view. A query view without a primary key will trigger a "Joins fan out the data without a primary key" error when joined. See: https://community.omni.co/t/why-am-i-getting-the-error-joins-fan-out-the-data-without-a-primary-key/37
 

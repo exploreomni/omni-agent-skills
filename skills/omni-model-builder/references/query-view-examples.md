@@ -47,11 +47,14 @@ dimensions:
 
 The `sql:` block can be used in place of `query:`. The same primary key options apply.
 
+Use `${view_name}` to reference a view's underlying table rather than a manual `CATALOG.SCHEMA.TABLE` reference — this is the preferred form as it stays correct if the underlying table is renamed or moved.
+
 ```yaml
 schema: PUBLIC
 sql: |
   SELECT user_id, COUNT(*) AS order_count, SUM(sale_price) AS lifetime_value
-  FROM order_items GROUP BY 1
+  FROM ${order_items}
+  GROUP BY 1
 
 dimensions:
   user_id:
