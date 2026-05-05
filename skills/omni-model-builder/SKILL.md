@@ -140,8 +140,6 @@ Check the response:
 
 Run a query that exercises the fields you just created or modified:
 
-> **Note**: `omni query run` does not currently support `branchId` — queries always run against the production model. This means you can only fully test new fields after merging. Use model validation (2a) and field verification (2d) as your pre-merge safety net, and run query tests immediately after merging.
-
 ```bash
 omni query run --body '{
   "query": {
@@ -150,9 +148,12 @@ omni query run --body '{
     "fields": ["your_view.new_dimension", "your_view.new_measure"],
     "limit": 10,
     "join_paths_from_topic_name": "your_topic"
-  }
+  },
+  "branchId": "<branchId>"
 }'
 ```
+
+> **Note**: To validate a topic query on a branch, use `omni ai job-submit` with `--branch-id` and `--topic-name` — it correctly resolves branch-scoped topics and executes against live data. `omni ai generate-query --run-query true` does not resolve branch-only topics at execution time.
 
 **What to check:**
 - **No error in response** — if the query returns an error, the field SQL is broken (bad column reference, wrong aggregate, dialect mismatch)
