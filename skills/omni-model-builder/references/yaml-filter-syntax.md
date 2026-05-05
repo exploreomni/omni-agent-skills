@@ -71,7 +71,7 @@ not: California
 **Null checks** — use `not: null` for IS NOT NULL, `is: null` for IS NULL:
 ```yaml
 # IS NOT NULL
-ecomm__order_items.top_100_customers:
+some_field:
   not: null
 
 # IS NULL
