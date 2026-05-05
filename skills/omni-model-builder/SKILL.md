@@ -207,7 +207,7 @@ omni models git-get <modelId>
 
 #### Path A — Git-connected: open or update a PR
 
-Push the branch contents to git. The backend creates a new git branch + PR if one doesn't exist, or commits to the existing branch (updating the open PR) if it does:
+Push the branch contents to git. Creates a new git branch + PR if one doesn't exist; otherwise updates the existing PR:
 
 ```bash
 omni models commit <modelId> --body '{
@@ -216,16 +216,7 @@ omni models commit <modelId> --body '{
 }'
 ```
 
-Response fields to surface back to the user:
-- `pr_url` — link to the PR (or PR creation page for newly-opened PRs); return this to the user
-- `git_sha` — the commit SHA pushed (null if no commit was needed)
-- `did_sync` / `in_sync` — whether a sync ran and whether the branch is now in sync with git
-
-Optional guardrails on the body:
-- `allow_branch_exists: false` — fail if the git branch already exists (only open new PRs, never update)
-- `require_branch_exists: true` — fail if the git branch doesn't exist (only update existing PRs, never open new ones)
-
-The reviewer merges the PR in your git host; the changes flow back to `baseBranch` and into the production model on the next sync.
+Surface the returned `pr_url` to the user. The reviewer merges the PR in your git host; changes flow back to `baseBranch` on the next sync. Run `omni models commit --help` for optional body flags (`allow_branch_exists`, `require_branch_exists`) when you need to enforce open-only or update-only behavior.
 
 #### Path B — Not git-connected: merge in Omni
 

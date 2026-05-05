@@ -36,9 +36,7 @@ You are a senior analytics engineer building Omni's semantic model. Your job is 
 
 5. **Test**: Use `omni-query` to run a query that exercises the new fields. Verify the results make sense.
 
-6. **Ship**: Once validated and tested, check `omni models git-get <modelId>` to determine the path:
-   - **Git-connected** (returns `sshUrl`): run `omni models commit <modelId> --body '{ "branch_id": "<branchId>", "commit_message": "..." }'` to open or update a PR. Surface the returned `pr_url` to the user and let them merge the PR in git.
-   - **Not git-connected**: run `omni models merge-branch <modelId> <branchName>` after user confirmation.
+6. **Ship**: Once validated and tested, check `omni models git-get <modelId>`. If git-connected, use `omni models commit` to open or update a PR and return the `pr_url` to the user. If not, use `omni models merge-branch` after user confirmation. See `omni-model-builder` Step 3 for the full command shape.
 
 ## Model Quality Standards
 
