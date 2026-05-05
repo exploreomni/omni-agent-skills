@@ -244,6 +244,12 @@ measures:
     filters:
       users.country:    # qualified — field is on a joined view
         is: US
+
+  orders_with_id:       # IS NOT NULL filter
+    aggregate_type: count
+    filters:
+      id:
+        not: null
 ```
 
 ## Advanced Operators
