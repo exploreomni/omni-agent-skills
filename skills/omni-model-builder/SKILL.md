@@ -37,7 +37,9 @@ Omni uses a **layered approach** where each layer builds on top of the previous:
 3. **Workbook Model Layer** — Ad hoc extensions within individual workbooks. Used for experimental fields before promotion to shared model.
 4. **Branch Layer** — Intermediate development layer. Used when working in branches before merging changes to shared model.
 
-**Key concept**: The schema layer is the foundation and source of truth for table/column structure. All user-created content (dimensions, measures, relationships, topics) flows through the shared model layer. Always work in a branch before merging to production.
+**Key concept**: The schema layer is the foundation and source of truth for table/column structure. When your database schema changes (new tables, deleted columns, type changes), you refresh the schema to keep Omni in sync. All user-created content (dimensions, measures, relationships, topics) flows through the shared model layer.
+
+**Development workflow**: When building or modifying the model, you work in **branches** (see "Safe Development Workflow" below). Branches are isolated copies where you can safely experiment before merging changes back to shared model. This skill covers creating and editing model definitions in both branches and shared models.
 
 ## Determine SQL Dialect
 
@@ -57,7 +59,7 @@ Use dialect-appropriate functions in your SQL (e.g. `SAFE_DIVIDE` for BigQuery, 
 
 ## Schema Refresh: Syncing with Database Changes
 
-The schema layer is auto-generated from your database. When it changes, refresh to stay in sync.
+The **schema layer** is auto-generated from your database. When your database schema changes (new/deleted/renamed columns, type changes), refresh Omni's schema layer to stay in sync.
 
 **When to trigger:**
 - New tables added to your database
@@ -65,10 +67,16 @@ The schema layer is auto-generated from your database. When it changes, refresh 
 - Creating a new view from scratch and you want auto-generated base dimensions
 - Model is out of sync with the database
 
-**What it does:** Introspects your data warehouse, auto-generates base dimensions with correct types and timeframes, detects deletions and broken references. Runs as a background job (can take several minutes). May auto-generate dimensions for columns you don't need — suppress with `hidden: true`.
+**What it does:** Introspects your data warehouse, auto-generates base dimensions with correct types and timeframes, detects deletions and broken references. Runs as a background job (can take several minutes).
+
+**Side effect:** May auto-generate dimensions for columns you don't need. Suppress with `hidden: true` in your extension layer.
+
+**Trigger via API:**
 
 ```bash
 omni models refresh <modelId>
+
+# With branch:
 omni models refresh <modelId> --branch-id <branchId>
 ```
 
