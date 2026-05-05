@@ -6,36 +6,25 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
-## [1.3.8] - 2026-05-04
-
-### omni-analytics
-
-**Added**
-- Ratio measure example in `references/topic-scoped-views.md`: derived measures that divide two other measures use `sql:` referencing those measures with no `aggregate_type`
-- `not: null` IS NOT NULL example in measure filter section of `references/yaml-filter-syntax.md`
-
-**Fixed**
-- Normalized null check examples in `references/yaml-filter-syntax.md` to use generic `some_field` for both IS NULL and IS NOT NULL examples (previously used a specific qualified field name)
-- Corrected branch validation pattern: `omni ai job-submit` with `--branch-id` and `--topic-name` correctly resolves branch-scoped topics; `omni ai generate-query --run-query true` does not
-- Updated SKILL.md note on `omni query run` branch support: `branchId` is supported via `--body` and correctly applies topic context when `join_paths_from_topic_name` is used
-
-## [1.3.7] - 2026-05-01
+## [1.3.7] - 2026-05-04
 
 ### omni-analytics
 
 **Added**
 - Topic-scoped relationship guidance: `relationships:` parameter inline in a `.topic` file, when to use it over global relationships, `joins` vs `relationships` distinction; YAML gallery in `references/topic-scoped-relationships.md`
 - Extended views pattern for same-table aliasing: replaces `join_to_view_as` with `extends: [base_view]`; Variant 1 global `.view` file, Variant 2 topic-scoped inline. Fixes `relationship alias duplicates view name` error
-- Topic-scoped view definitions: display ordering, label overrides, filtered measures, derived dimensions, cross-view fields, multi-join lifecycle; YAML gallery in `references/topic-scoped-views.md`
+- Topic-scoped view definitions: display ordering, label overrides, filtered measures, derived dimensions, cross-view fields, multi-join lifecycle, ratio measures; YAML gallery in `references/topic-scoped-views.md`
 - Pre-check directives for topic-scoped fields and relationships (cross-view reference validation, redundancy/conflict checks, override confirmation)
 - Query view primary key guidance: prompt for unique key before writing; `primary_key: true` and `custom_compound_primary_key_sql` documented with fanout error link; YAML gallery in `references/query-view-examples.md`
 - `${view_name}` syntax preferred over hard-coded `CATALOG.SCHEMA.TABLE` in `sql:` query view blocks
-- Measure filter examples added to `references/yaml-filter-syntax.md`
+- Measure filter examples in `references/yaml-filter-syntax.md`, including `not: null` (IS NOT NULL) and `is: null` (IS NULL)
 
 **Fixed**
 - Restructured "Writing Relationships" to clearly separate global (shared model) from topic-scoped relationship definitions
 - Cross-view fields warning: clarifies that defining `${view_name.field_name}` references in a shared view file causes validator errors in every topic that includes the view without joining the referenced view — these fields belong in the topic's `views:` block
 - SKILL.md refactored to keep all agent directives inline while moving YAML pattern galleries to `references/`; conceptual illustrations (schema layer vs extension layer) kept in SKILL.md
+- Null check examples in `references/yaml-filter-syntax.md` use generic `some_field` for consistency
+- Branch validation pattern corrected: `omni ai job-submit --branch-id --topic-name` correctly resolves branch-scoped topics; `omni query run` supports `branchId` via `--body`
 
 ## [1.3.6] - 2026-05-01
 
@@ -43,26 +32,6 @@ The versions documented here should match the published plugin versions in the a
 
 **Fixed**
 - Embedded the lazy-load fallback pattern directly in omni-model-builder rather than cross-referencing omni-model-explorer. Adds a dedicated "Fallback: View Missing from yaml-get" section with the full two-step recovery commands (`get-schemas` + `yaml-get --includeschemas`), and a pre-flight directive in Writing Topics to run the fallback before concluding a view doesn't exist.
-
-### omni-analytics
-
-**Added**
-- Topic-scoped relationship guidance in omni-model-builder: documents the `relationships:` parameter inline in a `.topic` file, when to use it over global relationships, and the `joins` vs `relationships` distinction with worked example
-- Extended views pattern for same-table aliasing: replaces `join_to_view_as` with the correct `extends: [base_view]` approach; two variants — Variant 1 creates a standalone global `.view` file (reusable, requires a role-descriptive name and `description:`); Variant 2 defines the alias inline in the topic's `views:` block (topic-scoped only). Fixes the `relationship alias duplicates view name` error.
-- Topic-scoped view definitions section covering: display ordering, label overrides, topic-specific filtered measures, derived dimensions, cross-view fields, and joining the same view multiple ways with per-alias `on_sql` conditions
-- Pre-check directives: verify all cross-view `${view_name.field_name}` references are in `joins:` before writing; check for redundancy or conflicts with shared view definitions before adding topic-scoped fields; confirm overrides explicitly with the modeler before proceeding
-- Pre-check directive for topic-scoped relationships: verify no existing global relationship covers the same two views before defining a topic-scoped one; if same views but different `on_sql`, default to extended views rather than a silent override
-- Query view primary key guidance: before writing a query view, confirm which field uniquely identifies each row (unless clearly inferrable from the query and involved views); documents both `primary_key: true` and `custom_compound_primary_key_sql` with a link to the fanout error article
-- `${view_name}` syntax preferred over hard-coded `CATALOG.SCHEMA.TABLE` paths in `sql:` query view blocks
-- `references/topic-scoped-relationships.md` — YAML example gallery for topic-scoped relationship patterns (basic syntax, extended views Variant 1 and Variant 2)
-- `references/topic-scoped-views.md` — YAML example gallery for topic-scoped view patterns (display order, label override, filtered measure, derived dimension, cross-view fields, multi-join lifecycle, topic-scoped query view)
-- `references/query-view-examples.md` — YAML example gallery for query view variants (single primary key, compound key, raw SQL with `${view_name}`)
-- Measure filter examples added to `references/yaml-filter-syntax.md`
-
-**Fixed**
-- Restructured "Writing Relationships" to clearly separate global (shared model) from topic-scoped relationship definitions
-- Cross-view fields warning: clarifies that defining `${view_name.field_name}` references in a shared view file causes validator errors in every topic that includes the view without joining the referenced view — these fields belong in the topic's `views:` block
-- SKILL.md refactored to keep all agent directives inline while moving YAML pattern galleries to `references/`; conceptual illustrations (schema layer vs extension layer) kept in SKILL.md
 
 ## [1.3.5] - 2026-04-29
 
