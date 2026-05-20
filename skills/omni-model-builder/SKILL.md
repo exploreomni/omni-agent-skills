@@ -24,9 +24,7 @@ omni config show
 omni config use <profile-name>
 ```
 
-You need **Modeler** or **Connection Admin** permissions.
-
-> **Tip**: Use `-o json` to force structured output for programmatic parsing, or `-o human` for readable tables. The default is `auto` (human in a TTY, JSON when piped).
+You need **Modeler** or **Connection Admin** permissions. Add `-o json` to any command to force structured output for parsing (default `auto` is human in a TTY, JSON when piped).
 
 ## Omni's Layered Modeling Architecture
 
@@ -37,9 +35,7 @@ Omni uses a **layered approach** where each layer builds on top of the previous:
 3. **Workbook Model Layer** — Ad hoc extensions within individual workbooks. Used for experimental fields before promotion to shared model.
 4. **Branch Layer** — Intermediate development layer. Used when working in branches before merging changes to shared model.
 
-**Key concept**: The schema layer is the foundation and source of truth for table/column structure. When your database schema changes (new tables, deleted columns, type changes), you refresh the schema to keep Omni in sync. All user-created content (dimensions, measures, relationships, topics) flows through the shared model layer.
-
-**Development workflow**: When building or modifying the model, you work in **branches** (see "Safe Development Workflow" below). Branches are isolated copies where you can safely experiment before merging changes back to shared model. This skill covers creating and editing model definitions in both branches and shared models.
+**Key concept**: The schema layer is the source of truth for table/column structure (refreshed when the database changes); all user-created content (dimensions, measures, relationships, topics) flows through the shared model layer. You build and modify it in **branches** (see "Safe Development Workflow" below) before merging back to the shared model.
 
 ## Determine SQL Dialect
 
@@ -61,11 +57,7 @@ Use dialect-appropriate functions in your SQL (e.g. `SAFE_DIVIDE` for BigQuery, 
 
 The **schema layer** is auto-generated from your database. When your database schema changes (new/deleted/renamed columns, type changes), refresh Omni's schema layer to stay in sync.
 
-**When to trigger:**
-- New tables added to your database
-- Column added, renamed, or deleted in an existing table
-- Creating a new view from scratch and you want auto-generated base dimensions
-- Model is out of sync with the database
+**When to trigger:** new/renamed/deleted tables or columns, a new view that needs auto-generated base dimensions, or any time the model is out of sync with the database.
 
 **What it does:** Introspects your data warehouse, auto-generates base dimensions with correct types and timeframes, detects deletions and broken references. Runs as a background job (can take several minutes).
 
@@ -120,6 +112,8 @@ omni models yaml-create <modelId> --body '{
 ```
 
 > **Note**: The `branchId` parameter must be a UUID from the server (Step 0). Passing a string name instead will return `400 Bad Request: Unrecognized key: "branchName"`.
+
+> **⚠️ Editing an existing file? `fileName` is its exact path, not a regex (unlike on read).** Reuse the full-path key from your `yaml-get` response verbatim, including any folder prefix — e.g. `MARTS/fct_ai_events.view`, not `fct_ai_events.view`. A non-matching `fileName` doesn't error: Omni **silently creates a new file at that path** and returns `success: true`, so shortening the key produces a duplicate view at the repo root.
 
 ### Step 2: Validate and Test
 
@@ -191,6 +185,8 @@ omni models yaml-get <modelId> --filename your_view.view --branchid <branchId>
 ```
 
 Confirm your new fields are listed in the response. If they're missing, the YAML write may have silently failed (e.g., wrong `fileName`, malformed YAML string) — or the view may live in an offloaded schema that `yaml-get` doesn't surface. Before concluding a view doesn't exist, run the lazy-load fallback (see "Fallback: View Missing from yaml-get" below).
+
+> **Confirm you didn't create a duplicate.** `success: true` means accepted, not that it hit the intended file (see Step 1). Re-list files and check the same view name doesn't now exist at two paths (e.g. `MARTS/foo.view` and `foo.view`); if it does, delete the stray one (empty `yaml`) and re-write with the full-path key.
 
 ### Step 3: Ship the Branch
 
@@ -489,23 +485,11 @@ Query views can also be defined inline within a topic's `views:` block, scoping 
 | "Invalid YAML syntax" | Check indentation (2 spaces, no tabs) |
 | Fanout / incorrect aggregations on joins | Add `primary_key: true` to the joined view — every view that participates in a join must have a primary key |
 | Column reference error (e.g., "Column `X` not found") | Check that the table exists and your Omni connection has access |
+| Duplicate view appeared at the repo root after an edit | You wrote with a bare `fileName` instead of the file's full path. Delete the stray root file (send empty `yaml` to it) and re-write using the exact `files` key, including its folder prefix (e.g. `MARTS/`) |
 
 ## Troubleshooting: Model Out of Sync with Database
 
-If your model doesn't reflect the database (missing columns, broken references, wrong types), trigger a schema refresh (see "Schema Refresh" section above). Then validate:
-
-```bash
-omni models validate <modelId>
-```
-
-Common issues and fixes:
-
-| Issue | Cause | Fix |
-|-------|-------|-----|
-| **Broken column references** | Column no longer exists in database | Remove or update the `sql` reference |
-| **Field name collision** | Auto-generated dimension conflicts with your measure | Suppress with `hidden: true` or rename |
-| **Unknown field types** | Type info not available from schema | Verify column exists and connection has access |
-| **Missing tables** | Table not in schema after refresh | Verify table exists and connection includes its database/schema |
+If the model doesn't reflect the database (missing columns/tables, wrong types, broken references), trigger a schema refresh (see "Schema Refresh" above), then `omni models validate <modelId>`. Field-name collisions and broken column references are usually fixed with `hidden: true` or a rename (see "Common Validation Errors"); persistent missing tables mean the connection lacks access to that database/schema.
 
 ## Docs Reference
 

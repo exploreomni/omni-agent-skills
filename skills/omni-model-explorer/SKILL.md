@@ -104,6 +104,8 @@ omni models yaml-get <modelId> --branchid <branchId>
 
 The `mode` parameter: `combined` (default) merges schema + shared model; `extension` shows only shared model customizations.
 
+The `files` map is keyed by each file's **full stored path** (e.g. `MARTS/order_items.view`), and `--filename` is a regex on read. Reuse that exact key — including any folder prefix — when editing with `omni-model-builder`; a shortened name creates a duplicate instead of editing the original.
+
 ## Model Architecture
 
 Omni has three layers:
