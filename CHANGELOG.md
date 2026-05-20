@@ -6,6 +6,16 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.3.9] - 2026-05-20
+
+### omni-analytics
+
+**Fixed**
+- Documented that `omni models yaml-create` treats `fileName` as an exact path identity (not a regex, unlike `yaml-get`): a non-matching name silently creates a new file at the repo root and still returns `success: true`, producing a duplicate view instead of editing the intended one. The `omni-model-builder` write step now instructs reusing the full-path key from the read response verbatim (incl. folder prefixes), adds a post-write anti-duplicate read-back check, and a Common Validation Errors row. `omni-model-explorer` now documents that the `files` map is keyed by full stored path.
+
+**Changed**
+- Trimmed redundancy in `omni-model-builder` (overlapping schema-refresh/troubleshooting content, duplicated layering prose, bullet lists) to keep the skill near the ~500-line length guidance. No behavior change.
+
 ## [1.3.8] - 2026-05-05
 
 ### omni-analytics
