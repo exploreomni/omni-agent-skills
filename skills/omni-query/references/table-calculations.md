@@ -480,6 +480,52 @@ Swap the outer aggregator (`OMNI_FX_SUM`, `OMNI_FX_AVERAGE`, `OMNI_FX_MIN`, `OMN
 
 **Operand types matter** — both date operands must resolve to a DATE, not a TIMESTAMP. Use a `[date]`-truncated timeframe (`created_at[date]`) or wrap a timestamp field in a CAST node. A bare timestamp field produces an empty result with `swallow_errors: true` and a Calcite `SqlBasicCall cannot be cast to SqlLiteral` error without it.
 
+### 4.11 Conditional aggregates — `SUMIF`, `COUNTIF`, `AVERAGEIFS`
+
+```json
+{
+  "calc_name": "complete_revenue",
+  "original_formula": "=SUMIF(B:B,\"Complete\",C:C)",
+  "sql_expression": {
+    "type": "call",
+    "operator": "Omni.OMNI_FX_SUM_IF",
+    "operands": [
+      {
+        "type": "call",
+        "operator": "Omni.OMNI_OFFSET_MULTI",
+        "operands": [
+          { "type": "field", "field_name": "orders.status" },
+          { "type": "literal", "value": -536870911, "string_value": "-536870911" },
+          { "type": "literal", "value": 0,          "string_value": "0" },
+          { "type": "literal", "value": 1073741823, "string_value": "1073741823" },
+          { "type": "literal", "value": 1,          "string_value": "1" }
+        ]
+      },
+      { "type": "literal", "value": "Complete", "string_value": "Complete" },
+      {
+        "type": "call",
+        "operator": "Omni.OMNI_OFFSET_MULTI",
+        "operands": [
+          { "type": "field", "field_name": "orders.total_revenue" },
+          { "type": "literal", "value": -536870911, "string_value": "-536870911" },
+          { "type": "literal", "value": 0,          "string_value": "0" },
+          { "type": "literal", "value": 1073741823, "string_value": "1073741823" },
+          { "type": "literal", "value": 1,          "string_value": "1" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Three things that trip up hand-authoring:**
+
+1. **Operator name has an extra underscore** — `Omni.OMNI_FX_SUM_IF` (not `SUMIF`). Same pattern for `OMNI_FX_COUNT_IF`, `OMNI_FX_AVERAGE_IFS`, `OMNI_FX_MAX_IFS`, `OMNI_FX_MIN_IFS`, `OMNI_FX_COUNT_IFS`, `OMNI_FX_SUM_IFS`. The Excel formula keeps the original spelling — the parser inserts the underscore on the way in.
+2. **Range operands wrap the field in a full-column `OMNI_OFFSET_MULTI`** — the magic tuple `(field, -536870911, 0, 1073741823, 1)` is the canonical "entire result-set column" range. Bare `{type:"field"}` is rejected. This same wrapper appears in `RANK`, `VLOOKUP`, `XLOOKUP`, and other cross-row operators — it's the calc engine's representation of a column reference (an Excel `C:C`).
+3. **Criterion is an Excel match-string literal**, not a SQL expression — `"Complete"`, `">1000000"`, `"<>0"`, `">=2024-01-01"`. The engine parses the Excel comparison operator. Wrap in a `literal` node with both `value` and `string_value` set to the match string.
+
+**Result semantics**: `SUMIF` returns a single value broadcast across every row of the result set (the window covers all rows). It is **not** a row-grouped conditional aggregate — for that, use `SUM(CASE WHEN cond THEN value END)` instead.
+
 ## 5. Validation rules and gotchas
 
 1. **`calc_name` uniqueness** — must be unique within `calculations[]`; used as the result column alias.
