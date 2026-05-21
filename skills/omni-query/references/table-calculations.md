@@ -6,6 +6,8 @@ Complete reference for authoring the `calculations[]` array in an Omni query spe
 
 The query API accepts **one** shape per calculation: an object with `calc_name` + a parsed AST in `sql_expression`. The workbook-frontend `{name, formula}` style is NOT accepted by the query API — it exists only in YAML / UI input layers and is translated to the AST before the query runs.
 
+At execution time, the calc engine wraps the base aggregation query in an outer `SELECT` and emits each calc as a column there. Window-style operators (`OMNI_RUNNING_TOTAL`, `OMNI_OFFSET_MULTI`, `OMNI_PERCENT_OF_TOTAL`, etc.) compile to a SQL `... OVER (...)` clause in that outer layer, so the shared data model never needs window functions to support them.
+
 ```ts
 type OmniCalculation = {
   calc_name: string                          // required — identifier; becomes the column alias
@@ -111,7 +113,7 @@ Rough rule: things that map cleanly to a SQL operator/keyword live under `SqlStd
 **Logic / control (`SqlStdOperatorTable.*`):**
 `AND`, `OR`, `NOT`, `CASE`, `CAST`, `EXTRACT`
 
-**Date / string:** `Omni.OMNI_FX_DATEDIF`, `Omni.OMNI_EPOCH`, `SqlStdOperatorTable.TRIM`, `SqlStdOperatorTable.EXTRACT`
+**Date / string:** `Omni.OMNI_FX_DATEDIF`, `Omni.OMNI_EPOCH`, `Omni.OMNI_FX_TEXT` (Excel `TEXT(value, format)` — formats a value to string with a mask like `"YYYY-MM"` or `"#,##0.00"`; compiles to dialect-appropriate `TO_CHAR(...)`), `SqlStdOperatorTable.TRIM`, `SqlStdOperatorTable.EXTRACT`
 
 **AI (Snowflake/Databricks only):**
 `Omni.OMNI_FX_AI_CLASSIFY`, `OMNI_FX_AI_EXTRACT`, `OMNI_FX_AI_COMPLETE`, `OMNI_FX_AI_SENTIMENT`, `OMNI_FX_AI_SUMMARIZE`
@@ -217,6 +219,8 @@ Surfaced in the Omni UI as quick-calc templates. Each takes one `field` operand 
 ]
 ```
 
+**Prefer this over inlining.** When one calc's logic depends on another's, reference by `field_name` rather than duplicating the dependent AST inline. The query engine inlines the reference automatically — the compiled SQL is identical — but the named-reference form is smaller, single-source-of-truth, and stays in sync if you later change the source calc.
+
 ### 4.5 Conditional — `IF(revenue > 1000, "high", "low")`
 
 ```json
@@ -239,6 +243,115 @@ Surfaced in the Omni UI as quick-calc templates. Each takes one `field` operand 
 }
 ```
 
+### 4.6 Moving average — trailing 3 periods
+
+```json
+{
+  "calc_name": "trailing_3mo_avg",
+  "label": "3-Month Trailing Avg",
+  "format": "currency_2",
+  "sql_expression": {
+    "type": "call",
+    "operator": "Omni.OMNI_FX_AVERAGE",
+    "operands": [{
+      "type": "call",
+      "operator": "Omni.OMNI_OFFSET_MULTI",
+      "operands": [
+        { "type": "field", "field_name": "orders.total_revenue" },
+        { "type": "literal", "value": -2, "string_value": "-2" },
+        { "type": "literal", "value":  0, "string_value":  "0" },
+        { "type": "literal", "value":  3, "string_value":  "3" },
+        { "type": "literal", "value":  1, "string_value":  "1" }
+      ]
+    }]
+  }
+}
+```
+
+Compiles to `AVG(total_revenue) OVER (ORDER BY <sort_field> ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)`.
+
+**`OMNI_OFFSET_MULTI` operand positions:**
+
+| Position | Meaning |
+|---|---|
+| 1 | field reference |
+| 2 | window start offset — integer literal, or `Omni.ABSOLUTE_POSITION(N)` for a fixed anchor row |
+| 3 | window end offset (`0` = current row) |
+| 4 | window size (number of rows in the range) |
+| 5 | step |
+
+Cumulative-from-start (running total, §4.3): `(field, ABSOLUTE_POSITION(1), 0, 1, 1)` → `ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`.
+
+Trailing N-period window (moving avg/sum/min/max): `(field, -(N-1), 0, N, 1)` → `ROWS BETWEEN (N-1) PRECEDING AND CURRENT ROW`.
+
+Swap the outer aggregator (`OMNI_FX_AVERAGE`, `OMNI_FX_SUM`, `OMNI_FX_MIN`, `OMNI_FX_MAX`, `OMNI_FX_MEDIAN`) for different window aggregates over the same range.
+
+### 4.7 Conditional buckets and formatted labels — `IFS` + `&` + `TEXT`
+
+Classify a value into named buckets, then build a labeled string from two calcs:
+
+```json
+[
+  {
+    "calc_name": "sales_tier",
+    "label": "Sales Tier",
+    "sql_expression": {
+      "type": "call", "operator": "Omni.OMNI_FX_IFS",
+      "operands": [
+        { "type": "call", "operator": "SqlStdOperatorTable.GREATER_THAN_OR_EQUAL",
+          "operands": [
+            { "type": "field", "field_name": "orders.total_revenue" },
+            { "type": "literal", "value": 1500000, "string_value": "1500000" }
+          ]
+        },
+        { "type": "literal", "value": "High" },
+        { "type": "call", "operator": "SqlStdOperatorTable.GREATER_THAN_OR_EQUAL",
+          "operands": [
+            { "type": "field", "field_name": "orders.total_revenue" },
+            { "type": "literal", "value": 800000, "string_value": "800000" }
+          ]
+        },
+        { "type": "literal", "value": "Mid" },
+        { "type": "call", "operator": "SqlStdOperatorTable.EQUALS",
+          "operands": [
+            { "type": "literal", "value": 1, "string_value": "1" },
+            { "type": "literal", "value": 1, "string_value": "1" }
+          ]
+        },
+        { "type": "literal", "value": "Low" }
+      ]
+    }
+  },
+  {
+    "calc_name": "tier_label",
+    "label": "Month + Tier",
+    "sql_expression": {
+      "type": "call", "operator": "Omni.OMNI_FX_AMPERSAND",
+      "operands": [
+        { "type": "call", "operator": "Omni.OMNI_FX_AMPERSAND",
+          "operands": [
+            { "type": "call", "operator": "Omni.OMNI_FX_TEXT",
+              "operands": [
+                { "type": "field", "field_name": "orders.month" },
+                { "type": "literal", "value": "YYYY-MM" }
+              ]
+            },
+            { "type": "literal", "value": " — " }
+          ]
+        },
+        { "type": "field", "field_name": "sales_tier" }
+      ]
+    }
+  }
+]
+```
+
+**`OMNI_FX_IFS` operand pattern** — alternating `(condition, value, condition, value, ...)`. There is no separate "else" operator. For the default branch, pass a tautology like `EQUALS(1, 1)` as the final condition; it compiles to `WHEN TRUE THEN <default>`. Full compiled form: `CASE WHEN ... THEN ... WHEN TRUE THEN <default> ELSE NULL END`.
+
+**`OMNI_FX_AMPERSAND` (string concat `&`) is binary**, not variadic. For three or more pieces, nest: `((a & b) & c)`. The compiler emits null-safe `CONCAT(COALESCE(a, ''), COALESCE(b, ''))` — a NULL operand becomes `''`, not NULL.
+
+**`OMNI_FX_TEXT(value, format)`** — Excel's `TEXT()` for formatting; compiles to dialect-appropriate `TO_CHAR(...)`. Common masks: `"YYYY-MM"`, `"YYYY-MM-DD"`, `"#,##0.00"`, `"0.0%"`.
+
 ## 5. Validation rules and gotchas
 
 1. **`calc_name` uniqueness** — must be unique within `calculations[]`; used as the result column alias.
@@ -257,6 +370,6 @@ Constructing arbitrary ASTs from scratch is brittle. Pragmatic order of operatio
 
 1. **Try a named template operator first** for the five canonical cases (`OMNI_PERCENT_OF_TOTAL`, `OMNI_PERCENT_OF_PREVIOUS`, `OMNI_PERCENT_CHANGE_FROM_PREVIOUS`, `OMNI_RUNNING_TOTAL`, `OMNI_RANK`) — single `field` operand with `for_calc: true`.
 2. **Compose from primitives** (`OMNI_FX_PLUS`/`MINUS`/`MULTIPLY`/`SAFE_DIVIDE`, `SqlStdOperatorTable.CASE`, `OMNI_FX_IFS`, aggregates) for arithmetic and conditional logic over selected fields.
-3. **Round-trip when unsure** — build the calc once in the Omni UI, then `omni documents get-queries <id>` and copy the `sql_expression` verbatim. Cheaper and more reliable than guessing operand shapes for less-common operators (`OFFSET_MULTI`, `XLOOKUP`, AI functions).
+3. **Round-trip via `omni ai generate-query` when unsure** — for any calc beyond simple arithmetic or template operators, ask the AI to generate it and copy the AST: `omni ai generate-query <modelId> "<description of the calc>" --run-query=false`. Returns the parsed `sql_expression` directly; faster than building in the UI and reliably produces working operand shapes for less-common operators (`OFFSET_MULTI`, `IFS`, `XLOOKUP`, `TEXT`, AI functions). Fall back to the UI + `omni documents get-queries <id>` only when the AI's output is wrong; usually it isn't.
 4. **Always** add `calc_name` to `query.fields` (and the outer `queryPresentation.fields` for dashboard tiles).
 5. **Set `swallow_errors: true`** for programmatically authored calcs so a bad operand renders an empty cell rather than failing the whole tile.
