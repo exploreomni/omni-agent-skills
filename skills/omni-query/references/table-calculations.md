@@ -455,6 +455,31 @@ SUM(CASE WHEN col_num BETWEEN 1 AND 50 THEN total_revenue ELSE NULL END)
 
 Swap the outer aggregator (`OMNI_FX_SUM`, `OMNI_FX_AVERAGE`, `OMNI_FX_MIN`, `OMNI_FX_MAX`, `OMNI_FX_MEDIAN`) for different row-summary statistics across the pivot columns.
 
+### 4.10 Date diff — `DATEDIF(start, end, "D")`
+
+```json
+{
+  "calc_name": "days_to_ship",
+  "original_formula": "=DATEDIF(A1,B1,\"D\")",
+  "sql_expression": {
+    "type": "call",
+    "operator": "Omni.OMNI_FX_DATEDIF",
+    "operands": [
+      { "type": "literal", "value": "DAY", "string_value": "DAY" },
+      { "type": "field", "field_name": "orders.created_at[date]" },
+      { "type": "field", "field_name": "orders.shipped_at[date]" }
+    ]
+  }
+}
+```
+
+**Two non-obvious things vs. the Excel source formula:**
+
+1. **Operand order is reordered** — the AST is `[unit, start, end]`, but the Excel formula the user types is `=DATEDIF(start, end, unit)`. The parser swaps the unit to position 1.
+2. **Unit is spelled out, not the Excel single-letter code** — `"DAY"`, `"MONTH"`, `"YEAR"` in the AST (with `string_value` mirroring `value`). The Excel codes (`"D"`, `"M"`, `"Y"`, `"MD"`, `"YM"`, `"YD"`) are translated to these names at formula-parse time and are *not* what the query API accepts.
+
+**Operand types matter** — both date operands must resolve to a DATE, not a TIMESTAMP. Use a `[date]`-truncated timeframe (`created_at[date]`) or wrap a timestamp field in a CAST node. A bare timestamp field produces an empty result with `swallow_errors: true` and a Calcite `SqlBasicCall cannot be cast to SqlLiteral` error without it.
+
 ## 5. Validation rules and gotchas
 
 1. **`calc_name` uniqueness** — must be unique within `calculations[]`; used as the result column alias.
