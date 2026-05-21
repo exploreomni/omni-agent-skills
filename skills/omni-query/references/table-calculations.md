@@ -352,6 +352,109 @@ Classify a value into named buckets, then build a labeled string from two calcs:
 
 **`OMNI_FX_TEXT(value, format)`** — Excel's `TEXT()` for formatting; compiles to dialect-appropriate `TO_CHAR(...)`. Common masks: `"YYYY-MM"`, `"YYYY-MM-DD"`, `"#,##0.00"`, `"0.0%"`.
 
+### 4.8 Running total inside a pivot (engine auto-partitions)
+
+When the query has `pivots[]` set, the template window operators automatically partition by the pivot column — no special configuration needed. Just use the template form with default `outside_pivot: false`:
+
+```json
+{
+  "calc_name": "segment_running_total",
+  "label": "Running Total (per pivot segment)",
+  "format": "currency_2",
+  "outside_pivot": false,
+  "sql_expression": {
+    "type": "call",
+    "operator": "Omni.OMNI_RUNNING_TOTAL",
+    "operands": [
+      { "type": "field", "field_name": "orders.total_revenue", "for_calc": true }
+    ]
+  }
+}
+```
+
+Compiles (inside a `pivots: ["orders.status"]` query) to:
+
+```sql
+SUM(total_revenue) OVER (PARTITION BY "$omni_pivot_col_num" ORDER BY ...
+                         ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+```
+
+The auto-partition applies to all five template operators (`OMNI_PERCENT_OF_TOTAL`, `OMNI_PERCENT_OF_PREVIOUS`, `OMNI_PERCENT_CHANGE_FROM_PREVIOUS`, `OMNI_RUNNING_TOTAL`, `OMNI_RANK`). Each pivot column gets its own independent calc series.
+
+**Power-user alternative — `window_call` node.** For partitioning beyond the auto-injected pivot column (e.g., partition by an arbitrary dimension that isn't the pivot key), use a `window_call` node directly. This is a sixth AST shape not in the `SERIALIZED_SQL_EXPR_TYPE` enum from §2 — it maps straight to a SQL window spec:
+
+```json
+{
+  "type": "window_call",
+  "aggregate": {
+    "type": "call",
+    "operator": "SqlStdOperatorTable.SUM",
+    "operands": [{ "type": "field", "field_name": "orders.total_revenue" }]
+  },
+  "partition_args": [{ "type": "field", "field_name": "orders.status" }],
+  "order_by_args":  [{ "type": "field", "field_name": "orders.month" }],
+  "is_rows": true,
+  "lower_bound": { "type": "literal", "value": {
+    "enum_class_name": "org.apache.calcite.sql.SqlWindow$Bound",
+    "name": "UNBOUNDED_PRECEDING"
+  }},
+  "upper_bound": { "type": "literal", "value": {
+    "enum_class_name": "org.apache.calcite.sql.SqlWindow$Bound",
+    "name": "CURRENT_ROW"
+  }}
+}
+```
+
+Calcite bound enum names: `UNBOUNDED_PRECEDING`, `CURRENT_ROW`, `UNBOUNDED_FOLLOWING` (and numeric forms for explicit row offsets). `is_rows: true` emits `ROWS BETWEEN`; `false` emits `RANGE BETWEEN`. Skip this node and stick with the template form unless you need explicit partition control.
+
+### 4.9 Row total across pivot columns (outside pivot)
+
+To compute a single value per row that aggregates across all pivot columns, set `outside_pivot: true` and wrap an aggregator around `OMNI_PIVOT_OFFSET`:
+
+```json
+{
+  "calc_name": "row_total_sales",
+  "label": "Row Total (across all pivot columns)",
+  "format": "currency_2",
+  "outside_pivot": true,
+  "sql_expression": {
+    "type": "call",
+    "operator": "Omni.OMNI_FX_SUM",
+    "operands": [{
+      "type": "call",
+      "operator": "Omni.OMNI_PIVOT_OFFSET",
+      "operands": [
+        { "type": "field", "field_name": "orders.total_revenue" },
+        { "type": "literal", "value":  0, "string_value":  "0" },
+        { "type": "literal", "value":  0, "string_value":  "0" },
+        { "type": "literal", "value":  1, "string_value":  "1" },
+        { "type": "literal", "value": 50, "string_value": "50" }
+      ]
+    }]
+  }
+}
+```
+
+Compiles to:
+
+```sql
+SUM(CASE WHEN col_num BETWEEN 1 AND 50 THEN total_revenue ELSE NULL END)
+  OVER (PARTITION BY row_num ORDER BY col_num
+        ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+```
+
+**`OMNI_PIVOT_OFFSET` operand positions** (decoded by analogy with the compiled SQL):
+
+| Position | Meaning |
+|---|---|
+| 1 | field reference |
+| 2 | row-offset start (use `0` for current row only) |
+| 3 | row-offset end (use `0` for current row only) |
+| 4 | column-index range start, inclusive (`1` = first pivot column) |
+| 5 | column-index range end, inclusive (`50` matches Omni's default column cap; raise if you've increased `column_limit`) |
+
+Swap the outer aggregator (`OMNI_FX_SUM`, `OMNI_FX_AVERAGE`, `OMNI_FX_MIN`, `OMNI_FX_MAX`, `OMNI_FX_MEDIAN`) for different row-summary statistics across the pivot columns.
+
 ## 5. Validation rules and gotchas
 
 1. **`calc_name` uniqueness** — must be unique within `calculations[]`; used as the result column alias.
@@ -360,9 +463,10 @@ Classify a value into named buckets, then build a labeled string from two calcs:
 4. **References to unselected fields** — by default a calc can only reference fields in `query.fields`. Set `allow_refs_to_unselected_fields: true` to relax (useful for AI-generated calcs that pull in implicit measures).
 5. **Circular references** — calcs can reference other calcs by `field_name`, but cycles error out.
 6. **Cross-row operators are opaque to drill** — `OMNI_PERCENT_OF_TOTAL`, `OMNI_PERCENT_OF_PREVIOUS`, `OMNI_PERCENT_CHANGE_FROM_PREVIOUS`, `OMNI_RUNNING_TOTAL`, `OMNI_RANK`, `OMNI_OFFSET_*`, `OMNI_PIVOT_OFFSET`, `VLOOKUP`/`XLOOKUP`/`TLOOKUP` skip same-row reference extraction. Set `drill_disabled: true` if you want the drill menu suppressed.
-7. **`outside_pivot: true`** — evaluates the calc on the unpivoted intermediate result; semantics differ from a calc inside the pivot block. Default `false`.
+7. **`outside_pivot: true`** — evaluates the calc once per pivoted row across the column axis instead of once per pivot segment. Outside-pivot calcs almost always wrap an aggregator (`OMNI_FX_SUM`, `OMNI_FX_AVERAGE`, etc.) around `OMNI_PIVOT_OFFSET` to sweep across the column-index range — see §4.9. Default `false` (engine auto-partitions template operators by pivot column — see §4.8).
 8. **Don't author `sql:`** — the backend compiles it; it's read-only output.
 9. **YAML vs API asymmetry** — workbook YAML accepts the friendly form `calc_1: { sql: "=SUM(B$1:B1)", label: "..." }` and parses it to the AST on load. The query API and dashboard tile renderers require the AST in `sql_expression` — they do not run the formula→AST translator.
+10. **Pivoted queries reject `limit: null`** — when `pivots[]` is non-empty, pass an explicit numeric limit (e.g., `5000`). `null` returns `400 Bad Request: query.limit: Unlimited limit (null) cannot be used with pivoted queries`. Not calc-specific but bites every calc-on-pivot example.
 
 ## 6. Authoring strategy
 
