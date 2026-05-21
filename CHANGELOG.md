@@ -6,6 +6,14 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.3.10] - 2026-05-21
+
+### omni-analytics
+
+**Added**
+- `skills/omni-query/references/table-calculations.md` — complete reference for authoring the `calculations[]` array in an Omni query spec: `OmniCalculation` wire shape, `SerializedSqlExpr` AST node types, operator catalog across the `Omni.*` and `SqlStdOperatorTable.*` namespaces, the five Omni-only template operators (`OMNI_PERCENT_OF_TOTAL`, `OMNI_PERCENT_OF_PREVIOUS`, `OMNI_PERCENT_CHANGE_FROM_PREVIOUS`, `OMNI_RUNNING_TOTAL`, `OMNI_RANK`), five canonical worked examples (ratio, percent of total, running total in lowered form, chained calcs, CASE conditional), validation rules, and authoring strategy.
+- `omni-query` SKILL.md — new "Table Calculations" subsection in *Running a Query* covering the minimum-viable calc shape, the `calc_name`-must-also-be-in-`query.fields` gotcha, the five template operators, and a pointer to the new reference. Closes a gap where the skill previously had no calc guidance, leading to incorrect `{name, formula}` shapes being sent to the query API.
+
 ## [1.3.9] - 2026-05-20
 
 ### omni-analytics

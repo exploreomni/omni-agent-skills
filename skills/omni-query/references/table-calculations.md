@@ -1,0 +1,262 @@
+# Table Calculations Reference
+
+Complete reference for authoring the `calculations[]` array in an Omni query spec. Table calculations are post-query computed columns (running totals, % of total, ratios, conditionals) evaluated on the result set after the SQL runs.
+
+## 1. Wire shape
+
+The query API accepts **one** shape per calculation: an object with `calc_name` + a parsed AST in `sql_expression`. The workbook-frontend `{name, formula}` style is NOT accepted by the query API — it exists only in YAML / UI input layers and is translated to the AST before the query runs.
+
+```ts
+type OmniCalculation = {
+  calc_name: string                          // required — identifier; becomes the column alias
+  sql_expression: SerializedSqlExpr          // required — the AST (see §2)
+  label?: string                             // UI display label
+  format?: string                            // e.g. "currency_2", "#,##0.00", "0.0%"
+  description?: string
+  original_formula?: string                  // optional Excel-style source (informational only)
+  sql?: string                               // compiled SQL — set by backend; do not author
+  outside_pivot?: boolean                    // evaluate outside pivot grouping
+  swallow_errors?: boolean                   // suppress evaluation errors
+  allow_refs_to_unselected_fields?: boolean  // permit refs to fields not in query.fields
+  drill_disabled?: boolean
+}
+```
+
+**Required pair every time:** `calc_name` + `sql_expression`. Everything else is optional.
+
+### The non-obvious requirement that breaks tiles
+
+`calc_name` MUST also appear in `query.fields` (and, for dashboard tiles, in the outer `queryPresentation.fields`). The calculation is defined in `calculations[]` but only rendered as a column/series when its name is selected. A tile that "lost" its calc is almost always this.
+
+```json
+{
+  "fields": ["orders.month", "orders.total_revenue", "calc_0"],
+  "calculations": [{ "calc_name": "calc_0", "sql_expression": { ... } }]
+}
+```
+
+## 2. The AST: `SerializedSqlExpr`
+
+```ts
+enum SERIALIZED_SQL_EXPR_TYPE {
+  FIELD     = 'field',       // reference to a query field or another calc
+  LITERAL   = 'literal',     // number, string, boolean, null
+  CALL      = 'call',        // function/operator invocation — recursive
+  REFERENCE = 'reference',   // column-total / structural ref (rare)
+  SQL_TYPE  = 'sql_type',    // type tag for CAST
+  SUB_QUERY = 'sub_query',
+}
+```
+
+Five node shapes you author by hand:
+
+### `call` — operator invocation (the common case)
+```json
+{ "type": "call", "operator": "<namespace>.<NAME>", "operands": [ /* SerializedSqlExpr[] */ ] }
+```
+
+### `field` — reference to a query field or another calc
+```json
+{ "type": "field", "field_name": "users.count" }
+{ "type": "field", "field_name": "calc_0" }                          // ref another calc
+{ "type": "field", "field_name": "users.count", "for_calc": true }   // calc-scoped (used by row-window ops)
+```
+
+`field_name` is the **fully qualified** model field (`view.field`) or another calc's `calc_name`. Don't use `${...}` templating — that's view-YAML syntax, not calc-AST.
+
+### `literal` — constant
+```json
+{ "type": "literal", "value": 2 }
+{ "type": "literal", "value": "hello" }
+{ "type": "literal", "value": null }
+{ "type": "literal", "value": 1, "string_value": "1" }   // string_value mirrors value for offsets
+```
+
+### `reference` — column total / structural
+```json
+{ "type": "reference", "column_ref": ["users.count", "column_total"], "is_default_alias_scoped": false }
+```
+
+### `sql_type` — used as a CAST operand
+```json
+{ "type": "sql_type", "type_name_name": "DOUBLE", "precision": 0, "scale": 0 }
+```
+
+## 3. Operator namespaces
+
+Operator strings live in two namespaces. Both appear in the same AST.
+
+- **`Omni.*`** — Omni-specific functions and the Excel-formula vocabulary (`OMNI_FX_*`, `OMNI_PERCENT_OF_TOTAL`, `OMNI_OFFSET_MULTI`, `ABSOLUTE_POSITION`, etc.)
+- **`SqlStdOperatorTable.*`** — standard Calcite SQL operators (`PLUS`, `MINUS`, `DIVIDE`, `EQUALS`, `CASE`, `CAST`, `AND`, `OR`, `EXTRACT`, comparators, `ROW_NUMBER`, etc.)
+
+Rough rule: things that map cleanly to a SQL operator/keyword live under `SqlStdOperatorTable.*`; the Excel-flavored functions and Omni-only window ops live under `Omni.*`.
+
+### High-confidence operator subset
+
+**Arithmetic / comparison (`Omni.*` Excel-formula form):**
+`OMNI_FX_PLUS`, `OMNI_FX_MINUS`, `OMNI_FX_MULTIPLY`, `OMNI_FX_SAFE_DIVIDE`, `OMNI_FX_EQUALS`, `OMNI_FX_NOT_EQUALS`, `OMNI_FX_AMPERSAND` (string concat)
+
+**Arithmetic / comparison (`SqlStdOperatorTable.*`):**
+`PLUS`, `MINUS`, `MULTIPLY`, `DIVIDE`, `EQUALS`, `NOT_EQUALS`, `GREATER_THAN`, `GREATER_THAN_OR_EQUAL`, `LESS_THAN`, `LESS_THAN_OR_EQUAL`, `UNARY_MINUS`, `POWER`
+
+**Aggregates over the result set (`Omni.OMNI_FX_*`):**
+`SUM`, `COUNT`, `COUNTA`, `AVERAGE`, `MIN`, `MAX`, `MEDIAN`
+
+**Window / cross-row (`Omni.*`):**
+`OMNI_PERCENT_OF_TOTAL`, `OMNI_PERCENT_OF_PREVIOUS`, `OMNI_PERCENT_CHANGE_FROM_PREVIOUS`, `OMNI_RUNNING_TOTAL`, `OMNI_RANK`, `OMNI_LEGACY_OFFSET`, `OMNI_OFFSET_MULTI`, `ABSOLUTE_POSITION`, `OMNI_PIVOT_OFFSET`, `OMNI_FX_PIVOT_INDEX`
+
+**Logic (`Omni.*`):**
+`OMNI_FX_IFS`, `OMNI_FX_RANK`, `OMNI_FX_VLOOKUP`, `OMNI_FX_XLOOKUP`, `OMNI_FX_TLOOKUP`
+
+**Logic / control (`SqlStdOperatorTable.*`):**
+`AND`, `OR`, `NOT`, `CASE`, `CAST`, `EXTRACT`
+
+**Date / string:** `Omni.OMNI_FX_DATEDIF`, `Omni.OMNI_EPOCH`, `SqlStdOperatorTable.TRIM`, `SqlStdOperatorTable.EXTRACT`
+
+**AI (Snowflake/Databricks only):**
+`Omni.OMNI_FX_AI_CLASSIFY`, `OMNI_FX_AI_EXTRACT`, `OMNI_FX_AI_COMPLETE`, `OMNI_FX_AI_SENTIMENT`, `OMNI_FX_AI_SUMMARIZE`
+
+### The five "Omni-only" calc templates
+
+Surfaced in the Omni UI as quick-calc templates. Each takes one `field` operand with `for_calc: true`:
+
+- `Omni.OMNI_PERCENT_OF_TOTAL`
+- `Omni.OMNI_PERCENT_OF_PREVIOUS`
+- `Omni.OMNI_PERCENT_CHANGE_FROM_PREVIOUS`
+- `Omni.OMNI_RUNNING_TOTAL` — semantic form (alternatively, the lowered `SUM(OFFSET_MULTI(...))` form below)
+- `Omni.OMNI_RANK` (or `Omni.OMNI_FX_RANK`)
+
+## 4. Canonical examples
+
+### 4.1 Ratio: `users.count / 2`
+
+```json
+{
+  "calc_name": "calc_half",
+  "label": "Cohort %",
+  "sql_expression": {
+    "type": "call",
+    "operator": "Omni.OMNI_FX_SAFE_DIVIDE",
+    "operands": [
+      { "type": "field", "field_name": "users.count" },
+      { "type": "literal", "value": 2 }
+    ]
+  }
+}
+```
+
+### 4.2 Percent of total
+
+```json
+{
+  "calc_name": "calc_pct",
+  "label": "% of Total",
+  "format": "0.0%",
+  "sql_expression": {
+    "type": "call",
+    "operator": "Omni.OMNI_PERCENT_OF_TOTAL",
+    "operands": [
+      { "type": "field", "field_name": "orders.total_revenue", "for_calc": true }
+    ]
+  }
+}
+```
+
+### 4.3 Running total (lowered form, what `=SUM(B$1:B1)` produces)
+
+```json
+{
+  "calc_name": "calc_0",
+  "label": "Running Total",
+  "format": "currency_2",
+  "swallow_errors": true,
+  "original_formula": "=SUM(B$1:B1)",
+  "sql_expression": {
+    "type": "call",
+    "operator": "Omni.OMNI_FX_SUM",
+    "operands": [{
+      "type": "call",
+      "operator": "Omni.OMNI_OFFSET_MULTI",
+      "operands": [
+        { "type": "field", "field_name": "orders.total_revenue" },
+        { "type": "call", "operator": "Omni.ABSOLUTE_POSITION",
+          "operands": [{ "type": "literal", "value": 1, "string_value": "1" }] },
+        { "type": "literal", "value": 0, "string_value": "0" },
+        { "type": "literal", "value": 1, "string_value": "1" },
+        { "type": "literal", "value": 1, "string_value": "1" }
+      ]
+    }]
+  }
+}
+```
+
+### 4.4 Chained calc — `calc_outer = calc_inner * 10`
+
+```json
+[
+  {
+    "calc_name": "calc_inner",
+    "sql_expression": {
+      "type": "call", "operator": "Omni.OMNI_FX_SAFE_DIVIDE",
+      "operands": [
+        { "type": "field", "field_name": "users.count" },
+        { "type": "literal", "value": 2 }
+      ]
+    }
+  },
+  {
+    "calc_name": "calc_outer",
+    "sql_expression": {
+      "type": "call", "operator": "Omni.OMNI_FX_MULTIPLY",
+      "operands": [
+        { "type": "field", "field_name": "calc_inner" },
+        { "type": "literal", "value": 10 }
+      ]
+    }
+  }
+]
+```
+
+### 4.5 Conditional — `IF(revenue > 1000, "high", "low")`
+
+```json
+{
+  "calc_name": "calc_bucket",
+  "sql_expression": {
+    "type": "call",
+    "operator": "SqlStdOperatorTable.CASE",
+    "operands": [
+      { "type": "call", "operator": "SqlStdOperatorTable.GREATER_THAN",
+        "operands": [
+          { "type": "field", "field_name": "orders.total_revenue" },
+          { "type": "literal", "value": 1000 }
+        ]
+      },
+      { "type": "literal", "value": "high" },
+      { "type": "literal", "value": "low" }
+    ]
+  }
+}
+```
+
+## 5. Validation rules and gotchas
+
+1. **`calc_name` uniqueness** — must be unique within `calculations[]`; used as the result column alias.
+2. **`calc_name` must be in `query.fields`** — and in the dashboard tile's outer `queryPresentation.fields`. Missing this is the #1 cause of "calc defined but not showing".
+3. **Excel name rules** — no colons (`:`). Otherwise lenient.
+4. **References to unselected fields** — by default a calc can only reference fields in `query.fields`. Set `allow_refs_to_unselected_fields: true` to relax (useful for AI-generated calcs that pull in implicit measures).
+5. **Circular references** — calcs can reference other calcs by `field_name`, but cycles error out.
+6. **Cross-row operators are opaque to drill** — `OMNI_PERCENT_OF_TOTAL`, `OMNI_PERCENT_OF_PREVIOUS`, `OMNI_PERCENT_CHANGE_FROM_PREVIOUS`, `OMNI_RUNNING_TOTAL`, `OMNI_RANK`, `OMNI_OFFSET_*`, `OMNI_PIVOT_OFFSET`, `VLOOKUP`/`XLOOKUP`/`TLOOKUP` skip same-row reference extraction. Set `drill_disabled: true` if you want the drill menu suppressed.
+7. **`outside_pivot: true`** — evaluates the calc on the unpivoted intermediate result; semantics differ from a calc inside the pivot block. Default `false`.
+8. **Don't author `sql:`** — the backend compiles it; it's read-only output.
+9. **YAML vs API asymmetry** — workbook YAML accepts the friendly form `calc_1: { sql: "=SUM(B$1:B1)", label: "..." }` and parses it to the AST on load. The query API and dashboard tile renderers require the AST in `sql_expression` — they do not run the formula→AST translator.
+
+## 6. Authoring strategy
+
+Constructing arbitrary ASTs from scratch is brittle. Pragmatic order of operations:
+
+1. **Try a named template operator first** for the five canonical cases (`OMNI_PERCENT_OF_TOTAL`, `OMNI_PERCENT_OF_PREVIOUS`, `OMNI_PERCENT_CHANGE_FROM_PREVIOUS`, `OMNI_RUNNING_TOTAL`, `OMNI_RANK`) — single `field` operand with `for_calc: true`.
+2. **Compose from primitives** (`OMNI_FX_PLUS`/`MINUS`/`MULTIPLY`/`SAFE_DIVIDE`, `SqlStdOperatorTable.CASE`, `OMNI_FX_IFS`, aggregates) for arithmetic and conditional logic over selected fields.
+3. **Round-trip when unsure** — build the calc once in the Omni UI, then `omni documents get-queries <id>` and copy the `sql_expression` verbatim. Cheaper and more reliable than guessing operand shapes for less-common operators (`OFFSET_MULTI`, `XLOOKUP`, AI functions).
+4. **Always** add `calc_name` to `query.fields` (and the outer `queryPresentation.fields` for dashboard tiles).
+5. **Set `swallow_errors: true`** for programmatically authored calcs so a bad operand renders an empty cell rather than failing the whole tile.
