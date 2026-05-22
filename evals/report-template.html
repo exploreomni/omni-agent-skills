@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eval Review</title>
+<style>
+  /* ── Reset & Base ───────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #faf6f0;
+    color: #333;
+    line-height: 1.55;
+  }
+
+  /* ── Header ─────────────────────────────────────────── */
+  .header {
+    background: #2d2d2d;
+    color: #fff;
+    padding: 28px 40px 22px;
+  }
+  .header h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 26px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .header .subtitle {
+    font-size: 14px;
+    color: #b0b0b0;
+  }
+
+  /* ── Tabs ────────────────────────────────────────────── */
+  .tab-bar {
+    display: flex;
+    gap: 0;
+    background: #3a3a3a;
+    padding: 0 40px;
+  }
+  .tab-btn {
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 12px 24px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .tab-btn:hover { color: #ccc; }
+  .tab-btn.active {
+    color: #fff;
+    border-bottom-color: #e8a838;
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── Container ───────────────────────────────────────── */
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 40px 60px;
+  }
+
+  /* ── Section headings ────────────────────────────────── */
+  h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 20px;
+    font-weight: 600;
+    margin: 32px 0 16px;
+    color: #2d2d2d;
+  }
+  h2:first-child { margin-top: 0; }
+
+  h3 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 17px;
+    font-weight: 600;
+    margin: 24px 0 10px;
+    color: #444;
+  }
+
+  /* ── Tables ──────────────────────────────────────────── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    font-size: 14px;
+  }
+  thead th {
+    background: #2d2d2d;
+    color: #fff;
+    font-weight: 500;
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  tbody td {
+    padding: 9px 14px;
+    border-bottom: 1px solid #e5e0d8;
+  }
+  tbody tr:nth-child(even) { background: #f4efe7; }
+  tbody tr:hover { background: #ede7db; }
+
+  /* ── Delta colours ──────────────────────────────────── */
+  .delta-positive { color: #2e7d32; font-weight: 600; }
+  .delta-negative { color: #c62828; font-weight: 600; }
+  .delta-muted    { color: #6d6d3c; font-weight: 500; }
+
+  /* ── Pass / Fail marks ──────────────────────────────── */
+  .mark-pass { color: #2e7d32; font-weight: 700; font-size: 16px; }
+  .mark-fail { color: #c62828; font-weight: 700; font-size: 16px; }
+
+  /* ── Collapsible sections ───────────────────────────── */
+  .eval-section { margin-bottom: 16px; }
+  .eval-toggle {
+    width: 100%;
+    text-align: left;
+    background: #eae4da;
+    border: 1px solid #d9d2c6;
+    border-radius: 6px;
+    padding: 12px 18px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.12s;
+  }
+  .eval-toggle:hover { background: #e0d9cd; }
+  .eval-toggle .arrow {
+    display: inline-block;
+    transition: transform 0.2s;
+    font-size: 12px;
+  }
+  .eval-toggle.open .arrow { transform: rotate(90deg); }
+  .eval-body {
+    display: none;
+    padding: 16px 0 8px;
+  }
+  .eval-body.open { display: block; }
+
+  /* ── Outputs tab ────────────────────────────────────── */
+  .output-controls {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .output-controls label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .output-controls select {
+    font-size: 14px;
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+  }
+
+  .output-viewer {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 20px 24px;
+    min-height: 200px;
+    max-height: 70vh;
+    overflow: auto;
+    white-space: pre-wrap;
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #333;
+  }
+  .output-viewer .code-block {
+    background: #2d2d2d;
+    color: #e6e6e6;
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin: 8px 0;
+    overflow-x: auto;
+    font-size: 12.5px;
+  }
+  .output-viewer .tool-call {
+    background: #f0ebe3;
+    border-left: 3px solid #c8a96e;
+    padding: 8px 14px;
+    margin: 6px 0;
+    border-radius: 0 4px 4px 0;
+  }
+
+  .nav-hint {
+    font-size: 12px;
+    color: #999;
+    margin-top: 8px;
+  }
+
+  /* ── Evidence tooltip ───────────────────────────────── */
+  .evidence {
+    font-size: 12px;
+    color: #666;
+    font-style: italic;
+    margin-top: 2px;
+    padding: 4px 8px;
+    background: #f9f6f1;
+    border-left: 2px solid #ccc;
+  }
+
+  /* ── Summary stat cards ─────────────────────────────── */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: #fff;
+    border: 1px solid #e0dbd2;
+    border-radius: 8px;
+    padding: 18px 20px;
+    text-align: center;
+  }
+  .stat-card .label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    margin-bottom: 6px;
+  }
+  .stat-card .value {
+    font-size: 22px;
+    font-weight: 700;
+    color: #2d2d2d;
+  }
+
+  /* ── Print ──────────────────────────────────────────── */
+  @media print {
+    .tab-bar { display: none; }
+    .tab-panel { display: block !important; }
+    .eval-body { display: block !important; }
+    .header { background: #2d2d2d; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { background: #fff; }
+  }
+
+  /* ── Responsive ─────────────────────────────────────── */
+  @media (max-width: 720px) {
+    .header, .container, .tab-bar { padding-left: 20px; padding-right: 20px; }
+    table { font-size: 12px; }
+    thead th, tbody td { padding: 7px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<script id="eval-data" type="application/json"></script>
+
+<div class="header">
+  <h1 id="page-title">Eval Review</h1>
+  <div class="subtitle" id="page-subtitle"></div>
+</div>
+
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="benchmark">Benchmark</button>
+  <button class="tab-btn" data-tab="outputs">Outputs</button>
+</div>
+
+<!-- ═══════════════ Benchmark Tab ═══════════════ -->
+<div id="tab-benchmark" class="tab-panel active">
+  <div class="container">
+    <h2>Summary</h2>
+    <div id="summary-table-wrap"></div>
+
+    <h2>Per-Eval Breakdown</h2>
+    <div id="per-eval-wrap"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ Outputs Tab ═══════════════ -->
+<div id="tab-outputs" class="tab-panel">
+  <div class="container">
+    <h2>Agent Outputs</h2>
+    <div class="output-controls">
+      <label for="sel-eval">Eval</label>
+      <select id="sel-eval"></select>
+      <label for="sel-config">Config</label>
+      <select id="sel-config">
+        <option value="with_skill">with_skill</option>
+        <option value="without_skill">without_skill</option>
+      </select>
+    </div>
+    <div id="output-content" class="output-viewer">
+      <em>Select an eval and config to view output.</em>
+    </div>
+    <div class="nav-hint">Tip: use <kbd>&larr;</kbd> / <kbd>&rarr;</kbd> arrow keys to move between evals</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ── Data ──────────────────────────────────────────── */
+  var raw = document.getElementById("eval-data").textContent.trim();
+  if (!raw) { document.body.innerHTML = "<p style='padding:40px'>No eval data found.</p>"; return; }
+  var D = JSON.parse(raw);
+  // D = { skill, model, iteration, run_date, run_summary, evals[] }
+  // run_summary = { with_skill: {pass_rate, time_seconds, tokens}, without_skill: {...}, delta: {...} }
+  // evals[i] = { id, prompt, with_skill: {pass_rate, duration_s, tokens, result, assertions[]}, without_skill: {...} }
+
+  /* ── Header ────────────────────────────────────────── */
+  document.getElementById("page-title").textContent =
+    "Eval Review: " + (D.skill || "unknown");
+  document.title = "Eval Review: " + (D.skill || "unknown");
+
+  var date = D.run_date ? new Date(D.run_date).toLocaleDateString("en-US", {
+    year: "numeric", month: "short", day: "numeric"
+  }) : "";
+  document.getElementById("page-subtitle").textContent =
+    [D.model,
+     D.reasoning_effort ? "effort: " + D.reasoning_effort : "",
+     D.iteration ? "iteration " + D.iteration : "",
+     date]
+      .filter(Boolean).join("  ·  ");
+
+  /* ── Helpers ───────────────────────────────────────── */
+  function pct(n)       { return n == null ? "—" : (n * 100).toFixed(0) + "%"; }
+  function fmt1(n)      { return n == null ? "—" : Number(n).toFixed(1); }
+  function fmtInt(n)    { return n == null ? "—" : Math.round(n).toLocaleString(); }
+  function pctDelta(d)  {
+    if (d == null) return { text: "—", cls: "" };
+    var t = (d >= 0 ? "+" : "") + (d * 100).toFixed(1) + " pp";
+    return { text: t, cls: d > 0.01 ? "delta-positive" : d < -0.01 ? "delta-negative" : "delta-muted" };
+  }
+  function numDelta(d, higherIsBad) {
+    if (d == null) return { text: "—", cls: "" };
+    var t = (d >= 0 ? "+" : "") + fmt1(d);
+    var cls = higherIsBad ? "delta-muted" : "delta-muted";
+    return { text: t, cls: cls };
+  }
+
+  function el(tag, props, children) {
+    var e = document.createElement(tag);
+    if (props) Object.keys(props).forEach(function(k) {
+      if (k === "className") e.className = props[k];
+      else if (k === "innerHTML") e.innerHTML = props[k];
+      else if (k === "textContent") e.textContent = props[k];
+      else e.setAttribute(k, props[k]);
+    });
+    if (children) children.forEach(function(c) { if (c) e.appendChild(c); });
+    return e;
+  }
+
+  function escHtml(s) {
+    if (!s) return "";
+    return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  /* ── Tab switching ─────────────────────────────────── */
+  document.querySelectorAll(".tab-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      document.querySelectorAll(".tab-btn").forEach(function(b){ b.classList.remove("active"); });
+      btn.classList.add("active");
+      document.querySelectorAll(".tab-panel").forEach(function(p){ p.classList.remove("active"); });
+      document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+    });
+  });
+
+  /* ══════════════════════════════════════════════════════
+     BENCHMARK TAB
+     ══════════════════════════════════════════════════════ */
+
+  var rs  = D.run_summary || {};
+  var ws  = rs.with_skill    || {};
+  var wo  = rs.without_skill || {};
+  var del = rs.delta         || {};
+
+  /* -- Summary table ----------------------------------- */
+  // When n_runs > 1 (--repeat mode), append " · median (q1–q3)" to robust-stat metrics.
+  function withMedianPct(stat) {
+    if (!stat || stat.n == null || stat.n < 2 || stat.median == null) return "";
+    var iqr = stat.iqr || [stat.median, stat.median];
+    return ' <small style="color:#888"> · med ' + pct(stat.median) +
+           " (" + pct(iqr[0]) + "–" + pct(iqr[1]) + ")</small>";
+  }
+  function withMedianNum(stat, fmt) {
+    if (!stat || stat.n == null || stat.n < 2 || stat.median == null) return "";
+    var iqr = stat.iqr || [stat.median, stat.median];
+    return ' <small style="color:#888"> · med ' + fmt(stat.median) +
+           " (" + fmt(iqr[0]) + "–" + fmt(iqr[1]) + ")</small>";
+  }
+
+  (function() {
+    var wrap = document.getElementById("summary-table-wrap");
+    var rows = [
+      {
+        label: "Pass Rate",
+        wsVal: pct(ws.pass_rate && ws.pass_rate.mean) + " <small>±" + pct(ws.pass_rate && ws.pass_rate.stddev) + "</small>" + withMedianPct(ws.pass_rate),
+        woVal: pct(wo.pass_rate && wo.pass_rate.mean) + " <small>±" + pct(wo.pass_rate && wo.pass_rate.stddev) + "</small>" + withMedianPct(wo.pass_rate),
+        delta: pctDelta(del.pass_rate)
+      },
+      {
+        label: "Time (s)",
+        wsVal: fmt1(ws.time_seconds && ws.time_seconds.mean) + " <small>±" + fmt1(ws.time_seconds && ws.time_seconds.stddev) + "</small>" + withMedianNum(ws.time_seconds, fmt1),
+        woVal: fmt1(wo.time_seconds && wo.time_seconds.mean) + " <small>±" + fmt1(wo.time_seconds && wo.time_seconds.stddev) + "</small>" + withMedianNum(wo.time_seconds, fmt1),
+        delta: numDelta(del.time_seconds, true)
+      },
+      {
+        label: "Tokens",
+        wsVal: fmtInt(ws.tokens && ws.tokens.mean) + " <small>±" + fmtInt(ws.tokens && ws.tokens.stddev) + "</small>" + withMedianNum(ws.tokens, fmtInt),
+        woVal: fmtInt(wo.tokens && wo.tokens.mean) + " <small>±" + fmtInt(wo.tokens && wo.tokens.stddev) + "</small>" + withMedianNum(wo.tokens, fmtInt),
+        delta: numDelta(del.tokens, true)
+      }
+    ];
+
+    var totalN = (ws.pass_rate && ws.pass_rate.n) || 0;
+    if (totalN >= 2) {
+      wrap.appendChild(el("p", {
+        style: "font-size:12px;color:#888;margin-bottom:8px;font-style:italic",
+        textContent: "Reporting mean ± stddev and median (Q1–Q3) across " + totalN + " runs."
+      }));
+    }
+
+    var tbl   = el("table");
+    var thead = el("thead", null, [el("tr", null, [
+      el("th", {textContent: "Metric"}),
+      el("th", {textContent: "With Skill"}),
+      el("th", {textContent: "Without Skill"}),
+      el("th", {textContent: "Delta"})
+    ])]);
+    tbl.appendChild(thead);
+
+    var tbody = el("tbody");
+    rows.forEach(function(r) {
+      tbody.appendChild(el("tr", null, [
+        el("td", {innerHTML: "<strong>" + r.label + "</strong>"}),
+        el("td", {innerHTML: r.wsVal}),
+        el("td", {innerHTML: r.woVal}),
+        el("td", {innerHTML: r.delta.text, className: r.delta.cls})
+      ]));
+    });
+    tbl.appendChild(tbody);
+    wrap.appendChild(tbl);
+  })();
+
+  /* -- Per-eval breakdown ----------------------------- */
+  (function() {
+    var wrap  = document.getElementById("per-eval-wrap");
+    var evals = D.evals || [];
+    if (!evals.length) { wrap.innerHTML = "<p>No per-eval data available.</p>"; return; }
+
+    evals.forEach(function(ev) {
+      var label = "Eval " + ev.id + (ev.prompt ? ": " + ev.prompt.slice(0, 80) + (ev.prompt.length > 80 ? "…" : "") : "");
+
+      var toggle = el("button", {
+        className: "eval-toggle",
+        innerHTML: '<span class="arrow">&#9654;</span> ' + escHtml(label)
+      });
+      var body = el("div", {className: "eval-body"});
+
+      toggle.addEventListener("click", function() {
+        toggle.classList.toggle("open");
+        body.classList.toggle("open");
+      });
+
+      /* Run stats — use median+IQR when n_runs>1, otherwise single value. */
+      function cellFor(stat, single, fmt) {
+        // stat: from agg.<metric> (may be undefined). single: the single-run value. fmt: formatter.
+        if (stat && stat.n != null && stat.n >= 2 && stat.median != null) {
+          var iqr = stat.iqr || [stat.median, stat.median];
+          return fmt(stat.median) + ' <small style="color:#888">(' + fmt(iqr[0]) + "–" + fmt(iqr[1]) + ")</small>";
+        }
+        return fmt(single);
+      }
+
+      var statTbl = el("table");
+      statTbl.appendChild(el("thead", null, [el("tr", null, [
+        el("th", {textContent: "Config"}),
+        el("th", {textContent: "Pass Rate"}),
+        el("th", {textContent: "Time (s)"}),
+        el("th", {textContent: "Tokens"})
+      ])]));
+      var statBody = el("tbody");
+      [
+        {name: "with_skill",    data: ev.with_skill},
+        {name: "without_skill", data: ev.without_skill}
+      ].forEach(function(cfg) {
+        var d   = cfg.data || {};
+        var agg = d.agg   || {};
+        var nRuns = d.n_runs || 1;
+        var configLabel = cfg.name + (nRuns > 1 ? " (n=" + nRuns + ")" : "");
+        statBody.appendChild(el("tr", null, [
+          el("td", {textContent: configLabel}),
+          el("td", {innerHTML: cellFor(agg.pass_rate,       d.pass_rate,  pct)}),
+          el("td", {innerHTML: cellFor(agg.time_seconds,    d.duration_s, fmt1)}),
+          el("td", {innerHTML: cellFor(agg.tokens,          d.tokens,     fmtInt)})
+        ]));
+      });
+      statTbl.appendChild(statBody);
+      body.appendChild(el("h3", {textContent: "Run stats"}));
+      body.appendChild(statTbl);
+
+      /* Assertions: one row per assertion, columns = with_skill / without_skill */
+      var wsAssertions = (ev.with_skill    && ev.with_skill.assertions)    || [];
+      var woAssertions = (ev.without_skill && ev.without_skill.assertions) || [];
+      var maxLen = Math.max(wsAssertions.length, woAssertions.length);
+
+      if (maxLen > 0) {
+        body.appendChild(el("h3", {textContent: "Assertions"}));
+        var aTbl = el("table");
+        aTbl.appendChild(el("thead", null, [el("tr", null, [
+          el("th", {textContent: "Assertion"}),
+          el("th", {textContent: "With Skill"}),
+          el("th", {textContent: "Without Skill"})
+        ])]));
+        var aTbody = el("tbody");
+
+        for (var i = 0; i < maxLen; i++) {
+          var wa = wsAssertions[i] || {};
+          var woa = woAssertions[i] || {};
+          var text = wa.text || woa.text || "";
+
+          function markCell(a) {
+            if (!a || a.passed == null) return el("td", {textContent: "—"});
+            var mark = a.passed
+              ? el("td", {innerHTML: '<span class="mark-pass">✓</span>'})
+              : el("td", {innerHTML: '<span class="mark-fail">✗</span>'});
+            if (a.evidence) {
+              var ev2 = el("div", {className: "evidence", textContent: a.evidence});
+              mark.appendChild(ev2);
+            }
+            return mark;
+          }
+
+          aTbody.appendChild(el("tr", null, [
+            el("td", {textContent: text}),
+            markCell(wa),
+            markCell(woa)
+          ]));
+        }
+
+        aTbl.appendChild(aTbody);
+        body.appendChild(aTbl);
+      }
+
+      var section = el("div", {className: "eval-section"});
+      section.appendChild(toggle);
+      section.appendChild(body);
+      wrap.appendChild(section);
+    });
+  })();
+
+  /* ══════════════════════════════════════════════════════
+     OUTPUTS TAB
+     ══════════════════════════════════════════════════════ */
+
+  var selEval   = document.getElementById("sel-eval");
+  var selConfig = document.getElementById("sel-config");
+  var outputDiv = document.getElementById("output-content");
+  var evals     = D.evals || [];
+
+  evals.forEach(function(ev, i) {
+    var label = "Eval " + ev.id + (ev.prompt ? " — " + ev.prompt.slice(0, 60) + (ev.prompt.length > 60 ? "…" : "") : "");
+    selEval.appendChild(el("option", {value: i, textContent: label}));
+  });
+
+  function renderOutput() {
+    var ev  = evals[parseInt(selEval.value, 10)];
+    var cfg = selConfig.value;
+    if (!ev) { outputDiv.innerHTML = "<em>No eval selected.</em>"; return; }
+    var data = ev[cfg];
+    if (!data || !data.result) { outputDiv.innerHTML = "<em>No output available — raw_output.json was not included in this report.</em>"; return; }
+    outputDiv.innerHTML = formatResult(data.result);
+  }
+
+  function formatResult(text) {
+    if (!text) return "<em>Empty output.</em>";
+    var escaped = escHtml(text);
+    escaped = escaped.replace(/```(\w*)\n([\s\S]*?)```/g, function(_, lang, code) {
+      return '<div class="code-block">' + code + '</div>';
+    });
+    return escaped;
+  }
+
+  selEval.addEventListener("change", renderOutput);
+  selConfig.addEventListener("change", renderOutput);
+  if (evals.length) renderOutput();
+
+  /* ── Keyboard nav ──────────────────────────────────── */
+  document.addEventListener("keydown", function(e) {
+    if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return;
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+      var dir  = e.key === "ArrowRight" ? 1 : -1;
+      var opts = selEval.options;
+      if (!opts.length) return;
+      selEval.selectedIndex = Math.max(0, Math.min(opts.length - 1, selEval.selectedIndex + dir));
+      renderOutput();
+      e.preventDefault();
+    }
+  });
+
+})();
+</script>
+
+</body>
+</html>

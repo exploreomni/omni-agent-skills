@@ -255,6 +255,7 @@ Edit `evals/eval-env.local.json`:
 
 ```json
 {
+  "EVAL_MODEL_ID":              "<your shared model ID — `omni models list` then pick modelKind: SHARED>",
   "EVAL_DASHBOARD_PERMISSIONS": "<Executive Summary identifier>",
   "EVAL_DASHBOARD_SCHEDULE":    "<Weekly Metrics identifier>",
   "EVAL_DASHBOARD_TILES":       "<Sales Performance identifier>",

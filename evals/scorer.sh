@@ -12,14 +12,14 @@
 #   ./evals/scorer.sh omni-query evals/workspaces/omni-query/iteration-1
 #
 # Optional env:
-#   GRADER_MODEL   Claude model for grading (default: claude-haiku-4-5-20251001)
+#   GRADER_MODEL   Claude model for grading (default: claude-sonnet-4-6)
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-GRADER_MODEL="${GRADER_MODEL:-claude-haiku-4-5-20251001}"
+GRADER_MODEL="${GRADER_MODEL:-claude-sonnet-4-6}"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -37,14 +37,16 @@ substitute_vars() {
 
 usage() {
   cat >&2 <<EOF
-Usage: $(basename "$0") <skill> <iteration-dir>
+Usage: $(basename "$0") <skill|all> [iteration-dir]
 
 Grades assertions against agent output and writes grading.json + benchmark.json.
+When skill is "all", scores the latest iteration for every skill in workspaces/.
 
-  GRADER_MODEL env var   Model for LLM grading (default: claude-haiku-4-5-20251001)
+  GRADER_MODEL env var   Model for LLM grading (default: claude-sonnet-4-6)
 
-Example:
-  ./evals/scorer.sh omni-query evals/workspaces/omni-query/iteration-1
+Examples:
+  ./evals/scorer.sh all
+  ./evals/scorer.sh omni-query evals/workspaces/omni-query/iteration-1-sonnet-4-6
 EOF
   exit 1
 }
@@ -69,17 +71,52 @@ extract_output_text() {
   jq -r '.result // ""' "$1" 2>/dev/null || echo ""
 }
 
+extract_commands() {
+  # Extract a compact [{command, result_preview}] list from a transcript.json.
+  # Empty array if transcript is missing or unparseable.
+  local transcript="$1"
+  [[ -f "$transcript" ]] || { echo "[]"; return; }
+  python3 - "$transcript" <<'PYEOF' 2>/dev/null || echo "[]"
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        msgs = json.load(f)
+except Exception:
+    print("[]"); sys.exit(0)
+
+# Index tool results by tool_call_id
+results_by_id = {m.get("tool_call_id"): m.get("content","") for m in msgs if m.get("role")=="tool"}
+
+out = []
+for m in msgs:
+    if m.get("role") != "assistant" or not m.get("tool_calls"):
+        continue
+    for tc in m["tool_calls"]:
+        try:
+            cmd = json.loads(tc["function"]["arguments"]).get("command","")
+        except Exception:
+            cmd = tc.get("function",{}).get("arguments","")
+        result = results_by_id.get(tc.get("id"), "")
+        preview = result.replace("\n"," ").strip()
+        if len(preview) > 300:
+            preview = preview[:297] + "..."
+        out.append({"command": cmd[:500], "result_preview": preview})
+print(json.dumps(out))
+PYEOF
+}
+
 # ── LLM grading ───────────────────────────────────────────────────────────────
 
 grade_assertion() {
-  local assertion="$1" output_text="$2"
+  local assertion="$1" output_text="$2" commands_json="$3"
 
   # Delegate to the Python helper to avoid bash quoting complexity
   local payload
   payload=$(jq -n \
-    --arg assertion "$assertion" \
-    --arg output "$output_text" \
-    '{"assertion": $assertion, "output": $output}')
+    --arg     assertion "$assertion" \
+    --arg     output    "$output_text" \
+    --argjson commands  "$commands_json" \
+    '{"assertion": $assertion, "output": $output, "commands": $commands}')
 
   echo "$payload" | python3 "$SCRIPT_DIR/grade_assertion.py" "$GRADER_MODEL" \
     2>/dev/null || echo '{"passed":false,"evidence":"Grading call failed"}'
@@ -95,8 +132,9 @@ grade_run() {
     return
   fi
 
-  local output_text
+  local output_text commands_json
   output_text=$(extract_output_text "$run_dir/raw_output.json")
+  commands_json=$(extract_commands "$run_dir/transcript.json")
 
   # Fetch assertions for this eval id (id may be a number or string)
   local assertions_json
@@ -126,7 +164,7 @@ grade_run() {
     printf "      [%d/%d] %s " $(( i + 1 )) "$n_assertions" "$preview"
 
     local grade
-    grade=$(grade_assertion "$assertion" "$output_text")
+    grade=$(grade_assertion "$assertion" "$output_text" "$commands_json")
 
     local is_passed
     is_passed=$(echo "$grade" | jq -r '.passed' 2>/dev/null || echo "false")
@@ -159,70 +197,109 @@ grade_run() {
     > "$run_dir/grading.json"
 }
 
+# ── Score one skill ───────────────────────────────────────────────────────────
+
+score_skill() {
+  local skill="$1" iter_dir="$2"
+  local evals_file="$ROOT_DIR/skills/$skill/evals/evals.json"
+
+  if [[ ! -f "$evals_file" ]]; then
+    echo "ERROR: $evals_file not found" >&2; return 1
+  fi
+
+  echo ""
+  echo "Scoring $skill — $(basename "$iter_dir")  (grader: $GRADER_MODEL)"
+  echo ""
+
+  for eval_dir in "$iter_dir"/eval-*/; do
+    [[ -d "$eval_dir" ]] || continue
+    local eval_id="${eval_dir%/}"; eval_id="${eval_id##*eval-}"
+
+    echo "  eval $eval_id:"
+    for config in with_skill without_skill; do
+      local config_dir="$eval_dir$config"
+      [[ -d "$config_dir" ]] || continue
+
+      # Nested layout (--repeat>1): grade each run-K dir; flat: grade config dir itself.
+      local nested_runs=()
+      shopt -s nullglob
+      for d in "$config_dir"/run-*/; do
+        [[ -d "$d" ]] && nested_runs+=("${d%/}")
+      done
+      shopt -u nullglob
+
+      if (( ${#nested_runs[@]} > 0 )); then
+        for run_dir in "${nested_runs[@]}"; do
+          echo "    [$config $(basename "$run_dir")]"
+          grade_run "$run_dir" "$evals_file" "$eval_id"
+        done
+      else
+        echo "    [$config]"
+        grade_run "$config_dir" "$evals_file" "$eval_id"
+      fi
+    done
+    echo ""
+  done
+
+  echo "  Computing benchmark..."
+  python3 "$SCRIPT_DIR/compute_benchmark.py" "$iter_dir"
+
+  # Publish merged result to evals/results/<skill>/iteration-N-<slug>.json
+  local results_dir="$SCRIPT_DIR/results/$skill"
+  mkdir -p "$results_dir"
+
+  local meta_file="$iter_dir/meta.json"
+  local benchmark_file="$iter_dir/benchmark.json"
+  local dest
+
+  if [[ -f "$meta_file" ]]; then
+    local iter_num model_slug
+    iter_num=$(jq -r '.iteration' "$meta_file")
+    model_slug=$(jq -r '.model_slug' "$meta_file")
+    dest="$results_dir/iteration-${iter_num}-${model_slug}.json"
+    jq -s '.[0] * {meta: .[1]}' "$benchmark_file" "$meta_file" > "$dest"
+  else
+    dest="$results_dir/$(basename "$iter_dir").json"
+    cp "$benchmark_file" "$dest"
+  fi
+
+  echo ""
+  echo "Done"
+  echo "  benchmark: $benchmark_file"
+  echo "  published: $dest"
+}
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 check_deps
 
 SKILL="${1:-}"
-ITER_DIR="${2:-}"
-[[ -z "$SKILL" || -z "$ITER_DIR" ]] && usage
+[[ -z "$SKILL" ]] && usage
 
-ITER_DIR="$(cd "$ITER_DIR" && pwd)"
-EVALS_FILE="$ROOT_DIR/skills/$SKILL/evals/evals.json"
-
-if [[ ! -f "$EVALS_FILE" ]]; then
-  echo "ERROR: $EVALS_FILE not found" >&2; exit 1
-fi
-if [[ ! -d "$ITER_DIR" ]]; then
-  echo "ERROR: $ITER_DIR not found" >&2; exit 1
-fi
-
-echo ""
-echo "Scoring $SKILL — $(basename "$ITER_DIR")  (grader: $GRADER_MODEL)"
-echo ""
-
-for eval_dir in "$ITER_DIR"/eval-*/; do
-  [[ -d "$eval_dir" ]] || continue
-  eval_id="${eval_dir%/}"
-  eval_id="${eval_id##*eval-}"
-
-  echo "  eval $eval_id:"
-  for config in with_skill without_skill; do
-    echo "    [$config]"
-    grade_run "$eval_dir/$config" "$EVALS_FILE" "$eval_id"
+if [[ "$SKILL" == "all" ]]; then
+  WORKSPACES_DIR="$SCRIPT_DIR/workspaces"
+  if [[ ! -d "$WORKSPACES_DIR" ]]; then
+    echo "ERROR: no workspaces directory found at $WORKSPACES_DIR" >&2; exit 1
+  fi
+  for skill_dir in "$WORKSPACES_DIR"/*/; do
+    [[ -d "$skill_dir" ]] || continue
+    skill=$(basename "$skill_dir")
+    # Pick the latest iteration directory
+    iter_dir=$(ls -d "$skill_dir"iteration-* 2>/dev/null | sort -V | tail -1)
+    if [[ -z "$iter_dir" ]]; then
+      echo "WARNING: no iteration dir for $skill, skipping" >&2
+      continue
+    fi
+    score_skill "$skill" "$(cd "$iter_dir" && pwd)"
   done
-  echo ""
-done
-
-echo "  Computing benchmark..."
-python3 "$SCRIPT_DIR/compute_benchmark.py" "$ITER_DIR"
-
-# ── Publish ───────────────────────────────────────────────────────────────────
-# Merge benchmark + metadata into a single tracked file so results are
-# version-controlled alongside the skill code that produced them.
-# Filename includes the iteration number and model slug for easy comparison.
-
-RESULTS_DIR="$SCRIPT_DIR/results/$SKILL"
-mkdir -p "$RESULTS_DIR"
-
-META_FILE="$ITER_DIR/meta.json"
-BENCHMARK_FILE="$ITER_DIR/benchmark.json"
-
-# Build published filename: iteration-N-<model-slug>.json
-if [[ -f "$META_FILE" ]]; then
-  ITER_NUM=$(jq -r '.iteration' "$META_FILE")
-  MODEL_SLUG=$(jq -r '.model_slug' "$META_FILE")
-  DEST="$RESULTS_DIR/iteration-${ITER_NUM}-${MODEL_SLUG}.json"
-
-  # Merge metadata into the benchmark for a self-contained record
-  jq -s '.[0] * {meta: .[1]}' "$BENCHMARK_FILE" "$META_FILE" > "$DEST"
 else
-  # Fallback: no meta (older workspace), use dir name
-  DEST="$RESULTS_DIR/$(basename "$ITER_DIR").json"
-  cp "$BENCHMARK_FILE" "$DEST"
+  ITER_DIR="${2:-}"
+  if [[ -z "$ITER_DIR" ]]; then
+    # Auto-detect latest iteration for this skill
+    ITER_DIR=$(ls -d "$SCRIPT_DIR/workspaces/$SKILL/iteration-"* 2>/dev/null | sort -V | tail -1)
+    [[ -z "$ITER_DIR" ]] && { echo "ERROR: no iteration dir found for $SKILL" >&2; exit 1; }
+    echo "Auto-detected: $ITER_DIR"
+  fi
+  ITER_DIR="$(cd "$ITER_DIR" && pwd)"
+  score_skill "$SKILL" "$ITER_DIR"
 fi
-
-echo ""
-echo "Done"
-echo "  benchmark: $BENCHMARK_FILE"
-echo "  published: $DEST"
