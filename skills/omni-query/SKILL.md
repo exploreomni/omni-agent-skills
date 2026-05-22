@@ -314,35 +314,13 @@ Additional job commands:
 
 ### Using Job Results in a Dashboard
 
-The query object inside a job result is **not directly usable** as a dashboard `queryPresentation` — it requires a transformation. Blobby co-emits a `userEditedSQL` string alongside the structured `calculations[]` on most responses. When both are present, `userEditedSQL` takes precedence and shadows the structured calc. It must be stripped.
+The query object inside a job result is **not directly usable** as a dashboard `queryPresentation` — it requires a transformation. Key rules:
 
-**Transformation algorithm:**
+- **Always strip `userEditedSQL`** — keeping it silently bypasses `always_where_sql`, `always_where_filters`, and row-level access controls. The `${Order Items}` topic-name token it contains also fails outside the job execution context.
+- **When `calculations[]` is non-empty**, stripping `userEditedSQL` is sufficient — the structured calc renders correctly.
+- **When `calculations[]` is empty**, Blobby authored the calc as inline SQL. The parsed AST is available in `csvResultFields` (at `result` level, not inside `result["query"]`) and can be reconstructed as a proper `calculations[]` entry. Fields whose top-level expr operator is an aggregate (`SUM`, `COUNT`, etc.) cannot be reconstructed as table calcs — add them to the model as filtered measures instead.
 
-```python
-def job_result_to_presentation(name, topic_display_name, job_result):
-    gqs = [a for a in job_result["actions"] if a["type"] == "generate_query"]
-    q = gqs[-1]["result"]["query"]
-
-    # Strip presentation cruft and the SQL override — always
-    for k in ("metadata", "parsed", "model_extension_id", "userEditedSQL"):
-        q.pop(k, None)
-
-    return {
-        "name": name,
-        "topicName": topic_display_name,
-        "prefersChart": False,
-        "visType": "basic",
-        "fields": q.get("fields", []),
-        "query": q,
-        "config": {},
-    }
-```
-
-**Always strip `userEditedSQL`** — keeping it silently bypasses topic-level `always_where_sql`, `always_where_filters`, and access controls. When `userEditedSQL` references a view name directly (e.g. `FROM ${ecomm__order_items}`), it executes as raw SQL against the base view, ignoring any filters the topic would otherwise apply. The structured query path (no `userEditedSQL`) correctly routes through the topic and applies all security and filter rules.
-
-**When `calculations[]` is empty**, Blobby authored the calc as inline SQL and named the output column using a Blobby-invented field name (e.g. `ecomm__order_items.revenue_label`). That field was parsed from the SQL and stored in a transient workbook extension model during the job run. Stripping `userEditedSQL` and `model_extension_id` removes that context, so the invented field name becomes a dangling reference and the tile won't render the derived column. This is the correct trade-off — correctness (security filters apply) over completeness (derived column is lost). Regenerate those tiles using a structured `calculations[]` query instead.
-
-**`${TopicDisplayName}` token:** `userEditedSQL` emitted by job-submit uses `${Order Items}` (topic display name). This token is resolved only in the jobs API execution context — it fails in both `omni query run` and the dashboard tile renderer. It is not a safe rewrite target.
+For the complete transformation algorithm, discriminator logic, field-ref injection, aggregate-skip handling, and sanity-check approach, see [references/job-result-to-presentation.md](references/job-result-to-presentation.md).
 
 ### When to Use Which Approach
 

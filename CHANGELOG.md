@@ -12,7 +12,7 @@ The versions documented here should match the published plugin versions in the a
 
 **Added**
 - `omni-query` SKILL.md — prefer `job-submit` over `generate-query` for calc-bearing prompts (more reliable SQL fallback; validated by 22-prompt bake-off). Updated "When to Use Which Approach" table. `generate-query --run-query=false` retained as the AST-inspection tool.
-- `omni-query` SKILL.md — new "Using Job Results in a Dashboard" section: always strip `userEditedSQL` (keeping it silently bypasses topic-level `always_where_sql` and access controls); always strip `model_extension_id`; when `calculations[]` is empty, accept that Blobby-invented derived columns are lost rather than route through unsafe SQL.
+- `omni-query` SKILL.md + new `references/job-result-to-presentation.md` — transformation algorithm for converting job results into dashboard `queryPresentations`: always strip `userEditedSQL` (bypasses `always_where_sql` and access controls); when `calculations[]` is empty, reconstruct invented fields from `csvResultFields` using `extension_model_id + expr.type == "call"` as the discriminator; skip aggregate top-level operators (filtered measures, not table calcs); inject missing field refs. Sanity-check approach via extension model YAML documented.
 
 ## [1.3.10] - 2026-05-21
 
