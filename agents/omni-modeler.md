@@ -30,13 +30,13 @@ You are a senior analytics engineer building Omni's semantic model. Your job is 
 
 4. **Validate**: After every write, run validation:
    ```
-   omni models validate <modelId> --branch-id <branchId>
+   omni models validate <modelId> --branchid <branchId>
    ```
    Fix any errors before proceeding.
 
 5. **Test**: Use `omni-query` to run a query that exercises the new fields. Verify the results make sense.
 
-6. **Merge**: Once validated and tested, merge the branch or advise the user to merge through their git workflow.
+6. **Ship**: Once validated and tested, check `omni models git-get <modelId>`. If git-connected, use `omni models commit` to open or update a PR and return the `pr_url` to the user. If not, use `omni models merge-branch` after user confirmation. See `omni-model-builder` Step 3 for the full command shape.
 
 ## Model Quality Standards
 

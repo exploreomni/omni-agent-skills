@@ -22,8 +22,11 @@ command -v omni >/dev/null || echo "ERROR: Omni CLI is not installed."
 ```
 
 ```bash
-export OMNI_BASE_URL="https://yourorg.omniapp.co"
-export OMNI_API_TOKEN="your-api-key"
+# Show available profiles and select the appropriate one
+omni config show
+# If multiple profiles exist, ask the user which to use, then switch:
+omni config use <profile-name>
+
 export OMNI_EMBED_SECRET="your-embed-secret"   # Admin → Embed (for URL signing)
 ```
 
@@ -36,6 +39,8 @@ omni scim --help        # Embed user lookup
 omni documents --help   # Document listing
 omni folders --help     # Folder listing
 ```
+
+> **Tip**: Use `-o json` to force structured output for programmatic parsing, or `-o human` for readable tables. The default is `auto` (human in a TTY, JSON when piped).
 
 ## Signing Embed URLs
 
@@ -383,7 +388,7 @@ Returns the Omni user ID for the given `externalId`. If no user is found, the us
 ### List Documents by User Permission
 
 ```bash
-omni documents list --user-id <omniUserId>
+omni documents list --userid <omniUserId>
 ```
 
 Response uses `records` array (not `documents`):

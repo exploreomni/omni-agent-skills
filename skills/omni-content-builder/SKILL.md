@@ -27,8 +27,10 @@ command -v omni >/dev/null || echo "ERROR: Omni CLI is not installed."
 ```
 
 ```bash
-export OMNI_BASE_URL="https://yourorg.omniapp.co"
-export OMNI_API_TOKEN="your-api-key"
+# Show available profiles and select the appropriate one
+omni config show
+# If multiple profiles exist, ask the user which to use, then switch:
+omni config use <profile-name>
 ```
 
 ## Discovering Commands
@@ -38,6 +40,8 @@ omni documents --help           # Document operations
 omni dashboards --help          # Dashboard operations
 omni models yaml-create --help  # Writing model YAML
 ```
+
+> **Tip**: Use `-o json` to force structured output for programmatic parsing, or `-o human` for readable tables. The default is `auto` (human in a TTY, JSON when piped).
 
 ## Dashboard Architecture
 
@@ -119,10 +123,10 @@ omni documents get <documentId>
 ### Rename Document
 
 ```bash
-omni documents update <documentId> --name "Q1 Revenue Report (Updated)" --clear-existing-draft
+omni documents update <documentId> --name "Q1 Revenue Report (Updated)" --clear-existing-draft true
 ```
 
-Pass `--clear-existing-draft` if the document has an existing draft, otherwise the API returns 409 Conflict.
+Pass `--clear-existing-draft true` if the document has an existing draft, otherwise the API returns 409 Conflict.
 
 ### Delete Document
 
@@ -178,6 +182,7 @@ This returns the full document including `queryPresentations`, `filterConfig`, `
 ```bash
 # Note: Full document replacement via PUT is not yet available in the CLI.
 # Use direct HTTP for now, or use omni documents update for partial updates (PATCH).
+# Derive OMNI_BASE_URL and OMNI_API_TOKEN from the active profile for this call.
 curl -L -X PUT "$OMNI_BASE_URL/api/v1/documents/{documentId}" \
   -H "Authorization: Bearer $OMNI_API_TOKEN" \
   -H "Content-Type: application/json" \
@@ -238,7 +243,7 @@ omni documents get <documentId>
 ```bash
 omni models yaml-create <workbookModelId> --body '{
   "fileName": "order_items.view",
-  "yaml": "views:\n  order_items:\n    dimensions:\n      is_high_value:\n        sql: \"${sale_price} > 100\"\n        label: High Value Order\n    measures:\n      high_value_count:\n        sql: \"${order_items.id}\"\n        aggregate_type: count_distinct\n        label: High Value Orders",
+  "yaml": "dimensions:\n  is_high_value:\n    sql: \"${sale_price} > 100\"\n    label: High Value Order\nmeasures:\n  high_value_count:\n    sql: \"${order_items.id}\"\n    aggregate_type: count_distinct\n    label: High Value Orders",
   "mode": "extension"
 }'
 ```
@@ -381,7 +386,7 @@ omni query run --body '{
 - **No error field** — if the response contains an `error` key, the query is broken. Fix before proceeding.
 - **`summary.row_count` > 0** — a query that returns zero rows will render as an empty tile. This may be correct (no data for the filter range) but is worth flagging.
 - **Include your dashboard filters** — pass the same filters you plan to use in `filterConfig` as query-level filters here. This catches bad filter expressions (e.g., wrong field name, unsupported syntax) before they become dashboard-level problems.
-- **Long-running queries** — if the response includes `remaining_job_ids`, poll with `omni query wait --job-ids <ids>` until complete, then check the final result for errors.
+- **Long-running queries** — if the response includes `remaining_job_ids`, poll with `omni query wait --jobids <ids>` until complete, then check the final result for errors.
 
 Do this for **every** query you plan to include as a tile. A dashboard with 5 tiles needs 5 validated queries.
 
