@@ -112,6 +112,43 @@ Expressions: `"last 90 days"`, `"this quarter"`, `"2024-01-01 to 2024-12-31"`, `
 }
 ```
 
+**Pivoted queries reject `limit: null`** — pass an explicit numeric limit (e.g., `5000`). Unlimited is only allowed when `pivots[]` is empty.
+
+### Table Calculations
+
+Post-query computed columns (running totals, % of total, ratios, conditionals). Authored as AST objects in `calculations[]`. The query API requires the parsed AST — it does **not** accept the workbook-frontend `{name, formula}` shape.
+
+Minimum-viable calc:
+
+```json
+{
+  "query": {
+    "fields": ["orders.month", "orders.total_revenue", "calc_pct"],
+    "calculations": [{
+      "calc_name": "calc_pct",
+      "label": "% of Total",
+      "format": "0.0%",
+      "sql_expression": {
+        "type": "call",
+        "operator": "Omni.OMNI_PERCENT_OF_TOTAL",
+        "operands": [
+          { "type": "field", "field_name": "orders.total_revenue", "for_calc": true }
+        ]
+      }
+    }]
+  }
+}
+```
+
+**The #1 gotcha:** `calc_name` must also appear in `query.fields` (and the outer `queryPresentation.fields` for dashboard tiles). A calc defined in `calculations[]` but absent from `fields` is computed but never rendered.
+
+The five quick-template operators (each takes one `field` operand with `for_calc: true`):
+`Omni.OMNI_PERCENT_OF_TOTAL`, `Omni.OMNI_PERCENT_OF_PREVIOUS`, `Omni.OMNI_PERCENT_CHANGE_FROM_PREVIOUS`, `Omni.OMNI_RUNNING_TOTAL`, `Omni.OMNI_RANK`.
+
+At execution, calcs compile into an outer `SELECT` wrapping the base aggregation; window-style operators emit `... OVER (...)` there, so the shared data model never needs window functions to support them. In pivoted queries, template operators auto-partition by the pivot column for per-segment series; set `outside_pivot: true` and wrap an aggregator around `OMNI_PIVOT_OFFSET` for a row-summary that sweeps across pivot columns.
+
+For arithmetic, conditionals, chained calcs, the full operator catalog (`Omni.*` and `SqlStdOperatorTable.*`), AST node types, validation rules, and the recommended round-trip strategy for unfamiliar calcs, see [references/table-calculations.md](references/table-calculations.md).
+
 ## Handling and Validating Results
 
 Default response: base64-encoded Apache Arrow table. Arrow results are binary — you cannot parse individual row data from the raw response. To verify a query returned data, check `summary.row_count` in the response.

@@ -65,6 +65,103 @@
         "The agent returns the complete query JSON object with fields, filters, sorts, limit, and other parameters — not a paraphrased summary",
         "The returned query includes specific field references like order_items.created_at[month] and order_items.total_revenue"
       ]
+    },
+    {
+      "id": 5,
+      "prompt": "Show me monthly revenue for the last 12 months with a running total column.",
+      "expected_output": "A table of monthly revenue and a cumulative running total, with both columns visibly returned.",
+      "assertions": [
+        "The query body includes a calculations array with an entry whose sql_expression is the OMNI_RUNNING_TOTAL AST shape (not a workbook-style {name, formula})",
+        "The calc_name from calculations also appears in query.fields so the calc is selected",
+        "The query body uses sql_expression (AST), not formula (workbook frontend shape)",
+        "The agent reports the running-total values from the response rather than recomputing them client-side"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Build a query for monthly revenue with a trailing 3-month moving average. If you're unsure of the calc shape, use the AI helper to draft it.",
+      "expected_output": "Monthly revenue plus a trailing-3-month moving average column, returned from a single omni query run.",
+      "assertions": [
+        "The agent first calls omni ai generate-query with --run-query=false to obtain the AST for the moving average",
+        "The resulting sql_expression uses OMNI_FX_AVERAGE wrapping OMNI_OFFSET_MULTI with operands (field, -2, 0, 3, 1)",
+        "The calc_name is included in query.fields",
+        "The agent then runs the query and reports actual moving-average values"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "For a pivoted query showing revenue by month across product categories, add a row total across the pivot columns.",
+      "expected_output": "A pivoted table (months as rows, categories as columns) with an extra row-total column summarizing across categories.",
+      "assertions": [
+        "The query body has a non-empty pivots[] array and an explicit numeric limit (not null)",
+        "The calculations entry uses OMNI_FX_SUM wrapping OMNI_PIVOT_OFFSET",
+        "The calc has outside_pivot: true",
+        "The calc_name is present in query.fields"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Add a tier label to each customer: 'High' if revenue > 10000, 'Mid' if > 1000, else 'Low'. Concatenate the tier with the customer name like 'High - Acme Corp'.",
+      "expected_output": "A list of customers with a combined label column formatted as '<tier> - <name>'.",
+      "assertions": [
+        "The query body contains a calc using OMNI_FX_IFS with a tautology (e.g. EQUALS(1,1)) as the final condition for the default branch",
+        "String concatenation uses OMNI_FX_AMPERSAND, nested binary if more than two pieces",
+        "calc_name is referenced in query.fields and the response contains the expected labels"
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "Add a calculated column for revenue as a percent of total.",
+      "expected_output": "A query returning revenue and revenue-as-percent-of-total.",
+      "assertions": [
+        "The calc uses sql_expression with an AST, NOT a top-level formula string",
+        "The calc does not use the workbook-frontend {name, formula} shape that the query API silently rejects",
+        "calc_name appears in query.fields"
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "Show each order's created date, shipped date, and the number of days between them.",
+      "expected_output": "A table where each row has a date diff column populated with integer day counts, not blanks.",
+      "assertions": [
+        "The calc uses Omni.OMNI_FX_DATEDIF with operands in the order (unit_literal, start_date, end_date) — NOT the Excel formula order (start, end, unit)",
+        "The unit literal value is the spelled-out word 'DAY' (not the Excel single-letter code 'D')",
+        "Both date operands resolve to a DATE type (e.g. via a [date]-truncated timeframe), not a bare timestamp field",
+        "The response contains non-empty integer values in the diff column; a column of blanks indicates the calc errored under swallow_errors:true"
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "Show monthly revenue and a column with the total revenue across only the Complete-status orders, broadcast on every row.",
+      "expected_output": "A monthly revenue table with a constant column showing the Complete-status revenue total repeated on every row.",
+      "assertions": [
+        "The calc uses operator Omni.OMNI_FX_SUM_IF (with an underscore between SUM and IF), not Omni.OMNI_FX_SUMIF",
+        "The range operands wrap the field in an Omni.OMNI_OFFSET_MULTI call with the full-column magic tuple (-536870911, 0, 1073741823, 1)",
+        "The criterion operand is a string literal containing an Excel match expression (e.g. 'Complete', or '>1000000')",
+        "calc_name appears in query.fields"
+      ]
+    },
+    {
+      "id": 12,
+      "prompt": "Show order status, total revenue, and a VLOOKUP column that retrieves the Complete-status revenue on every row.",
+      "expected_output": "A status-by-revenue table where the lookup column shows the Complete-status revenue value on every row.",
+      "assertions": [
+        "The calc uses Omni.OMNI_FX_VLOOKUP with FOUR operands (not three) — the formula's 3-arg signature decomposes into lookup_value, key_field, range_OFFSET_MULTI, column_number",
+        "The lookup_range operand is an OMNI_OFFSET_MULTI whose 5th operand (step) equals the column width of the Excel range (e.g. 3 for A:C)",
+        "The column_number operand is a 1-based integer literal indexing into query.fields starting at the key column",
+        "The agent does NOT fall back to userEditedSQL with raw SQL when expressing the lookup"
+      ]
+    },
+    {
+      "id": 13,
+      "prompt": "Show monthly revenue with a month-over-month percent change column.",
+      "expected_output": "Monthly revenue with a percent-change column populated using a table calculation, not a period-comparison pivot trick.",
+      "assertions": [
+        "The calc uses the Omni.OMNI_PERCENT_CHANGE_FROM_PREVIOUS template operator with a single field operand carrying for_calc: true",
+        "The agent does NOT sidestep the calc by setting pivots: ['omni_period_pivot'] (the period-comparison pivot), which produces current/previous columns instead of an actual calc",
+        "The agent does NOT fall back to a hand-rolled SqlStdOperatorTable.LAG window_call when the template operator exists",
+        "The calc carries format: '0.0%' for percent display"
+      ]
     }
   ]
 }
