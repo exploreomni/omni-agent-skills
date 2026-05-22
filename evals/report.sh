@@ -52,7 +52,7 @@ EVALS_FILE="$ROOT_DIR/skills/$SKILL/evals/evals.json"
 
 EVALS_JSON="[]"
 
-for eval_dir in "$ITER_DIR"/eval-*/; do
+while IFS= read -r eval_dir; do
   [[ -d "$eval_dir" ]] || continue
   eval_id="${eval_dir%/}"; eval_id="${eval_id##*eval-}"
 
@@ -137,7 +137,20 @@ for eval_dir in "$ITER_DIR"/eval-*/; do
     '{id: $id, prompt: $prompt, with_skill: $ws, without_skill: $wo}')
 
   EVALS_JSON=$(echo "$EVALS_JSON" | jq --argjson e "$EVAL_OBJ" '. + [$e]')
-done
+done < <(find "$ITER_DIR" -maxdepth 1 -type d -name 'eval-*' | python3 -c '
+import os
+import sys
+
+def key(path):
+    eval_id = os.path.basename(path).removeprefix("eval-")
+    try:
+        return (int(eval_id), eval_id)
+    except ValueError:
+        return (10**9, eval_id)
+
+for path in sorted((line.strip() for line in sys.stdin if line.strip()), key=key):
+    print(path)
+')
 
 # ── Combine and inject ───────────────────────────────────────────────────────
 

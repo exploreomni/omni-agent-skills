@@ -27,6 +27,15 @@ TIMEOUT_PATTERN = re.compile(r"\[timed out after")
 ERROR_PATTERN = re.compile(r"\[error:")
 
 
+def eval_sort_key(path: str) -> tuple[int, str]:
+    """Sort eval-N directories numerically, with stable fallback for non-numeric ids."""
+    eval_id = os.path.basename(path).removeprefix("eval-")
+    try:
+        return (int(eval_id), eval_id)
+    except ValueError:
+        return (10**9, eval_id)
+
+
 def stats(values: list[float | None]) -> dict:
     """Return mean+stddev+median+IQR for a list of values."""
     values = [v for v in values if v is not None]
@@ -181,7 +190,7 @@ def main() -> None:
         sys.exit(1)
 
     iter_dir = sys.argv[1]
-    eval_dirs = sorted(glob.glob(os.path.join(iter_dir, "eval-*")))
+    eval_dirs = sorted(glob.glob(os.path.join(iter_dir, "eval-*")), key=eval_sort_key)
 
     # Pool every run across every eval for the overall summary; also keep
     # per-eval breakdowns so noisy evals can be identified.
