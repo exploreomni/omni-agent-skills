@@ -12,7 +12,7 @@ The versions documented here should match the published plugin versions in the a
 
 **Added**
 - `omni-query` SKILL.md — prefer `job-submit` over `generate-query` for calc-bearing prompts (more reliable SQL fallback; validated by 22-prompt bake-off). Updated "When to Use Which Approach" table. `generate-query --run-query=false` retained as the AST-inspection tool.
-- `omni-query` SKILL.md — new "Using Job Results in a Dashboard" section documenting the conditional `userEditedSQL` transformation algorithm: strip when `calculations[]` is non-empty; keep (with `${TopicDisplayName}` → `${view_name}` rewrite) when empty. Explains the `${TopicDisplayName}` substitution asymmetry between the query runtime and dashboard tile renderer.
+- `omni-query` SKILL.md — new "Using Job Results in a Dashboard" section: always strip `userEditedSQL` (keeping it silently bypasses topic-level `always_where_sql` and access controls); always strip `model_extension_id`; when `calculations[]` is empty, accept that Blobby-invented derived columns are lost rather than route through unsafe SQL.
 
 ## [1.3.10] - 2026-05-21
 

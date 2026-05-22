@@ -314,30 +314,18 @@ Additional job commands:
 
 ### Using Job Results in a Dashboard
 
-The query object inside a job result is **not directly usable** as a dashboard `queryPresentation` — it requires a transformation. The key issue is that Blobby co-emits a `userEditedSQL` string alongside the structured `calculations[]` on most responses. When both are present, `userEditedSQL` takes precedence and shadows the structured calc. Additionally, `userEditedSQL` uses `${TopicDisplayName}` token substitution (e.g. `${Order Items}`) which is not supported by the dashboard tile renderer.
+The query object inside a job result is **not directly usable** as a dashboard `queryPresentation` — it requires a transformation. Blobby co-emits a `userEditedSQL` string alongside the structured `calculations[]` on most responses. When both are present, `userEditedSQL` takes precedence and shadows the structured calc. It must be stripped.
 
 **Transformation algorithm:**
 
 ```python
-def job_result_to_presentation(name, topic_display_name, view_name, job_result):
+def job_result_to_presentation(name, topic_display_name, job_result):
     gqs = [a for a in job_result["actions"] if a["type"] == "generate_query"]
     q = gqs[-1]["result"]["query"]
 
-    # 1. Strip presentation cruft that shouldn't carry into a new document
-    for k in ("metadata", "parsed", "model_extension_id"):
+    # Strip presentation cruft and the SQL override — always
+    for k in ("metadata", "parsed", "model_extension_id", "userEditedSQL"):
         q.pop(k, None)
-
-    # 2. Handle userEditedSQL
-    if q.get("calculations"):
-        # Structured calc exists — strip userEditedSQL so it renders
-        q.pop("userEditedSQL", None)
-    else:
-        # No structured calc — keep userEditedSQL but fix the topic-name token
-        # (dashboard tile renderer doesn't resolve topic display names)
-        if q.get("userEditedSQL"):
-            q["userEditedSQL"] = q["userEditedSQL"].replace(
-                f"${{{topic_display_name}}}", f"${{{view_name}}}"
-            )
 
     return {
         "name": name,
@@ -350,9 +338,11 @@ def job_result_to_presentation(name, topic_display_name, view_name, job_result):
     }
 ```
 
-**Why conditional:** when `calculations[]` is empty, Blobby routes the entire calc through `userEditedSQL` and names the output column in `fields[]` using the `view_name.column_name` convention (e.g. `ecomm__order_items.revenue_label`). Stripping `userEditedSQL` in this case causes a "No such field" error because the backing calc definition is missing. Keeping `userEditedSQL` (with the token fix) is the safe path.
+**Always strip `userEditedSQL`** — keeping it silently bypasses topic-level `always_where_sql`, `always_where_filters`, and access controls. When `userEditedSQL` references a view name directly (e.g. `FROM ${ecomm__order_items}`), it executes as raw SQL against the base view, ignoring any filters the topic would otherwise apply. The structured query path (no `userEditedSQL`) correctly routes through the topic and applies all security and filter rules.
 
-**The `${TopicDisplayName}` substitution asymmetry:** `omni query run` and `omni ai job-submit` both resolve topic display names in `userEditedSQL` (e.g. `${Order Items}`), but the dashboard tile renderer only resolves view names (e.g. `${ecomm__order_items}`). Always rewrite the token when keeping `userEditedSQL` for dashboard use.
+**When `calculations[]` is empty**, Blobby authored the calc as inline SQL and named the output column using a Blobby-invented field name (e.g. `ecomm__order_items.revenue_label`). That field was parsed from the SQL and stored in a transient workbook extension model during the job run. Stripping `userEditedSQL` and `model_extension_id` removes that context, so the invented field name becomes a dangling reference and the tile won't render the derived column. This is the correct trade-off — correctness (security filters apply) over completeness (derived column is lost). Regenerate those tiles using a structured `calculations[]` query instead.
+
+**`${TopicDisplayName}` token:** `userEditedSQL` emitted by job-submit uses `${Order Items}` (topic display name). This token is resolved only in the jobs API execution context — it fails in both `omni query run` and the dashboard tile renderer. It is not a safe rewrite target.
 
 ### When to Use Which Approach
 
