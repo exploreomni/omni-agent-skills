@@ -312,13 +312,60 @@ Additional job commands:
 - `omni ai job-cancel <jobId>` — cancel a running job
 - `omni ai job-visualization <jobId>` — get the visualization output
 
+### Using Job Results in a Dashboard
+
+The query object inside a job result is **not directly usable** as a dashboard `queryPresentation` — it requires a transformation. The key issue is that Blobby co-emits a `userEditedSQL` string alongside the structured `calculations[]` on most responses. When both are present, `userEditedSQL` takes precedence and shadows the structured calc. Additionally, `userEditedSQL` uses `${TopicDisplayName}` token substitution (e.g. `${Order Items}`) which is not supported by the dashboard tile renderer.
+
+**Transformation algorithm:**
+
+```python
+def job_result_to_presentation(name, topic_display_name, view_name, job_result):
+    gqs = [a for a in job_result["actions"] if a["type"] == "generate_query"]
+    q = gqs[-1]["result"]["query"]
+
+    # 1. Strip presentation cruft that shouldn't carry into a new document
+    for k in ("metadata", "parsed", "model_extension_id"):
+        q.pop(k, None)
+
+    # 2. Handle userEditedSQL
+    if q.get("calculations"):
+        # Structured calc exists — strip userEditedSQL so it renders
+        q.pop("userEditedSQL", None)
+    else:
+        # No structured calc — keep userEditedSQL but fix the topic-name token
+        # (dashboard tile renderer doesn't resolve topic display names)
+        if q.get("userEditedSQL"):
+            q["userEditedSQL"] = q["userEditedSQL"].replace(
+                f"${{{topic_display_name}}}", f"${{{view_name}}}"
+            )
+
+    return {
+        "name": name,
+        "topicName": topic_display_name,
+        "prefersChart": False,
+        "visType": "basic",
+        "fields": q.get("fields", []),
+        "query": q,
+        "config": {},
+    }
+```
+
+**Why conditional:** when `calculations[]` is empty, Blobby routes the entire calc through `userEditedSQL` and names the output column in `fields[]` using the `view_name.column_name` convention (e.g. `ecomm__order_items.revenue_label`). Stripping `userEditedSQL` in this case causes a "No such field" error because the backing calc definition is missing. Keeping `userEditedSQL` (with the token fix) is the safe path.
+
+**The `${TopicDisplayName}` substitution asymmetry:** `omni query run` and `omni ai job-submit` both resolve topic display names in `userEditedSQL` (e.g. `${Order Items}`), but the dashboard tile renderer only resolves view names (e.g. `${ecomm__order_items}`). Always rewrite the token when keeping `userEditedSQL` for dashboard use.
+
 ### When to Use Which Approach
 
 | Approach | Best For |
 |----------|----------|
 | `omni query run` | You know exactly which fields, filters, and sorts you need |
-| `omni ai generate-query` | Translating a natural language question into a single query |
-| `omni ai job-submit` | Complex questions that may need multiple queries or multi-step reasoning |
+| `omni ai generate-query --run-query=false` | Getting a query AST shape to inspect or hand-edit before running |
+| `omni ai generate-query --run-query=true` | Simple dimension/measure queries where you want a synchronous response |
+| `omni ai job-submit` | **Any query involving calculations — prefer this for reliability.** Also best for complex multi-step questions. |
+
+**Prefer `job-submit` over `generate-query` when calculations are involved.** A 22-prompt bake-off across table-calculation scenarios found the two endpoints produce identical structured `calculations[]` output on 14/22 prompts. On the 8 divergences, `job-submit` was more reliable: its SQL fallback (`userEditedSQL`) catches cases where the structured calc has wrong operands (e.g. DATEDIF operand order) and would silently return blanks. `generate-query` occasionally picks a more idiomatic operator but at the cost of more silent failures. When the formatting bug ([#51752](https://github.com/exploreomni/omni/issues/51752)) is fixed, `job-submit` will be the clear default for any calc-bearing prompt.
+
+`generate-query --run-query=false` remains useful as a "draft AST" tool when you want to inspect or modify the query structure before executing — see eval #6.
 
 ## Multi-Step Analysis Pattern
 
