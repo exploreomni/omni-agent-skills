@@ -70,15 +70,15 @@ echo "Reset target: $CONFIG"
 $DRY_RUN && echo "Mode: DRY RUN (no changes will be made)"
 echo ""
 
-# ── 1. Delete test user ───────────────────────────────────────────────────────
+# ── 1. Delete test user (via SCIM) ────────────────────────────────────────────
 
 echo "1. Deleting test user: $TEST_USER"
-USER_ID=$(omni users list 2>/dev/null \
-  | jq -r --arg e "$TEST_USER" '.records[]? | select(.email==$e) | .id' \
+USER_ID=$(omni scim users-list -o json 2>/dev/null \
+  | jq -r --arg e "$TEST_USER" '.Resources[]? | select(.emails[]?.value == $e) | .id' \
   | head -1)
 
 if [[ -n "$USER_ID" ]]; then
-  run "omni users delete $USER_ID"
+  run "omni scim users-delete $USER_ID"
 else
   echo "  (not present — skipping)"
 fi
@@ -98,22 +98,22 @@ echo ""
 
 echo "3. Deleting model branches on EVAL_MODEL_ID (excluding 'eval-comparison-branch')"
 if [[ -n "$MODEL_ID" && "$MODEL_ID" != "replace-with-shared-model-id" ]]; then
-  BRANCH_IDS=$(omni models list --include activeBranches 2>/dev/null \
+  BRANCH_NAMES=$(omni models list --include activeBranches -o json 2>/dev/null \
     | jq -r --arg m "$MODEL_ID" '
         .records[]?
         | select(.id==$m)
-        | .activeBranches[]?
+        | (.activeBranches // [])[]?
         | select(.name | startswith("eval-comparison-branch") | not)
-        | .id
+        | .name
       ')
 
-  if [[ -z "$BRANCH_IDS" ]]; then
+  if [[ -z "$BRANCH_NAMES" ]]; then
     echo "  (no non-baseline branches present — skipping)"
   else
-    while IFS= read -r bid; do
-      [[ -n "$bid" ]] || continue
-      run "omni models delete-branch $MODEL_ID --body '{\"branchId\":\"$bid\"}'"
-    done <<< "$BRANCH_IDS"
+    while IFS= read -r bname; do
+      [[ -n "$bname" ]] || continue
+      run "omni models delete-branch $MODEL_ID '$bname'"
+    done <<< "$BRANCH_NAMES"
   fi
 else
   echo "  (EVAL_MODEL_ID not configured — skipping)"
