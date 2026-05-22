@@ -363,9 +363,9 @@ def job_result_to_presentation(name, topic_display_name, view_name, job_result):
 | `omni ai generate-query --run-query=true` | Simple dimension/measure queries where you want a synchronous response |
 | `omni ai job-submit` | **Any query involving calculations — prefer this for reliability.** Also best for complex multi-step questions. |
 
-**Prefer `job-submit` over `generate-query` when calculations are involved.** A 22-prompt bake-off across table-calculation scenarios found the two endpoints produce identical structured `calculations[]` output on 14/22 prompts. On the 8 divergences, `job-submit` was more reliable: its SQL fallback (`userEditedSQL`) catches cases where the structured calc has wrong operands (e.g. DATEDIF operand order) and would silently return blanks. `generate-query` occasionally picks a more idiomatic operator but at the cost of more silent failures. When the formatting bug ([#51752](https://github.com/exploreomni/omni/issues/51752)) is fixed, `job-submit` will be the clear default for any calc-bearing prompt.
+**Prefer `job-submit` over `generate-query` when calculations are involved.** The two endpoints produce equivalent structured `calculations[]` output on most prompts, but `job-submit` is more reliable: its SQL fallback catches cases where the structured calc has wrong operands and would silently return blanks. It also validates the result by executing the query and returning data, so failures surface immediately.
 
-`generate-query --run-query=false` remains useful as a "draft AST" tool when you want to inspect or modify the query structure before executing — see eval #6.
+`generate-query --run-query=false` remains useful when you want to inspect or hand-edit the query structure before executing — see eval #6.
 
 ## Multi-Step Analysis Pattern
 
