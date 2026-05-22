@@ -141,6 +141,29 @@ sha256_file() {
   python3 -c "import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest())" "$1" 2>/dev/null || echo ""
 }
 
+sha256_dir() {
+  # Deterministic hash of every file under a directory (sorted by relative path).
+  # Empty string if dir doesn't exist or contains no files.
+  local dir="$1"
+  [[ -d "$dir" ]] || { echo ""; return; }
+  python3 - "$dir" <<'PYEOF' 2>/dev/null || echo ""
+import hashlib, os, sys
+root = sys.argv[1]
+h = hashlib.sha256()
+files = []
+for dirpath, _, filenames in os.walk(root):
+    for f in filenames:
+        files.append(os.path.relpath(os.path.join(dirpath, f), root))
+if not files:
+    print(""); sys.exit(0)
+for rel in sorted(files):
+    h.update(rel.encode())
+    h.update(b"\0")
+    h.update(open(os.path.join(root, rel), "rb").read())
+print(h.hexdigest())
+PYEOF
+}
+
 provenance_block() {
   local skill_md="$1" evals_file="$2"
   local git_commit git_branch git_dirty plugin_version
@@ -159,19 +182,24 @@ provenance_block() {
     plugin_version="unknown"
   fi
 
+  local skill_dir
+  skill_dir=$(dirname "$skill_md")
+
   jq -n \
-    --arg     commit       "$git_commit" \
-    --arg     branch       "$git_branch" \
-    --argjson dirty        "$git_dirty" \
-    --arg     plugin       "$plugin_version" \
-    --arg     skill_sha    "$(sha256_file "$skill_md")" \
-    --arg     evals_sha    "$(sha256_file "$evals_file")" \
-    --arg     baseline_sha "$(sha256_file "$SCRIPT_DIR/cli-baseline.md")" \
+    --arg     commit          "$git_commit" \
+    --arg     branch          "$git_branch" \
+    --argjson dirty           "$git_dirty" \
+    --arg     plugin          "$plugin_version" \
+    --arg     skill_sha       "$(sha256_file "$skill_md")" \
+    --arg     evals_sha       "$(sha256_file "$evals_file")" \
+    --arg     baseline_sha    "$(sha256_file "$SCRIPT_DIR/cli-baseline.md")" \
+    --arg     refs_sha        "$(sha256_dir "$skill_dir/references")" \
     '{git: {commit: $commit, branch: $branch, dirty: $dirty},
-      plugin_version:     $plugin,
-      skill_md_sha256:    $skill_sha,
-      evals_json_sha256:  $evals_sha,
-      cli_baseline_sha256: $baseline_sha}'
+      plugin_version:      $plugin,
+      skill_md_sha256:     $skill_sha,
+      evals_json_sha256:   $evals_sha,
+      cli_baseline_sha256: $baseline_sha,
+      references_sha256:   $refs_sha}'
 }
 
 # ── Core run ─────────────────────────────────────────────────────────────────
@@ -230,6 +258,17 @@ run_eval_case() {
     fi
   }
 
+  copy_references() {
+    # Copy the skill's references/ dir into the agent's cwd so SKILL.md's
+    # relative paths like `references/foo.md` resolve. Called for with_skill
+    # runs only — without_skill is meant to be a clean baseline.
+    local target_outputs="$1"
+    local refs="$ROOT_DIR/skills/$skill/references"
+    if [[ -d "$refs" ]]; then
+      cp -R "$refs" "$target_outputs/"
+    fi
+  }
+
   # Task prompt — includes outputs dir and asks agent to list commands run,
   # which makes tool-call assertions reliably gradeable from the text output.
   local base_task
@@ -265,6 +304,9 @@ TASK
       fi
       mkdir -p "$run_dir/outputs"
       copy_input_files "$run_dir/outputs"
+      if [[ "$config" == "with_skill" ]]; then
+        copy_references "$run_dir/outputs"
+      fi
 
       local task="${base_task/OUTPUTS_DIR/$run_dir/outputs/}"
 
