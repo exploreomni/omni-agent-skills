@@ -312,13 +312,28 @@ Additional job commands:
 - `omni ai job-cancel <jobId>` — cancel a running job
 - `omni ai job-visualization <jobId>` — get the visualization output
 
+### Using Job Results in a Dashboard
+
+The query object inside a job result is **not directly usable** as a dashboard `queryPresentation` — it requires a transformation. Key rules:
+
+- **Always strip `userEditedSQL`** — keeping it silently bypasses `always_where_sql`, `always_where_filters`, and row-level access controls. The `${Order Items}` topic-name token it contains also fails outside the job execution context.
+- **When `calculations[]` is non-empty**, stripping `userEditedSQL` is sufficient — the structured calc renders correctly.
+- **When `calculations[]` is empty**, Blobby authored the calc as inline SQL. The parsed AST is available in `csvResultFields` (at `result` level, not inside `result["query"]`) and can be reconstructed as a proper `calculations[]` entry. Fields whose top-level expr operator is an aggregate (`SUM`, `COUNT`, etc.) cannot be reconstructed as table calcs — add them to the model as filtered measures instead.
+
+For the complete transformation algorithm, discriminator logic, field-ref injection, aggregate-skip handling, and sanity-check approach, see [references/job-result-to-presentation.md](references/job-result-to-presentation.md).
+
 ### When to Use Which Approach
 
 | Approach | Best For |
 |----------|----------|
 | `omni query run` | You know exactly which fields, filters, and sorts you need |
-| `omni ai generate-query` | Translating a natural language question into a single query |
-| `omni ai job-submit` | Complex questions that may need multiple queries or multi-step reasoning |
+| `omni ai generate-query --run-query=false` | Getting a query AST shape to inspect or hand-edit before running |
+| `omni ai generate-query --run-query=true` | Simple dimension/measure queries where you want a synchronous response |
+| `omni ai job-submit` | **Any query involving calculations — prefer this for reliability.** Also best for complex multi-step questions. |
+
+**Prefer `job-submit` over `generate-query` when calculations are involved.** The two endpoints produce equivalent structured `calculations[]` output on most prompts, but `job-submit` is more reliable: its SQL fallback catches cases where the structured calc has wrong operands and would silently return blanks. It also validates the result by executing the query and returning data, so failures surface immediately.
+
+`generate-query --run-query=false` remains useful when you want to inspect or hand-edit the query structure before executing — see eval #6.
 
 ## Multi-Step Analysis Pattern
 

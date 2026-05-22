@@ -6,15 +6,22 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.3.11] - 2026-05-22
+
+### omni-analytics
+
+**Added**
+- `omni-query` SKILL.md — prefer `job-submit` over `generate-query` for calc-bearing prompts (more reliable SQL fallback; validated by 22-prompt bake-off). Updated "When to Use Which Approach" table. `generate-query --run-query=false` retained as the AST-inspection tool.
+- `omni-query` SKILL.md + new `references/job-result-to-presentation.md` — transformation algorithm for converting job results into dashboard `queryPresentations`: always strip `userEditedSQL` (bypasses `always_where_sql` and access controls); when `calculations[]` is empty, reconstruct invented fields from `csvResultFields` using `extension_model_id + expr.type == "call"` as the discriminator; skip aggregate top-level operators (filtered measures, not table calcs); inject missing field refs. Sanity-check approach via extension model YAML documented.
+
 ## [1.3.10] - 2026-05-21
 
 ### omni-analytics
 
 **Added**
-- `skills/omni-query/references/table-calculations.md` — complete reference for authoring the `calculations[]` array in an Omni query spec: `OmniCalculation` wire shape, `SerializedSqlExpr` AST node types, operator catalog across the `Omni.*` and `SqlStdOperatorTable.*` namespaces, the five Omni-only template operators (`OMNI_PERCENT_OF_TOTAL`, `OMNI_PERCENT_OF_PREVIOUS`, `OMNI_PERCENT_CHANGE_FROM_PREVIOUS`, `OMNI_RUNNING_TOTAL`, `OMNI_RANK`), worked examples (ratio, percent of total, running total in lowered form, chained calcs, CASE conditional, trailing-window moving average, IFS/concat/TEXT formatted labels), validation rules, and authoring strategy.
-- `omni-query` SKILL.md — new "Table Calculations" subsection in *Running a Query* covering the minimum-viable calc shape, the `calc_name`-must-also-be-in-`query.fields` gotcha, the five template operators, a one-line execution-model note, and a pointer to the new reference. Closes a gap where the skill previously had no calc guidance, leading to incorrect `{name, formula}` shapes being sent to the query API.
-- `references/table-calculations.md` — `OMNI_OFFSET_MULTI` operand decoding table (field, start offset, end offset, window size, step) with cumulative and trailing-window worked formulas; new §4.6 moving-average example; new §4.7 conditional-buckets-and-labels example covering the `OMNI_FX_IFS` dummy-tautology default-branch idiom, `OMNI_FX_AMPERSAND` binary nesting + null-safe `CONCAT(COALESCE(...))` compilation, and `OMNI_FX_TEXT(value, format)` Excel formatting; §3a operator catalog now lists `OMNI_FX_TEXT`; §4.4 chained calc gains an explicit "prefer named reference over inlining" note; §6 authoring strategy promotes `omni ai generate-query --run-query=false` as the primary round-trip path with UI fallback; §1 wire-shape now notes that calcs compile to an outer `SELECT` and that window-style operators emit `OVER (...)` there, keeping the shared model free of window functions.
-- `references/table-calculations.md` — new §4.8 (inside-pivot running total) documents that template window operators auto-partition by the pivot column when `outside_pivot: false`, with a power-user sidebar on the undocumented `window_call` AST node (explicit SQL window spec with `partition_args`, `order_by_args`, `is_rows`, and Calcite `SqlWindow$Bound` enum bounds for `UNBOUNDED_PRECEDING` / `CURRENT_ROW` / `UNBOUNDED_FOLLOWING`); new §4.9 (outside-pivot row total) shows the `OMNI_FX_SUM(OMNI_PIVOT_OFFSET(...))` + `outside_pivot: true` pattern with a full `OMNI_PIVOT_OFFSET` operand decoding table (field, row-offset start/end, column-index range start/end). §5 #7 (`outside_pivot`) strengthened to spell out the pattern and cross-reference §4.8 / §4.9; new gotcha #10 documents that pivoted queries reject `limit: null` with a 400 error. SKILL.md Pivots subsection gains the same `limit: null` note inline, and the execution-model sentence in the Table Calculations subsection now covers pivot semantics.
+- `skills/omni-query/references/table-calculations.md` — new reference for authoring the `calculations[]` array: wire shape, AST node types, operator catalog (`Omni.*` and `SqlStdOperatorTable.*` namespaces), `OMNI_OFFSET_MULTI` operand decoding, and 12 worked examples (ratio, % of total, running total, chained calcs, CASE, moving average, IFS/concat/TEXT labels, inside-pivot running total, outside-pivot row total, DATEDIF, SUMIF/SUM_IF, VLOOKUP).
+- `omni-query` SKILL.md — "Table Calculations" subsection covering the minimum calc shape, the `calc_name`-must-be-in-`fields` gotcha, template operators, and pivot semantics (`outside_pivot`, `limit: null` error).
+- 9 new evals (entries 5–13) covering running total, moving average, pivot row total, IFS/AMPERSAND, % of total, DATEDIF operand order, SUM_IF underscore, VLOOKUP 4-operand decomposition, and MoM % change without period-pivot sidestep.
 
 ## [1.3.9] - 2026-05-20
 
