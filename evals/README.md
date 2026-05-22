@@ -188,13 +188,13 @@ evals/workspaces/<skill>/iteration-<n>-<model>/
   "token_attribution": {
     "method": "estimated_chars_div_4_for_categories_provider_usage_exact",
     "task_tokens_estimated": 1200,
-    "overhead_tokens_estimated": 11823,
-    "overhead_ratio": 0.958
+    "eval_overhead_tokens_estimated": 11823,
+    "eval_overhead_ratio": 0.958
   }
 }
 ```
 
-The total input/output token counts come from the provider. The task-vs-overhead split is estimated from prompt and transcript text so it can identify the biggest cost drivers, but it should not be treated as an exact billing category. `task_tokens_estimated` is the user task prompt input plus all model output tokens; `overhead_tokens_estimated` is the remaining provider-reported input token usage, including skill/baseline prompts, harness instructions, tool schemas, tool results, and conversation replay.
+The total input/output token counts come from the provider. The task-vs-overhead split is estimated from prompt and transcript text so it can identify the biggest cost drivers, but it should not be treated as an exact billing category. `task_tokens_estimated` is the skill or baseline prompt, user task prompt, and all model output tokens. `eval_overhead_tokens_estimated` is the remaining provider-reported input token usage, including harness instructions, tool schemas, tool results, and conversation replay.
 
 Scorer output:
 

@@ -122,15 +122,15 @@ def collect_run(run_dir: str) -> dict | None:
     input_tokens = attribution.get("input_tokens", usage.get("input_tokens", 0)) or 0
     output_tokens = attribution.get("output_tokens", usage.get("output_tokens", 0)) or 0
     task_tokens = attribution.get("task_tokens_estimated") if has_attribution else None
-    overhead_tokens = attribution.get("overhead_tokens_estimated") if has_attribution else None
-    overhead_ratio = attribution.get("overhead_ratio") if has_attribution else None
+    eval_overhead_tokens = attribution.get("eval_overhead_tokens_estimated") if has_attribution else None
+    eval_overhead_ratio = attribution.get("eval_overhead_ratio") if has_attribution else None
 
     categories = attribution.get("input_categories_estimated", {}) or {}
     point["input_tokens"] = input_tokens
     point["output_tokens"] = output_tokens
     point["task_tokens"] = task_tokens
-    point["overhead_tokens"] = overhead_tokens
-    point["overhead_ratio"] = overhead_ratio
+    point["eval_overhead_tokens"] = eval_overhead_tokens
+    point["eval_overhead_ratio"] = eval_overhead_ratio
     point["system_prompt_tokens"] = categories.get("system_prompt") if has_attribution else None
     point["harness_prompt_tokens"] = categories.get("harness_prompt") if has_attribution else None
     point["tool_schema_tokens"] = categories.get("tool_schema") if has_attribution else None
@@ -163,8 +163,8 @@ def summarize(points: list[dict]) -> dict:
         "input_tokens":                      stats([p["input_tokens"]    for p in points]),
         "output_tokens":                     stats([p["output_tokens"]   for p in points]),
         "task_tokens":                       stats([p["task_tokens"]     for p in points]),
-        "overhead_tokens":                   stats([p["overhead_tokens"] for p in points]),
-        "overhead_ratio":                    stats([p["overhead_ratio"]  for p in points]),
+        "eval_overhead_tokens":              stats([p["eval_overhead_tokens"] for p in points]),
+        "eval_overhead_ratio":               stats([p["eval_overhead_ratio"]  for p in points]),
         "system_prompt_tokens":              stats([p["system_prompt_tokens"]              for p in points]),
         "harness_prompt_tokens":             stats([p["harness_prompt_tokens"]             for p in points]),
         "tool_schema_tokens":                stats([p["tool_schema_tokens"]                for p in points]),
@@ -226,8 +226,8 @@ def main() -> None:
                 "time_seconds":    delta("time_seconds", 2),
                 "tokens":          delta("tokens", 0),
                 "task_tokens":     delta("task_tokens", 0),
-                "overhead_tokens": delta("overhead_tokens", 0),
-                "overhead_ratio":  delta("overhead_ratio", 4),
+                "eval_overhead_tokens": delta("eval_overhead_tokens", 0),
+                "eval_overhead_ratio":  delta("eval_overhead_ratio", 4),
                 "failed_commands": delta("failed_commands", 2),
             },
         },

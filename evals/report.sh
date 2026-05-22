@@ -86,13 +86,13 @@ for eval_dir in "$ITER_DIR"/eval-*/; do
     fi
 
     RESULT=""; ASSERTIONS="[]"; PASS_RATE="null"; DURATION_S="null"; TOKENS="null"
-    TASK_TOKENS="null"; OVERHEAD_TOKENS="null"; OVERHEAD_RATIO="null"
+    TASK_TOKENS="null"; EVAL_OVERHEAD_TOKENS="null"; EVAL_OVERHEAD_RATIO="null"
 
     if [[ -f "$run_dir/raw_output.json" ]]; then
       RESULT=$(jq -r '.result // ""' "$run_dir/raw_output.json" 2>/dev/null || true)
       TASK_TOKENS=$(jq '.token_attribution.task_tokens_estimated // null' "$run_dir/raw_output.json" 2>/dev/null || echo "null")
-      OVERHEAD_TOKENS=$(jq '.token_attribution.overhead_tokens_estimated // null' "$run_dir/raw_output.json" 2>/dev/null || echo "null")
-      OVERHEAD_RATIO=$(jq '.token_attribution.overhead_ratio // null' "$run_dir/raw_output.json" 2>/dev/null || echo "null")
+      EVAL_OVERHEAD_TOKENS=$(jq '.token_attribution.eval_overhead_tokens_estimated // null' "$run_dir/raw_output.json" 2>/dev/null || echo "null")
+      EVAL_OVERHEAD_RATIO=$(jq '.token_attribution.eval_overhead_ratio // null' "$run_dir/raw_output.json" 2>/dev/null || echo "null")
     fi
 
     if [[ -f "$run_dir/grading.json" ]]; then
@@ -113,14 +113,14 @@ for eval_dir in "$ITER_DIR"/eval-*/; do
       --argjson duration_s "$DURATION_S" \
       --argjson tokens     "$TOKENS" \
       --argjson task_tokens "$TASK_TOKENS" \
-      --argjson overhead_tokens "$OVERHEAD_TOKENS" \
-      --argjson overhead_ratio "$OVERHEAD_RATIO" \
+      --argjson eval_overhead_tokens "$EVAL_OVERHEAD_TOKENS" \
+      --argjson eval_overhead_ratio "$EVAL_OVERHEAD_RATIO" \
       --argjson n_runs     "$n_runs" \
       --arg     result     "$RESULT" \
       --argjson assertions "$ASSERTIONS" \
       --argjson agg        "$AGG_STATS" \
       '{pass_rate: $pass_rate, duration_s: $duration_s, tokens: $tokens,
-        task_tokens: $task_tokens, overhead_tokens: $overhead_tokens, overhead_ratio: $overhead_ratio,
+        task_tokens: $task_tokens, eval_overhead_tokens: $eval_overhead_tokens, eval_overhead_ratio: $eval_overhead_ratio,
         n_runs: $n_runs, result: $result, assertions: $assertions, agg: $agg}')
 
     CONFIGS_JSON=$(echo "$CONFIGS_JSON" | jq \

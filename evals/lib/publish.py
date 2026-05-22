@@ -50,8 +50,8 @@ def row_for_config(rec: dict, config: str) -> dict:
     it = rs.get("input_tokens", {}) or {}
     ot = rs.get("output_tokens", {}) or {}
     task = rs.get("task_tokens", {}) or {}
-    overhead = rs.get("overhead_tokens", {}) or {}
-    overhead_ratio = rs.get("overhead_ratio", {}) or {}
+    eval_overhead = rs.get("eval_overhead_tokens", {}) or {}
+    eval_overhead_ratio = rs.get("eval_overhead_ratio", {}) or {}
     fc = rs.get("failed_commands", {}) or {}
 
     iteration = meta.get("iteration")
@@ -89,10 +89,10 @@ def row_for_config(rec: dict, config: str) -> dict:
         "output_tokens_median": ot.get("median"),
         "task_tokens_mean":    task.get("mean"),
         "task_tokens_median":  task.get("median"),
-        "overhead_tokens_mean":   overhead.get("mean"),
-        "overhead_tokens_median": overhead.get("median"),
-        "overhead_ratio_mean":    overhead_ratio.get("mean"),
-        "overhead_ratio_median":  overhead_ratio.get("median"),
+        "eval_overhead_tokens_mean":   eval_overhead.get("mean"),
+        "eval_overhead_tokens_median": eval_overhead.get("median"),
+        "eval_overhead_ratio_mean":    eval_overhead_ratio.get("mean"),
+        "eval_overhead_ratio_median":  eval_overhead_ratio.get("median"),
 
         "failed_commands_mean":   fc.get("mean"),
         "failed_commands_median": fc.get("median"),

@@ -156,9 +156,9 @@ def empty_attribution() -> dict:
         "task_input_tokens_estimated": 0,
         "task_output_tokens": 0,
         "task_tokens_estimated": 0,
-        "overhead_input_tokens_estimated": 0,
-        "overhead_tokens_estimated": 0,
-        "overhead_ratio": 0.0,
+        "eval_overhead_input_tokens_estimated": 0,
+        "eval_overhead_tokens_estimated": 0,
+        "eval_overhead_ratio": 0.0,
         "input_categories_estimated": {
             "system_prompt": 0,
             "harness_prompt": 0,
@@ -193,11 +193,10 @@ def finalize_attribution(
         for key in categories:
             categories[key] += int(turn.get("input_categories_estimated", {}).get(key, 0) or 0)
 
-    task_input = min(categories["task_prompt"], total_input)
-    overhead_input = max(total_input - task_input, 0)
+    task_input = min(categories["task_prompt"] + categories["system_prompt"], total_input)
+    eval_overhead_input = max(total_input - task_input, 0)
     estimated_overhead_parts = (
-        categories["system_prompt"]
-        + categories["harness_prompt"]
+        categories["harness_prompt"]
         + categories["tool_schema"]
         + categories["assistant_history"]
         + categories["tool_results"]
@@ -206,10 +205,10 @@ def finalize_attribution(
     attribution["task_input_tokens_estimated"] = task_input
     attribution["task_output_tokens"] = total_output
     attribution["task_tokens_estimated"] = task_input + total_output
-    attribution["overhead_input_tokens_estimated"] = overhead_input
-    attribution["overhead_tokens_estimated"] = overhead_input
-    attribution["overhead_ratio"] = round(
-        overhead_input / total_input,
+    attribution["eval_overhead_input_tokens_estimated"] = eval_overhead_input
+    attribution["eval_overhead_tokens_estimated"] = eval_overhead_input
+    attribution["eval_overhead_ratio"] = round(
+        eval_overhead_input / total_input,
         4,
     ) if total_input else 0.0
     attribution["input_categories_estimated"] = {

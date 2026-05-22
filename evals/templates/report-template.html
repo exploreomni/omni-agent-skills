@@ -316,8 +316,8 @@
   if (!raw) { document.body.innerHTML = "<p style='padding:40px'>No eval data found.</p>"; return; }
   var D = JSON.parse(raw);
   // D = { skill, model, iteration, run_date, run_summary, evals[] }
-  // run_summary = { with_skill: {pass_rate, time_seconds, tokens, task_tokens, overhead_tokens}, without_skill: {...}, delta: {...} }
-  // evals[i] = { id, prompt, with_skill: {pass_rate, duration_s, tokens, task_tokens, overhead_tokens, result, assertions[]}, without_skill: {...} }
+  // run_summary = { with_skill: {pass_rate, time_seconds, tokens, task_tokens, eval_overhead_tokens}, without_skill: {...}, delta: {...} }
+  // evals[i] = { id, prompt, with_skill: {pass_rate, duration_s, tokens, task_tokens, eval_overhead_tokens, result, assertions[]}, without_skill: {...} }
 
   /* ── Header ────────────────────────────────────────── */
   document.getElementById("page-title").textContent =
@@ -431,22 +431,22 @@
         delta: numDelta(del.tokens, true)
       },
       {
-        label: "Task Tokens (est.)",
+        label: "Task + Skill Tokens (est.)",
         wsVal: summaryNum(ws.task_tokens, fmtInt),
         woVal: summaryNum(wo.task_tokens, fmtInt),
         delta: numDelta(del.task_tokens, true)
       },
       {
-        label: "Overhead Tokens (est.)",
-        wsVal: summaryNum(ws.overhead_tokens, fmtInt),
-        woVal: summaryNum(wo.overhead_tokens, fmtInt),
-        delta: numDelta(del.overhead_tokens, true)
+        label: "Eval Overhead Tokens (est.)",
+        wsVal: summaryNum(ws.eval_overhead_tokens, fmtInt),
+        woVal: summaryNum(wo.eval_overhead_tokens, fmtInt),
+        delta: numDelta(del.eval_overhead_tokens, true)
       },
       {
-        label: "Overhead Share (est.)",
-        wsVal: summaryPct(ws.overhead_ratio),
-        woVal: summaryPct(wo.overhead_ratio),
-        delta: pctDelta(del.overhead_ratio)
+        label: "Eval Overhead Share (est.)",
+        wsVal: summaryPct(ws.eval_overhead_ratio),
+        woVal: summaryPct(wo.eval_overhead_ratio),
+        delta: pctDelta(del.eval_overhead_ratio)
       }
     ];
 
@@ -516,9 +516,9 @@
         el("th", {textContent: "Pass Rate"}),
         el("th", {textContent: "Time (s)"}),
         el("th", {textContent: "Tokens"}),
-        el("th", {textContent: "Task Tokens (est.)"}),
-        el("th", {textContent: "Overhead Tokens (est.)"}),
-        el("th", {textContent: "Overhead Share (est.)"})
+        el("th", {textContent: "Task + Skill Tokens (est.)"}),
+        el("th", {textContent: "Eval Overhead Tokens (est.)"}),
+        el("th", {textContent: "Eval Overhead Share (est.)"})
       ])]));
       var statBody = el("tbody");
       [
@@ -535,8 +535,8 @@
           el("td", {innerHTML: cellFor(agg.time_seconds,    d.duration_s, fmt1)}),
           el("td", {innerHTML: cellFor(agg.tokens,          d.tokens,     fmtInt)}),
           el("td", {innerHTML: cellFor(agg.task_tokens,     d.task_tokens, fmtInt)}),
-          el("td", {innerHTML: cellFor(agg.overhead_tokens, d.overhead_tokens, fmtInt)}),
-          el("td", {innerHTML: cellFor(agg.overhead_ratio,  d.overhead_ratio, pct)})
+          el("td", {innerHTML: cellFor(agg.eval_overhead_tokens, d.eval_overhead_tokens, fmtInt)}),
+          el("td", {innerHTML: cellFor(agg.eval_overhead_ratio,  d.eval_overhead_ratio, pct)})
         ]));
       });
       statTbl.appendChild(statBody);
