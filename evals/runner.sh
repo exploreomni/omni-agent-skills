@@ -31,6 +31,7 @@ MODEL="${EVAL_MODEL:-claude-sonnet-4-6}"
 REASONING_EFFORT="${EVAL_REASONING_EFFORT:-}"
 FORCE_ITERATION=""
 REPEAT="${EVAL_REPEAT:-1}"
+MAX_TOOL_RESULT_CHARS="${EVAL_MAX_TOOL_RESULT_CHARS:-4000}"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -58,6 +59,7 @@ Options:
   --reasoning-effort EFFORT    OpenAI reasoning effort: low, medium, high, xhigh (or \$EVAL_REASONING_EFFORT)
   --iteration N                Force a specific iteration number (default: auto-increment)
   --repeat N                   Run each eval N times for per-eval variance (default: 1, or \$EVAL_REPEAT)
+  --max-tool-result-chars N    Max tool output chars fed back to the model (default: 4000, 0 disables)
 
 Examples:
   ./evals/runner.sh omni-query
@@ -221,6 +223,7 @@ run_agent() {
     args+=(--reasoning-effort "$REASONING_EFFORT")
   fi
 
+  args+=(--max-tool-result-chars "$MAX_TOOL_RESULT_CHARS")
   args+=(--working-dir "$out_dir/outputs")
   args+=(--transcript-file "$out_dir/transcript.json")
 
@@ -367,12 +370,14 @@ run_skill() {
     --arg     skill            "$skill" \
     --arg     date             "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     --arg     reasoning_effort "$REASONING_EFFORT" \
+    --argjson max_tool_result_chars "$MAX_TOOL_RESULT_CHARS" \
     --argjson iter             "$iter" \
     --argjson repeat           "$REPEAT" \
     --argjson provenance       "$(provenance_block "$skill_md" "$evals_file")" \
     '{provider: $provider, model: $model, model_slug: $slug, skill: $skill, iteration: $iter,
       repeat: $repeat,
       run_date: $date,
+      max_tool_result_chars: $max_tool_result_chars,
       reasoning_effort: (if $reasoning_effort == "" then null else $reasoning_effort end),
       provenance: $provenance}' \
     > "$iter_dir/meta.json"
@@ -416,6 +421,7 @@ while [[ $# -gt 0 ]]; do
     --reasoning-effort)  REASONING_EFFORT="$2"; shift 2 ;;
     --iteration)         FORCE_ITERATION="$2"; shift 2 ;;
     --repeat)            REPEAT="$2"; shift 2 ;;
+    --max-tool-result-chars) MAX_TOOL_RESULT_CHARS="$2"; shift 2 ;;
     -h|--help)   usage ;;
     *)           echo "Unknown flag: $1" >&2; usage ;;
   esac

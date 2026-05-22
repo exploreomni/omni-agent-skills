@@ -128,6 +128,25 @@ For OpenAI reasoning models, pass reasoning effort when needed:
   --reasoning-effort medium
 ```
 
+## Tool Output Truncation
+
+The runner truncates each tool result before feeding it back into the model. This keeps large CLI responses from being replayed on every later turn and reduces eval overhead.
+
+Default cap:
+
+```text
+4000 characters per tool result
+```
+
+Tune it with a flag or environment variable:
+
+```bash
+./evals/runner.sh omni-query --max-tool-result-chars 8000
+EVAL_MAX_TOOL_RESULT_CHARS=8000 ./evals/runner.sh omni-query
+```
+
+Use `0` to disable truncation. `transcript.json` keeps the full tool output in `content` for scoring and debugging. When truncation happens, the same tool entry also includes `visible_content` with the shortened model-visible output and a `truncation` object with original and omitted character counts.
+
 ## Repeated Runs
 
 Use repeats when you want per-eval variance:

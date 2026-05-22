@@ -247,6 +247,44 @@ def run_bash(command: str, cwd: str | None, timeout: int) -> str:
         return f"[error: {exc}]"
 
 
+def truncate_tool_result(result: str, max_chars: int) -> tuple[str, dict]:
+    """Return model-visible tool output plus metadata about any truncation."""
+    original_chars = len(result)
+    meta = {
+        "original_chars": original_chars,
+        "visible_chars": original_chars,
+        "truncated": False,
+        "max_chars": max_chars,
+    }
+    if max_chars <= 0 or original_chars <= max_chars:
+        return result, meta
+
+    marker = (
+        f"\n\n[truncated tool output: original_chars={original_chars}, "
+        f"max_visible_chars={max_chars}]\n\n"
+    )
+    content_budget = max_chars - len(marker)
+    if content_budget <= 0:
+        visible = marker[:max_chars]
+        meta.update({
+            "visible_chars": len(visible),
+            "truncated": True,
+            "omitted_chars": original_chars,
+        })
+        return visible, meta
+
+    head_chars = content_budget // 2
+    tail_chars = content_budget - head_chars
+    omitted = original_chars - content_budget
+    visible = result[:head_chars] + marker + result[-tail_chars:]
+    meta.update({
+        "visible_chars": len(visible),
+        "truncated": True,
+        "omitted_chars": omitted,
+    })
+    return visible, meta
+
+
 # ── Agentic loop ──────────────────────────────────────────────────────────────
 
 def run_agent(
@@ -257,6 +295,7 @@ def run_agent(
     max_turns: int,
     bash_timeout: int,
     working_dir: str | None,
+    max_tool_result_chars: int,
     reasoning_effort: str | None = None,
     transcript_file: str | None = None,
 ) -> dict:
@@ -266,11 +305,13 @@ def run_agent(
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": prompt})
+    transcript_messages: list[dict] = [dict(m) for m in messages]
 
     total_input = 0
     total_output = 0
     final_text = ""
     usage_by_turn: list[dict] = []
+    tool_result_stats: list[dict] = []
 
     extra_kwargs: dict = {}
     if reasoning_effort:
@@ -293,6 +334,7 @@ def run_agent(
                 "error": str(exc),
                 "usage": {"input_tokens": total_input, "output_tokens": total_output},
                 "usage_by_turn": usage_by_turn,
+                "tool_result_stats": tool_result_stats,
                 "token_attribution": finalize_attribution(
                     total_input,
                     total_output,
@@ -340,6 +382,7 @@ def run_agent(
             for tc in msg.tool_calls
         ]
         messages.append(assistant_entry)
+        transcript_messages.append(assistant_entry)
 
         # Execute each tool call and feed results back
         for tc in msg.tool_calls:
@@ -350,16 +393,25 @@ def run_agent(
                 command = tc.function.arguments
 
             result = run_bash(command, working_dir, bash_timeout)
+            visible_result, result_meta = truncate_tool_result(result, max_tool_result_chars)
+            tool_result_stats.append(result_meta)
             messages.append({
                 "role": "tool",
                 "tool_call_id": tc.id,
+                "content": visible_result,
+            })
+            transcript_messages.append({
+                "role": "tool",
+                "tool_call_id": tc.id,
                 "content": result,
+                "visible_content": visible_result,
+                "truncation": result_meta,
             })
 
     if transcript_file:
         try:
             with open(transcript_file, "w") as f:
-                json.dump(messages, f, indent=2)
+                json.dump(transcript_messages, f, indent=2)
         except OSError:
             pass  # Best-effort; don't fail the run if transcript can't be written
 
@@ -368,6 +420,7 @@ def run_agent(
         "is_error": False,
         "usage": {"input_tokens": total_input, "output_tokens": total_output},
         "usage_by_turn": usage_by_turn,
+        "tool_result_stats": tool_result_stats,
         "token_attribution": finalize_attribution(
             total_input,
             total_output,
@@ -402,6 +455,13 @@ def main() -> None:
     parser.add_argument(
         "--bash-timeout", type=int, default=60,
         help="Per-command timeout in seconds (default: 60)",
+    )
+    parser.add_argument(
+        "--max-tool-result-chars", type=int, default=4000,
+        help=(
+            "Maximum characters of each tool result to feed back into the model. "
+            "Use 0 to disable truncation (default: 4000)."
+        ),
     )
     parser.add_argument(
         "--working-dir",
@@ -442,6 +502,7 @@ def main() -> None:
         max_turns=args.max_turns,
         bash_timeout=args.bash_timeout,
         working_dir=args.working_dir,
+        max_tool_result_chars=args.max_tool_result_chars,
         reasoning_effort=args.reasoning_effort,
         transcript_file=args.transcript_file,
     )
