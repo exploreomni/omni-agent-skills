@@ -16,7 +16,12 @@ Usage:
     [--bash-timeout 60]
 
 Output (stdout):
-  {"result": "...", "usage": {"input_tokens": N, "output_tokens": N}}
+  {
+    "result": "...",
+    "usage": {"input_tokens": N, "output_tokens": N},
+    "usage_by_turn": [...],
+    "token_attribution": {...}
+  }
 
 API keys are read from the environment:
   Anthropic  → ANTHROPIC_API_KEY
@@ -77,6 +82,147 @@ BASH_TOOL = {
 }
 
 
+# ── Token attribution helpers ────────────────────────────────────────────────
+
+def estimate_tokens(text: str | None) -> int:
+    """Rough token estimate for attribution only; provider usage remains exact."""
+    if not text:
+        return 0
+    return max(1, round(len(text) / 4))
+
+
+def split_eval_prompt(prompt: str) -> tuple[str, str]:
+    """Split runner.sh's wrapped prompt into user task and harness instructions."""
+    marker = "Task: "
+    after = "\n\nAfter completing the task,"
+    if marker not in prompt:
+        return prompt, ""
+
+    start = prompt.find(marker) + len(marker)
+    end = prompt.find(after, start)
+    if end == -1:
+        return prompt[start:].strip(), prompt[:start].strip()
+
+    task = prompt[start:end].strip()
+    harness = (prompt[:start] + prompt[end:]).strip()
+    return task, harness
+
+
+def tool_schema_tokens() -> int:
+    return estimate_tokens(json.dumps([BASH_TOOL], separators=(",", ":")))
+
+
+def assistant_message_tokens(msg: dict) -> int:
+    total = estimate_tokens(msg.get("content", ""))
+    if msg.get("tool_calls"):
+        total += estimate_tokens(json.dumps(msg["tool_calls"], separators=(",", ":")))
+    return total
+
+
+def estimate_turn_input(messages: list[dict], prompt: str) -> dict:
+    """Attribute one completion call's prompt tokens into stable categories."""
+    task_prompt, harness_prompt = split_eval_prompt(prompt)
+    out = {
+        "system_prompt": 0,
+        "task_prompt": 0,
+        "harness_prompt": 0,
+        "tool_schema": tool_schema_tokens(),
+        "assistant_history": 0,
+        "tool_results": 0,
+    }
+
+    for msg in messages:
+        role = msg.get("role")
+        if role == "system":
+            out["system_prompt"] += estimate_tokens(msg.get("content", ""))
+        elif role == "user":
+            out["task_prompt"] += estimate_tokens(task_prompt)
+            out["harness_prompt"] += estimate_tokens(harness_prompt)
+        elif role == "assistant":
+            out["assistant_history"] += assistant_message_tokens(msg)
+        elif role == "tool":
+            out["tool_results"] += estimate_tokens(msg.get("content", ""))
+
+    return out
+
+
+def empty_attribution() -> dict:
+    return {
+        "method": "estimated_chars_div_4_for_categories_provider_usage_exact",
+        "turns": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0,
+        "task_input_tokens_estimated": 0,
+        "task_output_tokens": 0,
+        "task_tokens_estimated": 0,
+        "overhead_input_tokens_estimated": 0,
+        "overhead_tokens_estimated": 0,
+        "overhead_ratio": 0.0,
+        "input_categories_estimated": {
+            "system_prompt": 0,
+            "harness_prompt": 0,
+            "tool_schema": 0,
+            "assistant_history": 0,
+            "tool_results": 0,
+            "provider_protocol_residual": 0,
+        },
+    }
+
+
+def finalize_attribution(
+    total_input: int,
+    total_output: int,
+    usage_by_turn: list[dict],
+) -> dict:
+    attribution = empty_attribution()
+    attribution["turns"] = len(usage_by_turn)
+    attribution["input_tokens"] = total_input
+    attribution["output_tokens"] = total_output
+    attribution["total_tokens"] = total_input + total_output
+
+    categories = {
+        "system_prompt": 0,
+        "task_prompt": 0,
+        "harness_prompt": 0,
+        "tool_schema": 0,
+        "assistant_history": 0,
+        "tool_results": 0,
+    }
+    for turn in usage_by_turn:
+        for key in categories:
+            categories[key] += int(turn.get("input_categories_estimated", {}).get(key, 0) or 0)
+
+    task_input = min(categories["task_prompt"], total_input)
+    overhead_input = max(total_input - task_input, 0)
+    estimated_overhead_parts = (
+        categories["system_prompt"]
+        + categories["harness_prompt"]
+        + categories["tool_schema"]
+        + categories["assistant_history"]
+        + categories["tool_results"]
+    )
+
+    attribution["task_input_tokens_estimated"] = task_input
+    attribution["task_output_tokens"] = total_output
+    attribution["task_tokens_estimated"] = task_input + total_output
+    attribution["overhead_input_tokens_estimated"] = overhead_input
+    attribution["overhead_tokens_estimated"] = overhead_input
+    attribution["overhead_ratio"] = round(
+        overhead_input / total_input,
+        4,
+    ) if total_input else 0.0
+    attribution["input_categories_estimated"] = {
+        "system_prompt": categories["system_prompt"],
+        "harness_prompt": categories["harness_prompt"],
+        "tool_schema": categories["tool_schema"],
+        "assistant_history": categories["assistant_history"],
+        "tool_results": categories["tool_results"],
+        "provider_protocol_residual": total_input - task_input - estimated_overhead_parts,
+    }
+    return attribution
+
+
 # ── Bash executor ─────────────────────────────────────────────────────────────
 
 def run_bash(command: str, cwd: str | None, timeout: int) -> str:
@@ -125,12 +271,14 @@ def run_agent(
     total_input = 0
     total_output = 0
     final_text = ""
+    usage_by_turn: list[dict] = []
 
     extra_kwargs: dict = {}
     if reasoning_effort:
         extra_kwargs["reasoning_effort"] = reasoning_effort
 
     for _turn in range(max_turns):
+        turn_input_categories = estimate_turn_input(messages, prompt)
         try:
             response = litellm.completion(
                 model=model_string,
@@ -145,13 +293,35 @@ def run_agent(
                 "is_error": True,
                 "error": str(exc),
                 "usage": {"input_tokens": total_input, "output_tokens": total_output},
+                "usage_by_turn": usage_by_turn,
+                "token_attribution": finalize_attribution(
+                    total_input,
+                    total_output,
+                    usage_by_turn,
+                ),
             }
 
+        prompt_tokens = 0
+        completion_tokens = 0
         if response.usage:
-            total_input += response.usage.prompt_tokens or 0
-            total_output += response.usage.completion_tokens or 0
+            prompt_tokens = response.usage.prompt_tokens or 0
+            completion_tokens = response.usage.completion_tokens or 0
+            total_input += prompt_tokens
+            total_output += completion_tokens
 
         msg = response.choices[0].message
+        usage_by_turn.append({
+            "turn": _turn + 1,
+            "input_tokens": prompt_tokens,
+            "output_tokens": completion_tokens,
+            "message_count": len(messages),
+            "tool_result_chars": sum(
+                len(m.get("content", ""))
+                for m in messages
+                if m.get("role") == "tool"
+            ),
+            "input_categories_estimated": turn_input_categories,
+        })
 
         if msg.content:
             final_text = msg.content
@@ -198,6 +368,12 @@ def run_agent(
         "result": final_text,
         "is_error": False,
         "usage": {"input_tokens": total_input, "output_tokens": total_output},
+        "usage_by_turn": usage_by_turn,
+        "token_attribution": finalize_attribution(
+            total_input,
+            total_output,
+            usage_by_turn,
+        ),
     }
 
 

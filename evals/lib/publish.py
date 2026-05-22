@@ -47,6 +47,11 @@ def row_for_config(rec: dict, config: str) -> dict:
     pr = rs.get("pass_rate", {})  or {}
     ts = rs.get("time_seconds", {}) or {}
     tk = rs.get("tokens", {})       or {}
+    it = rs.get("input_tokens", {}) or {}
+    ot = rs.get("output_tokens", {}) or {}
+    task = rs.get("task_tokens", {}) or {}
+    overhead = rs.get("overhead_tokens", {}) or {}
+    overhead_ratio = rs.get("overhead_ratio", {}) or {}
     fc = rs.get("failed_commands", {}) or {}
 
     iteration = meta.get("iteration")
@@ -78,6 +83,16 @@ def row_for_config(rec: dict, config: str) -> dict:
 
         "tokens_mean":         tk.get("mean"),
         "tokens_median":       tk.get("median"),
+        "input_tokens_mean":   it.get("mean"),
+        "input_tokens_median": it.get("median"),
+        "output_tokens_mean":  ot.get("mean"),
+        "output_tokens_median": ot.get("median"),
+        "task_tokens_mean":    task.get("mean"),
+        "task_tokens_median":  task.get("median"),
+        "overhead_tokens_mean":   overhead.get("mean"),
+        "overhead_tokens_median": overhead.get("median"),
+        "overhead_ratio_mean":    overhead_ratio.get("mean"),
+        "overhead_ratio_median":  overhead_ratio.get("median"),
 
         "failed_commands_mean":   fc.get("mean"),
         "failed_commands_median": fc.get("median"),

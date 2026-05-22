@@ -316,8 +316,8 @@
   if (!raw) { document.body.innerHTML = "<p style='padding:40px'>No eval data found.</p>"; return; }
   var D = JSON.parse(raw);
   // D = { skill, model, iteration, run_date, run_summary, evals[] }
-  // run_summary = { with_skill: {pass_rate, time_seconds, tokens}, without_skill: {...}, delta: {...} }
-  // evals[i] = { id, prompt, with_skill: {pass_rate, duration_s, tokens, result, assertions[]}, without_skill: {...} }
+  // run_summary = { with_skill: {pass_rate, time_seconds, tokens, task_tokens, overhead_tokens}, without_skill: {...}, delta: {...} }
+  // evals[i] = { id, prompt, with_skill: {pass_rate, duration_s, tokens, task_tokens, overhead_tokens, result, assertions[]}, without_skill: {...} }
 
   /* ── Header ────────────────────────────────────────── */
   document.getElementById("page-title").textContent =
@@ -400,27 +400,53 @@
     return ' <small style="color:#888"> · med ' + fmt(stat.median) +
            " (" + fmt(iqr[0]) + "–" + fmt(iqr[1]) + ")</small>";
   }
+  function summaryPct(stat) {
+    if (!stat || !stat.n || stat.mean == null) return "—";
+    return pct(stat.mean) + " <small>±" + pct(stat.stddev) + "</small>" + withMedianPct(stat);
+  }
+  function summaryNum(stat, fmt) {
+    if (!stat || !stat.n || stat.mean == null) return "—";
+    return fmt(stat.mean) + " <small>±" + fmt(stat.stddev) + "</small>" + withMedianNum(stat, fmt);
+  }
 
   (function() {
     var wrap = document.getElementById("summary-table-wrap");
     var rows = [
       {
         label: "Pass Rate",
-        wsVal: pct(ws.pass_rate && ws.pass_rate.mean) + " <small>±" + pct(ws.pass_rate && ws.pass_rate.stddev) + "</small>" + withMedianPct(ws.pass_rate),
-        woVal: pct(wo.pass_rate && wo.pass_rate.mean) + " <small>±" + pct(wo.pass_rate && wo.pass_rate.stddev) + "</small>" + withMedianPct(wo.pass_rate),
+        wsVal: summaryPct(ws.pass_rate),
+        woVal: summaryPct(wo.pass_rate),
         delta: pctDelta(del.pass_rate)
       },
       {
         label: "Time (s)",
-        wsVal: fmt1(ws.time_seconds && ws.time_seconds.mean) + " <small>±" + fmt1(ws.time_seconds && ws.time_seconds.stddev) + "</small>" + withMedianNum(ws.time_seconds, fmt1),
-        woVal: fmt1(wo.time_seconds && wo.time_seconds.mean) + " <small>±" + fmt1(wo.time_seconds && wo.time_seconds.stddev) + "</small>" + withMedianNum(wo.time_seconds, fmt1),
+        wsVal: summaryNum(ws.time_seconds, fmt1),
+        woVal: summaryNum(wo.time_seconds, fmt1),
         delta: numDelta(del.time_seconds, true)
       },
       {
         label: "Tokens",
-        wsVal: fmtInt(ws.tokens && ws.tokens.mean) + " <small>±" + fmtInt(ws.tokens && ws.tokens.stddev) + "</small>" + withMedianNum(ws.tokens, fmtInt),
-        woVal: fmtInt(wo.tokens && wo.tokens.mean) + " <small>±" + fmtInt(wo.tokens && wo.tokens.stddev) + "</small>" + withMedianNum(wo.tokens, fmtInt),
+        wsVal: summaryNum(ws.tokens, fmtInt),
+        woVal: summaryNum(wo.tokens, fmtInt),
         delta: numDelta(del.tokens, true)
+      },
+      {
+        label: "Task Tokens (est.)",
+        wsVal: summaryNum(ws.task_tokens, fmtInt),
+        woVal: summaryNum(wo.task_tokens, fmtInt),
+        delta: numDelta(del.task_tokens, true)
+      },
+      {
+        label: "Overhead Tokens (est.)",
+        wsVal: summaryNum(ws.overhead_tokens, fmtInt),
+        woVal: summaryNum(wo.overhead_tokens, fmtInt),
+        delta: numDelta(del.overhead_tokens, true)
+      },
+      {
+        label: "Overhead Share (est.)",
+        wsVal: summaryPct(ws.overhead_ratio),
+        woVal: summaryPct(wo.overhead_ratio),
+        delta: pctDelta(del.overhead_ratio)
       }
     ];
 
@@ -489,7 +515,10 @@
         el("th", {textContent: "Config"}),
         el("th", {textContent: "Pass Rate"}),
         el("th", {textContent: "Time (s)"}),
-        el("th", {textContent: "Tokens"})
+        el("th", {textContent: "Tokens"}),
+        el("th", {textContent: "Task Tokens (est.)"}),
+        el("th", {textContent: "Overhead Tokens (est.)"}),
+        el("th", {textContent: "Overhead Share (est.)"})
       ])]));
       var statBody = el("tbody");
       [
@@ -504,7 +533,10 @@
           el("td", {textContent: configLabel}),
           el("td", {innerHTML: cellFor(agg.pass_rate,       d.pass_rate,  pct)}),
           el("td", {innerHTML: cellFor(agg.time_seconds,    d.duration_s, fmt1)}),
-          el("td", {innerHTML: cellFor(agg.tokens,          d.tokens,     fmtInt)})
+          el("td", {innerHTML: cellFor(agg.tokens,          d.tokens,     fmtInt)}),
+          el("td", {innerHTML: cellFor(agg.task_tokens,     d.task_tokens, fmtInt)}),
+          el("td", {innerHTML: cellFor(agg.overhead_tokens, d.overhead_tokens, fmtInt)}),
+          el("td", {innerHTML: cellFor(agg.overhead_ratio,  d.overhead_ratio, pct)})
         ]));
       });
       statTbl.appendChild(statBody);

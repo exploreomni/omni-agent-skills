@@ -177,6 +177,25 @@ evals/workspaces/<skill>/iteration-<n>-<model>/
       transcript.json
 ```
 
+`raw_output.json` includes exact provider-reported usage totals plus an estimated attribution block:
+
+```json
+{
+  "usage": {"input_tokens": 12345, "output_tokens": 678},
+  "usage_by_turn": [
+    {"turn": 1, "input_tokens": 5000, "output_tokens": 300}
+  ],
+  "token_attribution": {
+    "method": "estimated_chars_div_4_for_categories_provider_usage_exact",
+    "task_tokens_estimated": 1200,
+    "overhead_tokens_estimated": 11823,
+    "overhead_ratio": 0.958
+  }
+}
+```
+
+The total input/output token counts come from the provider. The task-vs-overhead split is estimated from prompt and transcript text so it can identify the biggest cost drivers, but it should not be treated as an exact billing category. `task_tokens_estimated` is the user task prompt input plus all model output tokens; `overhead_tokens_estimated` is the remaining provider-reported input token usage, including skill/baseline prompts, harness instructions, tool schemas, tool results, and conversation replay.
+
 Scorer output:
 
 ```text

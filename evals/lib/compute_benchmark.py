@@ -27,10 +27,11 @@ TIMEOUT_PATTERN = re.compile(r"\[timed out after")
 ERROR_PATTERN = re.compile(r"\[error:")
 
 
-def stats(values: list[float]) -> dict:
+def stats(values: list[float | None]) -> dict:
     """Return mean+stddev+median+IQR for a list of values."""
+    values = [v for v in values if v is not None]
     if not values:
-        return {"mean": 0.0, "stddev": 0.0, "median": 0.0, "iqr": [0.0, 0.0], "n": 0}
+        return {"mean": None, "stddev": None, "median": None, "iqr": [None, None], "n": 0}
     n = len(values)
     mu = sum(values) / n
     variance = sum((x - mu) ** 2 for x in values) / n if n > 1 else 0.0
@@ -104,6 +105,39 @@ def collect_run(run_dir: str) -> dict | None:
         point["tokens"] = 0
         point["duration_s"] = 0.0
 
+    raw_path = os.path.join(run_dir, "raw_output.json")
+    attribution = {}
+    usage = {}
+    if os.path.exists(raw_path):
+        try:
+            with open(raw_path) as f:
+                raw = json.load(f)
+            attribution = raw.get("token_attribution", {}) or {}
+            usage = raw.get("usage", {}) or {}
+        except (OSError, json.JSONDecodeError):
+            attribution = {}
+            usage = {}
+
+    has_attribution = bool(attribution)
+    input_tokens = attribution.get("input_tokens", usage.get("input_tokens", 0)) or 0
+    output_tokens = attribution.get("output_tokens", usage.get("output_tokens", 0)) or 0
+    task_tokens = attribution.get("task_tokens_estimated") if has_attribution else None
+    overhead_tokens = attribution.get("overhead_tokens_estimated") if has_attribution else None
+    overhead_ratio = attribution.get("overhead_ratio") if has_attribution else None
+
+    categories = attribution.get("input_categories_estimated", {}) or {}
+    point["input_tokens"] = input_tokens
+    point["output_tokens"] = output_tokens
+    point["task_tokens"] = task_tokens
+    point["overhead_tokens"] = overhead_tokens
+    point["overhead_ratio"] = overhead_ratio
+    point["system_prompt_tokens"] = categories.get("system_prompt") if has_attribution else None
+    point["harness_prompt_tokens"] = categories.get("harness_prompt") if has_attribution else None
+    point["tool_schema_tokens"] = categories.get("tool_schema") if has_attribution else None
+    point["assistant_history_tokens"] = categories.get("assistant_history") if has_attribution else None
+    point["tool_result_tokens"] = categories.get("tool_results") if has_attribution else None
+    point["provider_protocol_residual_tokens"] = categories.get("provider_protocol_residual") if has_attribution else None
+
     cmd_counts = count_failed_commands(os.path.join(run_dir, "transcript.json"))
     point["failed_commands"] = cmd_counts["failed_commands"]
     point["total_commands"] = cmd_counts["total_commands"]
@@ -123,10 +157,21 @@ def collect_eval(eval_dir: str, config: str) -> list[dict]:
 def summarize(points: list[dict]) -> dict:
     """Compute stats across a set of run data points."""
     return {
-        "pass_rate":       stats([p["pass_rate"]       for p in points]),
-        "time_seconds":    stats([p["duration_s"]     for p in points]),
-        "tokens":          stats([p["tokens"]          for p in points]),
-        "failed_commands": stats([p["failed_commands"] for p in points]),
+        "pass_rate":                         stats([p["pass_rate"]       for p in points]),
+        "time_seconds":                      stats([p["duration_s"]      for p in points]),
+        "tokens":                            stats([p["tokens"]          for p in points]),
+        "input_tokens":                      stats([p["input_tokens"]    for p in points]),
+        "output_tokens":                     stats([p["output_tokens"]   for p in points]),
+        "task_tokens":                       stats([p["task_tokens"]     for p in points]),
+        "overhead_tokens":                   stats([p["overhead_tokens"] for p in points]),
+        "overhead_ratio":                    stats([p["overhead_ratio"]  for p in points]),
+        "system_prompt_tokens":              stats([p["system_prompt_tokens"]              for p in points]),
+        "harness_prompt_tokens":             stats([p["harness_prompt_tokens"]             for p in points]),
+        "tool_schema_tokens":                stats([p["tool_schema_tokens"]                for p in points]),
+        "assistant_history_tokens":          stats([p["assistant_history_tokens"]          for p in points]),
+        "tool_result_tokens":                stats([p["tool_result_tokens"]                for p in points]),
+        "provider_protocol_residual_tokens": stats([p["provider_protocol_residual_tokens"] for p in points]),
+        "failed_commands":                   stats([p["failed_commands"] for p in points]),
     }
 
 
@@ -165,8 +210,12 @@ def main() -> None:
     with_summary    = summarize(pool["with_skill"])
     without_summary = summarize(pool["without_skill"])
 
-    def delta(metric: str, decimals: int) -> float:
-        return round(with_summary[metric]["median"] - without_summary[metric]["median"], decimals)
+    def delta(metric: str, decimals: int) -> float | None:
+        with_median = with_summary[metric]["median"]
+        without_median = without_summary[metric]["median"]
+        if with_median is None or without_median is None:
+            return None
+        return round(with_median - without_median, decimals)
 
     benchmark = {
         "run_summary": {
@@ -176,6 +225,9 @@ def main() -> None:
                 "pass_rate":       delta("pass_rate", 4),
                 "time_seconds":    delta("time_seconds", 2),
                 "tokens":          delta("tokens", 0),
+                "task_tokens":     delta("task_tokens", 0),
+                "overhead_tokens": delta("overhead_tokens", 0),
+                "overhead_ratio":  delta("overhead_ratio", 4),
                 "failed_commands": delta("failed_commands", 2),
             },
         },
