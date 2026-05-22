@@ -63,10 +63,27 @@ for eval_dir in "$ITER_DIR"/eval-*/; do
       "$EVALS_FILE" 2>/dev/null || true)
   fi
 
+  # Look up aggregated stats for this eval from benchmark.json's per_eval array.
+  # When per_eval isn't present (older runs), this just yields nulls and the template
+  # falls back to its flat-layout behavior.
+  PER_EVAL_STATS=$(echo "$BENCHMARK" | jq \
+    --arg id "$eval_id" \
+    '.per_eval // [] | map(select(.eval_id == $id)) | first // null')
+
   CONFIGS_JSON="{}"
   for config in with_skill without_skill; do
-    run_dir="$eval_dir$config"
-    [[ -d "$run_dir" ]] || continue
+    config_dir="$eval_dir$config"
+    [[ -d "$config_dir" ]] || continue
+
+    # Find the source run dir: nested run-1/ if present, otherwise the config dir itself.
+    first_run=$(find "$config_dir" -mindepth 1 -maxdepth 1 -type d -name 'run-*' 2>/dev/null | sort -V | head -1)
+    if [[ -n "$first_run" ]]; then
+      run_dir="$first_run"
+      n_runs=$(find "$config_dir" -mindepth 1 -maxdepth 1 -type d -name 'run-*' 2>/dev/null | wc -l | tr -d ' ')
+    else
+      run_dir="$config_dir"
+      n_runs=1
+    fi
 
     RESULT=""; ASSERTIONS="[]"; PASS_RATE="null"; DURATION_S="null"; TOKENS="null"
 
@@ -83,14 +100,19 @@ for eval_dir in "$ITER_DIR"/eval-*/; do
       TOKENS=$(jq '.total_tokens' "$run_dir/timing.json" 2>/dev/null || echo "null")
     fi
 
+    # Pull aggregated stats (median/iqr/n) for this (eval, config) from per_eval.
+    AGG_STATS=$(echo "$PER_EVAL_STATS" | jq --arg c "$config" '.[$c] // null')
+
     CONFIG_OBJ=$(jq -n \
       --argjson pass_rate  "$PASS_RATE" \
       --argjson duration_s "$DURATION_S" \
       --argjson tokens     "$TOKENS" \
+      --argjson n_runs     "$n_runs" \
       --arg     result     "$RESULT" \
       --argjson assertions "$ASSERTIONS" \
+      --argjson agg        "$AGG_STATS" \
       '{pass_rate: $pass_rate, duration_s: $duration_s, tokens: $tokens,
-        result: $result, assertions: $assertions}')
+        n_runs: $n_runs, result: $result, assertions: $assertions, agg: $agg}')
 
     CONFIGS_JSON=$(echo "$CONFIGS_JSON" | jq \
       --arg     k "$config" \

@@ -387,28 +387,50 @@
   var del = rs.delta         || {};
 
   /* -- Summary table ----------------------------------- */
+  // When n_runs > 1 (--repeat mode), append " · median (q1–q3)" to robust-stat metrics.
+  function withMedianPct(stat) {
+    if (!stat || stat.n == null || stat.n < 2 || stat.median == null) return "";
+    var iqr = stat.iqr || [stat.median, stat.median];
+    return ' <small style="color:#888"> · med ' + pct(stat.median) +
+           " (" + pct(iqr[0]) + "–" + pct(iqr[1]) + ")</small>";
+  }
+  function withMedianNum(stat, fmt) {
+    if (!stat || stat.n == null || stat.n < 2 || stat.median == null) return "";
+    var iqr = stat.iqr || [stat.median, stat.median];
+    return ' <small style="color:#888"> · med ' + fmt(stat.median) +
+           " (" + fmt(iqr[0]) + "–" + fmt(iqr[1]) + ")</small>";
+  }
+
   (function() {
     var wrap = document.getElementById("summary-table-wrap");
     var rows = [
       {
         label: "Pass Rate",
-        wsVal: pct(ws.pass_rate && ws.pass_rate.mean) + " <small>±" + pct(ws.pass_rate && ws.pass_rate.stddev) + "</small>",
-        woVal: pct(wo.pass_rate && wo.pass_rate.mean) + " <small>±" + pct(wo.pass_rate && wo.pass_rate.stddev) + "</small>",
+        wsVal: pct(ws.pass_rate && ws.pass_rate.mean) + " <small>±" + pct(ws.pass_rate && ws.pass_rate.stddev) + "</small>" + withMedianPct(ws.pass_rate),
+        woVal: pct(wo.pass_rate && wo.pass_rate.mean) + " <small>±" + pct(wo.pass_rate && wo.pass_rate.stddev) + "</small>" + withMedianPct(wo.pass_rate),
         delta: pctDelta(del.pass_rate)
       },
       {
         label: "Time (s)",
-        wsVal: fmt1(ws.time_seconds && ws.time_seconds.mean) + " <small>±" + fmt1(ws.time_seconds && ws.time_seconds.stddev) + "</small>",
-        woVal: fmt1(wo.time_seconds && wo.time_seconds.mean) + " <small>±" + fmt1(wo.time_seconds && wo.time_seconds.stddev) + "</small>",
+        wsVal: fmt1(ws.time_seconds && ws.time_seconds.mean) + " <small>±" + fmt1(ws.time_seconds && ws.time_seconds.stddev) + "</small>" + withMedianNum(ws.time_seconds, fmt1),
+        woVal: fmt1(wo.time_seconds && wo.time_seconds.mean) + " <small>±" + fmt1(wo.time_seconds && wo.time_seconds.stddev) + "</small>" + withMedianNum(wo.time_seconds, fmt1),
         delta: numDelta(del.time_seconds, true)
       },
       {
         label: "Tokens",
-        wsVal: fmtInt(ws.tokens && ws.tokens.mean) + " <small>±" + fmtInt(ws.tokens && ws.tokens.stddev) + "</small>",
-        woVal: fmtInt(wo.tokens && wo.tokens.mean) + " <small>±" + fmtInt(wo.tokens && wo.tokens.stddev) + "</small>",
+        wsVal: fmtInt(ws.tokens && ws.tokens.mean) + " <small>±" + fmtInt(ws.tokens && ws.tokens.stddev) + "</small>" + withMedianNum(ws.tokens, fmtInt),
+        woVal: fmtInt(wo.tokens && wo.tokens.mean) + " <small>±" + fmtInt(wo.tokens && wo.tokens.stddev) + "</small>" + withMedianNum(wo.tokens, fmtInt),
         delta: numDelta(del.tokens, true)
       }
     ];
+
+    var totalN = (ws.pass_rate && ws.pass_rate.n) || 0;
+    if (totalN >= 2) {
+      wrap.appendChild(el("p", {
+        style: "font-size:12px;color:#888;margin-bottom:8px;font-style:italic",
+        textContent: "Reporting mean ± stddev and median (Q1–Q3) across " + totalN + " runs."
+      }));
+    }
 
     var tbl   = el("table");
     var thead = el("thead", null, [el("tr", null, [
@@ -452,11 +474,15 @@
         body.classList.toggle("open");
       });
 
-      /* Pass rate mini-summary */
-      var wsPR = ev.with_skill    ? pct(ev.with_skill.pass_rate)    : "—";
-      var woPR = ev.without_skill ? pct(ev.without_skill.pass_rate) : "—";
-      var wsDur = ev.with_skill    ? fmt1(ev.with_skill.duration_s)    : "—";
-      var woDur = ev.without_skill ? fmt1(ev.without_skill.duration_s) : "—";
+      /* Run stats — use median+IQR when n_runs>1, otherwise single value. */
+      function cellFor(stat, single, fmt) {
+        // stat: from agg.<metric> (may be undefined). single: the single-run value. fmt: formatter.
+        if (stat && stat.n != null && stat.n >= 2 && stat.median != null) {
+          var iqr = stat.iqr || [stat.median, stat.median];
+          return fmt(stat.median) + ' <small style="color:#888">(' + fmt(iqr[0]) + "–" + fmt(iqr[1]) + ")</small>";
+        }
+        return fmt(single);
+      }
 
       var statTbl = el("table");
       statTbl.appendChild(el("thead", null, [el("tr", null, [
@@ -470,12 +496,15 @@
         {name: "with_skill",    data: ev.with_skill},
         {name: "without_skill", data: ev.without_skill}
       ].forEach(function(cfg) {
-        var d = cfg.data || {};
+        var d   = cfg.data || {};
+        var agg = d.agg   || {};
+        var nRuns = d.n_runs || 1;
+        var configLabel = cfg.name + (nRuns > 1 ? " (n=" + nRuns + ")" : "");
         statBody.appendChild(el("tr", null, [
-          el("td", {textContent: cfg.name}),
-          el("td", {textContent: pct(d.pass_rate)}),
-          el("td", {textContent: fmt1(d.duration_s)}),
-          el("td", {textContent: fmtInt(d.tokens)})
+          el("td", {textContent: configLabel}),
+          el("td", {innerHTML: cellFor(agg.pass_rate,       d.pass_rate,  pct)}),
+          el("td", {innerHTML: cellFor(agg.time_seconds,    d.duration_s, fmt1)}),
+          el("td", {innerHTML: cellFor(agg.tokens,          d.tokens,     fmtInt)})
         ]));
       });
       statTbl.appendChild(statBody);

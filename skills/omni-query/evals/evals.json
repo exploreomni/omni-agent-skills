@@ -3,47 +3,67 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "How many orders were placed in the last 90 days? Use the orders or order_items topic.",
-      "expected_output": "A row count of orders placed in the last 90 days, with the filter clearly applied and the result validated (row count checked, no errors).",
+      "prompt": "What query is powering the 'Monthly Revenue Trend' tile on the 'Revenue Overview' dashboard? List the exact fields, filters, and sorts it uses.",
+      "expected_output": "The agent extracts the tile query via omni documents get-queries and reports the fields, filters, and sorts from the query definition.",
       "assertions": [
-        "The agent runs omni query run with a JSON body containing a filters field that uses a 'last 90 days' expression",
-        "The query body includes a join_paths_from_topic_name field",
-        "The agent checks the response for errors before presenting the result",
-        "The agent reports the row count from summary.row_count rather than guessing or fabricating a number"
+        "The agent calls omni documents get-queries to retrieve the dashboard's tile definitions",
+        "The agent identifies the specific tile named 'Monthly Revenue Trend' from the returned queries",
+        "The agent reports the fields, filters, and sorts from the query object — not just the dashboard name or description"
       ]
     },
     {
       "id": 2,
-      "prompt": "Show me the top 10 customers by total revenue this year. I want to see the actual names and numbers.",
-      "expected_output": "A readable table of the top 10 customers and their revenue, sorted descending, with a 'this year' date filter applied.",
+      "prompt": "Run a query for total revenue on completed orders in the last 30 days. Before presenting the result, verify that the query actually returned data and that the filter is binding correctly.",
+      "expected_output": "The agent runs the query, checks for errors, verifies row_count > 0, and confirms the filter is applied by comparing against an unfiltered query. Both the validation result and the revenue figure are reported.",
       "assertions": [
-        "The agent requests CSV output by including resultType: csv in the query body",
-        "The query body includes a sorts field with sort_descending: true on the revenue measure",
-        "The query body includes a limit of 10",
-        "The agent includes a filter for the current year or 'this year' expression",
-        "The output contains actual customer names and revenue values from the CSV response"
+        "The agent checks the query response for an error key before presenting results",
+        "The agent verifies data was returned by checking summary.row_count or requesting CSV",
+        "The agent runs an unfiltered comparison query and compares the results to confirm the filter is binding",
+        "The agent reports both the validation outcome and the actual revenue figure"
       ]
     },
     {
       "id": 3,
-      "prompt": "Use AI to generate a query for monthly revenue trend over the past year, then run it and tell me which month had the highest revenue.",
-      "expected_output": "Monthly revenue figures for the past 12 months, with the highest month identified by name and value.",
+      "prompt": "I ran this query: {\"query\":{\"modelId\":\"{{EVAL_MODEL_ID}}\",\"table\":\"order_items\",\"fields\":[\"order_items.created_at[month]\",\"order_items.status\",\"order_items.total_revenue\"],\"pivots\":[\"order_items.status\"],\"filters\":{\"order_items.created_at\":\"last 6 months\"},\"join_paths_from_topic_name\":\"order_items\",\"limit\":100}}. It returned the same number of rows as when I run it without the filter. What's wrong and how do I fix it to get correctly filtered results?",
+      "expected_output": "The agent identifies the known Omni bug (boolean filters are silently dropped when pivots are present), explains why it happens, and applies the workaround (removes the pivot and runs as a flat table, or restructures the query differently). The corrected query returns filtered results.",
       "assertions": [
-        "The agent calls omni ai generate-query with a natural language prompt about monthly revenue",
-        "The agent actually executes the generated query (not just returns the query JSON)",
-        "The output identifies the specific month with highest revenue",
-        "The agent requests CSV or checks row_count to validate that data was returned"
+        "The agent identifies the specific bug: filters are silently dropped when a pivots array is present",
+        "The agent explains why the filter isn't applying: the pivot+filter combination causes the filter to be ignored",
+        "The agent applies a workaround: either removes the pivot array and runs as a flat table, or uses a different query structure that avoids the bug",
+        "The corrected query returns a different (filtered) row count than the original unfiltered version"
       ]
     },
     {
       "id": 4,
-      "prompt": "I need a multi-step analysis: first find our top 3 product categories by order count, then for each one show me the monthly trend for the last 6 months.",
-      "expected_output": "Top 3 product categories identified, followed by a monthly trend breakdown for each, synthesized into a clear narrative summary.",
+      "prompt": "Find the top 3 product categories by order count over the last 6 months. Then for each of those categories, show me the monthly order count trend. Synthesize the findings into a brief narrative.",
+      "expected_output": "The agent runs a broad query to identify top categories, then follow-up queries for monthly trends per category, and synthesizes into a narrative naming the categories and describing their trends.",
       "assertions": [
-        "The agent runs at least two separate omni query run calls — one broad query for top categories, then follow-up queries for trends",
-        "The first query uses a sort and limit to identify the top 3 categories",
+        "The agent runs at least two separate omni query run calls — one for top categories, then follow-ups for trends",
+        "The top-categories query uses a sort and limit to identify exactly 3 categories",
         "The follow-up queries include a filter scoped to the last 6 months",
-        "The agent synthesizes results into a narrative that names the categories and describes their trends, rather than just dumping raw data"
+        "The agent synthesizes results into a narrative that names the categories and describes their trends"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Using the async agentic approach, analyze the top 5 US states by revenue in the last 6 months and identify the top product category for each state. Use the full job workflow (submit, poll, retrieve result).",
+      "expected_output": "The agent submits an async job, polls until completion, retrieves the result, and reports the top 5 states with their top product categories.",
+      "assertions": [
+        "The agent uses omni ai job-submit (not generate-query) to start the analysis",
+        "The agent polls the job status with omni ai job-status until it reaches COMPLETE or FAILED",
+        "The agent retrieves the final result with omni ai job-result",
+        "The output includes the top 5 states by revenue and the top product category for each state"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Extract the exact raw query JSON that powers the 'Monthly Revenue Trend' tile on the 'Revenue Overview' dashboard. I need the complete query object — including fields, filters, sorts, limit, and any other parameters — not a summary or description.",
+      "expected_output": "The agent uses omni documents get-queries to extract the tile's query definition and returns the full query JSON object with all fields, filters, sorts, and parameters intact.",
+      "assertions": [
+        "The agent calls omni documents get-queries with the Revenue Overview dashboard identifier",
+        "The agent identifies the 'Monthly Revenue Trend' tile from the returned queries array",
+        "The agent returns the complete query JSON object with fields, filters, sorts, limit, and other parameters — not a paraphrased summary",
+        "The returned query includes specific field references like order_items.created_at[month] and order_items.total_revenue"
       ]
     }
   ]

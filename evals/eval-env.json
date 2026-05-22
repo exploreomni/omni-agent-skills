@@ -1,5 +1,6 @@
 {
   "_comment": "Copy this file to eval-env.local.json and fill in real values. eval-env.local.json is gitignored.",
+  "EVAL_MODEL_ID": "replace-with-shared-model-id",
   "EVAL_DASHBOARD_PERMISSIONS": "replace-with-dashboard-identifier",
   "EVAL_DASHBOARD_SCHEDULE": "replace-with-dashboard-identifier",
   "EVAL_DASHBOARD_TILES": "replace-with-dashboard-identifier",

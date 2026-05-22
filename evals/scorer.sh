@@ -71,17 +71,52 @@ extract_output_text() {
   jq -r '.result // ""' "$1" 2>/dev/null || echo ""
 }
 
+extract_commands() {
+  # Extract a compact [{command, result_preview}] list from a transcript.json.
+  # Empty array if transcript is missing or unparseable.
+  local transcript="$1"
+  [[ -f "$transcript" ]] || { echo "[]"; return; }
+  python3 - "$transcript" <<'PYEOF' 2>/dev/null || echo "[]"
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        msgs = json.load(f)
+except Exception:
+    print("[]"); sys.exit(0)
+
+# Index tool results by tool_call_id
+results_by_id = {m.get("tool_call_id"): m.get("content","") for m in msgs if m.get("role")=="tool"}
+
+out = []
+for m in msgs:
+    if m.get("role") != "assistant" or not m.get("tool_calls"):
+        continue
+    for tc in m["tool_calls"]:
+        try:
+            cmd = json.loads(tc["function"]["arguments"]).get("command","")
+        except Exception:
+            cmd = tc.get("function",{}).get("arguments","")
+        result = results_by_id.get(tc.get("id"), "")
+        preview = result.replace("\n"," ").strip()
+        if len(preview) > 300:
+            preview = preview[:297] + "..."
+        out.append({"command": cmd[:500], "result_preview": preview})
+print(json.dumps(out))
+PYEOF
+}
+
 # ── LLM grading ───────────────────────────────────────────────────────────────
 
 grade_assertion() {
-  local assertion="$1" output_text="$2"
+  local assertion="$1" output_text="$2" commands_json="$3"
 
   # Delegate to the Python helper to avoid bash quoting complexity
   local payload
   payload=$(jq -n \
-    --arg assertion "$assertion" \
-    --arg output "$output_text" \
-    '{"assertion": $assertion, "output": $output}')
+    --arg     assertion "$assertion" \
+    --arg     output    "$output_text" \
+    --argjson commands  "$commands_json" \
+    '{"assertion": $assertion, "output": $output, "commands": $commands}')
 
   echo "$payload" | python3 "$SCRIPT_DIR/grade_assertion.py" "$GRADER_MODEL" \
     2>/dev/null || echo '{"passed":false,"evidence":"Grading call failed"}'
@@ -97,8 +132,9 @@ grade_run() {
     return
   fi
 
-  local output_text
+  local output_text commands_json
   output_text=$(extract_output_text "$run_dir/raw_output.json")
+  commands_json=$(extract_commands "$run_dir/transcript.json")
 
   # Fetch assertions for this eval id (id may be a number or string)
   local assertions_json
@@ -128,7 +164,7 @@ grade_run() {
     printf "      [%d/%d] %s " $(( i + 1 )) "$n_assertions" "$preview"
 
     local grade
-    grade=$(grade_assertion "$assertion" "$output_text")
+    grade=$(grade_assertion "$assertion" "$output_text" "$commands_json")
 
     local is_passed
     is_passed=$(echo "$grade" | jq -r '.passed' 2>/dev/null || echo "false")
@@ -181,8 +217,26 @@ score_skill() {
 
     echo "  eval $eval_id:"
     for config in with_skill without_skill; do
-      echo "    [$config]"
-      grade_run "$eval_dir/$config" "$evals_file" "$eval_id"
+      local config_dir="$eval_dir$config"
+      [[ -d "$config_dir" ]] || continue
+
+      # Nested layout (--repeat>1): grade each run-K dir; flat: grade config dir itself.
+      local nested_runs=()
+      shopt -s nullglob
+      for d in "$config_dir"/run-*/; do
+        [[ -d "$d" ]] && nested_runs+=("${d%/}")
+      done
+      shopt -u nullglob
+
+      if (( ${#nested_runs[@]} > 0 )); then
+        for run_dir in "${nested_runs[@]}"; do
+          echo "    [$config $(basename "$run_dir")]"
+          grade_run "$run_dir" "$evals_file" "$eval_id"
+        done
+      else
+        echo "    [$config]"
+        grade_run "$config_dir" "$evals_file" "$eval_id"
+      fi
     done
     echo ""
   done

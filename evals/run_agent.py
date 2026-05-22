@@ -113,6 +113,7 @@ def run_agent(
     bash_timeout: int,
     working_dir: str | None,
     reasoning_effort: str | None = None,
+    transcript_file: str | None = None,
 ) -> dict:
     model_string = f"{provider}/{model}"
 
@@ -186,6 +187,13 @@ def run_agent(
                 "content": result,
             })
 
+    if transcript_file:
+        try:
+            with open(transcript_file, "w") as f:
+                json.dump(messages, f, indent=2)
+        except OSError:
+            pass  # Best-effort; don't fail the run if transcript can't be written
+
     return {
         "result": final_text,
         "is_error": False,
@@ -230,6 +238,10 @@ def main() -> None:
         default=None,
         help="OpenAI reasoning effort (low/medium/high/xhigh); omit for provider default",
     )
+    parser.add_argument(
+        "--transcript-file",
+        help="Path to write the full conversation transcript as JSON (optional)",
+    )
 
     args = parser.parse_args()
 
@@ -256,6 +268,7 @@ def main() -> None:
         bash_timeout=args.bash_timeout,
         working_dir=args.working_dir,
         reasoning_effort=args.reasoning_effort,
+        transcript_file=args.transcript_file,
     )
 
     print(json.dumps(result))

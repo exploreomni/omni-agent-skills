@@ -30,6 +30,7 @@ PROVIDER="${EVAL_PROVIDER:-anthropic}"
 MODEL="${EVAL_MODEL:-claude-sonnet-4-6}"
 REASONING_EFFORT="${EVAL_REASONING_EFFORT:-}"
 FORCE_ITERATION=""
+REPEAT="${EVAL_REPEAT:-1}"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,7 @@ Options:
                                e.g. claude-sonnet-4-6, gpt-4o, gemini-2.0-flash
   --reasoning-effort EFFORT    OpenAI reasoning effort: low, medium, high, xhigh (or \$EVAL_REASONING_EFFORT)
   --iteration N                Force a specific iteration number (default: auto-increment)
+  --repeat N                   Run each eval N times for per-eval variance (default: 1, or \$EVAL_REPEAT)
 
 Examples:
   ./evals/runner.sh omni-query
@@ -149,6 +151,7 @@ run_agent() {
   fi
 
   args+=(--working-dir "$out_dir/outputs")
+  args+=(--transcript-file "$out_dir/transcript.json")
 
   local exit_code=0
   python3 "$SCRIPT_DIR/run_agent.py" "${args[@]}" \
@@ -164,22 +167,25 @@ run_eval_case() {
   local iter_dir="$5" skill_md="$6"
 
   local eval_dir="$iter_dir/eval-$eval_id"
-  mkdir -p "$eval_dir/with_skill/outputs" "$eval_dir/without_skill/outputs"
+  mkdir -p "$eval_dir"
 
-  # Copy any declared input files into both run directories
   local n_files
   n_files=$(echo "$files_json" | jq 'length')
-  if (( n_files > 0 )); then
-    while IFS= read -r f; do
-      local src="$ROOT_DIR/skills/$skill/$f"
-      if [[ -f "$src" ]]; then
-        cp "$src" "$eval_dir/with_skill/outputs/"
-        cp "$src" "$eval_dir/without_skill/outputs/"
-      else
-        echo "    WARNING: input file not found: $src" >&2
-      fi
-    done < <(echo "$files_json" | jq -r '.[]')
-  fi
+
+  copy_input_files() {
+    # Copy any declared input files into a given outputs/ directory.
+    local target_outputs="$1"
+    if (( n_files > 0 )); then
+      while IFS= read -r f; do
+        local src="$ROOT_DIR/skills/$skill/$f"
+        if [[ -f "$src" ]]; then
+          cp "$src" "$target_outputs/"
+        else
+          echo "    WARNING: input file not found: $src" >&2
+        fi
+      done < <(echo "$files_json" | jq -r '.[]')
+    fi
+  }
 
   # Task prompt — includes outputs dir and asks agent to list commands run,
   # which makes tool-call assertions reliably gradeable from the text output.
@@ -198,8 +204,7 @@ TASK
 )"
 
   for config in with_skill without_skill; do
-    local run_dir="$eval_dir/$config"
-    local task="${base_task/OUTPUTS_DIR/$run_dir/outputs/}"
+    local config_dir="$eval_dir/$config"
     local active_skill_md=""
     if [[ "$config" == "with_skill" ]]; then
       active_skill_md="$skill_md"
@@ -207,27 +212,45 @@ TASK
       active_skill_md="$SCRIPT_DIR/cli-baseline.md"
     fi
 
-    printf "    [%-13s] running..." "$config"
+    for k in $(seq 1 "$REPEAT"); do
+      # Flat layout when REPEAT=1 (backwards compatible); nested run-K dirs otherwise.
+      local run_dir
+      if (( REPEAT == 1 )); then
+        run_dir="$config_dir"
+      else
+        run_dir="$config_dir/run-$k"
+      fi
+      mkdir -p "$run_dir/outputs"
+      copy_input_files "$run_dir/outputs"
 
-    local t0 t1
-    t0=$(python3 -c "import time; print(int(time.time() * 1000))")
-    run_agent "$task" "$active_skill_md" "$run_dir"
-    t1=$(python3 -c "import time; print(int(time.time() * 1000))")
+      local task="${base_task/OUTPUTS_DIR/$run_dir/outputs/}"
 
-    local duration_ms=$(( t1 - t0 ))
+      if (( REPEAT == 1 )); then
+        printf "    [%-13s] running..." "$config"
+      else
+        printf "    [%-13s run %d/%d] running..." "$config" "$k" "$REPEAT"
+      fi
 
-    # Extract total tokens from the JSON result envelope
-    local tokens
-    tokens=$(jq -r '((.usage.input_tokens // 0) + (.usage.output_tokens // 0))' \
-      "$run_dir/raw_output.json" 2>/dev/null || echo 0)
+      local t0 t1
+      t0=$(python3 -c "import time; print(int(time.time() * 1000))")
+      run_agent "$task" "$active_skill_md" "$run_dir"
+      t1=$(python3 -c "import time; print(int(time.time() * 1000))")
 
-    jq -n \
-      --argjson tokens "$tokens" \
-      --argjson duration "$duration_ms" \
-      '{"total_tokens": $tokens, "duration_ms": $duration}' \
-      > "$run_dir/timing.json"
+      local duration_ms=$(( t1 - t0 ))
 
-    printf " %6d tokens  %5dms\n" "$tokens" "$duration_ms"
+      # Extract total tokens from the JSON result envelope
+      local tokens
+      tokens=$(jq -r '((.usage.input_tokens // 0) + (.usage.output_tokens // 0))' \
+        "$run_dir/raw_output.json" 2>/dev/null || echo 0)
+
+      jq -n \
+        --argjson tokens "$tokens" \
+        --argjson duration "$duration_ms" \
+        '{"total_tokens": $tokens, "duration_ms": $duration}' \
+        > "$run_dir/timing.json"
+
+      printf " %6d tokens  %5dms\n" "$tokens" "$duration_ms"
+    done
   done
 }
 
@@ -302,6 +325,7 @@ while [[ $# -gt 0 ]]; do
     --model)             MODEL="$2"; shift 2 ;;
     --reasoning-effort)  REASONING_EFFORT="$2"; shift 2 ;;
     --iteration)         FORCE_ITERATION="$2"; shift 2 ;;
+    --repeat)            REPEAT="$2"; shift 2 ;;
     -h|--help)   usage ;;
     *)           echo "Unknown flag: $1" >&2; usage ;;
   esac
