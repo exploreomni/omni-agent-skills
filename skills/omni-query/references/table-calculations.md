@@ -526,6 +526,50 @@ Swap the outer aggregator (`OMNI_FX_SUM`, `OMNI_FX_AVERAGE`, `OMNI_FX_MIN`, `OMN
 
 **Result semantics**: `SUMIF` returns a single value broadcast across every row of the result set (the window covers all rows). It is **not** a row-grouped conditional aggregate — for that, use `SUM(CASE WHEN cond THEN value END)` instead.
 
+### 4.12 In-result-set lookup — `VLOOKUP`
+
+```json
+{
+  "calc_name": "lookup_revenue",
+  "original_formula": "=VLOOKUP(A1, A:C, 2)",
+  "sql_expression": {
+    "type": "call",
+    "operator": "Omni.OMNI_FX_VLOOKUP",
+    "operands": [
+      { "type": "literal", "value": null },
+      { "type": "field", "field_name": "orders.status" },
+      {
+        "type": "call",
+        "operator": "Omni.OMNI_OFFSET_MULTI",
+        "operands": [
+          { "type": "field", "field_name": "orders.status" },
+          { "type": "literal", "value": -536870911, "string_value": "-536870911" },
+          { "type": "literal", "value": 0,          "string_value": "0" },
+          { "type": "literal", "value": 1073741823, "string_value": "1073741823" },
+          { "type": "literal", "value": 3,          "string_value": "3" }
+        ]
+      },
+      { "type": "literal", "value": 2, "string_value": "2" }
+    ]
+  }
+}
+```
+
+**Formula signature is 3-arg, AST is 4-operand.** `=VLOOKUP(lookup_value, lookup_range, column_number)` decomposes into:
+
+| Operand | Source in formula | Meaning |
+|---|---|---|
+| 1 | `lookup_value` — `A1` | The value to search for. `A1` (current-row cell ref) compiles to `literal: null`. A static string compiles to `{"type":"literal","value":"Complete"}`. A reference to another field compiles to `{"type":"field","field_name":"..."}`. |
+| 2 | first column of `lookup_range` | The lookup KEY column — the field whose values are being searched. For `A:C`, this is the field at column A. |
+| 3 | `lookup_range` width | An `OMNI_OFFSET_MULTI` over the same key field where the **5th operand (step) = number of columns in the range**. `A:C` → step `3`. `A:B` → step `2`. |
+| 4 | `column_number` | 1-based index into the range, counted from the key column. `2` returns column B (the next field in `query.fields` after the key). |
+
+**This is an in-result-set lookup, not a cross-query lookup.** The range is the calc engine's view of the current result set's column ordering — `column_number` indexes into `query.fields` starting at the key column. There is no way to look up values from a different topic, model, or tile through this operator.
+
+**Self-referential degenerate case** — `=VLOOKUP(A1, A:C, 2)` always finds the current row's own A-value in column A and returns column B unchanged. Useful only as a smoke test; for actual logic you'd use a static lookup key (`=VLOOKUP("Complete", A:C, 2)` → returns the row matching "Complete" on every row) or a reference to a calc that produces the lookup key.
+
+**For cross-tile lookups, this operator is the wrong tool.** Use Omni's `XLOOKUP` / `TLOOKUP` (different AST not covered here) or model the lookup as a join in the topic.
+
 ## 5. Validation rules and gotchas
 
 1. **`calc_name` uniqueness** — must be unique within `calculations[]`; used as the result column alias.
