@@ -131,6 +131,49 @@ inject_omni_env() {
 
 inject_omni_env
 
+# ── Provenance ───────────────────────────────────────────────────────────────
+# Captures the inputs that determine eval reproducibility: which code, which
+# skill prompt, which baseline, which eval set. Embedded into meta.json so
+# every result can be traced back to an exact repo state.
+
+sha256_file() {
+  [[ -f "$1" ]] || { echo ""; return; }
+  python3 -c "import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest())" "$1" 2>/dev/null || echo ""
+}
+
+provenance_block() {
+  local skill_md="$1" evals_file="$2"
+  local git_commit git_branch git_dirty plugin_version
+
+  git_commit=$(git -C "$ROOT_DIR"  rev-parse HEAD 2>/dev/null  || echo "unknown")
+  git_branch=$(git -C "$ROOT_DIR"  rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+  if git -C "$ROOT_DIR" diff --quiet 2>/dev/null && git -C "$ROOT_DIR" diff --cached --quiet 2>/dev/null; then
+    git_dirty=false
+  else
+    git_dirty=true
+  fi
+
+  if [[ -f "$ROOT_DIR/.claude-plugin/plugin.json" ]]; then
+    plugin_version=$(jq -r '.version // "unknown"' "$ROOT_DIR/.claude-plugin/plugin.json")
+  else
+    plugin_version="unknown"
+  fi
+
+  jq -n \
+    --arg     commit       "$git_commit" \
+    --arg     branch       "$git_branch" \
+    --argjson dirty        "$git_dirty" \
+    --arg     plugin       "$plugin_version" \
+    --arg     skill_sha    "$(sha256_file "$skill_md")" \
+    --arg     evals_sha    "$(sha256_file "$evals_file")" \
+    --arg     baseline_sha "$(sha256_file "$SCRIPT_DIR/cli-baseline.md")" \
+    '{git: {commit: $commit, branch: $branch, dirty: $dirty},
+      plugin_version:     $plugin,
+      skill_md_sha256:    $skill_sha,
+      evals_json_sha256:  $evals_sha,
+      cli_baseline_sha256: $baseline_sha}'
+}
+
 # ── Core run ─────────────────────────────────────────────────────────────────
 
 run_agent() {
@@ -276,15 +319,20 @@ run_skill() {
 
   # Write metadata so scorer can record model in published results
   jq -n \
-    --arg provider "$PROVIDER" \
-    --arg model "$MODEL" \
-    --arg slug "$slug" \
-    --arg skill "$skill" \
-    --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    --arg reasoning_effort "$REASONING_EFFORT" \
-    --argjson iter "$iter" \
+    --arg     provider         "$PROVIDER" \
+    --arg     model            "$MODEL" \
+    --arg     slug             "$slug" \
+    --arg     skill            "$skill" \
+    --arg     date             "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --arg     reasoning_effort "$REASONING_EFFORT" \
+    --argjson iter             "$iter" \
+    --argjson repeat           "$REPEAT" \
+    --argjson provenance       "$(provenance_block "$skill_md" "$evals_file")" \
     '{provider: $provider, model: $model, model_slug: $slug, skill: $skill, iteration: $iter,
-      run_date: $date, reasoning_effort: (if $reasoning_effort == "" then null else $reasoning_effort end)}' \
+      repeat: $repeat,
+      run_date: $date,
+      reasoning_effort: (if $reasoning_effort == "" then null else $reasoning_effort end),
+      provenance: $provenance}' \
     > "$iter_dir/meta.json"
 
   local n_evals
