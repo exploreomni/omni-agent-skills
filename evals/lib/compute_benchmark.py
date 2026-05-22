@@ -9,7 +9,7 @@ For each (eval, config) pair, collects pass_rate, tokens, duration, and failed
 commands across however many runs are present. Reports both mean+stddev (for
 back-compat with the HTML report) and median+IQR (robust for small N).
 
-Usage: python3 evals/compute_benchmark.py <iteration-dir>
+Usage: python3 evals/lib/compute_benchmark.py <iteration-dir>
 """
 
 from __future__ import annotations

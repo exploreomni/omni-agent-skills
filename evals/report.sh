@@ -14,7 +14,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-TEMPLATE="$SCRIPT_DIR/report-template.html"
+TEMPLATE="$SCRIPT_DIR/templates/report-template.html"
 
 OPEN_BROWSER=false
 ITER_DIR=""

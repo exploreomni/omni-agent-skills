@@ -390,6 +390,18 @@ omni-agent-skills/
 │   ├── omni-analyst.md
 │   ├── omni-modeler.md
 │   └── omni-admin-agent.md
+├── evals/
+│   ├── README.md
+│   ├── SETUP.md
+│   ├── lib/
+│   ├── prompts/
+│   ├── templates/
+│   ├── runner.sh
+│   ├── scorer.sh
+│   ├── report.sh
+│   ├── reset.sh
+│   ├── results/
+│   └── workspaces/
 ├── rules/
 │   ├── omni-api-conventions.mdc
 │   ├── omni-yaml-conventions.mdc
@@ -402,8 +414,39 @@ omni-agent-skills/
 └── LICENSE
 ```
 
+### Layout Conventions
+
+Skill packages stay compatible with the Agent Skills specification by keeping each skill's `SKILL.md` at the skill root. Supporting material lives beside it in focused subdirectories such as `references/`, `evals/`, `scripts/`, or `assets/`; keep references from `SKILL.md` shallow and relative to the skill root.
+
+The root `evals/` directory is contributor tooling, not a distributed skill package. It keeps public entrypoints at the top level:
+
+```text
+evals/runner.sh
+evals/scorer.sh
+evals/report.sh
+evals/reset.sh
+```
+
+Implementation details are grouped by purpose:
+
+| Path | Purpose |
+|------|---------|
+| `evals/lib/` | Python helpers used by the runner, scorer, report, and publishing workflows |
+| `evals/prompts/` | Reusable baseline prompts and long agent prompt material |
+| `evals/templates/` | HTML and report templates |
+| `evals/results/` | Published scored summaries suitable for comparison or BI tooling |
+| `evals/workspaces/` | Raw iteration output, transcripts, grading files, and generated reports |
+
+Per-skill eval definitions live with the skill they evaluate:
+
+```text
+skills/<skill>/evals/evals.json
+```
+
 ## Documentation
 
+- [Skill eval runbook](evals/README.md)
+- [Skill eval instance setup](evals/SETUP.md)
 - [Omni REST API Reference](https://docs.omni.co/api)
 - [Omni Modeling Documentation](https://docs.omni.co/modeling)
 - [Optimize Models for Omni AI](https://docs.omni.co/modeling/develop/ai-optimization)

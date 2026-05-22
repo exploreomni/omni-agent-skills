@@ -7,7 +7,7 @@ per skill (with_skill, without_skill). The delta is recoverable in the BI tool
 by pivoting on the `config` column.
 
 Usage:
-  python3 evals/publish.py [output.csv]
+  python3 evals/lib/publish.py [output.csv]
 
 Default output: evals/results/eval_results_summary.csv (overwrites).
 
@@ -23,7 +23,8 @@ import json
 import os
 import sys
 
-RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
+EVALS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+RESULTS_DIR = os.path.join(EVALS_DIR, "results")
 
 
 def get(d: dict, path: str, default=None):

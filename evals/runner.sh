@@ -2,7 +2,7 @@
 # evals/runner.sh — Run eval cases for one or all Omni skills
 #
 # For each eval case in skills/<skill>/evals/evals.json, runs two isolated
-# agent sessions via run_agent.py: one with the skill's SKILL.md as the system
+# agent sessions via lib/run_agent.py: one with the skill's SKILL.md as the system
 # prompt (with_skill) and one without (without_skill). Supports any
 # LiteLLM-compatible provider (Anthropic, OpenAI, Gemini, Bedrock, ...).
 #
@@ -192,7 +192,7 @@ provenance_block() {
     --arg     plugin          "$plugin_version" \
     --arg     skill_sha       "$(sha256_file "$skill_md")" \
     --arg     evals_sha       "$(sha256_file "$evals_file")" \
-    --arg     baseline_sha    "$(sha256_file "$SCRIPT_DIR/cli-baseline.md")" \
+    --arg     baseline_sha    "$(sha256_file "$SCRIPT_DIR/prompts/cli-baseline.md")" \
     --arg     refs_sha        "$(sha256_dir "$skill_dir/references")" \
     '{git: {commit: $commit, branch: $branch, dirty: $dirty},
       plugin_version:      $plugin,
@@ -225,11 +225,11 @@ run_agent() {
   args+=(--transcript-file "$out_dir/transcript.json")
 
   local exit_code=0
-  python3 "$SCRIPT_DIR/run_agent.py" "${args[@]}" \
+  python3 "$SCRIPT_DIR/lib/run_agent.py" "${args[@]}" \
     > "$out_dir/raw_output.json" 2>"$out_dir/stderr.log" || exit_code=$?
 
   if [[ $exit_code -ne 0 ]]; then
-    echo "    WARNING: run_agent.py exited $exit_code (see stderr.log)" >&2
+    echo "    WARNING: lib/run_agent.py exited $exit_code (see stderr.log)" >&2
   fi
 }
 
@@ -291,7 +291,7 @@ TASK
     if [[ "$config" == "with_skill" ]]; then
       active_skill_md="$skill_md"
     else
-      active_skill_md="$SCRIPT_DIR/cli-baseline.md"
+      active_skill_md="$SCRIPT_DIR/prompts/cli-baseline.md"
     fi
 
     for k in $(seq 1 "$REPEAT"); do

@@ -45,7 +45,7 @@
       ]
     },
     {
-      "id": 5,
+      "id": 7,
       "prompt": "Using the async agentic approach, analyze the top 5 US states by revenue in the last 6 months and identify the top product category for each state. Use the full job workflow (submit, poll, retrieve result).",
       "expected_output": "The agent submits an async job, polls until completion, retrieves the result, and reports the top 5 states with their top product categories.",
       "assertions": [
@@ -56,7 +56,7 @@
       ]
     },
     {
-      "id": 6,
+      "id": 8,
       "prompt": "Extract the exact raw query JSON that powers the 'Monthly Revenue Trend' tile on the 'Revenue Overview' dashboard. I need the complete query object — including fields, filters, sorts, limit, and any other parameters — not a summary or description.",
       "expected_output": "The agent uses omni documents get-queries to extract the tile's query definition and returns the full query JSON object with all fields, filters, sorts, and parameters intact.",
       "assertions": [
@@ -89,7 +89,7 @@
       ]
     },
     {
-      "id": 7,
+      "id": 9,
       "prompt": "For a pivoted query showing revenue by month across product categories, add a row total across the pivot columns.",
       "expected_output": "A pivoted table (months as rows, categories as columns) with an extra row-total column summarizing across categories.",
       "assertions": [
@@ -100,7 +100,7 @@
       ]
     },
     {
-      "id": 8,
+      "id": 10,
       "prompt": "Add a tier label to each customer: 'High' if revenue > 10000, 'Mid' if > 1000, else 'Low'. Concatenate the tier with the customer name like 'High - Acme Corp'.",
       "expected_output": "A list of customers with a combined label column formatted as '<tier> - <name>'.",
       "assertions": [
@@ -110,7 +110,7 @@
       ]
     },
     {
-      "id": 9,
+      "id": 11,
       "prompt": "Add a calculated column for revenue as a percent of total.",
       "expected_output": "A query returning revenue and revenue-as-percent-of-total.",
       "assertions": [
@@ -120,7 +120,7 @@
       ]
     },
     {
-      "id": 10,
+      "id": 12,
       "prompt": "Show each order's created date, shipped date, and the number of days between them.",
       "expected_output": "A table where each row has a date diff column populated with integer day counts, not blanks.",
       "assertions": [
@@ -131,7 +131,7 @@
       ]
     },
     {
-      "id": 11,
+      "id": 13,
       "prompt": "Show monthly revenue and a column with the total revenue across only the Complete-status orders, broadcast on every row.",
       "expected_output": "A monthly revenue table with a constant column showing the Complete-status revenue total repeated on every row.",
       "assertions": [
@@ -142,7 +142,7 @@
       ]
     },
     {
-      "id": 12,
+      "id": 14,
       "prompt": "Show order status, total revenue, and a VLOOKUP column that retrieves the Complete-status revenue on every row.",
       "expected_output": "A status-by-revenue table where the lookup column shows the Complete-status revenue value on every row.",
       "assertions": [
@@ -153,7 +153,7 @@
       ]
     },
     {
-      "id": 13,
+      "id": 15,
       "prompt": "Show monthly revenue with a month-over-month percent change column.",
       "expected_output": "Monthly revenue with a percent-change column populated using a table calculation, not a period-comparison pivot trick.",
       "assertions": [

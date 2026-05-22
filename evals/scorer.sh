@@ -118,7 +118,7 @@ grade_assertion() {
     --argjson commands  "$commands_json" \
     '{"assertion": $assertion, "output": $output, "commands": $commands}')
 
-  echo "$payload" | python3 "$SCRIPT_DIR/grade_assertion.py" "$GRADER_MODEL" \
+  echo "$payload" | python3 "$SCRIPT_DIR/lib/grade_assertion.py" "$GRADER_MODEL" \
     2>/dev/null || echo '{"passed":false,"evidence":"Grading call failed"}'
 }
 
@@ -152,6 +152,33 @@ grade_run() {
     return
   fi
 
+  local is_run_error run_error
+  is_run_error=$(jq -r '.is_error // false' "$run_dir/raw_output.json" 2>/dev/null || echo "false")
+  run_error=$(jq -r '.error // ""' "$run_dir/raw_output.json" 2>/dev/null || echo "")
+
+  if [[ "$is_run_error" == "true" ]]; then
+    echo "    WARNING: agent run failed: $run_error" >&2
+    local results_arr="[]"
+    for i in $(seq 0 $(( n_assertions - 1 ))); do
+      local assertion
+      assertion=$(substitute_vars "$(echo "$assertions_json" | jq -r ".[$i]")")
+      results_arr=$(jq -c \
+        --arg text "$assertion" \
+        --arg error "$run_error" \
+        '. + [{text: $text, passed: false, evidence: ("Agent run failed before grading: " + $error), run_error: true}]' \
+        <<<"$results_arr")
+    done
+
+    jq -n \
+      --argjson results "$results_arr" \
+      --argjson total "$n_assertions" \
+      --arg error "$run_error" \
+      '{assertion_results: $results,
+        summary: {passed: 0, failed: $total, total: $total, pass_rate: 0, run_error: true, error: $error}}' \
+      > "$run_dir/grading.json"
+    return
+  fi
+
   local results_arr="[]"
   local n_passed=0
 
@@ -178,7 +205,12 @@ grade_run() {
     entry=$(jq -n \
       --arg text "$assertion" \
       --argjson grade "$grade" \
-      '{text: $text, passed: $grade.passed, evidence: ($grade.evidence // "")}')
+      '{text: $text,
+        passed: ($grade.passed // false),
+        evidence: ($grade.evidence // ""),
+        grading_error: $grade.grading_error,
+        raw_grader_output_preview: $grade.raw_grader_output_preview}
+       | with_entries(select(.value != null))')
 
     results_arr=$(echo "$results_arr" | jq -c ". + [$entry]")
   done
@@ -242,7 +274,7 @@ score_skill() {
   done
 
   echo "  Computing benchmark..."
-  python3 "$SCRIPT_DIR/compute_benchmark.py" "$iter_dir"
+  python3 "$SCRIPT_DIR/lib/compute_benchmark.py" "$iter_dir"
 
   # Publish merged result to evals/results/<skill>/iteration-N-<slug>.json
   local results_dir="$SCRIPT_DIR/results/$skill"

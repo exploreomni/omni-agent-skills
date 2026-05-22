@@ -26,6 +26,39 @@ def format_commands(commands: list) -> str:
     return "\n".join(lines)
 
 
+def parse_grader_json(text: str) -> dict:
+    """Parse a grader response, tolerating fenced JSON and braces in evidence."""
+    stripped = text.strip()
+    if not stripped:
+        raise ValueError("empty grader response")
+
+    candidates = [stripped]
+    fence = re.search(r"```(?:json)?\s*(.*?)\s*```", stripped, re.DOTALL | re.IGNORECASE)
+    if fence:
+        candidates.insert(0, fence.group(1).strip())
+
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+
+    decoder = json.JSONDecoder()
+    for i, ch in enumerate(stripped):
+        if ch != "{":
+            continue
+        try:
+            parsed, _ = decoder.raw_decode(stripped[i:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+
+    raise ValueError("no parseable JSON object")
+
+
 def grade(assertion: str, output_text: str, commands: list, model: str) -> dict:
     commands_block = format_commands(commands)
 
@@ -74,14 +107,19 @@ Reply with a JSON object only — no prose before or after:
     except Exception as e:
         return {"passed": False, "evidence": f"Grader call failed: {e}"}
 
-    # Extract first JSON object from the result text
-    m = re.search(r"\{.*\}", result_text, re.DOTALL)
-    if not m:
-        return {"passed": False, "evidence": "Grader returned no JSON object"}
     try:
-        return json.loads(m.group())
-    except json.JSONDecodeError:
-        return {"passed": False, "evidence": "Grader returned unparseable JSON"}
+        parsed = parse_grader_json(result_text)
+    except ValueError as exc:
+        return {
+            "passed": False,
+            "evidence": f"Grader returned unparseable JSON: {exc}",
+            "grading_error": "unparseable_json",
+            "raw_grader_output_preview": result_text[:1000],
+        }
+
+    parsed["passed"] = bool(parsed.get("passed", False))
+    parsed["evidence"] = str(parsed.get("evidence", ""))
+    return parsed
 
 
 def main() -> None:
