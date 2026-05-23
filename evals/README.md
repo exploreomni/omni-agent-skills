@@ -212,7 +212,7 @@ executable wrapper.
 Install GEPA explicitly, then run the script directly:
 
 ```bash
-python3 -m pip install gepa
+python3 -m pip install -r evals/requirements-gepa.txt
 python3 evals/lib/gepa_smoke.py
 ```
 
