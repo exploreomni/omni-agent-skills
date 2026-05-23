@@ -86,3 +86,41 @@ For a real live run, the practical next step is either:
 1. Add `agent_env` support to BenchFlow's `bench skills eval` path, or
 2. Use the generated task dirs with `bench eval create`, where `--agent-env` is
    already available, then compute with/baseline lift ourselves.
+
+## Smoke Test Notes
+
+Validated locally on the generated `omni-query` cases 1 and 2:
+
+- BenchFlow loaded the converted skill eval directory successfully.
+- BenchFlow generated both with-skill and baseline task directories.
+- `bench tasks check` passed for the generated with-skill case 1 task.
+- Docker Desktop was required for the local sandbox path.
+
+A one-case live run using the generated task directory and BenchFlow's Python
+`Evaluation` API reached agent launch:
+
+```text
+agent: codex-acp
+task: omni-query case 1, with-skill
+sandbox: docker
+```
+
+The run failed before any Omni CLI call because the local Codex auth available
+inside the sandbox lacked OpenAI API scopes:
+
+```text
+Missing scopes: api.responses.write
+Missing scopes: api.model.read
+```
+
+A Claude attempt also failed before execution because this shell did not have
+`ANTHROPIC_API_KEY` set for BenchFlow's `claude-sonnet-4-6` path.
+
+This means the POC is blocked on model-provider auth, not on eval conversion,
+task generation, Docker setup, or Omni task shape. A complete live run still
+needs:
+
+- Agent model credentials with the required API scopes.
+- A judge key for BenchFlow's LLM verifier.
+- Omni auth passed through `agent_env` without exposing the token on the shell
+  command line.
