@@ -204,21 +204,82 @@ skill traces for GEPA-style skill optimization. This wrapper does not automate
 GEPA yet; use the generated BenchFlow task/job artifacts as the starting point
 once the BenchFlow path is stable across the full eval suite.
 
-There is an experimental local smoke test for GEPA's `optimize_anything` API at
-`evals/lib/gepa_smoke.py`. It does not spend model tokens or touch Omni, but it
-is intentionally not wired into the default eval dependency set or exposed as an
-executable wrapper.
-
-Install GEPA explicitly, then run the script directly:
+GEPA is pinned in `evals/requirements-gepa.txt` and kept out of the default
+eval dependency set, since the entry points below are opt-in.
 
 ```bash
 python3 -m pip install -r evals/requirements-gepa.txt
+```
+
+### Smoke test (`evals/lib/gepa_smoke.py`)
+
+A deterministic local check of GEPA's `optimize_anything` reflection loop.
+Spends no model tokens and does not touch Omni: a `StatefulReflectionStub`
+returns a partial-then-full candidate sequence and asserts that each reflection
+prompt was assembled with the filled `<curr_param>` / `<side_info>`
+placeholders, the evaluator's Actionable Side Information markers
+(`Found` / `Missing` / `Feedback`), and the previously selected candidate
+text. Exits non-zero if the engine ran only one metric call, failed to beat
+the seed, or did not reach the perfect score — i.e. it fails loudly when the
+reflection loop short-circuits.
+
+```bash
 python3 evals/lib/gepa_smoke.py
 ```
 
-The smoke test uses GEPA's `optimize_anything` API with a deterministic local
-reflection callable. It verifies the shape GEPA needs for a future real
-integration: a text candidate, an evaluator score, and diagnostic feedback
-captured as Actionable Side Information. By default it writes to a timestamped
-directory under `evals/workspaces/gepa-smoke/`; it will not delete or reuse an
-existing run directory unless you pass `--keep-run-dir`.
+By default it writes to `evals/workspaces/gepa-smoke/<timestamp>/` and refuses
+to reuse an existing run directory unless `--keep-run-dir` is passed.
+
+To exercise a real reflection model instead of the local stub (spends tokens),
+pass a LiteLLM model string or opt in to the BenchFlow `EVAL_MODEL` bridge:
+
+```bash
+python3 evals/lib/gepa_smoke.py --reflection-model anthropic/claude-haiku-4-5-20251001
+GEPA_USE_EVAL_MODEL=1 python3 evals/lib/gepa_smoke.py
+```
+
+### Skill optimizer (`evals/lib/gepa_skill_optimize.py`)
+
+Optimizes a real `SKILL.md` against one or more BenchFlow eval cases. Each
+candidate is materialized as a temporary skill copy, run through the same
+BenchFlow path used by `runner.sh` (with-skill mode only, no baseline), and
+scored by the average per-case reward. Per-case verifier output, the head of
+the ACP trajectory, and the full eval-case definitions are returned to GEPA
+as side information so the reflection LM has the same context the judge used.
+
+Real run (real tokens, real Omni instance, BenchFlow sandbox per metric call):
+
+```bash
+uv run --with 'benchflow @ git+https://github.com/benchflow-ai/benchflow.git@main' \
+  --with gepa --with litellm --with anthropic \
+  python evals/lib/gepa_skill_optimize.py \
+  --skill omni-content-builder --case 1 --max-metric-calls 4
+```
+
+Key flags:
+
+| Flag | Default | Notes |
+|---|---|---|
+| `--skill` | `omni-ai-eval` | Skill name; reads `skills/<skill>/SKILL.md` as the seed. |
+| `--case` | `1` (repeatable) | Eval case IDs to score against. |
+| `--max-metric-calls` | `2` | Each call evaluates one candidate via BenchFlow. Keep small — every call is a full case run. |
+| `--reflection-model` | `anthropic/claude-haiku-4-5-20251001` | Override with `GEPA_REFLECTION_MODEL` env. |
+| `--timeout-sec` | `1200` | Per-case wall-clock budget, matches `runner.sh`. |
+
+Each candidate is written under
+`evals/workspaces/gepa-skill-optimize/<skill>/<timestamp>/candidate-*/`; the
+winning candidate is written to `best_SKILL.md` alongside `summary.json` and
+the GEPA engine state in `gepa-state/`.
+
+When seeding from a case the current `SKILL.md` already passes, expect GEPA to
+fail to improve over the seed: the run still exercises the full loop end to
+end and produces side-information diffs, but no lift is possible. Aim at cases
+where the current skill is failing or partially failing if you want a real
+optimization signal.
+
+Note on instance cleanup: GEPA reruns the same case once per metric call, so
+fixture-mutating cases (e.g. `omni-content-builder` case 2 against the Sales
+Performance dashboard, `omni-model-builder` cases that create model branches)
+should be reset between GEPA runs via `./evals/reset.sh`. Cases that create
+fresh content per run (`omni-content-builder` case 1 builds a new dashboard
+each iteration) leave stray artifacts behind that `reset.sh` will not clean.

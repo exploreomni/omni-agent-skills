@@ -17,7 +17,6 @@ from gepa.optimize_anything import EngineConfig, GEPAConfig, ReflectionConfig
 from benchflow_runner import (
     declared_files_by_case,
     load_dotenv,
-    load_eval_dataset,
     load_eval_env,
     materialize_skill,
     parse_kv,
@@ -26,7 +25,7 @@ from benchflow_runner import (
     run_mode,
     stage_case_files,
 )
-from benchflow.skill_eval import generate_tasks
+from benchflow.skill_eval import generate_tasks, load_eval_dataset
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -121,6 +120,7 @@ async def evaluate_candidate_async(candidate: str, args: argparse.Namespace, run
         args.case,
         eval_env,
         omni_env_hint=not args.no_omni_env_hint,
+        timeout_sec=args.timeout_sec,
     )
     (generated / "SKILL.md").write_text(candidate + "\n")
 
@@ -186,6 +186,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--agent-env", action="append", default=[])
     parser.add_argument("--skill-nudge", default=os.environ.get("BENCHFLOW_SKILL_NUDGE", "name"))
     parser.add_argument("--max-retries", type=int, default=int(os.environ.get("EVAL_MAX_RETRIES", "1")))
+    parser.add_argument(
+        "--timeout-sec",
+        type=int,
+        default=int(os.environ.get("EVAL_TIMEOUT_SEC", "1200")),
+        help="Per-case wall-clock budget passed to materialize_skill. Matches benchflow_runner default.",
+    )
     parser.add_argument("--max-metric-calls", type=int, default=2)
     parser.add_argument(
         "--reflection-model",
