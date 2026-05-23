@@ -27,9 +27,9 @@ omni config use <profile-name>
 ```
 
 ```bash
-# Databricks CLI — verify installed and check profiles
+# Databricks CLI — verify installed and list configured profile names
 databricks --version
-cat ~/.databrickscfg
+databricks auth profiles
 ```
 
 ---
@@ -253,17 +253,23 @@ version: 1.1
 $$
 ```
 
-Execute via the SQL Statements API (`databricks sql execute` does not exist in CLI v0.295.0+):
+Execute via the SQL Statements API (`databricks sql execute` does not exist in CLI v0.295.0+).
+
+Write the request body as a JSON file (with the SQL embedded as a properly-quoted string) and pass it via `--json @file`. This avoids shell substitution of arbitrary SQL content into the command line:
 
 ```bash
-databricks api post /api/2.0/sql/statements \
-  --json "{
-    \"warehouse_id\": \"<WAREHOUSE_ID>\",
-    \"statement\": $(cat /tmp/orders_mv.sql | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))'),
-    \"wait_timeout\": \"50s\",
-    \"catalog\": \"<CATALOG>\",
-    \"schema\": \"<SCHEMA>\"
-  }"
+# /tmp/orders_mv.payload.json
+{
+  "warehouse_id": "<WAREHOUSE_ID>",
+  "statement": "<SQL with newlines as \\n and quotes as \\\">",
+  "wait_timeout": "50s",
+  "catalog": "<CATALOG>",
+  "schema": "<SCHEMA>"
+}
+```
+
+```bash
+databricks api post /api/2.0/sql/statements --json @/tmp/orders_mv.payload.json
 ```
 
 Check the response for `"state": "SUCCEEDED"`. If `"state": "FAILED"`, read `status.error.message` and see the Troubleshooting section below.
