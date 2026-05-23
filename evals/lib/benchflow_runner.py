@@ -370,7 +370,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--case", action="append", default=[], help="Run only this case id; repeatable")
     parser.add_argument("--agent-env", action="append", default=[], help="Extra KEY=VALUE passed to the agent")
     parser.add_argument("--skill-nudge", default=os.environ.get("BENCHFLOW_SKILL_NUDGE", "name"))
-    parser.add_argument("--max-retries", type=int, default=0)
+    parser.add_argument("--max-retries", type=int, default=int(os.environ.get("EVAL_MAX_RETRIES", "1")))
     parser.add_argument("--no-baseline", action="store_true")
     parser.add_argument("--no-omni-env-hint", action="store_true")
     return parser

@@ -143,6 +143,11 @@ Common options:
   --concurrency 1
 ```
 
+The runner defaults to one retry per case (`--max-retries 1`) to absorb
+transient sandbox or provider failures. Higher concurrency can make local Docker
+runs faster, but if Docker reports compose/network setup errors, rerun with
+lower concurrency.
+
 The runner adds a short Omni auth hint to each materialized task: credentials
 are available as `OMNI_BASE_URL` and `OMNI_API_TOKEN`, so agents can use CLI
 flags when the sandbox has no Omni config file.
