@@ -90,7 +90,7 @@ Do not mark a PR ready for review if the skill has only been tested with mocked 
 
 ### Evals
 
-The `evals/` directory contains a harness for scoring AI query generation accuracy (`omni-ai-eval` skill). If you add or modify query-related skills, add eval cases under `skills/<skill-name>/evals/`. See `evals/SETUP.md` for the runner and grader workflow.
+The `evals/` directory contains the BenchFlow-based skill eval runner. If you add or modify query-related skills, add BenchFlow `cases` under `skills/<skill-name>/evals/evals.json`. See `evals/README.md` for the runner workflow and `evals/SETUP.md` for the shared Omni instance setup.
 
 ## Versioning
 

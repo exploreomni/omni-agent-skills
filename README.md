@@ -393,14 +393,11 @@ omni-agent-skills/
 ├── evals/
 │   ├── README.md
 │   ├── SETUP.md
+│   ├── .env.example
+│   ├── eval-env.json
 │   ├── lib/
-│   ├── prompts/
-│   ├── templates/
 │   ├── runner.sh
-│   ├── scorer.sh
-│   ├── report.sh
 │   ├── reset.sh
-│   ├── results/
 │   └── workspaces/
 ├── rules/
 │   ├── omni-api-conventions.mdc
@@ -418,12 +415,11 @@ omni-agent-skills/
 
 Skill packages stay compatible with the Agent Skills specification by keeping each skill's `SKILL.md` at the skill root. Supporting material lives beside it in focused subdirectories such as `references/`, `evals/`, `scripts/`, or `assets/`; keep references from `SKILL.md` shallow and relative to the skill root.
 
-The root `evals/` directory is contributor tooling, not a distributed skill package. It keeps public entrypoints at the top level:
+The root `evals/` directory is contributor tooling, not a distributed skill package. It is a thin BenchFlow wrapper and keeps public entrypoints at the top level:
 
 ```text
 evals/runner.sh
-evals/scorer.sh
-evals/report.sh
+evals/history.sh
 evals/reset.sh
 ```
 
@@ -431,13 +427,13 @@ Implementation details are grouped by purpose:
 
 | Path | Purpose |
 |------|---------|
-| `evals/lib/` | Python helpers used by the runner, scorer, report, and publishing workflows |
-| `evals/prompts/` | Reusable baseline prompts and long agent prompt material |
-| `evals/templates/` | HTML and report templates |
-| `evals/results/` | Published scored summaries suitable for comparison or BI tooling |
-| `evals/workspaces/` | Raw iteration output, transcripts, grading files, and generated reports |
+| `evals/lib/` | Python helpers used by the BenchFlow runner |
+| `evals/.env.example` | Template for local model and Omni credentials |
+| `evals/eval-env.json` | Template for instance-specific eval identifiers |
+| `evals/workspaces/` | Generated BenchFlow tasks, jobs, trajectories, and summaries |
+| `evals/history.sh` | CSV/JSONL export of timestamped BenchFlow summaries |
 
-Per-skill eval definitions live with the skill they evaluate:
+Per-skill eval definitions live with the skill they evaluate and use BenchFlow's `cases` schema:
 
 ```text
 skills/<skill>/evals/evals.json
