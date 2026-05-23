@@ -203,3 +203,22 @@ BenchFlow's native `bench skills eval --export-gepa` path can export scored
 skill traces for GEPA-style skill optimization. This wrapper does not automate
 GEPA yet; use the generated BenchFlow task/job artifacts as the starting point
 once the BenchFlow path is stable across the full eval suite.
+
+There is an experimental local smoke test for GEPA's `optimize_anything` API at
+`evals/lib/gepa_smoke.py`. It does not spend model tokens or touch Omni, but it
+is intentionally not wired into the default eval dependency set or exposed as an
+executable wrapper.
+
+Install GEPA explicitly, then run the script directly:
+
+```bash
+python3 -m pip install gepa
+python3 evals/lib/gepa_smoke.py
+```
+
+The smoke test uses GEPA's `optimize_anything` API with a deterministic local
+reflection callable. It verifies the shape GEPA needs for a future real
+integration: a text candidate, an evaluator score, and diagnostic feedback
+captured as Actionable Side Information. By default it writes to a timestamped
+directory under `evals/workspaces/gepa-smoke/`; it will not delete or reuse an
+existing run directory unless you pass `--keep-run-dir`.

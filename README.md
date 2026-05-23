@@ -439,6 +439,16 @@ Per-skill eval definitions live with the skill they evaluate and use BenchFlow's
 skills/<skill>/evals/evals.json
 ```
 
+## skills.sh Security Audits
+
+This table is refreshed weekly by `.github/workflows/update-skills-security-audits.yml` from the public skills.sh audit pages.
+Status labels use `🟢 Pass`, `🟡 Warn`, `🔴 Fail`, and `⚫ Error`.
+
+<!-- skills-security-audits:start -->
+| Skill | Gen Agent Trust Hub | Socket | Snyk |
+|---|---|---|---|
+<!-- skills-security-audits:end -->
+
 ## Documentation
 
 - [Skill eval runbook](evals/README.md)
