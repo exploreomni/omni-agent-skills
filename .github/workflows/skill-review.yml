@@ -31,7 +31,7 @@ jobs:
           echo "head_ref=$PR_HEAD" >> $GITHUB_OUTPUT
 
       - name: Checkout PR branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ steps.pr.outputs.head_ref }}
           fetch-depth: 0
@@ -48,7 +48,7 @@ jobs:
 
       - name: Run skill review
         if: steps.changed-files.outputs.files != ''
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@bbfaf8e1ffe3e688f7ab65ceee78de241e24a238 # v1
         with:
           use_claude_code_app: true
           track_progress: true
