@@ -1,0 +1,200 @@
+name: Update skills.sh Security Audits
+
+on:
+  schedule:
+    - cron: "23 22 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Refresh README audit table
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const baseUrl = "https://www.skills.sh";
+          const owner = "exploreomni";
+          const repo = "omni-agent-skills";
+          const readmePath = "README.md";
+          const start = "<!-- skills-security-audits:start -->";
+          const end = "<!-- skills-security-audits:end -->";
+          const providerLabels = {
+            "agent-trust-hub": "Gen Agent Trust Hub",
+            socket: "Socket",
+            snyk: "Snyk",
+          };
+          const providerOrder = ["agent-trust-hub", "socket", "snyk"];
+
+          async function fetchText(path) {
+            const url = path.startsWith("https://") ? path : `${baseUrl}${path}`;
+            const response = await fetch(url, {
+              headers: { "user-agent": "omni-agent-skills-security-audit-updater/1.0" },
+            });
+            if (!response.ok) {
+              throw new Error(`${response.status} ${response.statusText}`);
+            }
+            return await response.text();
+          }
+
+          function uniqueSorted(values) {
+            return [...new Set(values)].sort((a, b) => a.localeCompare(b));
+          }
+
+          function matchAll(re, text) {
+            return [...text.matchAll(re)].map((match) => match[1]);
+          }
+
+          function parseStatus(html) {
+            const span = html.match(/<span class="inline-block text-xs font-mono uppercase[^"]*">([^<]+)<\/span>/);
+            if (span) return span[1].trim();
+            const flight = html.match(/className\\?":\\?"[^"]*inline-block[^"]*uppercase[^"]*\\?".{0,240}?children\\?":\\?"([^"]+)\\?"/s);
+            return flight ? flight[1].trim() : "Unknown";
+          }
+
+          function parseAnalyzedAt(html) {
+            const metadata = html.match(/Analyzed(?: At)?[\s\S]{0,900}?<dd[^>]*>([^<]+)<\/dd>/);
+            if (metadata) return metadata[1].trim();
+            const flight = html.match(/Analyzed(?: At)?.{0,900}?children\\?":\\?"([A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2} [AP]M)\\?"/s);
+            return flight ? flight[1].trim() : "Unknown";
+          }
+
+          function parseProviderStatuses(skillHtml, skill) {
+            const statuses = {};
+            const linkRe = new RegExp(`href="/${owner}/${repo}/${skill}/security/([^"/#?]+)"`, "g");
+            for (const match of skillHtml.matchAll(linkRe)) {
+              const provider = match[1];
+              const segment = skillHtml.slice(match.index || 0, (match.index || 0) + 1200);
+              const htmlStatus = segment.match(/>(Pass|Fail|Warn|Error|Unknown)</);
+              const flightStatus = segment.match(/children\\?":\\?"(Pass|Fail|Warn|Error|Unknown)\\?"/);
+              if (htmlStatus || flightStatus) {
+                statuses[provider] = (htmlStatus || flightStatus)[1];
+              }
+            }
+            return statuses;
+          }
+
+          function withStatusEmoji(status) {
+            const normalized = String(status || "").trim().toLowerCase();
+            if (normalized === "pass") return "🟢 Pass";
+            if (normalized === "fail") return "🔴 Fail";
+            if (normalized === "warn" || normalized === "warning") return "🟡 Warn";
+            if (normalized === "error") return "⚫ Error";
+            return "⚪ Unknown";
+          }
+
+          function cell(skill, provider, detail) {
+            if (!detail) return "-";
+            const href = `${baseUrl}/${owner}/${repo}/${skill}/security/${provider}`;
+            const status = withStatusEmoji(detail.status);
+            if (!detail.analyzedAt || detail.analyzedAt === "Unknown") {
+              return `[${status}](${href})`;
+            }
+            return `[${status}](${href})<br>${detail.analyzedAt}`;
+          }
+
+          async function main() {
+            const repoHtml = await fetchText(`/${owner}/${repo}`);
+            const skills = uniqueSorted(
+              matchAll(new RegExp(`href="/${owner}/${repo}/([^"/#?]+)"`, "g"), repoHtml)
+                .filter((slug) => !["opengraph-image", "security"].includes(slug))
+            );
+
+            const rows = [];
+            for (const skill of skills) {
+              const skillHtml = await fetchText(`/${owner}/${repo}/${skill}`);
+              const pageStatuses = parseProviderStatuses(skillHtml, skill);
+              const providers = uniqueSorted(
+                matchAll(new RegExp(`href="/${owner}/${repo}/${skill}/security/([^"/#?]+)"`, "g"), skillHtml)
+              );
+              const details = {};
+              for (const provider of providers) {
+                try {
+                  const html = await fetchText(`/${owner}/${repo}/${skill}/security/${provider}`);
+                  details[provider] = {
+                    status: parseStatus(html) || pageStatuses[provider] || "Unknown",
+                    analyzedAt: parseAnalyzedAt(html),
+                  };
+                } catch (error) {
+                  details[provider] = {
+                    status: pageStatuses[provider] || "Error",
+                    analyzedAt: "Unknown",
+                  };
+                }
+              }
+              rows.push(
+                `| [${skill}](${baseUrl}/${owner}/${repo}/${skill}) | ` +
+                  providerOrder.map((provider) => cell(skill, provider, details[provider])).join(" | ") +
+                  " |"
+              );
+            }
+
+            const table = [
+              "| Skill | Gen Agent Trust Hub | Socket | Snyk |",
+              "|---|---|---|---|",
+              ...rows,
+            ].join("\n");
+
+            const block = `${start}\n${table}\n${end}`;
+            const readme = fs.readFileSync(readmePath, "utf8");
+            let next;
+            if (readme.includes(start) && readme.includes(end)) {
+              next = readme.replace(new RegExp(`${start}[\\s\\S]*?${end}`), block);
+            } else {
+              const heading = "## Documentation\n";
+              const section = [
+                "## skills.sh Security Audits",
+                "",
+                "This table is refreshed weekly by `.github/workflows/update-skills-security-audits.yml` from the public skills.sh audit pages.",
+                "",
+                block,
+                "",
+              ].join("\n");
+              next = readme.replace(heading, `${section}${heading}`);
+            }
+            fs.writeFileSync(readmePath, next);
+          }
+
+          main().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+
+      - name: Create pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if git diff --quiet README.md; then
+            echo "No README audit updates."
+            exit 0
+          fi
+
+          branch="automation/skills-security-audits"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add README.md
+          git commit -m "Update skills.sh security audit status"
+          git push --force-with-lease origin "$branch"
+
+          if gh pr view "$branch" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh pr edit "$branch" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Update skills.sh security audit status" \
+              --body "Refreshes the README table from the public skills.sh security audit pages."
+          else
+            gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --base main \
+              --head "$branch" \
+              --title "Update skills.sh security audit status" \
+              --body "Refreshes the README table from the public skills.sh security audit pages."
+          fi
