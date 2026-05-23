@@ -111,6 +111,19 @@ while IFS= read -r line; do
 done < eval_cases.jsonl
 ```
 
+## Quick Evals Without Expected JSON
+
+When the user asks for a quick eval and only provides prompts, still score the generated queries against the prompt intent. Do not reduce the eval to "valid query/no error" unless the user explicitly asks for a smoke test.
+
+For each prompt:
+
+1. Run `omni ai generate-query` with `--run-query false`.
+2. Infer the expected query shape from the prompt: topic, fields, filters, sorts, and limit where relevant.
+3. Compare the generated query to that inferred expectation across those dimensions.
+4. Report per-case dimension results and a numeric pass rate.
+
+Call out that the scoring is inferred rather than a strict golden-file comparison, but still provide the dimension-level assessment. For example, "Top 10 customers by spend" should be checked for a customer field, spend/revenue measure, descending spend sort, and limit 10.
+
 ## Running Evals: Agentic Path (AI Jobs API)
 
 Use the async AI Jobs API when you want to test the full agentic workflow — multi-step analysis, tool use, and topic selection as Blobby would actually behave in production.
@@ -196,7 +209,7 @@ This lets you score topic selection accuracy as a separate dimension — useful 
 
 ## Scoring: Structural Query Comparison
 
-Compare the generated query JSON against the expected query across four dimensions:
+Compare the generated query JSON against the expected query across four dimensions. Score each dimension independently; do not collapse the result to a single pass/fail before checking topic and fields.
 
 | Dimension | Comparison Method | Scoring |
 |-----------|------------------|---------|

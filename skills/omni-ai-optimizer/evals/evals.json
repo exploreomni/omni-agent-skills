@@ -8,35 +8,41 @@
   "cases": [
     {
       "id": "1",
-      "question": "Blobby keeps confusing 'revenue' with 'order count' when users ask about our sales. Fix the order_items topic so the AI maps terms correctly.",
-      "ground_truth": "ai_context added to the order_items topic mapping 'revenue'/'sales' to total_revenue and 'orders'/'count' to the count measure. Context is concise (1-2 sentences per mapping).",
+      "question": "Blobby keeps confusing 'revenue' with 'order count' when users ask about our sales. Ensure the order_items topic maps those terms correctly.",
+      "ground_truth": "order_items topic ai_context maps 'revenue'/'sales' to total_revenue and 'orders'/'count' to the count measure. If the mapping already exists, the agent verifies it and avoids duplicating or moving it.",
       "expected_behavior": [
-        "The agent writes ai_context that maps business terms (revenue, sales) to specific field names (total_revenue) \u2014 not a general description of what the topic does",
-        "The ai_context is added via omni models yaml-create with mode: extension on a branch, not directly to production",
+        "The agent reads the current order_items topic YAML before making any changes",
+        "The agent ensures topic-level ai_context maps business terms (revenue, sales) to specific field names (total_revenue) \u2014 not just a general description of what the topic does",
+        "If changes are needed, the ai_context is added via omni models yaml-create with mode: extension on a branch, not directly to production",
+        "If the mapping already exists, the agent reports that no duplicate write is needed instead of adding redundant synonyms or production edits",
         "The ai_context entries are concise \u2014 the agent does not write paragraph-length explanations when a single mapping line would suffice"
       ],
       "expected_skill": "omni-ai-optimizer"
     },
     {
       "id": "2",
-      "question": "Our model has 600 fields and Blobby is getting confused. Help me curate what AI can see in the order_items topic.",
-      "ground_truth": "ai_fields added to the topic to limit AI-visible fields to the most relevant ones, bringing the count well below the 550-field limit.",
+      "question": "Check whether the order_items topic is near Blobby's AI-visible field limit. If it is, curate what AI can see; if it is already comfortably below the limit, explain that no ai_fields change is needed.",
+      "ground_truth": "Agent checks current AI-visible field count against the ~550-field guidance. It adds ai_fields only if needed; otherwise it reports that the topic is already below the threshold.",
       "expected_behavior": [
-        "The agent uses the ai_fields property (not hidden: true on individual fields) to curate the AI-visible field set",
-        "The agent mentions or checks the ~550 field limit as context for why curation is needed",
-        "The agent uses wildcard and negation operators (e.g., all_views.*, -tag:internal) rather than enumerating every field individually"
+        "The agent mentions or checks the ~550 field limit as context for deciding whether curation is needed",
+        "The agent inspects the current topic/model field set before changing ai_fields",
+        "If curation is needed, the agent uses the ai_fields property (not hidden: true on individual fields)",
+        "If curation is needed, the agent uses wildcard and negation operators (e.g., all_views.*, -tag:internal) rather than enumerating every field individually",
+        "If the topic is already comfortably below the limit, the agent reports that no ai_fields change is needed instead of making unnecessary edits"
       ],
       "expected_skill": "omni-ai-optimizer"
     },
     {
       "id": "3",
-      "question": "Add sample queries to the order_items topic for the two most common questions our users ask: 'What month had the highest revenue?' and 'Who are our top 10 customers?'",
-      "ground_truth": "Two sample_queries added to the order_items topic YAML with correct prompt, ai_context, and query structure (base_view, fields, sorts, limit).",
+      "question": "Ensure the order_items topic has sample queries for the two most common questions our users ask: 'What month had the highest revenue?' and 'Who are our top 10 customers?'",
+      "ground_truth": "order_items topic contains two sample_queries with correct prompt, ai_context, and query structure (base_view, fields, sorts, limit). If they already exist, the agent verifies them and avoids duplicate writes.",
       "expected_behavior": [
-        "The agent adds sample_queries with both a prompt and a query object for each case \u2014 not just a text description",
+        "The agent reads existing topic YAML before writing sample_queries",
+        "The agent ensures sample_queries exist with both a prompt and a query object for each case \u2014 not just a text description",
         "The top customers query includes a sorts entry with desc: true on the revenue measure and a limit of 10",
         "The highest revenue query includes sorts with desc: true on total_revenue and limit: 1",
-        "Changes are made on a branch, not directly to the shared model"
+        "If changes are needed, they are made on a branch, not directly to the shared model",
+        "If the sample queries already exist, the agent reports that no duplicate write is needed"
       ],
       "expected_skill": "omni-ai-optimizer"
     },

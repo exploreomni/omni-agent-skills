@@ -6,6 +6,36 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.3.13] - 2026-05-23
+
+### omni-analytics
+
+**Changed**
+- `omni-ai-optimizer` now emphasizes branch-first model writes, reading existing YAML before writing, and keeping topic-level optimization requests on topic-level parameters when appropriate.
+- `omni-content-builder` now bounds failed existing-dashboard update attempts: after a server-side document write-path error, agents should stop after one corrected retry, preserve the original dashboard, and report the blocker instead of cycling through import/export, draft, replacement-dashboard, or repeated filter-probing attempts.
+- `omni-content-builder` now documents raw API URL normalization with `${OMNI_BASE_URL%/}` and treats dropped readback visualization fields as partial dashboard update blockers.
+- `omni-embed` now explicitly forbids substituting `OMNI_API_TOKEN` for the embed secret and tells agents to return SDK-shaped `embedSsoDashboard()` code when `OMNI_EMBED_SECRET` is unavailable.
+- The content-builder evals now account for current Omni response shapes: row counts can appear as `cache_metadata.num_rows`, query-level filter validation can hit server-side filter errors, and add-tile updates can partially persist while dropping presentation config.
+- The eval runner now performs read-only remote preflight checks before starting BenchFlow for cases with known mutable Omni fixtures, failing before any LLM tokens are spent when those fixtures are dirty.
+- BenchFlow-generated judges now score long trajectories using both the beginning and end of the transcript instead of only the first 50,000 characters, reducing false failures when early tool output is large.
+- `omni-ai-optimizer` evals now reflect idempotent setup-aware behavior: agents should verify existing `ai_context` and `sample_queries` instead of duplicating them, and should only curate `ai_fields` when the topic is actually near the AI-visible field limit.
+- `omni-embed` evals now distinguish solid-color requirements from valid rgba shadow values and account for missing embed secrets.
+- `omni-model-builder` now directs deleted-column impact checks through branch schema refresh, branch validation, and content-validator before asking for clarification or recommending a merge, and gives a concrete filtered-measure `filters:` pattern.
+
+**Docs**
+- Documented that `EVAL_DASHBOARD_TILES` is a mutable eval fixture and should be recreated before rerunning the content-builder add-tile case after a successful or partial run.
+
+## [1.3.12] - 2026-05-23
+
+### omni-analytics
+
+**Changed**
+- `omni-ai-eval` now defines how to handle quick eval requests that provide prompts without golden expected query JSON: infer expected topic, fields, filters, sorts, and limits from prompt intent, score those dimensions explicitly, and avoid treating the run as a valid-query-only smoke test.
+- Tightened the first `omni-ai-eval` eval rubric to match that quick-eval behavior and require dimension-level scoring.
+
+**Fixed**
+- BenchFlow-generated LLM judges now print their parsed JSON result to verifier stdout so failed or partial scores expose the rubric item decisions and reasoning in run artifacts.
+
 ## [1.3.11] - 2026-05-22
 
 ### omni-analytics

@@ -9,11 +9,12 @@
     {
       "id": "1",
       "question": "Run a quick eval of Omni AI on these 3 prompts and tell me the pass rate: 'Show me revenue by month', 'Top 10 customers by spend', 'How many orders were placed last week'.",
-      "ground_truth": "Three generate-query calls made with --run-query false, results scored across topic/fields/filters/sorts dimensions, and a pass rate reported.",
+      "ground_truth": "Three generate-query calls made in query-generation-only mode. Because no golden expected query JSON is provided, the agent infers expected query dimensions from each prompt, scores topic/fields/filters/sorts or limit where applicable, and reports a numeric pass rate. The eval is not scored solely on valid JSON, command success, or absence of errors.",
       "expected_behavior": [
-        "The agent uses omni ai generate-query with --run-query false for each prompt (not --run-query true), avoiding unnecessary query execution",
-        "The agent scores each result across at least the topic and fields dimensions \u2014 not just a single pass/fail",
-        "The agent reports a numeric pass rate or per-case scores, not just a narrative description of what the AI returned"
+        "The agent uses omni ai generate-query for each prompt and avoids unnecessary query execution, either by using --run-query false or by otherwise returning generated query JSON without result rows",
+        "The agent infers reasonable expected dimensions from each prompt and scores each generated query across at least topic and fields, plus filters, sorts, or limit when those are implied by the prompt",
+        "The agent does not score solely on valid JSON, command success, or absence of errors",
+        "The agent reports a numeric pass rate or per-case dimension scores, not just a narrative description of what the AI returned"
       ],
       "expected_skill": "omni-ai-eval"
     },

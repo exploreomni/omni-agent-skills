@@ -32,6 +32,13 @@ export OMNI_EMBED_SECRET="your-embed-secret"   # Admin → Embed (for URL signin
 
 The embed secret is found in **Admin → Embed** in your Omni instance. The `OMNI_BASE_URL` for embedding uses the `.embed-omniapp.co` domain, not the standard `.omniapp.co` domain.
 
+## Safe Signing Defaults
+
+- **Use the SDK signer** — generate signed URLs with `embedSsoDashboard()` from `@omni-co/embed`. Do not hand-roll HMAC signing unless the user explicitly asks for a low-level implementation.
+- **Never use `OMNI_API_TOKEN` as the embed secret** — API tokens authenticate REST/CLI calls and are not valid embed signing secrets. Use `OMNI_EMBED_SECRET` from Admin → Embed.
+- **If the embed secret is unavailable** — do not fabricate a signed URL. Return server-side code that calls `embedSsoDashboard()` with `secret: process.env.OMNI_EMBED_SECRET` and tell the user to set that env var.
+- **Use the embed host for iframe URLs** — `host` must be a bare `.embed-omniapp.co` hostname, with no `https://`, path, or port.
+
 ## Discovering Commands
 
 ```bash
@@ -77,6 +84,10 @@ const embedUrl = await embedSsoDashboard({
 | `entity` | No | Entity name for workspaces (see Entity Workspaces below) |
 
 **Gotcha**: The `host` parameter must be a bare hostname (e.g., `yourorg.embed-omniapp.co`). Including a protocol (`https://`) or port (`:3000`) causes Omni to return 400.
+
+If `OMNI_EMBED_SECRET` is not set, still produce this SDK-shaped server-side
+code with `process.env.OMNI_EMBED_SECRET`; do not substitute `OMNI_API_TOKEN` or
+another API credential.
 
 ## Custom Themes
 
@@ -174,10 +185,10 @@ const embedUrl = await embedSsoDashboard({
 ### Supported CSS Values
 
 - Hex colors: `"#FEF2F2"`, `"#E60000"`
-- Box shadows with rgba: `"0 2px 8px rgba(230, 0, 0, 0.1)"`
+- Box shadows with rgba: `"0 2px 8px rgba(230, 0, 0, 0.1)"` (for shadow properties only)
 - Custom fonts via URL: `"url(https://fonts.gstatic.com/...) format('woff2')"`
 - Empty strings to clear defaults: `""`
-- `linear-gradient()` and `rgba()` for backgrounds work in Omni's UI theme editor but may fail when passed via the SDK — use solid hex colors for reliability
+- `linear-gradient()` and `rgba()` for background/color properties work in Omni's UI theme editor but may fail when passed via the SDK — use solid hex colors for reliability
 
 ### Theming Tips
 

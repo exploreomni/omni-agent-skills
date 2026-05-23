@@ -6,6 +6,8 @@
 #
 # Resets handled:
 #   - omni-admin eval 1: deletes the `newanalyst@company.com` test user
+#   - omni-content-builder eval 2: recreates the Sales Performance dashboard
+#     and updates EVAL_DASHBOARD_TILES in eval-env.local.json
 #   - omni-content-explorer eval 3: removes `finance` label from EVAL_DASHBOARD_LABEL
 #   - omni-model-builder / omni-ai-optimizer: deletes non-baseline model branches
 #     on EVAL_MODEL_ID (branches with names starting with "eval-" are protected
@@ -36,14 +38,17 @@ done
 
 # ── Config loading ────────────────────────────────────────────────────────────
 
-CONFIG="$SCRIPT_DIR/eval-env.local.json"
-[[ -f "$CONFIG" ]] || CONFIG="$SCRIPT_DIR/eval-env.json"
+LOCAL_CONFIG="$SCRIPT_DIR/eval-env.local.json"
+TEMPLATE_CONFIG="$SCRIPT_DIR/eval-env.json"
+CONFIG="$LOCAL_CONFIG"
+[[ -f "$CONFIG" ]] || CONFIG="$TEMPLATE_CONFIG"
 [[ -f "$CONFIG" ]] || { echo "ERROR: no eval-env config found" >&2; exit 1; }
 
 get() { jq -r --arg k "$1" '.[$k] // ""' "$CONFIG"; }
 
 MODEL_ID=$(get EVAL_MODEL_ID)
 DASHBOARD_LABEL=$(get EVAL_DASHBOARD_LABEL)
+DASHBOARD_TILES=$(get EVAL_DASHBOARD_TILES)
 TEST_USER="newanalyst@company.com"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -84,9 +89,70 @@ else
 fi
 echo ""
 
-# ── 2. Remove eval label from EVAL_DASHBOARD_LABEL ────────────────────────────
+# ── 2. Recreate Sales Performance dashboard ──────────────────────────────────
 
-echo "2. Removing 'finance' label from EVAL_DASHBOARD_LABEL"
+echo "2. Recreating Sales Performance dashboard for EVAL_DASHBOARD_TILES"
+if [[ "$CONFIG" != "$LOCAL_CONFIG" ]]; then
+  echo "  (eval-env.local.json is missing — cannot update local dashboard identifier)"
+elif [[ -z "$MODEL_ID" || "$MODEL_ID" == "replace-with-shared-model-id" ]]; then
+  echo "  (EVAL_MODEL_ID not configured — skipping)"
+else
+  if $DRY_RUN; then
+    echo "  omni documents create --body <Sales Performance fixture>"
+    echo "  jq update EVAL_DASHBOARD_TILES in $CONFIG"
+    if [[ -n "$DASHBOARD_TILES" && "$DASHBOARD_TILES" != "replace-with-dashboard-identifier" ]]; then
+      echo "  omni documents delete $DASHBOARD_TILES"
+    fi
+  else
+    SALES_BODY=$(jq -n --arg m "$MODEL_ID" '{
+      modelId: $m,
+      name: "Sales Performance",
+      queryPresentations: [
+        {
+          name: "Revenue by Month",
+          topicName: "order_items",
+          prefersChart: true,
+          visType: "basic",
+          fields: ["order_items.created_at[month]", "order_items.total_revenue"],
+          query: {
+            table: "order_items",
+            join_paths_from_topic_name: "order_items",
+            fields: ["order_items.created_at[month]", "order_items.total_revenue"],
+            sorts: [{column_name: "order_items.created_at[month]", sort_descending: false}],
+            limit: 24,
+            visConfig: {chartType: "area"}
+          },
+          config: {}
+        }
+      ]
+    }')
+    if CREATE_OUTPUT=$(omni documents create --body "$SALES_BODY" -o json 2>&1); then
+      if ! NEW_DASHBOARD_TILES=$(jq -r '.workbook.identifier // .identifier // ""' <<< "$CREATE_OUTPUT" 2>/dev/null); then
+        echo "  (created document but Omni returned non-JSON output — skipping config update)"
+        echo "$CREATE_OUTPUT" | sed 's/^/    /'
+      elif [[ -z "$NEW_DASHBOARD_TILES" || "$NEW_DASHBOARD_TILES" == "null" ]]; then
+        echo "  (created document but could not parse identifier — skipping config update)"
+        echo "$CREATE_OUTPUT" | sed 's/^/    /'
+      else
+        TMP_CONFIG=$(mktemp "${CONFIG}.tmp.XXXXXX")
+        jq --arg id "$NEW_DASHBOARD_TILES" '.EVAL_DASHBOARD_TILES = $id' "$CONFIG" > "$TMP_CONFIG"
+        mv "$TMP_CONFIG" "$CONFIG"
+        echo "  updated EVAL_DASHBOARD_TILES: $NEW_DASHBOARD_TILES"
+        if [[ -n "$DASHBOARD_TILES" && "$DASHBOARD_TILES" != "replace-with-dashboard-identifier" && "$DASHBOARD_TILES" != "$NEW_DASHBOARD_TILES" ]]; then
+          run "omni documents delete $DASHBOARD_TILES"
+        fi
+      fi
+    else
+      echo "  (failed to create Sales Performance dashboard — skipping)"
+      echo "$CREATE_OUTPUT" | sed 's/^/    /'
+    fi
+  fi
+fi
+echo ""
+
+# ── 3. Remove eval label from EVAL_DASHBOARD_LABEL ────────────────────────────
+
+echo "3. Removing 'finance' label from EVAL_DASHBOARD_LABEL"
 if [[ -n "$DASHBOARD_LABEL" && "$DASHBOARD_LABEL" != "replace-with-dashboard-identifier" ]]; then
   run "omni documents remove-label $DASHBOARD_LABEL finance"
 else
@@ -94,9 +160,9 @@ else
 fi
 echo ""
 
-# ── 3. Delete non-baseline model branches ─────────────────────────────────────
+# ── 4. Delete non-baseline model branches ─────────────────────────────────────
 
-echo "3. Deleting model branches on EVAL_MODEL_ID (excluding 'eval-comparison-branch')"
+echo "4. Deleting model branches on EVAL_MODEL_ID (excluding 'eval-comparison-branch')"
 if [[ -n "$MODEL_ID" && "$MODEL_ID" != "replace-with-shared-model-id" ]]; then
   BRANCH_NAMES=$(omni models list --include activeBranches -o json 2>/dev/null \
     | jq -r --arg m "$MODEL_ID" '
@@ -121,4 +187,6 @@ fi
 echo ""
 
 echo "Reset complete."
-$DRY_RUN && echo "(Dry-run — no changes made)"
+if $DRY_RUN; then
+  echo "(Dry-run — no changes made)"
+fi

@@ -15,8 +15,13 @@ Create, update, and manage Omni documents and dashboards programmatically via th
 - **Chart rendering**: Complex chart types may show "No chart available" in the Omni UI if `config`, `visType`, or `prefersChart` are misconfigured. Default to `chartType: "table"` for reliable rendering, and configure chart visualizations in the Omni UI.
 - **Every query must include at least one measure** — a query with only dimensions produces empty/nonsense tiles (e.g., just months with no data).
 - **Use `identifier` not `id`** for all document API calls — `.id` is null for workbook-type documents and will silently fail.
+- **Normalize raw API base URLs** — when using `curl` with `$OMNI_BASE_URL`, set `BASE_URL="${OMNI_BASE_URL%/}"` first. A trailing slash can produce `//api/v1/...` paths that return false 404s.
 - **Boolean filters may be silently dropped** when a `pivots` array is present (reported Omni bug). If boolean filters aren't applying, remove the pivot and test again.
 - **Dashboard updates are full replacements** — `PUT /api/v1/documents/{documentId}` replaces the entire document state. Always read the existing document first and modify from there, or you'll lose tiles you didn't include.
+- **Do not use `omni unstable documents-import` to update an existing dashboard** — import creates a new document and may drop newly-added tiles. For an existing dashboard, use `PUT /api/v1/documents/{documentId}` once with the full modified document.
+- **Do not persist invalid query filters** — if the requested tile/filter requires a query-level filter and `omni query run` returns a server-side filter parsing error such as `Cannot use 'in' operator to search for 'query_id' in ...`, validate the unfiltered base query once, then stop and report a blocker without mutating the existing dashboard. Do not save a tile whose query you already know cannot execute.
+- **Bound failed dashboard updates** — if `PUT` or `PATCH` returns a server error such as `Cannot use 'in' operator to search for 'query_id' in ...`, stop after one corrected retry at most. Do not try repeated filter syntaxes, import/export cycles, draft endpoints, or test-document creation loops. Report that the existing dashboard contains a filter/write-path issue and explain what was preserved.
+- **Treat dropped visualization config as a partial update** — after `PUT`, read the document back. If a required visualization field such as `visType`, `fields`, or `config` comes back `null` for a tile that needs it, report the partial write instead of continuing to probe alternate endpoints.
 
 ## Prerequisites
 
@@ -183,7 +188,8 @@ This returns the full document including `queryPresentations`, `filterConfig`, `
 # Note: Full document replacement via PUT is not yet available in the CLI.
 # Use direct HTTP for now, or use omni documents update for partial updates (PATCH).
 # Derive OMNI_BASE_URL and OMNI_API_TOKEN from the active profile for this call.
-curl -L -X PUT "$OMNI_BASE_URL/api/v1/documents/{documentId}" \
+BASE_URL="${OMNI_BASE_URL%/}"
+curl -L -X PUT "$BASE_URL/api/v1/documents/{documentId}" \
   -H "Authorization: Bearer $OMNI_API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -199,6 +205,25 @@ curl -L -X PUT "$OMNI_BASE_URL/api/v1/documents/{documentId}" \
 ```
 
 The `queryPresentations` array uses the same structure as document creation — see above.
+
+If query validation fails before the dashboard update with a server-side filter
+parsing error, especially `Cannot use 'in' operator to search for 'query_id' in ...`,
+do not save that query into an existing dashboard. Validate the unfiltered base
+query once to prove the fields/model are correct, then report that the requested
+filtered tile is blocked by query filter parsing and that the dashboard was left
+unchanged.
+
+If the update fails with a server-side filter validation error, especially
+`Cannot use 'in' operator to search for 'query_id' in ...`, do not continue
+probing with multiple filter strings or `documents-import`. That error can be
+triggered by pre-existing dashboard filters in the stored document, even if the
+new tile is valid. Preserve the original dashboard, report the exact error, and
+ask the user whether they want to rebuild/clean the dashboard state.
+
+After the update succeeds, read the document back before declaring success. If
+the API saved the tile query but returned `null` for required presentation
+fields such as `visType`, `fields`, or `config`, treat the result as a partial
+write and report what was preserved plus the exact missing fields.
 
 ### Required Fields
 
@@ -223,6 +248,7 @@ The `queryPresentations` array uses the same structure as document creation — 
 
 - **Full replacement**: Every `queryPresentation` you include becomes a tile. Any tile you omit from the array is removed. Always start from the existing document's `queryPresentations` and modify from there.
 - **Draft conflict**: Published documents with existing drafts return 409 unless `clearExistingDraft: true` is set.
+- **Import is not an update fallback**: `omni unstable documents-import` creates a separate document, so it is not a safe fallback for adding tiles to an existing dashboard identifier.
 - See also [Caveats When Reusing queryPresentations](#caveats-when-reusing-querypresentations) (e.g., stripping `model_extension_id`).
 
 ## Updating a Dashboard's Model
@@ -450,7 +476,7 @@ Using `"resultType": "csv"` makes it easy to spot-check that the data looks reas
 - `summary.row_count` > 0 for tiles that should show data
 - No unexpected `remaining_job_ids` (which might indicate query timeout issues)
 
-**4c. If any query fails:** The dashboard has a broken tile. Either update the document to fix the query (via `PUT /api/v1/documents/{documentId}`) or flag the issue to the user before sharing the link.
+**4c. If any query fails:** The dashboard has a broken tile. Either update the document to fix the query (via `PUT /api/v1/documents/{documentId}`) or flag the issue to the user before sharing the link. Do not enter an open-ended repair loop; after one failed corrected update attempt, report the blocker and stop.
 
 ### Validation Checklist Summary
 

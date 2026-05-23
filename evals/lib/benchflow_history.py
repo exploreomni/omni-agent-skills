@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -31,10 +32,17 @@ def parse_score(value: Any) -> float | None:
         return None
 
 
+def parse_run_started_at(run_dir: Path) -> str:
+    try:
+        return datetime.strptime(run_dir.name, "%Y-%m-%d__%H-%M-%S").strftime("%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return run_dir.name
+
+
 def mode_row(summary_path: Path, combined: dict[str, Any], mode: str, summary: dict[str, Any]) -> dict[str, Any]:
     run_dir = summary_path.parent
     return {
-        "run_started_at": run_dir.name,
+        "run_started_at": parse_run_started_at(run_dir),
         "skill_name": combined.get("skill_name", run_dir.parent.name),
         "mode": mode,
         "agent": summary.get("agent", combined.get("agent")),
@@ -72,7 +80,7 @@ def collect_rows(jobs_dir: Path) -> list[dict[str, Any]]:
         if isinstance(combined.get("lift_score_points"), (int, float)):
             rows.append(
                 {
-                    "run_started_at": summary_path.parent.name,
+                    "run_started_at": parse_run_started_at(summary_path.parent),
                     "skill_name": combined.get("skill_name", summary_path.parent.parent.name),
                     "mode": "lift",
                     "agent": combined.get("agent"),

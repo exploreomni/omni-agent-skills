@@ -8,22 +8,12 @@ import asyncio
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-
-try:
-    from benchflow.evaluation import Evaluation, EvaluationConfig, RetryConfig
-    from benchflow.skill_eval import generate_tasks, load_eval_dataset
-except ImportError:
-    print(
-        "ERROR: benchflow is not installed. Install it with `uv tool install benchflow` "
-        "or run through `./evals/runner.sh`, which can use uv.",
-        file=sys.stderr,
-    )
-    raise
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -40,6 +30,14 @@ OMNI_ENV_HINT = (
 
 def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text())
+
+
+def benchflow_import_error() -> None:
+    print(
+        "ERROR: benchflow is not installed. Install it with `uv tool install benchflow` "
+        "or run through `./evals/runner.sh`, which can use uv.",
+        file=sys.stderr,
+    )
 
 
 def load_dotenv(path: Path) -> None:
@@ -103,6 +101,44 @@ def selected_cases(cases: list[dict[str, Any]], case_ids: list[str]) -> list[dic
     return [case for case in cases if str(case.get("id")) in wanted]
 
 
+def selected_case_count(skill: str, case_ids: list[str]) -> int:
+    evals_path = SKILLS_DIR / skill / "evals" / "evals.json"
+    data = load_json(evals_path)
+    return len(selected_cases(data.get("cases", []), case_ids))
+
+
+def selected_case_ids(skill: str, case_ids: list[str]) -> set[str]:
+    evals_path = SKILLS_DIR / skill / "evals" / "evals.json"
+    data = load_json(evals_path)
+    return {
+        str(case.get("id"))
+        for case in selected_cases(data.get("cases", []), case_ids)
+    }
+
+
+def allocate_concurrency(skills: list[str], case_counts: dict[str, int], budget: int) -> dict[str, int]:
+    """Allocate a global case-concurrency budget across skills."""
+    if budget < 1:
+        raise ValueError("--concurrency must be at least 1")
+    allocations = {skill: 0 for skill in skills}
+    remaining = [skill for skill in skills if case_counts.get(skill, 0) > 0]
+    slots = budget
+
+    while slots > 0 and remaining:
+        next_remaining = []
+        for skill in remaining:
+            if slots <= 0:
+                next_remaining.append(skill)
+                continue
+            allocations[skill] += 1
+            slots -= 1
+            if allocations[skill] < case_counts[skill]:
+                next_remaining.append(skill)
+        remaining = next_remaining
+
+    return {skill: max(1, allocations[skill]) for skill in skills}
+
+
 def write_default_dockerfile(skill_dir: Path) -> None:
     dockerfile = skill_dir / "evals" / "Dockerfile"
     if dockerfile.exists():
@@ -131,6 +167,7 @@ def materialize_skill(
     case_ids: list[str],
     eval_env: dict[str, str],
     omni_env_hint: bool,
+    timeout_sec: int,
 ) -> Path:
     source_dir = SKILLS_DIR / skill
     evals_path = source_dir / "evals" / "evals.json"
@@ -148,6 +185,7 @@ def materialize_skill(
     data = load_json(output_dir / "evals" / "evals.json")
     if "cases" not in data:
         raise ValueError(f"{evals_path} must use BenchFlow's `cases` schema")
+    data.setdefault("defaults", {})["timeout_sec"] = timeout_sec
 
     cases = selected_cases(data["cases"], case_ids)
     if not cases:
@@ -201,6 +239,59 @@ def stage_case_files(skill_dir: Path, tasks_dir: Path, files_by_case: dict[str, 
             shutil.copy2(src, target_dir / src.name)
 
 
+def expose_judge_reasoning(tasks_dir: Path) -> None:
+    """Patch generated judges to preserve reasoning and score full rollouts."""
+    needle = (
+        '        Path("/tests/judge_result.json").write_text(json.dumps(result, indent=2))\n'
+        "        return max(0.0, min(1.0, score))"
+    )
+    replacement = (
+        '        Path("/tests/judge_result.json").write_text(json.dumps(result, indent=2))\n'
+        '        Path("/logs/verifier/judge_result.json").write_text(json.dumps(result, indent=2))\n'
+        '        print("Judge result: " + json.dumps(result, indent=2))\n'
+        "        return max(0.0, min(1.0, score))"
+    )
+    for judge_path in tasks_dir.glob("*/tests/judge.py"):
+        text = judge_path.read_text()
+        if "Judge result:" not in text and needle in text:
+            judge_path.write_text(text.replace(needle, replacement))
+            text = judge_path.read_text()
+
+        truncation_needle = (
+            "    if len(text) > MAX_TRAJECTORY_CHARS:\n"
+            "        text = text[:MAX_TRAJECTORY_CHARS] + f\"\\n\\n[TRUNCATED — {len(text)} chars total, showing first {MAX_TRAJECTORY_CHARS}]\"\n"
+            "    return text"
+        )
+        truncation_replacement = (
+            "    if len(text) > MAX_TRAJECTORY_CHARS:\n"
+            "        total_chars = len(text)\n"
+            "        head_chars = MAX_TRAJECTORY_CHARS // 3\n"
+            "        tail_chars = MAX_TRAJECTORY_CHARS - head_chars\n"
+            "        text = (\n"
+            "            text[:head_chars]\n"
+            "            + f\"\\n\\n[TRUNCATED — {total_chars} chars total, showing first {head_chars} and last {tail_chars}]\\n\\n\"\n"
+            "            + text[-tail_chars:]\n"
+            "        )\n"
+            "    return text"
+        )
+        if "showing first {head_chars} and last {tail_chars}" not in text and truncation_needle in text:
+            judge_path.write_text(text.replace(truncation_needle, truncation_replacement))
+
+    test_needle = "cp /tests/reward.txt /logs/verifier/reward.txt\n"
+    test_replacement = (
+        "cp /tests/reward.txt /logs/verifier/reward.txt\n"
+        "if [ -f /tests/judge_result.json ]; then\n"
+        "  cp /tests/judge_result.json /logs/verifier/judge_result.json\n"
+        "fi\n"
+    )
+    for test_path in tasks_dir.glob("*/tests/test.sh"):
+        text = test_path.read_text()
+        if "judge_result.json" in text:
+            continue
+        if test_needle in text:
+            test_path.write_text(text.replace(test_needle, test_replacement))
+
+
 def omni_agent_env() -> dict[str, str]:
     env: dict[str, str] = {}
     if os.environ.get("OMNI_BASE_URL"):
@@ -208,6 +299,172 @@ def omni_agent_env() -> dict[str, str]:
     if os.environ.get("OMNI_API_TOKEN"):
         env["OMNI_API_TOKEN"] = os.environ["OMNI_API_TOKEN"]
     return {k: v for k, v in env.items() if v}
+
+
+def run_omni_json(args: list[str], omni_env: dict[str, str]) -> tuple[Any | None, str | None]:
+    if not omni_env.get("OMNI_BASE_URL") or not omni_env.get("OMNI_API_TOKEN"):
+        return None, "OMNI_BASE_URL and OMNI_API_TOKEN are required for eval preflight checks"
+    cmd = [
+        "omni",
+        *args,
+        "--base-url",
+        omni_env["OMNI_BASE_URL"],
+        "--token",
+        omni_env["OMNI_API_TOKEN"],
+        "-o",
+        "json",
+    ]
+    try:
+        completed = subprocess.run(
+            cmd,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=45,
+        )
+    except FileNotFoundError:
+        return None, "Omni CLI is not installed or not on PATH"
+    except subprocess.TimeoutExpired:
+        return None, "Omni CLI preflight command timed out after 45 seconds"
+
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout).strip()
+        if len(detail) > 500:
+            detail = detail[:500] + "..."
+        return None, detail or f"Omni CLI exited with status {completed.returncode}"
+    try:
+        return json.loads(completed.stdout), None
+    except json.JSONDecodeError as exc:
+        detail = completed.stdout.strip()
+        if len(detail) > 500:
+            detail = detail[:500] + "..."
+        return None, f"Omni CLI returned invalid JSON: {exc}; output={detail!r}"
+
+
+def extract_query_presentations(document: Any) -> list[dict[str, Any]]:
+    queue = [document]
+    seen = 0
+    while queue and seen < 50:
+        seen += 1
+        candidate = queue.pop(0)
+        if isinstance(candidate, dict) and isinstance(candidate.get("queryPresentations"), list):
+            return [item for item in candidate["queryPresentations"] if isinstance(item, dict)]
+        if isinstance(candidate, dict):
+            queue.extend(candidate.values())
+        elif isinstance(candidate, list):
+            queue.extend(candidate)
+    return []
+
+
+def extract_yaml_text(payload: Any) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    files = payload.get("files")
+    if isinstance(files, dict):
+        return "\n".join(str(value) for value in files.values())
+    if isinstance(files, list):
+        parts = []
+        for item in files:
+            if isinstance(item, dict):
+                parts.append(str(item.get("content", "")))
+            else:
+                parts.append(str(item))
+        return "\n".join(parts)
+    for key in ("content", "yaml", "text"):
+        if isinstance(payload.get(key), str):
+            return payload[key]
+    return json.dumps(payload)
+
+
+def check_content_builder_case2(eval_env: dict[str, str], omni_env: dict[str, str]) -> list[str]:
+    document_id = eval_env.get("EVAL_DASHBOARD_TILES")
+    if not document_id or document_id.startswith("<"):
+        return ["EVAL_DASHBOARD_TILES is missing from eval-env.local.json"]
+
+    document, error = run_omni_json(["documents", "get", document_id], omni_env)
+    if error:
+        return [f"Could not read EVAL_DASHBOARD_TILES ({document_id}): {error}"]
+
+    presentations = extract_query_presentations(document)
+    names = [str(item.get("name", "")).strip() for item in presentations]
+    if names != ["Revenue by Month"]:
+        found = ", ".join(repr(name) for name in names) or "no tiles"
+        return [
+            "EVAL_DASHBOARD_TILES is not in the clean setup state for "
+            f"omni-content-builder case 2. Expected exactly one tile named "
+            f"'Revenue by Month'; found {found}. Recreate the Sales Performance "
+            "dashboard from evals/SETUP.md and update eval-env.local.json before running."
+        ]
+    return []
+
+
+def check_model_builder_cases(
+    selected: set[str],
+    eval_env: dict[str, str],
+    omni_env: dict[str, str],
+) -> list[str]:
+    model_id = eval_env.get("EVAL_MODEL_ID")
+    if not model_id or model_id.startswith("<"):
+        return ["EVAL_MODEL_ID is missing from eval-env.local.json"]
+
+    errors: list[str] = []
+    order_items, error = run_omni_json(
+        ["models", "yaml-get", model_id, "--filename", "public/order_items.view"],
+        omni_env,
+    )
+    if error:
+        errors.append(f"Could not read public/order_items.view from EVAL_MODEL_ID ({model_id}): {error}")
+    elif "1" in selected and "eval_completed_revenue:" in extract_yaml_text(order_items):
+        errors.append(
+            "omni-model-builder case 1 is not in the clean setup state: "
+            "public/order_items.view already contains eval_completed_revenue. "
+            "Remove that field from the eval model or use a fresh eval instance before running."
+        )
+
+    if "2" in selected:
+        segments, segment_error = run_omni_json(
+            ["models", "yaml-get", model_id, "--filename", "public/customer_segments.view"],
+            omni_env,
+        )
+        if not segment_error and "customer_segments" in extract_yaml_text(segments):
+            errors.append(
+                "omni-model-builder case 2 is not in the clean setup state: "
+                "public/customer_segments.view already exists. Remove that eval-created view "
+                "or use a fresh eval instance before running."
+            )
+    return errors
+
+
+def run_preflight(skills: list[str], args: argparse.Namespace) -> None:
+    eval_env = load_eval_env()
+    omni_env = {**omni_agent_env(), **parse_kv(args.agent_env)}
+    errors: list[str] = []
+    checked = 0
+
+    for skill in skills:
+        selected = selected_case_ids(skill, args.case)
+        if skill == "omni-content-builder" and "2" in selected:
+            checked += 1
+            errors.extend(check_content_builder_case2(eval_env, omni_env))
+        if skill == "omni-model-builder" and selected.intersection({"1", "2"}):
+            checked += 1
+            errors.extend(check_model_builder_cases(selected, eval_env, omni_env))
+
+    if errors:
+        print("\npreflight failed; no BenchFlow tasks were started:", file=sys.stderr)
+        for error in errors:
+            print(f"  - {error}", file=sys.stderr)
+        print(
+            "\nSuggested cleanup:\n"
+            "  1. Run ./evals/reset.sh for best-effort automated cleanup.\n"
+            "  2. Rerun this command with --preflight-only.\n"
+            "  3. If failures remain, fix any Omni connectivity or credential issue, "
+            "then follow the specific fixture instructions above and evals/SETUP.md.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    if checked:
+        print(f"preflight: {checked} remote fixture check(s) passed")
 
 
 def provider_agent_env(extra_env: dict[str, str]) -> dict[str, str]:
@@ -236,6 +493,12 @@ async def run_mode(
     agent_env: dict[str, str],
     max_retries: int,
 ) -> dict[str, Any]:
+    try:
+        from benchflow.evaluation import Evaluation, EvaluationConfig, RetryConfig
+    except ImportError:
+        benchflow_import_error()
+        raise
+
     evaluation = Evaluation(
         tasks_dir=str(tasks_dir),
         jobs_dir=str(jobs_dir),
@@ -262,6 +525,12 @@ def score_value(summary: dict[str, Any]) -> float:
 
 
 async def run_skill(skill: str, args: argparse.Namespace) -> dict[str, Any]:
+    try:
+        from benchflow.skill_eval import generate_tasks, load_eval_dataset
+    except ImportError:
+        benchflow_import_error()
+        raise
+
     stamp = datetime.now().strftime("%Y-%m-%d__%H-%M-%S")
     root = Path(args.jobs_dir) / skill / stamp
     generated = root / "_generated" / skill
@@ -290,14 +559,17 @@ async def run_skill(skill: str, args: argparse.Namespace) -> dict[str, Any]:
         args.case,
         eval_env,
         omni_env_hint=not args.no_omni_env_hint,
+        timeout_sec=args.timeout_sec,
     )
     dataset = load_eval_dataset(generated)
     files_by_case = declared_files_by_case(generated)
     generate_tasks(dataset, tasks_root / "with-skill", with_skill=True)
     stage_case_files(generated, tasks_root / "with-skill", files_by_case)
+    expose_judge_reasoning(tasks_root / "with-skill")
     if not args.no_baseline:
         generate_tasks(dataset, tasks_root / "baseline", with_skill=False)
         stage_case_files(generated, tasks_root / "baseline", files_by_case)
+        expose_judge_reasoning(tasks_root / "baseline")
 
     print(f"\n{skill}: {len(dataset.cases)} case(s)")
     print(f"  jobs: {root}")
@@ -359,6 +631,48 @@ async def run_skill(skill: str, args: argparse.Namespace) -> dict[str, Any]:
     return combined
 
 
+async def run_all_skills(skills: list[str], args: argparse.Namespace) -> list[dict[str, Any]]:
+    case_counts = {skill: selected_case_count(skill, args.case) for skill in skills}
+    empty = [skill for skill, count in case_counts.items() if count == 0]
+    if empty:
+        raise ValueError(f"No eval cases selected for: {', '.join(empty)}")
+
+    allocations = allocate_concurrency(skills, case_counts, args.concurrency)
+    max_parallel_skills = min(len(skills), args.concurrency)
+    queue: asyncio.Queue[str] = asyncio.Queue()
+    for skill in skills:
+        queue.put_nowait(skill)
+
+    print(
+        f"\nall: {len(skills)} skill(s), "
+        f"{sum(case_counts.values())} case(s) per mode, "
+        f"concurrency budget={args.concurrency}"
+    )
+    print(
+        "  skill slots: "
+        + ", ".join(f"{skill}={allocations[skill]}" for skill in skills)
+    )
+
+    results: list[dict[str, Any]] = []
+
+    async def worker() -> None:
+        while True:
+            try:
+                skill = queue.get_nowait()
+            except asyncio.QueueEmpty:
+                return
+            try:
+                skill_args = argparse.Namespace(**vars(args))
+                skill_args.concurrency = allocations[skill]
+                results.append(await run_skill(skill, skill_args))
+            finally:
+                queue.task_done()
+
+    tasks = [asyncio.create_task(worker()) for _ in range(max_parallel_skills)]
+    await asyncio.gather(*tasks)
+    return results
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run Omni skill evals through BenchFlow")
     parser.add_argument("skill", help="Skill name under skills/, or `all`")
@@ -370,18 +684,27 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--case", action="append", default=[], help="Run only this case id; repeatable")
     parser.add_argument("--agent-env", action="append", default=[], help="Extra KEY=VALUE passed to the agent")
     parser.add_argument("--skill-nudge", default=os.environ.get("BENCHFLOW_SKILL_NUDGE", "name"))
+    parser.add_argument("--timeout-sec", type=int, default=int(os.environ.get("EVAL_TIMEOUT_SEC", "1200")))
     parser.add_argument("--max-retries", type=int, default=int(os.environ.get("EVAL_MAX_RETRIES", "1")))
     parser.add_argument("--no-baseline", action="store_true")
     parser.add_argument("--no-omni-env-hint", action="store_true")
+    parser.add_argument("--preflight-only", action="store_true", help="Check remote fixtures and exit")
     return parser
 
 
 async def async_main() -> None:
     load_dotenv(EVALS_DIR / ".env.local")
     args = build_parser().parse_args()
+    if args.concurrency < 1:
+        raise ValueError("--concurrency must be at least 1")
     skills = discover_skills() if args.skill == "all" else [args.skill]
-    for skill in skills:
-        await run_skill(skill, args)
+    run_preflight(skills, args)
+    if args.preflight_only:
+        return
+    if args.skill == "all":
+        await run_all_skills(skills, args)
+    else:
+        await run_skill(skills[0], args)
 
 
 def main() -> None:

@@ -14,7 +14,8 @@
         "The agent uses embedSsoDashboard from @omni-co/embed \u2014 not a manual URL construction or signing",
         "The host parameter is a bare hostname (e.g., yourorg.embed-omniapp.co) with no protocol prefix (https://) and no port",
         "The userAttributes parameter includes the brand filter as an array value (e.g., { brand: ['Acme'] })",
-        "The agent uses the .embed-omniapp.co domain for the embed URL, not .omniapp.co"
+        "The agent uses the .embed-omniapp.co domain for the embed URL, not .omniapp.co",
+        "If OMNI_EMBED_SECRET is unavailable, the agent returns SDK-shaped server-side code using process.env.OMNI_EMBED_SECRET instead of substituting OMNI_API_TOKEN or fabricating a signed URL"
       ],
       "expected_skill": "omni-embed"
     },
@@ -49,7 +50,7 @@
       "expected_behavior": [
         "The customTheme is passed as a parameter to embedSsoDashboard \u2014 not applied via CSS or injected into the iframe separately",
         "dashboard-key-color is set to #E60000, dashboard-background to #FEF2F2, and dashboard-key-text-color to #ffffff",
-        "The theme uses solid hex color values \u2014 not linear-gradient() or rgba() for background properties"
+        "The theme uses solid hex color values for background/color properties \u2014 not linear-gradient() or rgba(); rgba() is only acceptable for shadow properties"
       ],
       "expected_skill": "omni-embed"
     }

@@ -39,7 +39,7 @@ Eval files use BenchFlow's skill-eval schema:
   "version": "1",
   "skill_name": "omni-query",
   "defaults": {
-    "timeout_sec": 600,
+    "timeout_sec": 1200,
     "judge_model": "claude-haiku-4-5-20251001"
   },
   "cases": [
@@ -66,14 +66,20 @@ at `/app/evals/<filename>` for agents to read.
 
 ## Local Configuration
 
-Install BenchFlow:
+Install BenchFlow with token telemetry support:
 
 ```bash
-uv tool install benchflow
+uv tool install 'benchflow @ git+https://github.com/benchflow-ai/benchflow.git@main'
 ```
 
-Or let the runner use `uv run --with benchflow` automatically if `uv` is
-available.
+Or let the runner use `uv run --with "$BENCHFLOW_PACKAGE"` automatically if
+`uv` is available. By default `BENCHFLOW_PACKAGE` points at BenchFlow `main` so
+token telemetry from BenchFlow PR #289 is captured. Override it in
+`evals/.env.local` after a released package includes the same support:
+
+```dotenv
+BENCHFLOW_PACKAGE=benchflow
+```
 
 Create local runtime env:
 
@@ -140,13 +146,40 @@ Common options:
   --agent claude-agent-acp \
   --model claude-sonnet-4-6 \
   --sandbox docker \
-  --concurrency 1
+  --concurrency 1 \
+  --timeout-sec 1200
 ```
 
 The runner defaults to one retry per case (`--max-retries 1`) to absorb
-transient sandbox or provider failures. Higher concurrency can make local Docker
-runs faster, but if Docker reports compose/network setup errors, rerun with
-lower concurrency.
+transient sandbox or provider failures. For a single skill, `--concurrency`
+limits concurrent cases for that skill. For `all`, it is a global case budget
+spread across skills, so `all --concurrency 15` can run multiple skills at once
+instead of processing skills strictly one by one. Higher concurrency can make
+local Docker runs faster, but if Docker reports compose/network setup errors,
+rerun with lower concurrency.
+
+The runner materializes tasks with a 1200 second wall-clock budget by default
+(`--timeout-sec`, or `EVAL_TIMEOUT_SEC` in `evals/.env.local`). This is higher
+than the committed per-skill schema defaults because full Omni workflows can
+spend several minutes discovering model/content context before producing the
+scored answer.
+
+Before starting BenchFlow, the runner performs cheap, read-only Omni preflight
+checks for selected cases with known mutable remote fixtures. If a fixture is
+dirty, the run exits before any LLM tokens are spent. Current checks verify that
+`omni-content-builder` case 2 is pointed at a clean Sales Performance dashboard
+and that `omni-model-builder` cases 1 and 2 have not already shipped their
+eval-created model objects. Run `./evals/reset.sh` for best-effort cleanup, then
+rerun preflight. Some failures require manual fixture recreation or removal;
+fix Omni connectivity or credentials first when relevant, then follow the
+specific preflight message and `evals/SETUP.md` when reset cannot clean them
+safely.
+
+To check readiness without starting BenchFlow:
+
+```bash
+./evals/runner.sh all --preflight-only
+```
 
 The runner adds a short Omni auth hint to each materialized task: credentials
 are available as `OMNI_BASE_URL` and `OMNI_API_TOKEN`, so agents can use CLI
@@ -174,8 +207,10 @@ jobs/<mode>/<run>/<case>/verifier/        Reward and verifier stdout
 ```
 
 BenchFlow reports provider token telemetry (`input`, `output`, cache read, cache
-creation, total) and timing. It does not compute the old local harness'
-task-vs-overhead attribution.
+creation, total) and timing when the resolved BenchFlow package includes token
+telemetry support. The default runner package points at BenchFlow `main` for
+that support until it is available in a normal release. BenchFlow does not
+compute the old local harness' task-vs-overhead attribution.
 
 ## History
 
@@ -196,6 +231,33 @@ case ids, pass/fail counts, score, timing, token totals when BenchFlow captured
 them, and the source job directory. This is the lightweight equivalent of an
 over-time report: commit no run artifacts, but archive or load this export into
 BI when you want longitudinal views.
+
+CSV fields:
+
+| Field | Description |
+|---|---|
+| `run_started_at` | Run start timestamp in `%Y-%m-%d %H:%M:%S` format, normalized from the workspace directory name for CSV import tools. |
+| `skill_name` | Skill evaluated, matching the directory under `skills/`. |
+| `mode` | `with_skill`, `baseline`, or `lift`. |
+| `agent` | BenchFlow agent used for the rollout, for example `claude-agent-acp`. |
+| `model` | Model used by the agent rollout. |
+| `sandbox` | BenchFlow environment type, usually `docker`. |
+| `cases` | Comma-separated case ids included in the run. |
+| `total` | Number of cases in the mode summary. Empty for `lift` rows. |
+| `passed` | Number of cases BenchFlow marked passed. Empty for `lift` rows. |
+| `failed` | Number of cases BenchFlow marked failed. Empty for `lift` rows. |
+| `errored` | Number of agent/runtime errors. Empty for `lift` rows. |
+| `verifier_errored` | Number of verifier errors. Empty for `lift` rows. |
+| `score` | BenchFlow score string, usually a percentage. |
+| `score_pct` | Numeric score percentage. For `lift` rows, this is the with-skill score minus baseline score in percentage points. |
+| `elapsed_sec` | Mode elapsed seconds from BenchFlow. Empty for `lift` rows. |
+| `total_input_tokens` | Provider-reported non-cache input tokens. |
+| `total_output_tokens` | Provider-reported output tokens. |
+| `total_cache_read_tokens` | Provider-reported cache read tokens. |
+| `total_cache_creation_tokens` | Provider-reported cache creation/write tokens. |
+| `total_tokens` | Sum of reported input, output, cache read, and cache creation tokens. |
+| `total_cost_usd` | Cost reported by BenchFlow, when available. This may be `0.0` if BenchFlow lacks pricing for the model. |
+| `job_dir` | Local path to the source BenchFlow run workspace. |
 
 ## GEPA
 

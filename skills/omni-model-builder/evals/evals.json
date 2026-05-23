@@ -8,8 +8,8 @@
   "cases": [
     {
       "id": "1",
-      "question": "Add a new measure called 'completed_revenue' to the order_items view that sums sale_price only for orders where status = 'complete'.",
-      "ground_truth": "Branch created first. Measure written to a branch with correct aggregate_type: sum, sql referencing sale_price, and a filters block restricting to status: complete. Branch validated. Query test run after merge.",
+      "question": "Add a new measure called 'eval_completed_revenue' to the order_items view that sums sale_price only for orders where status = 'complete'.",
+      "ground_truth": "Branch created first. Measure eval_completed_revenue written to a branch with correct aggregate_type: sum, sql referencing sale_price, and a filters block restricting to status: complete. Branch validated. Query test run on the branch.",
       "expected_behavior": [
         "The agent creates a branch with omni models create-branch before writing any YAML",
         "The measure YAML includes a filters block with status: { is: complete } \u2014 not a WHERE clause in the sql field",
@@ -33,12 +33,12 @@
     {
       "id": "3",
       "question": "Set up a join between the order_items view and the inventory_items view on order_items.inventory_item_id = inventory_items.id.",
-      "ground_truth": "Relationship written with correct join_from_view, join_to_view, on_sql using ${} field references, and relationship_type: many_to_one. Branch used.",
+      "ground_truth": "Relationship written with correct join_from_view, join_to_view, on_sql using ${} field references, and relationship_type: many_to_one. Branch used. Join tested on the branch before any merge.",
       "expected_behavior": [
         "The agent creates a branch before writing the relationship YAML",
         "The on_sql uses ${order_items.inventory_item_id} and ${inventory_items.id} field reference syntax \u2014 not raw column names",
         "The relationship_type is set to many_to_one (an order item maps to one inventory item)",
-        "The agent validates the join by running a query that pulls fields from both views after merging"
+        "The agent validates the join by running a query on the branch that pulls fields from both views before merging"
       ],
       "expected_skill": "omni-model-builder"
     },

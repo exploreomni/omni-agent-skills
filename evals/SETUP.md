@@ -6,7 +6,7 @@ This guide covers setting up a dedicated Omni instance for running skill evals. 
 
 - Omni CLI installed and configured (`omni config use <profile>`)
 - Connection Admin or Modeler permissions on the instance
-- BenchFlow installed (`uv tool install benchflow`) or `uv` available for the runner
+- BenchFlow installed (`uv tool install 'benchflow @ git+https://github.com/benchflow-ai/benchflow.git@main'`) or `uv` available for the runner
 - Model credentials in `evals/.env.local` (for example `ANTHROPIC_API_KEY`)
 
 ## 1. Database
@@ -326,9 +326,27 @@ Some evals write state. Reset before re-running:
 |---|---|---|
 | omni-admin eval 1 | Creates `newanalyst@company.com` user | Delete via SCIM or admin UI |
 | omni-admin eval 3 | Creates a schedule on `EVAL_DASHBOARD_SCHEDULE` | Delete via admin UI or `omni schedules delete` |
+| omni-content-builder eval 2 | Adds a tile to `EVAL_DASHBOARD_TILES` | `./evals/reset.sh` recreates Sales Performance and updates `eval-env.local.json` |
 | omni-content-explorer eval 3 | Adds `finance` label to `EVAL_DASHBOARD_LABEL` | `omni documents remove-label <id> finance` |
 | omni-model-builder evals 1–4 | Creates model branches | `omni models list --include activeBranches` then `omni models delete-branch` |
 | omni-ai-optimizer evals 1–3 | Creates model branches | Same as above |
+
+The eval runner enforces a small read-only preflight before starting BenchFlow
+for cases with known mutable remote fixtures. If preflight fails, no LLM tasks
+are started. Run `./evals/reset.sh` first, rerun preflight, then manually clean
+or recreate any fixture that still fails.
+
+Do not rerun content-builder eval 2 against a dashboard that was already
+modified by a previous attempt. A mutated dashboard can contain extra tiles or
+filters that make the next run test cleanup/debugging behavior instead of the
+intended "add one KPI tile while preserving existing tiles" workflow. Reset
+recreates this dashboard and repoints `EVAL_DASHBOARD_TILES`.
+
+Model-builder evals should not be merged into the shared model during normal
+runs. If a previous run accidentally shipped a field to production, either
+remove it manually or use a fresh eval instance; otherwise future runs may
+correctly detect that the requested field already exists and skip the branch
+workflow the eval is intended to test.
 
 Branch cleanup command:
 

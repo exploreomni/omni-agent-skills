@@ -74,6 +74,17 @@ omni models refresh <modelId> --branch-id <branchId>
 
 Requires **Connection Admin** permissions.
 
+**Deleted or renamed columns:** If the user says a database column was deleted or renamed but does not name the exact table/column, do not stop immediately for clarification. First create a branch, refresh the schema on that branch, validate the branch, and run the content validator to identify broken model fields, dashboards, and tiles:
+
+```bash
+omni models create-branch <modelId> --name "schema-refresh-impact-check"
+omni models refresh <modelId> --branch-id <branchId>
+omni models validate <modelId> --branchid <branchId>
+omni models content-validator-get <modelId> --branch-id <branchId>
+```
+
+Report the blast radius from validation and content-validator results before recommending any merge. Ask for the deleted table/column only if the refresh and validator output are too broad or ambiguous to identify the affected field.
+
 ## Discovering Commands
 
 ```bash
@@ -314,6 +325,18 @@ Most common parameters:
 See `references/modelParameters.md` for the complete list of 24+ measure parameters and all 13 aggregate types.
 
 Measure filters restrict rows before aggregation using the YAML filter condition syntax. See `references/yaml-filter-syntax.md` for the complete operator reference and measure filter examples.
+
+Prefer a measure `filters:` block for filtered aggregates instead of embedding filter logic in `sql` with `CASE WHEN` or a SQL `WHERE` clause. Keep `sql` focused on the value being aggregated:
+
+```yaml
+measures:
+  completed_revenue:
+    sql: ${sale_price}
+    aggregate_type: sum
+    filters:
+      status:
+        is: Complete
+```
 
 ### Cross-View Fields in Views
 
