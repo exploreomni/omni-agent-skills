@@ -6,3 +6,4 @@
 evals/workspaces/
 evals/results/
 evals/eval-env.local.json
+evals/.env.local

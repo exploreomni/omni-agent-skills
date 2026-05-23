@@ -6,8 +6,8 @@ This guide covers setting up a dedicated Omni instance for running skill evals. 
 
 - Omni CLI installed and configured (`omni config use <profile>`)
 - Connection Admin or Modeler permissions on the instance
-- `ANTHROPIC_API_KEY` set in your environment (used by the scorer's LLM grader)
-- Python 3 with LiteLLM: `pip install -r evals/requirements.txt`
+- BenchFlow installed (`uv tool install benchflow`) or `uv` available for the runner
+- Model credentials in `evals/.env.local` (for example `ANTHROPIC_API_KEY`)
 
 ## 1. Database
 
@@ -243,12 +243,13 @@ omni models create-branch "$MODEL_ID" --body '{"name": "eval-comparison-branch"}
 
 Note the returned `branchId` — this goes into `eval-env.local.json` as `EVAL_BRANCH_ID`.
 
-## 6. Configure eval-env.local.json
+## 6. Configure Local Eval Files
 
 Copy the template and fill in all identifiers collected above:
 
 ```bash
 cp evals/eval-env.json evals/eval-env.local.json
+cp evals/.env.example evals/.env.local
 ```
 
 Edit `evals/eval-env.local.json`:
@@ -266,6 +267,22 @@ Edit `evals/eval-env.local.json`:
   "EVAL_EXISTING_USER":         "<email of a user that exists in the instance>",
   "EVAL_EMBED_USER":            "<externalId of a configured embed user>"
 }
+```
+
+Then put local runtime credentials in `evals/.env.local`:
+
+```dotenv
+ANTHROPIC_API_KEY=...
+EVAL_AGENT=claude-agent-acp
+EVAL_MODEL=claude-sonnet-4-6
+EVAL_SANDBOX=docker
+```
+
+Also set Omni credentials for the BenchFlow sandbox:
+
+```dotenv
+OMNI_BASE_URL=https://your-instance.example/
+OMNI_API_TOKEN=...
 ```
 
 `eval-env.local.json` is gitignored and never committed.

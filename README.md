@@ -390,6 +390,15 @@ omni-agent-skills/
 │   ├── omni-analyst.md
 │   ├── omni-modeler.md
 │   └── omni-admin-agent.md
+├── evals/
+│   ├── README.md
+│   ├── SETUP.md
+│   ├── .env.example
+│   ├── eval-env.json
+│   ├── lib/
+│   ├── runner.sh
+│   ├── reset.sh
+│   └── workspaces/
 ├── rules/
 │   ├── omni-api-conventions.mdc
 │   ├── omni-yaml-conventions.mdc
@@ -402,8 +411,38 @@ omni-agent-skills/
 └── LICENSE
 ```
 
+### Layout Conventions
+
+Skill packages stay compatible with the Agent Skills specification by keeping each skill's `SKILL.md` at the skill root. Supporting material lives beside it in focused subdirectories such as `references/`, `evals/`, `scripts/`, or `assets/`; keep references from `SKILL.md` shallow and relative to the skill root.
+
+The root `evals/` directory is contributor tooling, not a distributed skill package. It is a thin BenchFlow wrapper and keeps public entrypoints at the top level:
+
+```text
+evals/runner.sh
+evals/history.sh
+evals/reset.sh
+```
+
+Implementation details are grouped by purpose:
+
+| Path | Purpose |
+|------|---------|
+| `evals/lib/` | Python helpers used by the BenchFlow runner |
+| `evals/.env.example` | Template for local model and Omni credentials |
+| `evals/eval-env.json` | Template for instance-specific eval identifiers |
+| `evals/workspaces/` | Generated BenchFlow tasks, jobs, trajectories, and summaries |
+| `evals/history.sh` | CSV/JSONL export of timestamped BenchFlow summaries |
+
+Per-skill eval definitions live with the skill they evaluate and use BenchFlow's `cases` schema:
+
+```text
+skills/<skill>/evals/evals.json
+```
+
 ## Documentation
 
+- [Skill eval runbook](evals/README.md)
+- [Skill eval instance setup](evals/SETUP.md)
 - [Omni REST API Reference](https://docs.omni.co/api)
 - [Omni Modeling Documentation](https://docs.omni.co/modeling)
 - [Optimize Models for Omni AI](https://docs.omni.co/modeling/develop/ai-optimization)

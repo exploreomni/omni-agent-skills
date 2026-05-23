@@ -1,49 +1,58 @@
 {
+  "version": "1",
   "skill_name": "omni-model-builder",
-  "evals": [
+  "defaults": {
+    "timeout_sec": 600,
+    "judge_model": "claude-haiku-4-5-20251001"
+  },
+  "cases": [
     {
-      "id": 1,
-      "prompt": "Add a new measure called 'completed_revenue' to the order_items view that sums sale_price only for orders where status = 'complete'.",
-      "expected_output": "Branch created first. Measure written to a branch with correct aggregate_type: sum, sql referencing sale_price, and a filters block restricting to status: complete. Branch validated. Query test run after merge.",
-      "assertions": [
+      "id": "1",
+      "question": "Add a new measure called 'completed_revenue' to the order_items view that sums sale_price only for orders where status = 'complete'.",
+      "ground_truth": "Branch created first. Measure written to a branch with correct aggregate_type: sum, sql referencing sale_price, and a filters block restricting to status: complete. Branch validated. Query test run after merge.",
+      "expected_behavior": [
         "The agent creates a branch with omni models create-branch before writing any YAML",
-        "The measure YAML includes a filters block with status: { is: complete } — not a WHERE clause in the sql field",
+        "The measure YAML includes a filters block with status: { is: complete } \u2014 not a WHERE clause in the sql field",
         "The agent validates the model on the branch with omni models validate --branchid after writing",
         "The agent asks the user for confirmation before merging the branch to production"
-      ]
+      ],
+      "expected_skill": "omni-model-builder"
     },
     {
-      "id": 2,
-      "prompt": "Create a new view called 'customer_segments' from the users table with a primary key, a customer_tier dimension, and a customer_count measure.",
-      "expected_output": "Branch created. View YAML written with a primary_key: true dimension, a customer_tier dimension, and a count measure. Model validated. SQL dialect checked before writing.",
-      "assertions": [
+      "id": "2",
+      "question": "Create a new view called 'customer_segments' from the users table with a primary key, a customer_tier dimension, and a customer_count measure.",
+      "ground_truth": "Branch created. View YAML written with a primary_key: true dimension, a customer_tier dimension, and a count measure. Model validated. SQL dialect checked before writing.",
+      "expected_behavior": [
         "The agent checks the SQL dialect via omni connections list before writing any SQL expressions",
         "The view YAML includes a dimension with primary_key: true",
-        "The agent creates a branch before writing the YAML — it does not write directly to the shared model",
+        "The agent creates a branch before writing the YAML \u2014 it does not write directly to the shared model",
         "The agent validates the model after writing and checks for errors (not just warnings)"
-      ]
+      ],
+      "expected_skill": "omni-model-builder"
     },
     {
-      "id": 3,
-      "prompt": "Set up a join between the order_items view and the inventory_items view on order_items.inventory_item_id = inventory_items.id.",
-      "expected_output": "Relationship written with correct join_from_view, join_to_view, on_sql using ${} field references, and relationship_type: many_to_one. Branch used.",
-      "assertions": [
+      "id": "3",
+      "question": "Set up a join between the order_items view and the inventory_items view on order_items.inventory_item_id = inventory_items.id.",
+      "ground_truth": "Relationship written with correct join_from_view, join_to_view, on_sql using ${} field references, and relationship_type: many_to_one. Branch used.",
+      "expected_behavior": [
         "The agent creates a branch before writing the relationship YAML",
-        "The on_sql uses ${order_items.inventory_item_id} and ${inventory_items.id} field reference syntax — not raw column names",
+        "The on_sql uses ${order_items.inventory_item_id} and ${inventory_items.id} field reference syntax \u2014 not raw column names",
         "The relationship_type is set to many_to_one (an order item maps to one inventory item)",
         "The agent validates the join by running a query that pulls fields from both views after merging"
-      ]
+      ],
+      "expected_skill": "omni-model-builder"
     },
     {
-      "id": 4,
-      "prompt": "I deleted a column from our database. Update the Omni model to reflect that and tell me which dashboards will break.",
-      "expected_output": "Schema refresh triggered. Content validator run against the updated model to identify broken dashboards. Blast radius reported before any changes are merged.",
-      "assertions": [
+      "id": "4",
+      "question": "I deleted a column from our database. Update the Omni model to reflect that and tell me which dashboards will break.",
+      "ground_truth": "Schema refresh triggered. Content validator run against the updated model to identify broken dashboards. Blast radius reported before any changes are merged.",
+      "expected_behavior": [
         "The agent triggers omni models refresh to sync the schema layer with the database change",
         "The agent creates a branch to safely test the impact before touching production",
         "The agent runs omni models content-validator-get --branch-id to identify broken dashboards and tiles",
-        "The agent reports the blast radius — which dashboards and tiles reference the deleted field — before recommending any merge"
-      ]
+        "The agent reports the blast radius \u2014 which dashboards and tiles reference the deleted field \u2014 before recommending any merge"
+      ],
+      "expected_skill": "omni-model-builder"
     }
   ]
 }

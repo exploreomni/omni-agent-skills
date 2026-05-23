@@ -1,167 +1,187 @@
 {
+  "version": "1",
   "skill_name": "omni-query",
-  "evals": [
+  "defaults": {
+    "timeout_sec": 600,
+    "judge_model": "claude-haiku-4-5-20251001"
+  },
+  "cases": [
     {
-      "id": 1,
-      "prompt": "What query is powering the 'Monthly Revenue Trend' tile on the 'Revenue Overview' dashboard? List the exact fields, filters, and sorts it uses.",
-      "expected_output": "The agent extracts the tile query via omni documents get-queries and reports the fields, filters, and sorts from the query definition.",
-      "assertions": [
+      "id": "1",
+      "question": "What query is powering the 'Monthly Revenue Trend' tile on the 'Revenue Overview' dashboard? List the exact fields, filters, and sorts it uses.",
+      "ground_truth": "The agent extracts the tile query via omni documents get-queries and reports the fields, filters, and sorts from the query definition.",
+      "expected_behavior": [
         "The agent calls omni documents get-queries to retrieve the dashboard's tile definitions",
         "The agent identifies the specific tile named 'Monthly Revenue Trend' from the returned queries",
-        "The agent reports the fields, filters, and sorts from the query object — not just the dashboard name or description"
-      ]
+        "The agent reports the fields, filters, and sorts from the query object \u2014 not just the dashboard name or description"
+      ],
+      "expected_skill": "omni-query"
     },
     {
-      "id": 2,
-      "prompt": "Run a query for total revenue on completed orders in the last 30 days. Before presenting the result, verify that the query actually returned data and that the filter is binding correctly.",
-      "expected_output": "The agent runs the query, checks for errors, verifies row_count > 0, and confirms the filter is applied by comparing against an unfiltered query. Both the validation result and the revenue figure are reported.",
-      "assertions": [
+      "id": "2",
+      "question": "Run a query for total revenue on completed orders in the last 30 days. Before presenting the result, verify that the query actually returned data and that the filter is binding correctly.",
+      "ground_truth": "The agent runs the query, checks for errors, verifies row_count > 0, and confirms the filter is applied by comparing against an unfiltered query. Both the validation result and the revenue figure are reported.",
+      "expected_behavior": [
         "The agent checks the query response for an error key before presenting results",
         "The agent verifies data was returned by checking summary.row_count or requesting CSV",
         "The agent runs an unfiltered comparison query and compares the results to confirm the filter is binding",
         "The agent reports both the validation outcome and the actual revenue figure"
-      ]
+      ],
+      "expected_skill": "omni-query"
     },
     {
-      "id": 3,
-      "prompt": "I ran this query: {\"query\":{\"modelId\":\"{{EVAL_MODEL_ID}}\",\"table\":\"order_items\",\"fields\":[\"order_items.created_at[month]\",\"order_items.status\",\"order_items.total_revenue\"],\"pivots\":[\"order_items.status\"],\"filters\":{\"order_items.created_at\":\"last 6 months\"},\"join_paths_from_topic_name\":\"order_items\",\"limit\":100}}. It returned the same number of rows as when I run it without the filter. What's wrong and how do I fix it to get correctly filtered results?",
-      "expected_output": "The agent identifies the known Omni bug (boolean filters are silently dropped when pivots are present), explains why it happens, and applies the workaround (removes the pivot and runs as a flat table, or restructures the query differently). The corrected query returns filtered results.",
-      "assertions": [
+      "id": "3",
+      "question": "I ran this query: {\"query\":{\"modelId\":\"{{EVAL_MODEL_ID}}\",\"table\":\"order_items\",\"fields\":[\"order_items.created_at[month]\",\"order_items.status\",\"order_items.total_revenue\"],\"pivots\":[\"order_items.status\"],\"filters\":{\"order_items.created_at\":\"last 6 months\"},\"join_paths_from_topic_name\":\"order_items\",\"limit\":100}}. It returned the same number of rows as when I run it without the filter. What's wrong and how do I fix it to get correctly filtered results?",
+      "ground_truth": "The agent identifies the known Omni bug (boolean filters are silently dropped when pivots are present), explains why it happens, and applies the workaround (removes the pivot and runs as a flat table, or restructures the query differently). The corrected query returns filtered results.",
+      "expected_behavior": [
         "The agent identifies the specific bug: filters are silently dropped when a pivots array is present",
         "The agent explains why the filter isn't applying: the pivot+filter combination causes the filter to be ignored",
         "The agent applies a workaround: either removes the pivot array and runs as a flat table, or uses a different query structure that avoids the bug",
         "The corrected query returns a different (filtered) row count than the original unfiltered version"
-      ]
+      ],
+      "expected_skill": "omni-query"
     },
     {
-      "id": 4,
-      "prompt": "Find the top 3 product categories by order count over the last 6 months. Then for each of those categories, show me the monthly order count trend. Synthesize the findings into a brief narrative.",
-      "expected_output": "The agent runs a broad query to identify top categories, then follow-up queries for monthly trends per category, and synthesizes into a narrative naming the categories and describing their trends.",
-      "assertions": [
-        "The agent runs at least two separate omni query run calls — one for top categories, then follow-ups for trends",
+      "id": "4",
+      "question": "Find the top 3 product categories by order count over the last 6 months. Then for each of those categories, show me the monthly order count trend. Synthesize the findings into a brief narrative.",
+      "ground_truth": "The agent runs a broad query to identify top categories, then follow-up queries for monthly trends per category, and synthesizes into a narrative naming the categories and describing their trends.",
+      "expected_behavior": [
+        "The agent runs at least two separate omni query run calls \u2014 one for top categories, then follow-ups for trends",
         "The top-categories query uses a sort and limit to identify exactly 3 categories",
         "The follow-up queries include a filter scoped to the last 6 months",
         "The agent synthesizes results into a narrative that names the categories and describes their trends"
-      ]
+      ],
+      "expected_skill": "omni-query"
     },
     {
-      "id": 5,
-      "prompt": "Using the async agentic approach, analyze the top 5 US states by revenue in the last 6 months and identify the top product category for each state. Use the full job workflow (submit, poll, retrieve result).",
-      "expected_output": "The agent submits an async job, polls until completion, retrieves the result, and reports the top 5 states with their top product categories.",
-      "assertions": [
+      "id": "7",
+      "question": "Using the async agentic approach, analyze the top 5 US states by revenue in the last 6 months and identify the top product category for each state. Use the full job workflow (submit, poll, retrieve result).",
+      "ground_truth": "The agent submits an async job, polls until completion, retrieves the result, and reports the top 5 states with their top product categories.",
+      "expected_behavior": [
         "The agent uses omni ai job-submit (not generate-query) to start the analysis",
         "The agent polls the job status with omni ai job-status until it reaches COMPLETE or FAILED",
         "The agent retrieves the final result with omni ai job-result",
         "The output includes the top 5 states by revenue and the top product category for each state"
-      ]
+      ],
+      "expected_skill": "omni-query"
     },
     {
-      "id": 6,
-      "prompt": "Extract the exact raw query JSON that powers the 'Monthly Revenue Trend' tile on the 'Revenue Overview' dashboard. I need the complete query object — including fields, filters, sorts, limit, and any other parameters — not a summary or description.",
-      "expected_output": "The agent uses omni documents get-queries to extract the tile's query definition and returns the full query JSON object with all fields, filters, sorts, and parameters intact.",
-      "assertions": [
+      "id": "8",
+      "question": "Extract the exact raw query JSON that powers the 'Monthly Revenue Trend' tile on the 'Revenue Overview' dashboard. I need the complete query object \u2014 including fields, filters, sorts, limit, and any other parameters \u2014 not a summary or description.",
+      "ground_truth": "The agent uses omni documents get-queries to extract the tile's query definition and returns the full query JSON object with all fields, filters, sorts, and parameters intact.",
+      "expected_behavior": [
         "The agent calls omni documents get-queries with the Revenue Overview dashboard identifier",
         "The agent identifies the 'Monthly Revenue Trend' tile from the returned queries array",
-        "The agent returns the complete query JSON object with fields, filters, sorts, limit, and other parameters — not a paraphrased summary",
+        "The agent returns the complete query JSON object with fields, filters, sorts, limit, and other parameters \u2014 not a paraphrased summary",
         "The returned query includes specific field references like order_items.created_at[month] and order_items.total_revenue"
-      ]
+      ],
+      "expected_skill": "omni-query"
     },
     {
-      "id": 5,
-      "prompt": "Show me monthly revenue for the last 12 months with a running total column.",
-      "expected_output": "A table of monthly revenue and a cumulative running total, with both columns visibly returned.",
-      "assertions": [
+      "id": "5",
+      "question": "Show me monthly revenue for the last 12 months with a running total column.",
+      "ground_truth": "A table of monthly revenue and a cumulative running total, with both columns visibly returned.",
+      "expected_behavior": [
         "The query body includes a calculations array with an entry whose sql_expression is the OMNI_RUNNING_TOTAL AST shape (not a workbook-style {name, formula})",
         "The calc_name from calculations also appears in query.fields so the calc is selected",
         "The query body uses sql_expression (AST), not formula (workbook frontend shape)",
         "The agent reports the running-total values from the response rather than recomputing them client-side"
-      ]
+      ],
+      "expected_skill": "omni-query"
     },
     {
-      "id": 6,
-      "prompt": "Build a query for monthly revenue with a trailing 3-month moving average. If you're unsure of the calc shape, use the AI helper to draft it.",
-      "expected_output": "Monthly revenue plus a trailing-3-month moving average column, returned from a single omni query run.",
-      "assertions": [
+      "id": "6",
+      "question": "Build a query for monthly revenue with a trailing 3-month moving average. If you're unsure of the calc shape, use the AI helper to draft it.",
+      "ground_truth": "Monthly revenue plus a trailing-3-month moving average column, returned from a single omni query run.",
+      "expected_behavior": [
         "The agent first calls omni ai generate-query with --run-query=false to obtain the AST for the moving average",
         "The resulting sql_expression uses OMNI_FX_AVERAGE wrapping OMNI_OFFSET_MULTI with operands (field, -2, 0, 3, 1)",
         "The calc_name is included in query.fields",
         "The agent then runs the query and reports actual moving-average values"
-      ]
+      ],
+      "expected_skill": "omni-query"
     },
     {
-      "id": 7,
-      "prompt": "For a pivoted query showing revenue by month across product categories, add a row total across the pivot columns.",
-      "expected_output": "A pivoted table (months as rows, categories as columns) with an extra row-total column summarizing across categories.",
-      "assertions": [
+      "id": "9",
+      "question": "For a pivoted query showing revenue by month across product categories, add a row total across the pivot columns.",
+      "ground_truth": "A pivoted table (months as rows, categories as columns) with an extra row-total column summarizing across categories.",
+      "expected_behavior": [
         "The query body has a non-empty pivots[] array and an explicit numeric limit (not null)",
         "The calculations entry uses OMNI_FX_SUM wrapping OMNI_PIVOT_OFFSET",
         "The calc has outside_pivot: true",
         "The calc_name is present in query.fields"
-      ]
+      ],
+      "expected_skill": "omni-query"
     },
     {
-      "id": 8,
-      "prompt": "Add a tier label to each customer: 'High' if revenue > 10000, 'Mid' if > 1000, else 'Low'. Concatenate the tier with the customer name like 'High - Acme Corp'.",
-      "expected_output": "A list of customers with a combined label column formatted as '<tier> - <name>'.",
-      "assertions": [
+      "id": "10",
+      "question": "Add a tier label to each customer: 'High' if revenue > 10000, 'Mid' if > 1000, else 'Low'. Concatenate the tier with the customer name like 'High - Acme Corp'.",
+      "ground_truth": "A list of customers with a combined label column formatted as '<tier> - <name>'.",
+      "expected_behavior": [
         "The query body contains a calc using OMNI_FX_IFS with a tautology (e.g. EQUALS(1,1)) as the final condition for the default branch",
         "String concatenation uses OMNI_FX_AMPERSAND, nested binary if more than two pieces",
         "calc_name is referenced in query.fields and the response contains the expected labels"
-      ]
+      ],
+      "expected_skill": "omni-query"
     },
     {
-      "id": 9,
-      "prompt": "Add a calculated column for revenue as a percent of total.",
-      "expected_output": "A query returning revenue and revenue-as-percent-of-total.",
-      "assertions": [
+      "id": "11",
+      "question": "Add a calculated column for revenue as a percent of total.",
+      "ground_truth": "A query returning revenue and revenue-as-percent-of-total.",
+      "expected_behavior": [
         "The calc uses sql_expression with an AST, NOT a top-level formula string",
         "The calc does not use the workbook-frontend {name, formula} shape that the query API silently rejects",
         "calc_name appears in query.fields"
-      ]
+      ],
+      "expected_skill": "omni-query"
     },
     {
-      "id": 10,
-      "prompt": "Show each order's created date, shipped date, and the number of days between them.",
-      "expected_output": "A table where each row has a date diff column populated with integer day counts, not blanks.",
-      "assertions": [
-        "The calc uses Omni.OMNI_FX_DATEDIF with operands in the order (unit_literal, start_date, end_date) — NOT the Excel formula order (start, end, unit)",
+      "id": "12",
+      "question": "Show each order's created date, shipped date, and the number of days between them.",
+      "ground_truth": "A table where each row has a date diff column populated with integer day counts, not blanks.",
+      "expected_behavior": [
+        "The calc uses Omni.OMNI_FX_DATEDIF with operands in the order (unit_literal, start_date, end_date) \u2014 NOT the Excel formula order (start, end, unit)",
         "The unit literal value is the spelled-out word 'DAY' (not the Excel single-letter code 'D')",
         "Both date operands resolve to a DATE type (e.g. via a [date]-truncated timeframe), not a bare timestamp field",
         "The response contains non-empty integer values in the diff column; a column of blanks indicates the calc errored under swallow_errors:true"
-      ]
+      ],
+      "expected_skill": "omni-query"
     },
     {
-      "id": 11,
-      "prompt": "Show monthly revenue and a column with the total revenue across only the Complete-status orders, broadcast on every row.",
-      "expected_output": "A monthly revenue table with a constant column showing the Complete-status revenue total repeated on every row.",
-      "assertions": [
+      "id": "13",
+      "question": "Show monthly revenue and a column with the total revenue across only the Complete-status orders, broadcast on every row.",
+      "ground_truth": "A monthly revenue table with a constant column showing the Complete-status revenue total repeated on every row.",
+      "expected_behavior": [
         "The calc uses operator Omni.OMNI_FX_SUM_IF (with an underscore between SUM and IF), not Omni.OMNI_FX_SUMIF",
         "The range operands wrap the field in an Omni.OMNI_OFFSET_MULTI call with the full-column magic tuple (-536870911, 0, 1073741823, 1)",
         "The criterion operand is a string literal containing an Excel match expression (e.g. 'Complete', or '>1000000')",
         "calc_name appears in query.fields"
-      ]
+      ],
+      "expected_skill": "omni-query"
     },
     {
-      "id": 12,
-      "prompt": "Show order status, total revenue, and a VLOOKUP column that retrieves the Complete-status revenue on every row.",
-      "expected_output": "A status-by-revenue table where the lookup column shows the Complete-status revenue value on every row.",
-      "assertions": [
-        "The calc uses Omni.OMNI_FX_VLOOKUP with FOUR operands (not three) — the formula's 3-arg signature decomposes into lookup_value, key_field, range_OFFSET_MULTI, column_number",
+      "id": "14",
+      "question": "Show order status, total revenue, and a VLOOKUP column that retrieves the Complete-status revenue on every row.",
+      "ground_truth": "A status-by-revenue table where the lookup column shows the Complete-status revenue value on every row.",
+      "expected_behavior": [
+        "The calc uses Omni.OMNI_FX_VLOOKUP with FOUR operands (not three) \u2014 the formula's 3-arg signature decomposes into lookup_value, key_field, range_OFFSET_MULTI, column_number",
         "The lookup_range operand is an OMNI_OFFSET_MULTI whose 5th operand (step) equals the column width of the Excel range (e.g. 3 for A:C)",
         "The column_number operand is a 1-based integer literal indexing into query.fields starting at the key column",
         "The agent does NOT fall back to userEditedSQL with raw SQL when expressing the lookup"
-      ]
+      ],
+      "expected_skill": "omni-query"
     },
     {
-      "id": 13,
-      "prompt": "Show monthly revenue with a month-over-month percent change column.",
-      "expected_output": "Monthly revenue with a percent-change column populated using a table calculation, not a period-comparison pivot trick.",
-      "assertions": [
+      "id": "15",
+      "question": "Show monthly revenue with a month-over-month percent change column.",
+      "ground_truth": "Monthly revenue with a percent-change column populated using a table calculation, not a period-comparison pivot trick.",
+      "expected_behavior": [
         "The calc uses the Omni.OMNI_PERCENT_CHANGE_FROM_PREVIOUS template operator with a single field operand carrying for_calc: true",
         "The agent does NOT sidestep the calc by setting pivots: ['omni_period_pivot'] (the period-comparison pivot), which produces current/previous columns instead of an actual calc",
         "The agent does NOT fall back to a hand-rolled SqlStdOperatorTable.LAG window_call when the template operator exists",
         "The calc carries format: '0.0%' for percent display"
-      ]
+      ],
+      "expected_skill": "omni-query"
     }
   ]
 }
