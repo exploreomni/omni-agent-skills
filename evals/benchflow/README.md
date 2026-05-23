@@ -124,3 +124,42 @@ needs:
 - A judge key for BenchFlow's LLM verifier.
 - Omni auth passed through `agent_env` without exposing the token on the shell
   command line.
+
+After rerunning with a valid Anthropic key, regenerating the generated task so
+the verifier could reference that key, and adding a POC-only prompt instruction
+to use `OMNI_BASE_URL`/`OMNI_API_TOKEN` when no CLI profile exists, the one-case
+Claude smoke test passed:
+
+```text
+agent: claude-agent-acp
+model: claude-sonnet-4-6
+task: omni-query case 1, with-skill
+reward: 1.0
+score: 100.0%
+tool calls: 5
+elapsed: 53.2s
+total tokens: 170096
+```
+
+The trajectory showed the expected behavior:
+
+- Loaded the `omni-query` skill.
+- Tried `omni config show`, saw no sandbox config file.
+- Used Omni env credentials with CLI flags.
+- Listed documents, found `Revenue Overview` as `d80ceafd`.
+- Ran `omni documents get-queries`.
+- Returned the fields, empty filters, and ascending month sort for the
+  `Monthly Revenue Trend` tile.
+
+BenchFlow's reporting artifacts for the run were:
+
+```text
+summary.json                    aggregate score, timing, token totals
+<run>/result.json               per-task score, errors, tool count, token totals
+<run>/timing.json               phase timings
+<run>/prompts.json              prompt sent to the agent
+<run>/trajectory/*.jsonl        ACP and provider trajectories
+<run>/rewards.jsonl             reward events
+<run>/verifier/reward.txt       scalar reward
+<run>/verifier/test-stdout.txt  verifier stdout
+```
