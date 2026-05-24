@@ -139,6 +139,21 @@ Run all skills:
 ./evals/runner.sh all
 ```
 
+Typical full clean run from the repo root:
+
+```bash
+./evals/reset.sh
+./evals/runner.sh all --preflight-only
+./evals/runner.sh all --concurrency 15 --timeout-sec 1200
+```
+
+After the run finishes, export the trend history:
+
+```bash
+./evals/history.sh --format csv > evals/eval-history.csv
+./evals/history.sh --format jsonl > evals/eval-history.jsonl
+```
+
 Common options:
 
 ```bash
