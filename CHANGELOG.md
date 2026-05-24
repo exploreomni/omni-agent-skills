@@ -13,6 +13,8 @@ The versions documented here should match the published plugin versions in the a
 **Changed**
 - `omni-model-builder` now explicitly keeps prepared branch changes unmerged until the user confirms merge/publish, and reports no dashboard breakage when schema refresh plus content validation find no affected content.
 - `omni-content-builder` now clarifies that `documents get-queries` and query execution verify only data queries, not persisted visualization renderer/config fields, so dropped KPI/chart presentation fields still require rollback/reporting.
+- `omni-admin` now distinguishes user attribute definitions from per-user assigned values, verifies assigned values through SCIM user readback, and treats explicit set/update requests as idempotent updates.
+- `omni-model-explorer` now gives the correct branch-scoped `yaml-create --body` pattern for impact checks and clarifies that dependent field references should remain so validation can reveal breakage.
 - BenchFlow-generated judges now compact ACP trajectory evidence before truncation so long rollouts preserve every tool call title and final response context for scoring.
 
 **Fixed**

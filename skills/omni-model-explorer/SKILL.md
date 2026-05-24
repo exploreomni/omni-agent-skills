@@ -188,6 +188,15 @@ Then use the right setup for the change being tested:
 - **Database column deletion/rename**: refresh the schema on the branch after the warehouse change is present, then validate the branch.
 - **Model-only field removal/rename**: write the modified YAML to the branch with `omni models yaml-create`, using the exact `fileName` key returned by `yaml-get`.
 
+`yaml-create` accepts the update as a JSON body, not separate `--filename` or `--branchid` flags:
+
+```bash
+omni models yaml-create <modelId> \
+  --body '{"branchId":"<branchId>","fileName":"public/order_items.view","yaml":"<full modified YAML string>"}'
+```
+
+Use the response and `yaml-get --branchid` readback to verify the file was written to the branch. For model-only field removal impact, remove the field's own definition from the branch YAML, but leave existing dependent field references in place unless the user's planned change also removes them. Those unresolved references are what `omni models validate` uses to reveal dependent measures, dimensions, topics, and joins that would break.
+
 Do not reuse an existing branch unless `yaml-get --branchid <branchId>` proves the target field is absent or renamed there. A branch with a matching name but unchanged YAML is not a valid blast-radius branch.
 
 2. **Validate the branch setup** before interpreting content results:
@@ -197,7 +206,7 @@ omni models yaml-get <modelId> --filename '<viewName>\.view' --branchid <branchI
 omni models validate <modelId> --branchid <branchId>
 ```
 
-If the field still appears in branch YAML, say the branch setup is invalid and do not claim validator results represent removal impact.
+Verify the field definition precisely, not with a whole-file substring search. For example, `sale_price` may still appear in `sql: ${sale_price}` after the `dimensions: sale_price: {}` definition has been removed; that is a valid impact-test branch and should be reported as a dependent reference. If the original field definition still appears in branch YAML, say the branch setup is invalid and do not claim validator results represent removal impact.
 
 3. **Run the content validator** against the verified branch:
 

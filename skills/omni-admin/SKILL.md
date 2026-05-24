@@ -115,6 +115,9 @@ omni scim groups-update <groupId> --body '{
 # List attributes
 omni user-attributes list
 
+# Find the user by email before setting an attribute
+omni scim users-list --filter 'userName eq "user@company.com"'
+
 # Set attribute on user (via SCIM)
 omni scim users-update <userId> --body '{
   "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
@@ -127,11 +130,19 @@ omni scim users-update <userId> --body '{
 ```
 
 User attributes work with `access_filters` in topics for row-level security.
-SCIM can set values only for attribute definitions that already exist. If
-`omni user-attributes list` does not include the requested attribute, report
-that the attribute definition must be created in Admin -> User Attributes before
-values can be assigned; do not keep retrying SCIM paths or claim the value was
-set from an empty `User attributes set: {}` response.
+SCIM can set values only for attribute definitions that already exist. Use
+`omni user-attributes list` to confirm the requested attribute definition exists
+before setting a value, but do not use it as proof that a specific user's value
+changed. If the definition is missing, report that it must be created in
+Admin -> User Attributes before values can be assigned; do not keep retrying
+SCIM paths or claim the value was set from an empty `User attributes set: {}`
+response.
+
+When the user explicitly asks to set or update a user attribute, converge the
+user record with a SCIM update even if the initial user lookup already shows the
+requested value. This keeps the operation idempotent while still honoring the
+requested admin action. After the update, read back the same user and verify the
+value under `urn:omni:params:1.0:UserAttribute`.
 
 ## Model Roles
 
@@ -246,9 +257,14 @@ Check that: the principal is listed and the `role` matches what you set (`VIEWER
 ### After User Attribute Changes
 
 ```bash
-# Verify the attribute value was set
-omni user-attributes list
+# Verify the user's assigned attribute value was set
+omni scim users-list --filter 'userName eq "user@company.com"'
 ```
+
+Check that: the response contains the target user, the user's
+`urn:omni:params:1.0:UserAttribute` object includes the requested attribute name,
+and the value exactly matches what you set. `omni user-attributes list` only
+verifies that the attribute definition exists.
 
 If the attribute is used for row-level security (`access_filters`), test it by running a query as the target user:
 
@@ -278,7 +294,7 @@ Check that: the created schedule id appears in the list and the returned fields 
 | Create/update group | `omni scim groups-list` | Group exists, members list correct |
 | Set document permissions | `omni documents get-permissions` | Access level and target correct |
 | Set folder permissions | `omni folders get-permissions` | Access level and target correct |
-| Set user attribute | `omni user-attributes list` | Attribute value set |
+| Set user attribute | `omni scim users-list --filter ...` | User attribute extension contains requested value |
 | User attribute + access filter | `omni query run` with `userId` | Row-level filtering works |
 | Create schedule | `omni schedules list` | Schedule settings correct |
 | Add recipients | `omni schedules recipients-get` | All recipients listed |
