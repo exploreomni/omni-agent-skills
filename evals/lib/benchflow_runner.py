@@ -20,6 +20,7 @@ from uuid import uuid4
 ROOT = Path(__file__).resolve().parents[2]
 EVALS_DIR = ROOT / "evals"
 SKILLS_DIR = ROOT / "skills"
+STATUS_INTERVAL_SEC = 30
 
 OMNI_ENV_HINT = (
     "Omni credentials are available in environment variables OMNI_BASE_URL and "
@@ -115,6 +116,99 @@ def selected_case_ids(skill: str, case_ids: list[str]) -> set[str]:
         str(case.get("id"))
         for case in selected_cases(data.get("cases", []), case_ids)
     }
+
+
+def job_case_id(job_dir: Path) -> str:
+    return job_dir.name.split("__", 1)[0]
+
+
+def result_reward(result: dict[str, Any]) -> float:
+    value = (result.get("rewards") or {}).get("reward")
+    return float(value) if isinstance(value, (int, float)) else 0.0
+
+
+def result_tokens(result: dict[str, Any]) -> int:
+    agent_result = result.get("agent_result") or {}
+    value = agent_result.get("total_tokens") or result.get("total_tokens")
+    return int(value) if isinstance(value, int) else 0
+
+
+def progress_snapshot(jobs_dir: Path, total_cases: int) -> dict[str, Any]:
+    attempts = [
+        path
+        for path in jobs_dir.glob("*/*")
+        if path.is_dir() and "__" in path.name
+    ]
+    results_by_case: dict[str, dict[str, Any]] = {}
+    active_cases: set[str] = set()
+
+    for attempt_dir in attempts:
+        case_id = job_case_id(attempt_dir)
+        result_path = attempt_dir / "result.json"
+        if result_path.exists():
+            try:
+                result = load_json(result_path)
+            except (OSError, json.JSONDecodeError):
+                continue
+            previous = results_by_case.get(case_id)
+            if previous is None or result_reward(result) >= result_reward(previous):
+                results_by_case[case_id] = result
+        else:
+            active_cases.add(case_id)
+
+    done_cases = set(results_by_case)
+    active_cases -= done_cases
+    errors = sum(1 for result in results_by_case.values() if result.get("error"))
+    tokens = sum(result_tokens(result) for result in results_by_case.values())
+    passed = sum(1 for result in results_by_case.values() if result_reward(result) >= 1.0)
+    partial = sum(1 for result in results_by_case.values() if 0.0 < result_reward(result) < 1.0)
+
+    return {
+        "done": len(done_cases),
+        "total": total_cases,
+        "active": sorted(active_cases, key=lambda item: (not item.isdigit(), int(item) if item.isdigit() else item)),
+        "errors": errors,
+        "passed": passed,
+        "partial": partial,
+        "tokens": tokens,
+    }
+
+
+def format_elapsed(seconds: float) -> str:
+    minutes, secs = divmod(int(seconds), 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f"{hours}h{minutes:02d}m{secs:02d}s"
+    return f"{minutes}m{secs:02d}s"
+
+
+def format_progress(label: str, snapshot: dict[str, Any], started_at: datetime, status: str = "running") -> str:
+    active = ",".join(snapshot["active"]) if snapshot["active"] else "-"
+    return (
+        f"  {label}: {status} "
+        f"{snapshot['done']}/{snapshot['total']} done "
+        f"active={active} "
+        f"pass={snapshot['passed']} partial={snapshot['partial']} "
+        f"errors={snapshot['errors']} "
+        f"tokens={snapshot['tokens']} "
+        f"elapsed={format_elapsed((datetime.now() - started_at).total_seconds())}"
+    )
+
+
+async def print_progress_until_done(
+    label: str,
+    jobs_dir: Path,
+    total_cases: int,
+    interval_sec: int,
+    started_at: datetime,
+) -> None:
+    last_line = ""
+    while True:
+        line = format_progress(label, progress_snapshot(jobs_dir, total_cases), started_at)
+        if line != last_line:
+            print(line, flush=True)
+            last_line = line
+        await asyncio.sleep(interval_sec)
 
 
 def allocate_concurrency(skills: list[str], case_counts: dict[str, int], budget: int) -> dict[str, int]:
@@ -541,6 +635,7 @@ def provider_agent_env(extra_env: dict[str, str]) -> dict[str, str]:
 
 async def run_mode(
     *,
+    label: str,
     tasks_dir: Path,
     jobs_dir: Path,
     agent: str,
@@ -549,6 +644,8 @@ async def run_mode(
     concurrency: int,
     agent_env: dict[str, str],
     max_retries: int,
+    total_cases: int,
+    status_interval_sec: int,
 ) -> dict[str, Any]:
     try:
         from benchflow.evaluation import Evaluation, EvaluationConfig, RetryConfig
@@ -568,7 +665,22 @@ async def run_mode(
             agent_env=agent_env,
         ),
     )
-    await evaluation.run()
+    started_at = datetime.now()
+    progress_task: asyncio.Task[None] | None = None
+    if status_interval_sec > 0:
+        progress_task = asyncio.create_task(
+            print_progress_until_done(label, jobs_dir, total_cases, status_interval_sec, started_at)
+        )
+    try:
+        await evaluation.run()
+    finally:
+        if progress_task is not None:
+            progress_task.cancel()
+            try:
+                await progress_task
+            except asyncio.CancelledError:
+                pass
+    print(format_progress(label, progress_snapshot(jobs_dir, total_cases), started_at, "done"), flush=True)
     summary_path = jobs_dir / "summary.json"
     return load_json(summary_path) if summary_path.exists() else {}
 
@@ -632,6 +744,7 @@ async def run_skill(skill: str, args: argparse.Namespace) -> dict[str, Any]:
     print(f"  jobs: {root}")
 
     with_summary = await run_mode(
+        label=f"{skill} with_skill",
         tasks_dir=tasks_root / "with-skill",
         jobs_dir=jobs_root / "with-skill",
         agent=args.agent,
@@ -640,6 +753,8 @@ async def run_skill(skill: str, args: argparse.Namespace) -> dict[str, Any]:
         concurrency=args.concurrency,
         agent_env=agent_env,
         max_retries=args.max_retries,
+        total_cases=len(dataset.cases),
+        status_interval_sec=STATUS_INTERVAL_SEC,
     )
     print(
         "  with_skill: "
@@ -651,6 +766,7 @@ async def run_skill(skill: str, args: argparse.Namespace) -> dict[str, Any]:
     baseline_summary: dict[str, Any] | None = None
     if not args.no_baseline:
         baseline_summary = await run_mode(
+            label=f"{skill} baseline",
             tasks_dir=tasks_root / "baseline",
             jobs_dir=jobs_root / "baseline",
             agent=args.agent,
@@ -659,6 +775,8 @@ async def run_skill(skill: str, args: argparse.Namespace) -> dict[str, Any]:
             concurrency=args.concurrency,
             agent_env=agent_env,
             max_retries=args.max_retries,
+            total_cases=len(dataset.cases),
+            status_interval_sec=STATUS_INTERVAL_SEC,
         )
         print(
             "  baseline:   "
