@@ -21,7 +21,7 @@ Create, update, and manage Omni documents and dashboards programmatically via th
 - **Do not use `omni unstable documents-import` to update an existing dashboard** — import creates a new document and may drop newly-added tiles. For an existing dashboard, use `PUT /api/v1/documents/{documentId}` once with the full modified document.
 - **Do not persist invalid query-level filters** — if `omni query run` returns a server-side parsing error for a tile query filter, validate the unfiltered base query once. Do not save that broken filter into the tile. If a dashboard-level `filterConfig` can satisfy the user request, use that path and verify it by readback; otherwise leave the dashboard unchanged and report the blocker.
 - **Bound failed dashboard updates** — if `PUT` or `PATCH` returns a server-side filter or document validation error, stop after one corrected retry at most. Do not try repeated filter syntaxes, import/export cycles, draft endpoints, or test-document creation loops. Report that the existing dashboard contains a filter/write-path issue and explain what was preserved.
-- **Treat dropped visualization config as a failed partial update** — after `PUT`, read the document back. If a required visualization field such as `visType`, `fields`, or `config` comes back `null` for a tile that needs it, restore the original document payload once, then report the partial write and rollback result instead of continuing to probe alternate endpoints or claiming completion.
+- **Treat dropped visualization config as a failed partial update** — after `PUT`, read the document back. If a required visualization field such as `visType`, `fields`, or `config` comes back `null`, missing, or absent for a tile that needs it, restore the original document payload once, then report the partial write and rollback result instead of continuing to probe alternate endpoints or claiming completion.
 
 ## Prerequisites
 
@@ -222,16 +222,18 @@ even if the new tile is valid. Preserve the original dashboard, report the exact
 error, and ask the user whether they want to rebuild/clean the dashboard state.
 
 After the update succeeds, read the document back before declaring success. If
-the API saved the tile query but returned `null` for required presentation
-fields such as `visType`, `fields`, or `config`, treat the result as a failed
-partial write, not a completed dashboard update. Make one bounded rollback
-attempt by restoring the original document payload you read in Step 1, then
-report the exact missing fields and whether rollback succeeded. Do not leave a
-known-broken KPI/table fallback in place and call it done. `omni documents
-get-queries` and `omni query run` verify the data query only; they do not prove
-that Omni persisted the visualization renderer/config. Do not use them to
-override a `documents get` readback showing missing KPI/chart presentation
-fields.
+the API saved the tile query but returned `null`, omitted, or absent required
+presentation fields such as `visType`, `fields`, or `config`, treat the result
+as a failed partial write, not a completed dashboard update. This applies even
+if the original tile also omits those fields in readback; KPI/chart tiles need
+their own renderer/config fields to be observable after the update. Make one
+bounded rollback attempt by restoring the original document payload you read in
+Step 1, then report the exact missing fields and whether rollback succeeded. Do
+not leave a known-broken KPI/table fallback in place and call it done. `omni
+documents get-queries` and `omni query run` verify the data query only; they do
+not prove that Omni persisted the visualization renderer/config. Do not use
+them to override a `documents get` readback showing missing KPI/chart
+presentation fields.
 
 ### Required Fields
 
