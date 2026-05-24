@@ -631,7 +631,7 @@ def check_model_builder_cases(
         errors.append(
             "omni-model-builder case 1 is not in the clean setup state: "
             "public/order_items.view already contains eval_completed_revenue. "
-            "Remove that field from the eval model or use a fresh eval instance before running."
+            "Run ./evals/reset.sh to remove the eval-created measure before running."
         )
 
     if "2" in selected:
@@ -644,7 +644,7 @@ def check_model_builder_cases(
                 errors.append(
                     "omni-model-builder case 2 is not in the clean setup state: "
                     f"{filename} already exists. Remove that eval-created view "
-                    "or use a fresh eval instance before running."
+                    "by running ./evals/reset.sh before running."
                 )
     if "4" in selected:
         _, topic_error = run_omni_json(
