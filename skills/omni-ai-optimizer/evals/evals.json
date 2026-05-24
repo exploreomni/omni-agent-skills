@@ -11,7 +11,7 @@
       "question": "Blobby keeps confusing 'revenue' with 'order count' when users ask about our sales. Ensure the order_items topic maps those terms correctly.",
       "ground_truth": "order_items topic ai_context maps 'revenue'/'sales' to total_revenue and 'orders'/'count' to the count measure. If the mapping already exists, the agent verifies it and avoids duplicating or moving it.",
       "expected_behavior": [
-        "The agent reads the current order_items topic YAML before making any changes",
+        "The agent reads the current order_items topic state before making any changes, either via topic YAML or a structured topic read such as omni models get-topic",
         "The agent ensures topic-level ai_context maps business terms (revenue, sales) to specific field names (total_revenue) \u2014 not just a general description of what the topic does",
         "If changes are needed, the ai_context is added via omni models yaml-create with mode: extension on a branch, not directly to production",
         "If the mapping already exists, the agent reports that no duplicate write is needed instead of adding redundant synonyms or production edits",

@@ -15,6 +15,7 @@ The versions documented here should match the published plugin versions in the a
 - `omni-model-builder` now separates validation warnings from dashboard blast-radius results and avoids inferring that join-path warnings were caused by an unspecified deleted column.
 - `omni-content-builder` now treats `config: {}` as a table/fallback pattern and directs requested line/bar/area/scatter/KPI charts to use complete chart-specific config from the visualization references.
 - `omni-content-builder` now distinguishes normal new-dashboard readback omissions from failed existing-dashboard partial updates, and requires explicit per-tile status/row-count verification after creation.
+- `omni-ai-optimizer` now stops after verifying complete topic-level term mappings instead of adding redundant field synonyms as extra signal.
 
 **Fixed**
 - Eval reset now removes accidentally merged `eval_completed_revenue` model-builder fixtures, repairs known quote-stripped literals in `public/order_items.view`, and deletes stale branch models using a direct branch listing.
