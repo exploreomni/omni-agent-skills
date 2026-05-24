@@ -227,7 +227,11 @@ fields such as `visType`, `fields`, or `config`, treat the result as a failed
 partial write, not a completed dashboard update. Make one bounded rollback
 attempt by restoring the original document payload you read in Step 1, then
 report the exact missing fields and whether rollback succeeded. Do not leave a
-known-broken KPI/table fallback in place and call it done.
+known-broken KPI/table fallback in place and call it done. `omni documents
+get-queries` and `omni query run` verify the data query only; they do not prove
+that Omni persisted the visualization renderer/config. Do not use them to
+override a `documents get` readback showing missing KPI/chart presentation
+fields.
 
 ### Required Fields
 
@@ -380,6 +384,10 @@ Workbook:  {OMNI_BASE_URL}/w/{identifier}
 ```
 
 The `identifier` comes from the document's `identifier` field in API responses (not `id`, which is null for workbooks).
+Replace `{OMNI_BASE_URL}` with the actual base URL from the active profile or
+environment, normalized without a trailing slash. Do not return the literal
+placeholder string unless credentials are unavailable and you explicitly say the
+URL is a template.
 
 ## Validation Loops
 

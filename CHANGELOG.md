@@ -6,6 +6,18 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.3.14] - 2026-05-24
+
+### omni-analytics
+
+**Changed**
+- `omni-model-builder` now explicitly keeps prepared branch changes unmerged until the user confirms merge/publish, and reports no dashboard breakage when schema refresh plus content validation find no affected content.
+- `omni-content-builder` now clarifies that `documents get-queries` and query execution verify only data queries, not persisted visualization renderer/config fields, so dropped KPI/chart presentation fields still require rollback/reporting.
+- BenchFlow-generated judges now compact ACP trajectory evidence before truncation so long rollouts preserve every tool call title and final response context for scoring.
+
+**Fixed**
+- Eval reset/preflight now checks and deletes both `public/customer_segments.view` and root-level `customer_segments.view` fixtures left by model-builder runs.
+
 ## [1.3.13] - 2026-05-23
 
 ### omni-analytics

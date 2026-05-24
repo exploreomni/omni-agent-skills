@@ -57,6 +57,11 @@ Use dialect-appropriate functions in your SQL (e.g. `SAFE_DIVIDE` for BigQuery, 
 
 The **schema layer** is auto-generated from your database. When your database schema changes (new/deleted/renamed columns, type changes), refresh Omni's schema layer to stay in sync.
 
+## Known Issues & Safe Defaults
+
+- **Do not merge without explicit confirmation** — after branch validation and query testing, stop and ask the user before `omni models merge-branch`, even when the model is not git-connected. Treat requests like "add a field" or "create a view" as requests to prepare validated branch changes, not as permission to ship to production.
+- **Keep eval-created files on branches until confirmed** — if you create fields/views for validation, report the branch name/id, validation status, and test query result. Only merge after the user explicitly says to merge, ship, publish, or promote.
+
 **When to trigger:** new/renamed/deleted tables or columns, a new view that needs auto-generated base dimensions, or any time the model is out of sync with the database.
 
 **What it does:** Introspects your data warehouse, auto-generates base dimensions with correct types and timeframes, detects deletions and broken references. Runs as a background job (can take several minutes).
@@ -84,6 +89,12 @@ omni models content-validator-get <modelId> --branch-id <branchId>
 ```
 
 Report the blast radius from validation and content-validator results before recommending any merge. Ask for the deleted table/column only if the refresh and validator output are too broad or ambiguous to identify the affected field.
+
+If refresh and content validation complete successfully and the content validator
+returns no broken dashboards or tiles, say that no dashboard breakage was found
+in the checked model state. Do not turn that into a blocker; only ask for the
+specific deleted table/column if the user wants you to remove or hide a
+particular model field after the impact check.
 
 If model/topic reads fail with an infrastructure error such as `This connection
 uses dynamic environments and you don't have a value set for the required user

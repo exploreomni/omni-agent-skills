@@ -371,6 +371,83 @@ def expose_judge_reasoning(tasks_dir: Path) -> None:
         )
         if "showing first {head_chars} and last {tail_chars}" not in text and truncation_needle in text:
             judge_path.write_text(text.replace(truncation_needle, truncation_replacement))
+            text = judge_path.read_text()
+
+        read_start = text.find("def read_trajectory() -> str:")
+        read_end = text.find("\ndef call_llm", read_start)
+        if (
+            read_start != -1
+            and read_end != -1
+            and "def compact_trajectory_event" not in text
+        ):
+            compact_reader = '''def shorten_text(value: str, limit: int) -> str:
+    if len(value) <= limit:
+        return value
+    return value[:limit] + f"\\n[TRUNCATED {len(value)} chars to {limit}]"
+
+
+def collect_text(value) -> str:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return "\\n".join(part for part in (collect_text(item) for item in value) if part)
+    if isinstance(value, dict):
+        parts = []
+        for key in ("text", "command", "content"):
+            if key in value:
+                part = collect_text(value[key])
+                if part:
+                    parts.append(part)
+        return "\\n".join(parts)
+    return ""
+
+
+def compact_trajectory_event(event: dict) -> str:
+    kind = event.get("type", "event")
+    if kind == "tool_call":
+        title = event.get("title") or event.get("kind") or "tool"
+        status = event.get("status", "")
+        output = shorten_text(collect_text(event.get("content", "")), 2500)
+        return f"[tool_call] {title} status={status}\\n{output}"
+    if kind == "agent_message":
+        return "[agent_message]\\n" + shorten_text(str(event.get("text", "")), 6000)
+    if kind == "user_message":
+        return "[user_message]\\n" + shorten_text(str(event.get("text", "")), 4000)
+    if kind == "agent_thought":
+        return "[agent_thought]\\n" + shorten_text(str(event.get("text", "")), 500)
+    return f"[{kind}]\\n" + shorten_text(json.dumps(event, indent=2), 1200)
+
+
+def read_trajectory() -> str:
+    """Read all available trajectory data as compact evidence for the judge."""
+    parts = []
+    acp_traj = Path("/logs/agent/acp_trajectory.jsonl")
+    if acp_traj.exists():
+        for line in acp_traj.read_text().strip().splitlines():
+            try:
+                event = json.loads(line)
+                parts.append(compact_trajectory_event(event))
+            except json.JSONDecodeError:
+                parts.append(shorten_text(line, 1200))
+
+    for log_file in sorted(Path("/logs/agent").glob("*.txt")):
+        parts.append(f"--- {log_file.name} ---\\n{shorten_text(log_file.read_text(), 4000)}")
+
+    text = "\\n\\n".join(parts) if parts else "NO TRAJECTORY FOUND"
+
+    if len(text) > MAX_TRAJECTORY_CHARS:
+        total_chars = len(text)
+        head_chars = MAX_TRAJECTORY_CHARS // 3
+        tail_chars = MAX_TRAJECTORY_CHARS - head_chars
+        text = (
+            text[:head_chars]
+            + f"\\n\\n[TRUNCATED — {total_chars} chars total, showing first {head_chars} and last {tail_chars}]\\n\\n"
+            + text[-tail_chars:]
+        )
+    return text
+
+'''
+            judge_path.write_text(text[:read_start] + compact_reader + text[read_end + 1 :])
 
     test_needle = "cp /tests/reward.txt /logs/verifier/reward.txt\n"
     test_replacement = (
@@ -558,16 +635,17 @@ def check_model_builder_cases(
         )
 
     if "2" in selected:
-        segments, segment_error = run_omni_json(
-            ["models", "yaml-get", model_id, "--filename", "public/customer_segments.view"],
-            omni_env,
-        )
-        if not segment_error and "customer_segments" in extract_yaml_text(segments):
-            errors.append(
-                "omni-model-builder case 2 is not in the clean setup state: "
-                "public/customer_segments.view already exists. Remove that eval-created view "
-                "or use a fresh eval instance before running."
+        for filename in ("public/customer_segments.view", "customer_segments.view"):
+            segments, segment_error = run_omni_json(
+                ["models", "yaml-get", model_id, "--filename", filename],
+                omni_env,
             )
+            if not segment_error and "customer_segments" in extract_yaml_text(segments):
+                errors.append(
+                    "omni-model-builder case 2 is not in the clean setup state: "
+                    f"{filename} already exists. Remove that eval-created view "
+                    "or use a fresh eval instance before running."
+                )
     if "4" in selected:
         _, topic_error = run_omni_json(
             ["models", "get-topic", model_id, "order_items"],

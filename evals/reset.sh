@@ -9,7 +9,7 @@
 #   - omni-content-builder eval 2: recreates the Sales Performance dashboard
 #     and updates EVAL_DASHBOARD_TILES in eval-env.local.json
 #   - omni-content-explorer eval 3: removes `finance` label from EVAL_DASHBOARD_LABEL
-#   - omni-model-builder eval 2: deletes `public/customer_segments.view`
+#   - omni-model-builder eval 2: deletes `customer_segments.view` fixtures
 #   - omni-model-builder / omni-ai-optimizer: deletes non-baseline model branches
 #     on EVAL_MODEL_ID (branches with names starting with "eval-" are protected
 #     by convention — adjust below if you use a different naming pattern).
@@ -167,13 +167,16 @@ echo "4. Deleting model-builder eval-created shared model files"
 if [[ -n "$MODEL_ID" && "$MODEL_ID" != "replace-with-shared-model-id" ]]; then
   if $DRY_RUN; then
     echo "  omni models yaml-delete $MODEL_ID --filename public/customer_segments.view --mode extension"
+    echo "  omni models yaml-delete $MODEL_ID --filename customer_segments.view --mode extension"
   else
-    if omni models yaml-get "$MODEL_ID" --filename public/customer_segments.view -o json 2>/dev/null \
-      | jq -e '.files["public/customer_segments.view"]? // "" | contains("customer_segments")' >/dev/null; then
-      run "omni models yaml-delete $MODEL_ID --filename public/customer_segments.view --mode extension"
-    else
-      echo "  (public/customer_segments.view not present — skipping)"
-    fi
+    for filename in public/customer_segments.view customer_segments.view; do
+      if omni models yaml-get "$MODEL_ID" --filename "$filename" -o json 2>/dev/null \
+        | jq -e --arg f "$filename" '.files[$f]? // "" | contains("customer_segments")' >/dev/null; then
+        run "omni models yaml-delete $MODEL_ID --filename $filename --mode extension"
+      else
+        echo "  ($filename not present — skipping)"
+      fi
+    done
   fi
 else
   echo "  (EVAL_MODEL_ID not configured — skipping)"
