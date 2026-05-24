@@ -30,7 +30,10 @@ omni config use <profile-name>
 export OMNI_EMBED_SECRET="your-embed-secret"   # Admin → Embed (for URL signing)
 ```
 
-The embed secret is found in **Admin → Embed** in your Omni instance. The `OMNI_BASE_URL` for embedding uses the `.embed-omniapp.co` domain, not the standard `.omniapp.co` domain.
+The embed secret is found in **Admin → Embed** in your Omni instance. Do not assume
+`OMNI_BASE_URL` is the embed host: CLI/API URLs often use `.omniapp.co`, custom
+domains, or internal playground domains. Set `OMNI_EMBED_HOST` to the bare embed
+hostname (for example `yourorg.embed-omniapp.co`) when signing iframe URLs.
 
 ## Safe Signing Defaults
 
@@ -38,6 +41,8 @@ The embed secret is found in **Admin → Embed** in your Omni instance. The `OMN
 - **Never use `OMNI_API_TOKEN` as the embed secret** — API tokens authenticate REST/CLI calls and are not valid embed signing secrets. Use `OMNI_EMBED_SECRET` from Admin → Embed.
 - **If the embed secret is unavailable** — do not fabricate a signed URL. Return server-side code that calls `embedSsoDashboard()` with `secret: process.env.OMNI_EMBED_SECRET` and tell the user to set that env var.
 - **Use the embed host for iframe URLs** — `host` must be a bare `.embed-omniapp.co` hostname, with no `https://`, path, or port.
+- **Do not derive the embed host from `OMNI_BASE_URL` unless it is already an embed host** — CLI/API base URLs often use `.omniapp.co` or a custom API domain. If only an API base URL is known, leave `host: process.env.OMNI_EMBED_HOST` (or a placeholder like `yourorg.embed-omniapp.co`) in the server code and call out that it must be set separately.
+- **If Node.js is unavailable** — still provide TypeScript/Node server code that uses `@omni-co/embed`; do not switch to Python or browser-side manual HMAC signing just to make a local demo runnable.
 
 ## Discovering Commands
 
@@ -59,7 +64,7 @@ import { embedSsoDashboard, EmbedSessionMode } from "@omni-co/embed";
 const embedUrl = await embedSsoDashboard({
   contentId: "dashboard-uuid",
   secret: process.env.OMNI_EMBED_SECRET,
-  host: "yourorg.embed-omniapp.co",       // Hostname only, no https://
+  host: process.env.OMNI_EMBED_HOST ?? "yourorg.embed-omniapp.co",
   externalId: "user@example.com",
   name: "Jane Doe",
   userAttributes: { brand: ["Acme"] },     // For row-level security
@@ -386,7 +391,7 @@ const embedUrl = await embedSsoDashboard({
 
 ## Embed Users and Permissions
 
-When building permission-aware experiences (e.g., a sidebar that only shows dashboards a user can access), use these REST API calls. Note: API calls use the `.omniapp.co` domain, not the `.embed-omniapp.co` embed domain.
+When building permission-aware experiences (e.g., a sidebar that only shows dashboards a user can access), look up the Omni user ID first, then list documents scoped to that user. API/CLI calls use the Omni API host/profile, not the `.embed-omniapp.co` embed host.
 
 ### Look Up an Embed User
 
@@ -396,11 +401,33 @@ omni scim embed-users-list --filter 'embedExternalId eq "user@example.com"'
 
 Returns the Omni user ID for the given `externalId`. If no user is found, the user hasn't accessed any embedded dashboards yet.
 
+If the embed-user filter returns no rows but a normal SCIM user with the same
+email/userName clearly exists, you may use that user's Omni ID as a fallback and
+say which lookup path was used. Do not fall back to an unfiltered document list as
+the sidebar result.
+
 ### List Documents by User Permission
 
 ```bash
 omni documents list --userid <omniUserId>
 ```
+
+Use the Omni user ID returned by `embed-users-list`, not the email/externalId
+directly. Filter the response to `hasDashboard: true` before rendering sidebar
+entries. Use the API host/profile for `documents list`; use the embed host only
+when signing iframe URLs with `embedSsoDashboard()`. Even in a demo app, keep URL
+signing in a server-side TypeScript/Node function that uses the SDK signer rather
+than manually reproducing the HMAC protocol in Python or browser code.
+
+If you are writing server code instead of running the CLI directly, the equivalent
+documents API shape is:
+
+```http
+GET /api/v1/documents?userId=<omniUserId>
+Authorization: Bearer <OMNI_API_TOKEN>
+```
+
+Use camelCase `userId` in the API call. The CLI flag is lowercase `--userid`.
 
 Response uses `records` array (not `documents`):
 

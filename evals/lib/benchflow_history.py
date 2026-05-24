@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,11 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_JOBS_DIR = ROOT / "evals" / "workspaces" / "benchflow"
+TOKEN_PENALTY_FREE_PER_CASE = 1_000_000
+TOKEN_PENALTY_STEP = 250_000
+MAX_TOKEN_PENALTY_PCT = 20.0
+TIMEOUT_PENALTY_PCT = 5.0
+MAX_TIMEOUT_PENALTY_PCT = 20.0
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -39,9 +45,150 @@ def parse_run_started_at(run_dir: Path) -> str:
         return run_dir.name
 
 
-def mode_row(summary_path: Path, combined: dict[str, Any], mode: str, summary: dict[str, Any]) -> dict[str, Any]:
-    run_dir = summary_path.parent
+def parse_run_started_dt(run_dir: Path) -> datetime | None:
+    try:
+        return datetime.strptime(run_dir.name, "%Y-%m-%d__%H-%M-%S")
+    except ValueError:
+        return None
+
+
+def parse_duration_sec(result: dict[str, Any]) -> float | None:
+    try:
+        started = datetime.fromisoformat(str(result["started_at"]))
+        finished = datetime.fromisoformat(str(result["finished_at"]))
+    except (KeyError, ValueError):
+        return None
+    return (finished - started).total_seconds()
+
+
+def reward_value(result: dict[str, Any]) -> float:
+    value = (result.get("rewards") or {}).get("reward")
+    return float(value) if isinstance(value, (int, float)) else 0.0
+
+
+def result_stats(job_dir: Path, mode: str) -> dict[str, Any]:
+    mode_dir = "with-skill" if mode == "with_skill" else mode
+    results_dir = job_dir / "jobs" / mode_dir
+    best_by_task: dict[str, dict[str, Any]] = {}
+    for result_path in sorted(results_dir.rglob("result.json")):
+        result = load_json(result_path)
+        task_name = str(result.get("task_name") or result_path.parent.name)
+        previous = best_by_task.get(task_name)
+        if previous is None or reward_value(result) > reward_value(previous):
+            best_by_task[task_name] = result
+
+    results = list(best_by_task.values())
+    if not results:
+        return {}
+
+    durations = [value for result in results if (value := parse_duration_sec(result)) is not None]
+    total_tool_calls = sum(int(result.get("n_tool_calls") or 0) for result in results)
+    total_prompts = sum(int(result.get("n_prompts") or 0) for result in results)
+    timeout_count = sum(
+        1
+        for result in results
+        if "wall-clock budget" in str(result.get("error") or "")
+    )
+    case_count = len(results)
+
     return {
+        "total_tool_calls": total_tool_calls,
+        "avg_tool_calls": round(total_tool_calls / case_count, 4),
+        "total_prompts": total_prompts,
+        "avg_prompts": round(total_prompts / case_count, 4),
+        "avg_case_duration_sec": round(sum(durations) / len(durations), 4) if durations else None,
+        "timeout_count": timeout_count,
+    }
+
+
+def per_case(value: Any, total: Any) -> float | None:
+    if not isinstance(value, (int, float)) or not isinstance(total, int) or total <= 0:
+        return None
+    return round(value / total, 4)
+
+
+def efficiency_penalty_pct(total_tokens: Any, total: Any, timeout_count: Any) -> float:
+    penalty = 0.0
+    tokens_per_case = per_case(total_tokens, total)
+    if tokens_per_case and tokens_per_case > TOKEN_PENALTY_FREE_PER_CASE:
+        overage = tokens_per_case - TOKEN_PENALTY_FREE_PER_CASE
+        penalty += min(MAX_TOKEN_PENALTY_PCT, overage / TOKEN_PENALTY_STEP)
+    if isinstance(timeout_count, int) and timeout_count > 0:
+        penalty += min(MAX_TIMEOUT_PENALTY_PCT, timeout_count * TIMEOUT_PENALTY_PCT)
+    return round(penalty, 4)
+
+
+def adjusted_score_pct(score_pct: Any, penalty_pct: float) -> float | None:
+    if not isinstance(score_pct, (int, float)):
+        return None
+    return round(max(0.0, score_pct - penalty_pct), 4)
+
+
+@dataclass
+class SummaryRecord:
+    path: Path
+    combined: dict[str, Any]
+    run_id: str
+
+
+def legacy_run_ids(summary_paths: list[Path]) -> dict[Path, str]:
+    """Group older per-skill summaries that were started by the same `all` run."""
+    parsed = [
+        (path, parse_run_started_dt(path.parent))
+        for path in summary_paths
+    ]
+    parsed.sort(key=lambda item: item[1] or datetime.min)
+
+    grouped: dict[Path, str] = {}
+    current: list[tuple[Path, datetime | None]] = []
+
+    def flush() -> None:
+        if not current:
+            return
+        starts = [dt for _, dt in current if dt is not None]
+        if starts:
+            run_id = "legacy-" + min(starts).strftime("%Y%m%dT%H%M%S")
+        else:
+            run_id = "legacy-" + current[0][0].parent.name
+        for path, _ in current:
+            grouped[path] = run_id
+
+    for path, started_at in parsed:
+        if current:
+            previous = current[-1][1]
+            if previous is None or started_at is None or (started_at - previous).total_seconds() > 30:
+                flush()
+                current = []
+        current.append((path, started_at))
+    flush()
+    return grouped
+
+
+def load_summary_records(jobs_dir: Path) -> list[SummaryRecord]:
+    summary_paths = sorted(jobs_dir.glob("*/*/summary.json"))
+    legacy_ids = legacy_run_ids(summary_paths)
+    records: list[SummaryRecord] = []
+    for summary_path in summary_paths:
+        combined = load_json(summary_path)
+        if not combined.get("with_skill") and "score" in combined:
+            continue
+        run_id = str(combined.get("run_id") or legacy_ids.get(summary_path) or summary_path.parent.name)
+        records.append(SummaryRecord(summary_path, combined, run_id))
+    return records
+
+
+def mode_row(record: SummaryRecord, mode: str, summary: dict[str, Any]) -> dict[str, Any]:
+    summary_path = record.path
+    combined = record.combined
+    run_dir = summary_path.parent
+    total = summary.get("total")
+    passed = summary.get("passed")
+    total_tokens = summary.get("total_tokens")
+    stats = result_stats(run_dir, mode)
+    score_pct = parse_score(summary.get("score"))
+    penalty_pct = efficiency_penalty_pct(total_tokens, total, stats.get("timeout_count"))
+    return {
+        "run_id": record.run_id,
         "run_started_at": parse_run_started_at(run_dir),
         "skill_name": combined.get("skill_name", run_dir.parent.name),
         "mode": mode,
@@ -55,13 +202,23 @@ def mode_row(summary_path: Path, combined: dict[str, Any], mode: str, summary: d
         "errored": summary.get("errored"),
         "verifier_errored": summary.get("verifier_errored"),
         "score": summary.get("score"),
-        "score_pct": parse_score(summary.get("score")),
+        "score_pct": score_pct,
+        "efficiency_adjusted_score_pct": adjusted_score_pct(score_pct, penalty_pct),
+        "efficiency_penalty_pct": penalty_pct,
         "elapsed_sec": summary.get("elapsed_sec"),
+        "total_tool_calls": stats.get("total_tool_calls"),
+        "avg_tool_calls": stats.get("avg_tool_calls"),
+        "total_prompts": stats.get("total_prompts"),
+        "avg_prompts": stats.get("avg_prompts"),
+        "avg_case_duration_sec": stats.get("avg_case_duration_sec"),
+        "timeout_count": stats.get("timeout_count"),
         "total_input_tokens": summary.get("total_input_tokens"),
         "total_output_tokens": summary.get("total_output_tokens"),
         "total_cache_read_tokens": summary.get("total_cache_read_tokens"),
         "total_cache_creation_tokens": summary.get("total_cache_creation_tokens"),
         "total_tokens": summary.get("total_tokens"),
+        "tokens_per_case": per_case(total_tokens, total),
+        "tokens_per_pass": per_case(total_tokens, passed),
         "total_cost_usd": summary.get("total_cost_usd"),
         "job_dir": combined.get("job_dir", str(run_dir)),
     }
@@ -69,17 +226,17 @@ def mode_row(summary_path: Path, combined: dict[str, Any], mode: str, summary: d
 
 def collect_rows(jobs_dir: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    for summary_path in sorted(jobs_dir.glob("*/*/summary.json")):
-        combined = load_json(summary_path)
-        if not combined.get("with_skill") and "score" in combined:
-            continue
+    for record in load_summary_records(jobs_dir):
+        summary_path = record.path
+        combined = record.combined
         for mode, key in (("with_skill", "with_skill"), ("baseline", "baseline")):
             summary = combined.get(key)
             if isinstance(summary, dict):
-                rows.append(mode_row(summary_path, combined, mode, summary))
+                rows.append(mode_row(record, mode, summary))
         if isinstance(combined.get("lift_score_points"), (int, float)):
             rows.append(
                 {
+                    "run_id": record.run_id,
                     "run_started_at": parse_run_started_at(summary_path.parent),
                     "skill_name": combined.get("skill_name", summary_path.parent.parent.name),
                     "mode": "lift",
@@ -107,6 +264,7 @@ def main() -> None:
         return
 
     fieldnames = [
+        "run_id",
         "run_started_at",
         "skill_name",
         "mode",
@@ -121,12 +279,22 @@ def main() -> None:
         "verifier_errored",
         "score",
         "score_pct",
+        "efficiency_adjusted_score_pct",
+        "efficiency_penalty_pct",
         "elapsed_sec",
+        "total_tool_calls",
+        "avg_tool_calls",
+        "total_prompts",
+        "avg_prompts",
+        "avg_case_duration_sec",
+        "timeout_count",
         "total_input_tokens",
         "total_output_tokens",
         "total_cache_read_tokens",
         "total_cache_creation_tokens",
         "total_tokens",
+        "tokens_per_case",
+        "tokens_per_pass",
         "total_cost_usd",
         "job_dir",
     ]

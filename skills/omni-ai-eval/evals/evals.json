@@ -23,9 +23,10 @@
       "question": "Compare AI accuracy on the main model vs branch id '{{EVAL_BRANCH_ID}}' using these prompts: 'Monthly revenue trend', 'Top products by category'. Tell me if the branch is better or worse.",
       "ground_truth": "Each prompt run twice \u2014 once against main, once against the branch. Results compared side-by-side with a clear delta and regression check.",
       "expected_behavior": [
-        "The agent runs each prompt twice \u2014 once without --branch-id (main) and once with --branch-id branch-uuid-123",
+        "The agent produces one main result and one branch-specific result for each prompt, identifying the branch UUID from the task in the comparison",
         "The agent explicitly checks for regressions \u2014 prompts that passed on main but fail on the branch \u2014 not just whether the overall score improved",
-        "The output includes a comparison table or structured delta showing the score difference per prompt or dimension"
+        "The output includes a comparison table or structured delta showing the score difference per prompt or dimension",
+        "The agent judges main and branch against the same prompt-intent or golden criteria, not by treating extra filters, fill fields, or different result rows as inherently better"
       ],
       "expected_skill": "omni-ai-eval"
     },

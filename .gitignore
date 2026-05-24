@@ -1,5 +1,7 @@
 .DS_Store
 .claude/
+__pycache__/
+*.py[cod]
 # Eval run artifacts — never commit. Transcripts and raw outputs can capture
 # API tokens, instance URLs, and other secrets surfaced by agent tool calls.
 # Re-archive selectively (with redaction) if needed; do not relax this pattern.

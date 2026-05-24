@@ -14,6 +14,7 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -398,6 +399,47 @@ def check_content_builder_case2(eval_env: dict[str, str], omni_env: dict[str, st
     return []
 
 
+def extract_user_attribute_names(payload: Any) -> set[str]:
+    names: set[str] = set()
+    candidates: list[Any] = []
+    if isinstance(payload, dict):
+        for key in ("records", "Resources", "userAttributes"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                candidates.extend(value)
+        if not candidates:
+            candidates.append(payload)
+    elif isinstance(payload, list):
+        candidates.extend(payload)
+
+    for item in candidates:
+        if not isinstance(item, dict):
+            continue
+        for key in ("name", "key", "id"):
+            value = item.get(key)
+            if isinstance(value, str) and value:
+                names.add(value)
+    return names
+
+
+def check_admin_cases(selected: set[str], omni_env: dict[str, str]) -> list[str]:
+    if "4" not in selected:
+        return []
+    attrs, error = run_omni_json(["user-attributes", "list"], omni_env)
+    if error:
+        return [f"Could not list Omni user attributes for omni-admin case 4: {error}"]
+    names = extract_user_attribute_names(attrs)
+    if "region" not in names:
+        return [
+            "omni-admin case 4 requires a custom user attribute definition named "
+            "'region', but this Omni instance does not expose one via "
+            "`omni user-attributes list`. Create it in Settings -> User Attributes "
+            "before running this eval; SCIM can set a value only after the "
+            "attribute definition exists."
+        ]
+    return []
+
+
 def check_model_builder_cases(
     selected: set[str],
     eval_env: dict[str, str],
@@ -432,6 +474,18 @@ def check_model_builder_cases(
                 "public/customer_segments.view already exists. Remove that eval-created view "
                 "or use a fresh eval instance before running."
             )
+    if "4" in selected:
+        _, topic_error = run_omni_json(
+            ["models", "get-topic", model_id, "order_items"],
+            omni_env,
+        )
+        if topic_error:
+            errors.append(
+                "omni-model-builder case 4 cannot inspect the model topic before "
+                f"running: {topic_error}. Fix model access or dynamic environment "
+                "routing first; otherwise the agent will loop on infrastructure "
+                "errors instead of evaluating schema-refresh impact handling."
+            )
     return errors
 
 
@@ -443,10 +497,13 @@ def run_preflight(skills: list[str], args: argparse.Namespace) -> None:
 
     for skill in skills:
         selected = selected_case_ids(skill, args.case)
+        if skill == "omni-admin" and "4" in selected:
+            checked += 1
+            errors.extend(check_admin_cases(selected, omni_env))
         if skill == "omni-content-builder" and "2" in selected:
             checked += 1
             errors.extend(check_content_builder_case2(eval_env, omni_env))
-        if skill == "omni-model-builder" and selected.intersection({"1", "2"}):
+        if skill == "omni-model-builder" and selected.intersection({"1", "2", "4"}):
             checked += 1
             errors.extend(check_model_builder_cases(selected, eval_env, omni_env))
 
@@ -611,6 +668,7 @@ async def run_skill(skill: str, args: argparse.Namespace) -> dict[str, Any]:
         )
 
     combined = {
+        "run_id": args.run_id,
         "skill_name": skill,
         "agent": args.agent,
         "model": args.model,
@@ -686,6 +744,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--skill-nudge", default=os.environ.get("BENCHFLOW_SKILL_NUDGE", "name"))
     parser.add_argument("--timeout-sec", type=int, default=int(os.environ.get("EVAL_TIMEOUT_SEC", "1200")))
     parser.add_argument("--max-retries", type=int, default=int(os.environ.get("EVAL_MAX_RETRIES", "1")))
+    parser.add_argument("--run-id", default=os.environ.get("EVAL_RUN_ID"), help="Stable id shared by all skill runs in this invocation")
     parser.add_argument("--no-baseline", action="store_true")
     parser.add_argument("--no-omni-env-hint", action="store_true")
     parser.add_argument("--preflight-only", action="store_true", help="Check remote fixtures and exit")
@@ -697,6 +756,9 @@ async def async_main() -> None:
     args = build_parser().parse_args()
     if args.concurrency < 1:
         raise ValueError("--concurrency must be at least 1")
+    if not args.run_id:
+        args.run_id = datetime.now().strftime("%Y%m%dT%H%M%S") + "-" + uuid4().hex[:8]
+    print(f"run_id: {args.run_id}")
     skills = discover_skills() if args.skill == "all" else [args.skill]
     run_preflight(skills, args)
     if args.preflight_only:

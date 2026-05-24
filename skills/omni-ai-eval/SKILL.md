@@ -122,7 +122,7 @@ For each prompt:
 3. Compare the generated query to that inferred expectation across those dimensions.
 4. Report per-case dimension results and a numeric pass rate.
 
-Call out that the scoring is inferred rather than a strict golden-file comparison, but still provide the dimension-level assessment. For example, "Top 10 customers by spend" should be checked for a customer field, spend/revenue measure, descending spend sort, and limit 10.
+Call out that the scoring is inferred rather than a strict golden-file comparison, but still provide the dimension-level assessment. For example, "Top 10 customers by spend" should be checked for a customer field, spend/revenue measure, descending spend sort, and limit 10. Include enough command detail in your notes or final answer to make clear that query execution was skipped, either by showing `--run-query false` or by explicitly stating that only generated query JSON was requested.
 
 ## Running Evals: Agentic Path (AI Jobs API)
 
@@ -284,8 +284,17 @@ Run the same eval suite with one variable changed to measure impact. This is the
 
 1. Run eval suite with configuration A → save as `results_a.jsonl`
 2. Run eval suite with configuration B → save as `results_b.jsonl`
-3. Score both result sets
+3. Score both result sets against the same expected query shape or inferred prompt-intent checklist
 4. Compare side-by-side, checking for regressions
+
+For model branch comparisons, use the exact branch UUID supplied by the user with `--branch-id`. Run each prompt once without `--branch-id` for main and once with `--branch-id <branch-id>` for the branch. Do not treat a branch as better only because it adds extra filters, fill fields, or different result rows; mark it better only when its generated query passes more of the same scoring dimensions than main. If both outputs satisfy the inferred or golden criteria, call it a tie even when the query JSON differs.
+
+When reporting a branch comparison, include enough evidence to audit that the branch path was actually exercised:
+
+- Show the full branch UUID in the comparison, not only a shortened prefix.
+- Record that the branch run used `--branch-id <branch-id>` for every prompt.
+- If the generate-query response still reports the shared/base `query.modelId`, do not use that alone as proof that the branch was skipped; instead rely on the command/flag used and call out the ambiguity if needed.
+- Never claim "byte-for-byte identical" unless you compared the complete generated JSON after confirming the branch flag was present on the branch calls.
 
 ### Example Comparison Output
 

@@ -85,6 +85,15 @@ omni models content-validator-get <modelId> --branch-id <branchId>
 
 Report the blast radius from validation and content-validator results before recommending any merge. Ask for the deleted table/column only if the refresh and validator output are too broad or ambiguous to identify the affected field.
 
+If model/topic reads fail with an infrastructure error such as `This connection
+uses dynamic environments and you don't have a value set for the required user
+attribute`, stop after confirming the error on one direct model read. Report the
+credential or connection-environment blocker and the exact command that failed.
+Do not spend time probing unrelated admin APIs or trying to reconfigure
+connection environments unless the user explicitly asked you to administer the
+instance; the schema-impact workflow cannot produce a reliable blast radius
+until the model is readable.
+
 ## Discovering Commands
 
 ```bash

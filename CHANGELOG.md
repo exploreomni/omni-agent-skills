@@ -21,6 +21,12 @@ The versions documented here should match the published plugin versions in the a
 - `omni-ai-optimizer` evals now reflect idempotent setup-aware behavior: agents should verify existing `ai_context` and `sample_queries` instead of duplicating them, and should only curate `ai_fields` when the topic is actually near the AI-visible field limit.
 - `omni-embed` evals now distinguish solid-color requirements from valid rgba shadow values and account for missing embed secrets.
 - `omni-model-builder` now directs deleted-column impact checks through branch schema refresh, branch validation, and content-validator before asking for clarification or recommending a merge, and gives a concrete filtered-measure `filters:` pattern.
+- `omni-admin` now documents env credential fallback, idempotent create verification, real document permit commands (`documents add-permits`/`access-list`), and the current schedule creation body shape.
+- `omni-content-explorer` now documents label filtering via `documents list --include labels` because `content list --labels` is not supported, and treats dashboard export failures before job creation as blockers to report rather than completed downloads.
+- `omni-model-explorer` now requires verified branch setup before interpreting field-removal blast-radius results and reports full topic AI context, including `sample_queries` and `ai_fields` when configured.
+- `omni-ai-eval` now makes query-generation-only quick evals explicit and tightens branch comparison guidance to score main and branch outputs against the same criteria.
+- `omni-query` now gives direct table-calculation recipes for percent-of-total, SUM_IF, VLOOKUP-style, and month-over-month calculations, and tells agents to show enough query JSON to verify calc fields are rendered.
+- Eval history exports now include a runner-level `run_id`; older summaries without one are backfilled with `legacy-*` ids by grouping near-simultaneous skill workspaces.
 
 **Docs**
 - Documented that `EVAL_DASHBOARD_TILES` is a mutable eval fixture and should be recreated before rerunning the content-builder add-tile case after a successful or partial run.

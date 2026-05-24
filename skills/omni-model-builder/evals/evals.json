@@ -33,12 +33,13 @@
     {
       "id": "3",
       "question": "Set up a join between the order_items view and the inventory_items view on order_items.inventory_item_id = inventory_items.id.",
-      "ground_truth": "Relationship written with correct join_from_view, join_to_view, on_sql using ${} field references, and relationship_type: many_to_one. Branch used. Join tested on the branch before any merge.",
+      "ground_truth": "If the relationship is absent, it is written on a branch with correct join_from_view, join_to_view, on_sql using ${} field references, and relationship_type: many_to_one, then tested before any merge. If the exact relationship already exists globally, the agent verifies it and avoids creating a duplicate.",
       "expected_behavior": [
-        "The agent creates a branch before writing the relationship YAML",
+        "The agent checks existing global/topic relationships before writing a new join",
         "The on_sql uses ${order_items.inventory_item_id} and ${inventory_items.id} field reference syntax \u2014 not raw column names",
-        "The relationship_type is set to many_to_one (an order item maps to one inventory item)",
-        "The agent validates the join by running a query on the branch that pulls fields from both views before merging"
+        "The relationship_type is many_to_one, or an existing equivalent relationship is explicitly identified as already present",
+        "If the relationship is missing, the agent creates a branch, writes the relationship YAML, and validates by running a query on the branch that pulls fields from both views before merging",
+        "If the exact relationship already exists, the agent reports no duplicate write is needed instead of adding a redundant relationship"
       ],
       "expected_skill": "omni-model-builder"
     },
