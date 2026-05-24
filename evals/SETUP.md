@@ -292,8 +292,11 @@ OMNI_API_TOKEN=...
 These items require either the Omni admin UI or your IdP's SCIM integration:
 
 **User attributes** (Settings → User Attributes):
-- `region` — used by admin eval 4 (set attribute on a user)
-- `brand` — used by embed eval 1 (row-level security filter)
+- `region` — used by admin eval 4. Create the definition only; the eval sets
+  `region = West Coast` on `EVAL_EXISTING_USER` through SCIM.
+- `brand` — used by embed eval 1 for row-level security. Create the definition
+  only; no stored user value is required for the eval because the signed embed
+  URL passes `userAttributes: { brand: ["Acme"] }` at signing time.
 
 **Users and groups** (Settings → Users or via SCIM):
 - At least one regular user whose email goes into `EVAL_EXISTING_USER`

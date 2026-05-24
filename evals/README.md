@@ -166,10 +166,14 @@ scored answer.
 
 Before starting BenchFlow, the runner performs cheap, read-only Omni preflight
 checks for selected cases with known mutable remote fixtures. If a fixture is
-dirty, the run exits before any LLM tokens are spent. Current checks verify that
-`omni-content-builder` case 2 is pointed at a clean Sales Performance dashboard
-and that `omni-model-builder` cases 1 and 2 have not already shipped their
-eval-created model objects. Run `./evals/reset.sh` for best-effort cleanup, then
+dirty, the run exits before any LLM tokens are spent. The runner does **not**
+run `reset.sh` automatically because reset deletes/recreates mutable eval
+fixtures. Run it explicitly when you want cleanup, then rerun preflight.
+
+Current preflight checks verify that `omni-admin` case 4 can see the `region`
+user attribute definition, `omni-content-builder` case 2 is pointed at a clean
+Sales Performance dashboard, and `omni-model-builder` cases 1, 2, and 4 have
+usable model fixtures. Run `./evals/reset.sh` for best-effort cleanup, then
 rerun preflight. Some failures require manual fixture recreation or removal;
 fix Omni connectivity or credentials first when relevant, then follow the
 specific preflight message and `evals/SETUP.md` when reset cannot clean them
