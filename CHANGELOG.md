@@ -13,6 +13,8 @@ The versions documented here should match the published plugin versions in the a
 **Changed**
 - `omni-model-builder` now handles schema-impact checks on connections that reject branch-based schema refresh by falling back to shared schema refresh while continuing branch-scoped validation/content validation where supported.
 - `omni-model-builder` now separates validation warnings from dashboard blast-radius results and avoids inferring that join-path warnings were caused by an unspecified deleted column.
+- `omni-content-builder` now treats `config: {}` as a table/fallback pattern and directs requested line/bar/area/scatter/KPI charts to use complete chart-specific config from the visualization references.
+- `omni-content-builder` now distinguishes normal new-dashboard readback omissions from failed existing-dashboard partial updates, and requires explicit per-tile status/row-count verification after creation.
 
 **Fixed**
 - Eval reset now removes accidentally merged `eval_completed_revenue` model-builder fixtures, repairs known quote-stripped literals in `public/order_items.view`, and deletes stale branch models using a direct branch listing.
