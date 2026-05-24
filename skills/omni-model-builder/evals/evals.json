@@ -46,12 +46,13 @@
     {
       "id": "4",
       "question": "I deleted a column from our database. Update the Omni model to reflect that and tell me which dashboards will break.",
-      "ground_truth": "Schema refresh triggered. Content validator run against the updated model to identify broken dashboards. Blast radius reported before any changes are merged.",
+      "ground_truth": "Schema refresh triggered. If branch-based schema refresh is unsupported, shared schema refresh is acceptable when the agent states that constraint. Content validator run against the updated model to identify broken dashboards. If it returns no content, the blast radius is no broken dashboards or tiles. Validation warnings should be reported separately without inferring they were caused by the deleted column unless the output identifies that directly.",
       "expected_behavior": [
-        "The agent triggers omni models refresh to sync the schema layer with the database change",
+        "The agent triggers omni models refresh to sync the schema layer with the database change; if --branch-id is rejected because branch-based schema refresh is unsupported, it retries without --branch-id and states that constraint",
         "The agent creates a branch to safely test the impact before touching production",
         "The agent runs omni models content-validator-get --branch-id to identify broken dashboards and tiles",
-        "The agent reports the blast radius \u2014 which dashboards and tiles reference the deleted field \u2014 before recommending any merge"
+        "The agent reports the blast radius before recommending any merge; if content-validator returns an empty content array, it clearly says no broken dashboards or tiles were found",
+        "The agent reports validation warnings separately and does not claim they were caused by the deleted column unless validation or content-validator output identifies the missing table or column"
       ],
       "expected_skill": "omni-model-builder"
     }

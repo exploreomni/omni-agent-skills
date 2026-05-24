@@ -6,6 +6,17 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.3.15] - 2026-05-25
+
+### omni-analytics
+
+**Changed**
+- `omni-model-builder` now handles schema-impact checks on connections that reject branch-based schema refresh by falling back to shared schema refresh while continuing branch-scoped validation/content validation where supported.
+- `omni-model-builder` now separates validation warnings from dashboard blast-radius results and avoids inferring that join-path warnings were caused by an unspecified deleted column.
+
+**Fixed**
+- Eval reset now removes accidentally merged `eval_completed_revenue` model-builder fixtures, repairs known quote-stripped literals in `public/order_items.view`, and deletes stale branch models using a direct branch listing.
+
 ## [1.3.14] - 2026-05-24
 
 ### omni-analytics
