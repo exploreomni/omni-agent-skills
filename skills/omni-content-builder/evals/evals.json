@@ -22,13 +22,13 @@
     {
       "id": "2",
       "question": "Add a KPI tile showing total revenue this quarter to the existing dashboard with identifier '{{EVAL_DASHBOARD_TILES}}'.",
-      "ground_truth": "Existing dashboard read first. If the filtered KPI query validates, KPI tile is attempted via full document PUT with all existing tiles preserved, then read back. If the server rejects the required date filter during query validation, the existing dashboard is left unchanged and the exact blocker is reported. If readback shows the API dropped required KPI presentation fields, the original dashboard is restored once and the partial-write blocker is reported.",
+      "ground_truth": "Existing dashboard read first. If the filtered KPI query validates, KPI tile is attempted via full document PUT with all existing tiles preserved, then read back. If the server rejects the required query-level date filter during validation, the agent validates the unfiltered base query once, then either uses a verified dashboard-level date filter fallback or leaves the dashboard unchanged and reports the exact blocker. If readback shows the API dropped required KPI presentation fields, the original dashboard is restored once and the partial-write blocker is reported.",
       "expected_behavior": [
         "The agent reads the existing document with omni documents get before making any changes",
         "The agent's update includes all existing queryPresentations from the read \u2014 it does not discard existing tiles",
         "The KPI tile uses visType: omni-kpi (not visType: basic)",
         "The agent verifies the tile was added by reading the document back after the update",
-        "If the required query-level date filter returns a server-side parsing error during omni query run, the agent validates the unfiltered base query once, leaves the existing dashboard unchanged, and reports the blocker instead of saving a known-broken tile",
+        "If the required query-level date filter returns a server-side parsing error during omni query run, the agent validates the unfiltered base query once and does not save the known-broken query-level filter; it either uses a verified dashboard-level date filter fallback or leaves the existing dashboard unchanged and reports the blocker",
         "If the document update API returns a server-side write-path error, the agent stops after a bounded retry and reports the blocker instead of using documents-import, creating replacement dashboards, or probing draft/import endpoints",
         "If readback shows the API dropped required KPI presentation fields such as visType/config/fields, the agent makes one rollback attempt using the original document payload and reports the partial-write blocker instead of claiming the KPI was added successfully"
       ],
