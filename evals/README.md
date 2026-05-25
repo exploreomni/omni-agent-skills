@@ -40,7 +40,7 @@ Eval files use BenchFlow's skill-eval schema:
   "skill_name": "omni-query",
   "defaults": {
     "timeout_sec": 1200,
-    "judge_model": "claude-haiku-4-5-20251001"
+    "judge_model": "claude-sonnet-4-6"
   },
   "cases": [
     {
