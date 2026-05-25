@@ -397,6 +397,8 @@ omni-agent-skills/
 │   ├── eval-env.json
 │   ├── lib/
 │   ├── runner.sh
+│   ├── history.sh
+│   ├── gepa_export.sh
 │   ├── reset.sh
 │   └── workspaces/
 ├── rules/
@@ -420,6 +422,7 @@ The root `evals/` directory is contributor tooling, not a distributed skill pack
 ```text
 evals/runner.sh
 evals/history.sh
+evals/gepa_export.sh
 evals/reset.sh
 ```
 
@@ -432,6 +435,7 @@ Implementation details are grouped by purpose:
 | `evals/eval-env.json` | Template for instance-specific eval identifiers |
 | `evals/workspaces/` | Generated BenchFlow tasks, jobs, trajectories, and summaries |
 | `evals/history.sh` | CSV/JSONL export of timestamped BenchFlow summaries |
+| `evals/gepa_export.sh` | GEPA trace export from completed BenchFlow runner workspaces |
 
 Per-skill eval definitions live with the skill they evaluate and use BenchFlow's `cases` schema:
 

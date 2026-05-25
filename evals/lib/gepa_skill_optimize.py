@@ -1,3 +1,12 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#   "anthropic",
+#   "benchflow @ git+https://github.com/benchflow-ai/benchflow.git@main",
+#   "gepa>=0.1.1,<0.2",
+#   "litellm",
+# ]
+# ///
 """Experiment: optimize a real SKILL.md with GEPA and BenchFlow."""
 
 from __future__ import annotations
@@ -134,6 +143,7 @@ async def evaluate_candidate_async(candidate: str, args: argparse.Namespace, run
     agent_env.setdefault("BENCHFLOW_SKILL_NUDGE", args.skill_nudge)
 
     summary = await run_mode(
+        label=f"{args.skill} gepa-candidate",
         tasks_dir=tasks_root / "with-skill",
         jobs_dir=jobs_root / "with-skill",
         agent=args.agent,
@@ -142,6 +152,8 @@ async def evaluate_candidate_async(candidate: str, args: argparse.Namespace, run
         concurrency=1,
         agent_env=agent_env,
         max_retries=args.max_retries,
+        total_cases=len(dataset.cases),
+        status_interval_sec=0,
     )
     feedback = collect_case_feedback(jobs_root / "with-skill")
     score = average_case_reward(jobs_root / "with-skill")
@@ -195,7 +207,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-metric-calls", type=int, default=2)
     parser.add_argument(
         "--reflection-model",
-        default=os.environ.get("GEPA_REFLECTION_MODEL", "anthropic/claude-haiku-4-5-20251001"),
+        default=os.environ.get("GEPA_REFLECTION_MODEL", "anthropic/claude-sonnet-4-6"),
     )
     parser.add_argument(
         "--run-dir",
