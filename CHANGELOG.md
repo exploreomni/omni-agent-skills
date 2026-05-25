@@ -6,6 +6,14 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.3.16] - 2026-05-25
+
+### omni-analytics
+
+**Changed**
+- `omni-query` now treats explicit table-calculation requests as a strict `calculations[]` workflow, avoiding existing model fields, raw SQL/window fallbacks, or client-side calculations when the user asks for calculated columns.
+- `omni-query` now adds stricter reporting and reference-routing guidance for running totals, moving averages, pivot row totals, tier labels, date differences, SUM_IF broadcasts, VLOOKUP fallbacks, and month-over-month percent change.
+
 ## [1.3.15] - 2026-05-25
 
 ### omni-analytics
