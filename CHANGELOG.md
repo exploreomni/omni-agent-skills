@@ -78,6 +78,13 @@ The versions documented here should match the published plugin versions in the a
 **Fixed**
 - BenchFlow-generated LLM judges now print their parsed JSON result to verifier stdout so failed or partial scores expose the rubric item decisions and reasoning in run artifacts.
 
+## [1.1.1] - 2026-05-23
+
+### omni-integrations
+
+**Changed**
+- `omni-to-databricks-metric-view` — replaced `cat ~/.databrickscfg` with `databricks auth profiles` so the skill no longer instructs the agent to read a credentials file. Replaced the shell-substituted `python3 -c '...'` JSON-encoding step in the SQL Statements API call with a `--json @payload.json` pattern, dropping the extra interpreter and shell substitution of generated SQL. Brings the Gen Agent Trust Hub audit profile closer to the Snowflake peer skill (see https://www.skills.sh/exploreomni/omni-agent-skills/omni-to-databricks-metric-view/security/agent-trust-hub).
+
 ## [1.3.11] - 2026-05-22
 
 ### omni-analytics
