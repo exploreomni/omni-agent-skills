@@ -3,17 +3,17 @@
   "skill_name": "omni-admin",
   "defaults": {
     "timeout_sec": 600,
-    "judge_model": "claude-haiku-4-5-20251001"
+    "judge_model": "claude-sonnet-4-6"
   },
   "cases": [
     {
       "id": "1",
       "question": "Create a new user with email newanalyst@company.com and display name 'New Analyst', then confirm they were created successfully.",
-      "ground_truth": "User created with correct email, displayName, and active: true. A follow-up verification confirms the user exists with correct state.",
+      "ground_truth": "User created with correct email, displayName, and active: true. If the user already exists from a prior run, a follow-up lookup confirms the existing user has the exact requested email, displayName, and active state.",
       "expected_behavior": [
         "The agent includes the full SCIM schema ('urn:ietf:params:scim:schemas:core:2.0:User') in the create request body",
-        "After creating the user, the agent runs a verification step \u2014 either omni scim users-list with a filter or a get call \u2014 to confirm the user was created",
-        "The agent reports the user's ID or confirms active: true from the verification response rather than assuming success from the create response alone"
+        "After creating the user, or after receiving a conflict because the user already exists, the agent runs a verification step \u2014 either omni scim users-list with a filter or a get call \u2014 to confirm the user exists",
+        "The agent reports the user's ID or confirms active: true and the requested displayName from the verification response rather than assuming success from the create response alone"
       ],
       "expected_skill": "omni-admin"
     },
@@ -22,20 +22,21 @@
       "question": "Give the 'Analytics Team' group view access to the dashboard with identifier '{{EVAL_DASHBOARD_PERMISSIONS}}'.",
       "ground_truth": "Document permissions updated so the Analytics Team group has view access. A verification step confirms the permission was applied.",
       "expected_behavior": [
-        "The agent calls omni documents update-permission-settings (not update-permission) with the document identifier",
-        "The permission body includes a type field set to 'group' and an access field set to 'view'",
-        "The agent verifies the change by reading back the document permissions after setting them"
+        "The agent finds the Analytics Team group ID before updating document access",
+        "The agent grants group access with omni documents add-permits or update-permits using userGroupIds and role: VIEWER",
+        "The agent verifies the change by reading back the document access list or effective permissions after setting them"
       ],
       "expected_skill": "omni-admin"
     },
     {
       "id": "3",
       "question": "Set up a weekly email schedule for dashboard '{{EVAL_DASHBOARD_SCHEDULE}}' to send every Monday at 9am Pacific time as a PDF, and add team@company.com as a recipient.",
-      "ground_truth": "Schedule created with correct frequency, day, hour, timezone, and format. Recipient added and verified.",
+      "ground_truth": "Schedule created with correct cron schedule, timezone, destination type, content, format, and recipient. Recipient and schedule settings are verified.",
       "expected_behavior": [
-        "The agent creates a schedule with frequency: weekly, dayOfWeek: monday, hour: 9, timezone: America/Los_Angeles, format: pdf",
-        "The agent adds team@company.com as a recipient using omni schedules add-recipients",
-        "The agent verifies the schedule and recipient were configured correctly by reading them back with omni schedules list and omni schedules recipients-get"
+        "The agent creates a schedule for the dashboard identifier using schedule: 0 9 ? * MON *, timezone: America/Los_Angeles, destinationType: email, content: dashboard, and format: pdf",
+        "The agent configures team@company.com as a recipient, either inline in the create body as an email string or with omni schedules add-recipients",
+        "The agent verifies the recipient with omni schedules recipients-get",
+        "The agent verifies schedule settings from omni schedules list or an equivalent schedule readback; if the schedule readback shape cannot be parsed, it reports that schedule setting verification was inconclusive instead of claiming full confirmation"
       ],
       "expected_skill": "omni-admin"
     },

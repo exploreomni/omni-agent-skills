@@ -6,6 +6,85 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.3.16] - 2026-05-25
+
+### omni-analytics
+
+**Changed**
+- `omni-query` now treats explicit table-calculation requests as a strict `calculations[]` workflow, avoiding existing model fields, raw SQL/window fallbacks, or client-side calculations when the user asks for calculated columns.
+- `omni-query` now adds stricter reporting and reference-routing guidance for running totals, moving averages, pivot row totals, tier labels, date differences, SUM_IF broadcasts, VLOOKUP fallbacks, and month-over-month percent change.
+
+## [1.3.15] - 2026-05-25
+
+### omni-analytics
+
+**Changed**
+- `omni-model-builder` now handles schema-impact checks on connections that reject branch-based schema refresh by falling back to shared schema refresh while continuing branch-scoped validation/content validation where supported.
+- `omni-model-builder` now separates validation warnings from dashboard blast-radius results and avoids inferring that join-path warnings were caused by an unspecified deleted column.
+- `omni-content-builder` now treats `config: {}` as a table/fallback pattern and directs requested line/bar/area/scatter/KPI charts to use complete chart-specific config from the visualization references.
+- `omni-content-builder` now distinguishes normal new-dashboard readback omissions from failed existing-dashboard partial updates, and requires explicit per-tile status/row-count verification after creation.
+- `omni-ai-optimizer` now stops after verifying complete topic-level term mappings instead of adding redundant field synonyms as extra signal.
+
+**Fixed**
+- Eval reset now removes accidentally merged `eval_completed_revenue` model-builder fixtures, repairs known quote-stripped literals in `public/order_items.view`, and deletes stale branch models using a direct branch listing.
+
+## [1.3.14] - 2026-05-24
+
+### omni-analytics
+
+**Changed**
+- `omni-model-builder` now explicitly keeps prepared branch changes unmerged until the user confirms merge/publish, and reports no dashboard breakage when schema refresh plus content validation find no affected content.
+- `omni-content-builder` now clarifies that `documents get-queries` and query execution verify only data queries, not persisted visualization renderer/config fields, so dropped KPI/chart presentation fields still require rollback/reporting.
+- `omni-admin` now distinguishes user attribute definitions from per-user assigned values, verifies assigned values through SCIM user readback, and treats explicit set/update requests as idempotent updates.
+- `omni-model-explorer` now gives the correct branch-scoped `yaml-create --body` pattern for impact checks and clarifies that dependent field references should remain so validation can reveal breakage.
+- BenchFlow-generated judges now compact ACP trajectory evidence before truncation so long rollouts preserve every tool call title and final response context for scoring.
+
+**Fixed**
+- Eval reset/preflight now checks and deletes both `public/customer_segments.view` and root-level `customer_segments.view` fixtures left by model-builder runs.
+
+## [1.3.13] - 2026-05-23
+
+### omni-analytics
+
+**Changed**
+- `omni-ai-optimizer` now emphasizes branch-first model writes, reading existing YAML before writing, and keeping topic-level optimization requests on topic-level parameters when appropriate.
+- `omni-content-builder` now bounds failed existing-dashboard update attempts: after a server-side document write-path error, agents should stop after one corrected retry, preserve the original dashboard, and report the blocker instead of cycling through import/export, draft, replacement-dashboard, or repeated filter-probing attempts.
+- `omni-content-builder` now documents raw API URL normalization with `${OMNI_BASE_URL%/}` and treats dropped readback visualization fields as partial dashboard update blockers.
+- `omni-embed` now explicitly forbids substituting `OMNI_API_TOKEN` for the embed secret and tells agents to return SDK-shaped `embedSsoDashboard()` code when `OMNI_EMBED_SECRET` is unavailable.
+- The content-builder evals now account for current Omni response shapes: row counts can appear as `cache_metadata.num_rows`, query-level filter validation can hit server-side filter errors, and add-tile updates can partially persist while dropping presentation config.
+- The eval runner now performs read-only remote preflight checks before starting BenchFlow for cases with known mutable Omni fixtures, failing before any LLM tokens are spent when those fixtures are dirty.
+- BenchFlow-generated judges now score long trajectories using both the beginning and end of the transcript instead of only the first 50,000 characters, reducing false failures when early tool output is large.
+- `omni-ai-optimizer` evals now reflect idempotent setup-aware behavior: agents should verify existing `ai_context` and `sample_queries` instead of duplicating them, and should only curate `ai_fields` when the topic is actually near the AI-visible field limit.
+- `omni-embed` evals now distinguish solid-color requirements from valid rgba shadow values and account for missing embed secrets.
+- `omni-model-builder` now directs deleted-column impact checks through branch schema refresh, branch validation, and content-validator before asking for clarification or recommending a merge, and gives a concrete filtered-measure `filters:` pattern.
+- `omni-admin` now documents env credential fallback, idempotent create verification, real document permit commands (`documents add-permits`/`access-list`), and the current schedule creation body shape.
+- `omni-content-explorer` now documents label filtering via `documents list --include labels` because `content list --labels` is not supported, and treats dashboard export failures before job creation as blockers to report rather than completed downloads.
+- `omni-model-explorer` now requires verified branch setup before interpreting field-removal blast-radius results and reports full topic AI context, including `sample_queries` and `ai_fields` when configured.
+- `omni-ai-eval` now makes query-generation-only quick evals explicit and tightens branch comparison guidance to score main and branch outputs against the same criteria.
+- `omni-query` now gives direct table-calculation recipes for percent-of-total, SUM_IF, VLOOKUP-style, and month-over-month calculations, and tells agents to show enough query JSON to verify calc fields are rendered.
+- Eval history exports now include a runner-level `run_id`; older summaries without one are backfilled with `legacy-*` ids by grouping near-simultaneous skill workspaces.
+
+**Docs**
+- Documented that `EVAL_DASHBOARD_TILES` is a mutable eval fixture and should be recreated before rerunning the content-builder add-tile case after a successful or partial run.
+
+## [1.3.12] - 2026-05-23
+
+### omni-analytics
+
+**Changed**
+- `omni-ai-eval` now defines how to handle quick eval requests that provide prompts without golden expected query JSON: infer expected topic, fields, filters, sorts, and limits from prompt intent, score those dimensions explicitly, and avoid treating the run as a valid-query-only smoke test.
+- Tightened the first `omni-ai-eval` eval rubric to match that quick-eval behavior and require dimension-level scoring.
+
+**Fixed**
+- BenchFlow-generated LLM judges now print their parsed JSON result to verifier stdout so failed or partial scores expose the rubric item decisions and reasoning in run artifacts.
+
+## [1.1.1] - 2026-05-23
+
+### omni-integrations
+
+**Changed**
+- `omni-to-databricks-metric-view` — replaced `cat ~/.databrickscfg` with `databricks auth profiles` so the skill no longer instructs the agent to read a credentials file. Replaced the shell-substituted `python3 -c '...'` JSON-encoding step in the SQL Statements API call with a `--json @payload.json` pattern, dropping the extra interpreter and shell substitution of generated SQL. Brings the Gen Agent Trust Hub audit profile closer to the Snowflake peer skill (see https://www.skills.sh/exploreomni/omni-agent-skills/omni-to-databricks-metric-view/security/agent-trust-hub).
+
 ## [1.3.11] - 2026-05-22
 
 ### omni-analytics

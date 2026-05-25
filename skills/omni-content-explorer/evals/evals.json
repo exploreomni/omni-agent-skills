@@ -3,7 +3,7 @@
   "skill_name": "omni-content-explorer",
   "defaults": {
     "timeout_sec": 600,
-    "judge_model": "claude-haiku-4-5-20251001"
+    "judge_model": "claude-sonnet-4-6"
   },
   "cases": [
     {
@@ -31,22 +31,23 @@
     {
       "id": "3",
       "question": "Add the label 'finance' to the dashboard with identifier '{{EVAL_DASHBOARD_LABEL}}', then show me all dashboards with that label.",
-      "ground_truth": "Label added to the document. Content then filtered by label 'finance' to show all documents with that label. Links provided for each.",
+      "ground_truth": "Label added to the document. Documents are listed with labels included and filtered to dashboards that have the 'finance' label. Links provided for each.",
       "expected_behavior": [
         "The agent calls omni documents add-label with the document identifier and label name",
-        "The agent then lists content filtered by the finance label using omni content list --labels finance",
-        "The agent provides clickable links for the returned documents"
+        "The agent then retrieves documents with labels included, paginating if needed, and filters to dashboards whose labels include finance",
+        "The agent provides clickable dashboard links for the returned finance-labeled documents using each document's identifier or url"
       ],
       "expected_skill": "omni-content-explorer"
     },
     {
       "id": "4",
       "question": "Download the 'Q1 Sales Report' dashboard as a PDF.",
-      "ground_truth": "Dashboard found by name, async download started, job polled until complete, download confirmed.",
+      "ground_truth": "Dashboard found by name. PDF download is started with the dashboard identifier. If a job is created, it is polled until complete; if the API fails before returning a job ID, the exact blocking error is reported and completion is not claimed.",
       "expected_behavior": [
-        "The agent starts the download with omni dashboards download using format: pdf",
-        "The agent polls the job status with omni dashboards download-status until the job completes \u2014 not just firing and forgetting",
-        "The agent reports when the download is complete, not just that it was initiated"
+        "The agent finds the Q1 Sales Report dashboard identifier before attempting the export",
+        "The agent calls omni dashboards download with the dashboard identifier and format: pdf",
+        "If a download job ID is returned, the agent polls with omni dashboards download-status until completion",
+        "If omni dashboards download fails before returning a job ID, the agent reports the exact API error, says no download job was created, and does not claim the PDF was completed"
       ],
       "expected_skill": "omni-content-explorer"
     }

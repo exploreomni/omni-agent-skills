@@ -32,6 +32,11 @@ omni folders --help     # Folder operations
 
 > **Tip**: Use `-o json` to force structured output for programmatic parsing, or `-o human` for readable tables. The default is `auto` (human in a TTY, JSON when piped).
 
+## Known Issues & Safe Defaults
+
+- `omni content list` does not currently support a `--labels` filter. To find documents by label, use `omni documents list --include labels -o json`, paginate with `--cursor`, then filter records whose `labels` array contains the target label.
+- Some dashboard exports can fail before a job is created, for example with `Cannot use 'in' operator to search for 'query_id' in ...`. If `omni dashboards download` returns an error and no job ID, do not call `download-status` or claim the export completed. Report the dashboard identifier, the exact API error, and that no downloadable job was created.
+
 ## Browsing Content
 
 ### List All Content
@@ -49,8 +54,9 @@ omni content list --include '_count,labels'
 ### Filter and Sort
 
 ```bash
-# By label
-omni content list --labels finance,marketing
+# By label: list documents with labels, then filter the JSON results client-side.
+# Paginate with --cursor until pageInfo.hasNextPage is false.
+omni documents list --include labels -o json
 
 # By scope
 omni content list --scope organization
@@ -110,6 +116,9 @@ omni folders create "Q1 Reports" --scope organization
 # List labels
 omni labels list
 
+# Find documents with a label
+omni documents list --include labels -o json
+
 # Add label to document
 omni documents add-label <identifier> <labelName>
 
@@ -131,10 +140,10 @@ omni documents remove-favorite <identifier>
 
 ```bash
 # Start download (async)
-omni dashboards download <dashboardId> --body '{ "format": "pdf" }'
+omni dashboards download <identifier> --body '{ "format": "pdf" }'
 
-# Poll job status
-omni dashboards download-status <dashboardId> <jobId>
+# Poll job status only after the start command returns a job ID
+omni dashboards download-status <identifier> <jobId>
 ```
 
 Formats: `pdf`, `png`

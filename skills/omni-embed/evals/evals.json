@@ -3,18 +3,20 @@
   "skill_name": "omni-embed",
   "defaults": {
     "timeout_sec": 600,
-    "judge_model": "claude-haiku-4-5-20251001"
+    "judge_model": "claude-sonnet-4-6"
   },
   "cases": [
     {
       "id": "1",
       "question": "Generate a signed embed URL for dashboard '{{EVAL_DASHBOARD_EMBED}}' for user {{EVAL_EMBED_USER}} (display name 'Jane Doe'). The user should only see data for the Acme brand.",
-      "ground_truth": "embedSsoDashboard called with correct contentId, externalId, name, and userAttributes for row-level security. Host is bare hostname only.",
+      "ground_truth": "embedSsoDashboard called with correct contentId, externalId, name, and userAttributes for row-level security. Host is a bare embed hostname only, and API/custom OMNI_BASE_URL values are not reused as the iframe host.",
       "expected_behavior": [
         "The agent uses embedSsoDashboard from @omni-co/embed \u2014 not a manual URL construction or signing",
         "The host parameter is a bare hostname (e.g., yourorg.embed-omniapp.co) with no protocol prefix (https://) and no port",
         "The userAttributes parameter includes the brand filter as an array value (e.g., { brand: ['Acme'] })",
-        "The agent uses the .embed-omniapp.co domain for the embed URL, not .omniapp.co"
+        "The agent uses the .embed-omniapp.co domain for the embed URL, not .omniapp.co",
+        "If only OMNI_BASE_URL is available and it is not already an embed host, the agent leaves host configurable via OMNI_EMBED_HOST or a clear embed-host placeholder instead of reusing the API/custom host",
+        "If OMNI_EMBED_SECRET is unavailable, the agent returns SDK-shaped server-side code using process.env.OMNI_EMBED_SECRET instead of substituting OMNI_API_TOKEN or fabricating a signed URL"
       ],
       "expected_skill": "omni-embed"
     },
@@ -33,12 +35,13 @@
     {
       "id": "3",
       "question": "Build a permission-aware sidebar that shows only the dashboards that embed user {{EVAL_EMBED_USER}} has access to.",
-      "ground_truth": "Embed user looked up by externalId, then documents listed filtered to that user's permissions. Only documents with hasDashboard: true included. Identifiers used for embed signing.",
+      "ground_truth": "Embed user resolved to an Omni user ID, then documents listed filtered to that user's permissions. Only documents with hasDashboard: true included. Identifiers used for SDK-based embed signing.",
       "expected_behavior": [
-        "The agent looks up the embed user with omni scim embed-users-list --filter 'embedExternalId eq \"{{EVAL_EMBED_USER}}\"' to get the Omni user ID",
-        "The agent calls omni documents list --userid with the retrieved user ID \u2014 not with the email directly",
+        "The agent looks up the embed user with omni scim embed-users-list --filter 'embedExternalId eq \"{{EVAL_EMBED_USER}}\"' to get the Omni user ID, or uses a clearly stated SCIM userName/email fallback only if the embedExternalId lookup is unsupported or returns no rows",
+        "The agent calls omni documents list --userid, or the equivalent /api/v1/documents?userId=<omniUserId> API, with the retrieved Omni user ID \u2014 not with the email directly",
         "The agent filters results to only documents where hasDashboard: true before presenting them as embeddable",
-        "The agent uses the API domain (.omniapp.co) for the documents list call \u2014 not the embed domain (.embed-omniapp.co)"
+        "The agent uses the API domain (.omniapp.co) for the documents list call \u2014 not the embed domain (.embed-omniapp.co)",
+        "Any embed URL signing remains server-side and uses embedSsoDashboard from @omni-co/embed rather than manual HMAC signing in Python or browser code"
       ],
       "expected_skill": "omni-embed"
     },
@@ -49,7 +52,7 @@
       "expected_behavior": [
         "The customTheme is passed as a parameter to embedSsoDashboard \u2014 not applied via CSS or injected into the iframe separately",
         "dashboard-key-color is set to #E60000, dashboard-background to #FEF2F2, and dashboard-key-text-color to #ffffff",
-        "The theme uses solid hex color values \u2014 not linear-gradient() or rgba() for background properties"
+        "The theme uses solid hex color values for background/color properties \u2014 not linear-gradient() or rgba(); rgba() is only acceptable for shadow properties"
       ],
       "expected_skill": "omni-embed"
     }
