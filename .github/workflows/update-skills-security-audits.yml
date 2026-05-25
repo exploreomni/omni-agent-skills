@@ -52,6 +52,25 @@ jobs:
             return [...text.matchAll(re)].map((match) => match[1]);
           }
 
+          function parseExistingCells(readme) {
+            const startIndex = readme.indexOf(start);
+            const endIndex = readme.indexOf(end);
+            if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) return {};
+
+            const block = readme.slice(startIndex, endIndex);
+            const rows = {};
+            for (const line of block.split("\n")) {
+              const row = line.match(/^\| \[([^\]]+)\]\([^)]+\) \| (.*) \|$/);
+              if (!row) continue;
+
+              const cells = row[2].split(" | ");
+              rows[row[1]] = Object.fromEntries(
+                providerOrder.map((provider, index) => [provider, cells[index] || "-"])
+              );
+            }
+            return rows;
+          }
+
           function parseStatus(html) {
             const span = html.match(/<span class="inline-block text-xs font-mono uppercase[^"]*">([^<]+)<\/span>/);
             if (span) return span[1].trim();
@@ -90,9 +109,17 @@ jobs:
             return "⚪ Unknown";
           }
 
-          function cell(skill, provider, detail) {
-            if (!detail) return "-";
-            const href = `${baseUrl}/${owner}/${repo}/${skill}/security/${provider}`;
+          function skillHref(skill) {
+            return `${baseUrl}/${owner}/${repo}/${skill}`;
+          }
+
+          function securityHref(skill, provider) {
+            return `${skillHref(skill)}/security/${provider}`;
+          }
+
+          function cell(skill, provider, detail, existingCells) {
+            if (!detail) return existingCells[skill]?.[provider] || "-";
+            const href = detail.href || securityHref(skill, provider);
             const status = withStatusEmoji(detail.status);
             if (!detail.analyzedAt || detail.analyzedAt === "Unknown") {
               return `[${status}](${href})`;
@@ -101,6 +128,8 @@ jobs:
           }
 
           async function main() {
+            const readme = fs.readFileSync(readmePath, "utf8");
+            const existingCells = parseExistingCells(readme);
             const repoHtml = await fetchText(`/${owner}/${repo}`);
             const skills = uniqueSorted(
               matchAll(new RegExp(`href="/${owner}/${repo}/([^"/#?]+)"`, "g"), repoHtml)
@@ -116,22 +145,25 @@ jobs:
               );
               const details = {};
               for (const provider of providers) {
+                const fallbackStatus = pageStatuses[provider];
                 try {
                   const html = await fetchText(`/${owner}/${repo}/${skill}/security/${provider}`);
                   details[provider] = {
-                    status: parseStatus(html) || pageStatuses[provider] || "Unknown",
+                    status: parseStatus(html) || fallbackStatus || "Unknown",
                     analyzedAt: parseAnalyzedAt(html),
+                    href: securityHref(skill, provider),
                   };
                 } catch (error) {
                   details[provider] = {
-                    status: pageStatuses[provider] || "Error",
+                    status: fallbackStatus || "Error",
                     analyzedAt: "Unknown",
+                    href: fallbackStatus ? skillHref(skill) : securityHref(skill, provider),
                   };
                 }
               }
               rows.push(
-                `| [${skill}](${baseUrl}/${owner}/${repo}/${skill}) | ` +
-                  providerOrder.map((provider) => cell(skill, provider, details[provider])).join(" | ") +
+                `| [${skill}](${skillHref(skill)}) | ` +
+                  providerOrder.map((provider) => cell(skill, provider, details[provider], existingCells)).join(" | ") +
                   " |"
               );
             }
@@ -143,7 +175,6 @@ jobs:
             ].join("\n");
 
             const block = `${start}\n${table}\n${end}`;
-            const readme = fs.readFileSync(readmePath, "utf8");
             let next;
             if (readme.includes(start) && readme.includes(end)) {
               next = readme.replace(new RegExp(`${start}[\\s\\S]*?${end}`), block);
