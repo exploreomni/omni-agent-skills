@@ -94,6 +94,10 @@ These apply when copying queryPresentations from an existing document (for both 
 - **Strip `model_extension_id`** from each query object — these reference model extensions scoped to the source document and will cause "Chart unavailable" errors.
 - **Filter to the tiles you want** — `omni documents get` returns all queries including workbook-only tabs not shown on the dashboard. Only include the `queryPresentations` you want as visible tiles.
 - **Queries without `topicName` are valid** — SQL-mode and tab-selector queries won't have a `topicName`. Do not add one.
+- **Do not use import as an update path** — `omni unstable documents-import` creates a new document; it does not safely add tiles to the existing dashboard identifier.
+- **Do not save known-broken query-level filters** — if `omni query run` rejects a tile query filter with a server-side parsing error, validate the unfiltered base query once. Do not save the broken filter into the tile; either use a verified dashboard-level `filterConfig` fallback or leave the dashboard unchanged and report the blocker.
+- **Bound server-side filter failures** — if updating an existing document fails with a server-side filter or document validation error, stop after one corrected retry. The stored dashboard can contain filter state that the write path cannot validate; repeated filter rewrites, import/export attempts, or draft probing are usually wasted work.
+- **Check readback for dropped presentation fields** — after updating an existing dashboard, verify each new tile still has required presentation fields (`visType`, `fields`, `config`) when read back. If the API persisted only the query and dropped visualization config, report a partial write instead of trying unrelated endpoints.
 
 ## Chart Type Examples
 

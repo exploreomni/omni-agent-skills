@@ -3,7 +3,7 @@
   "skill_name": "omni-query",
   "defaults": {
     "timeout_sec": 600,
-    "judge_model": "claude-haiku-4-5-20251001"
+    "judge_model": "claude-sonnet-4-6"
   },
   "cases": [
     {
@@ -32,12 +32,12 @@
     {
       "id": "3",
       "question": "I ran this query: {\"query\":{\"modelId\":\"{{EVAL_MODEL_ID}}\",\"table\":\"order_items\",\"fields\":[\"order_items.created_at[month]\",\"order_items.status\",\"order_items.total_revenue\"],\"pivots\":[\"order_items.status\"],\"filters\":{\"order_items.created_at\":\"last 6 months\"},\"join_paths_from_topic_name\":\"order_items\",\"limit\":100}}. It returned the same number of rows as when I run it without the filter. What's wrong and how do I fix it to get correctly filtered results?",
-      "ground_truth": "The agent identifies the known Omni bug (boolean filters are silently dropped when pivots are present), explains why it happens, and applies the workaround (removes the pivot and runs as a flat table, or restructures the query differently). The corrected query returns filtered results.",
+      "ground_truth": "The agent diagnoses that the date filter is not binding in the pivoted query, validates the behavior against an unfiltered comparison, and fixes it with a query structure that actually applies the filter. Acceptable fixes include a typed date filter object, removing/restructuring the pivot when the pivot path is the blocker, or another verified query shape whose filtered row count/result set differs from the unfiltered version.",
       "expected_behavior": [
-        "The agent identifies the specific bug: filters are silently dropped when a pivots array is present",
-        "The agent explains why the filter isn't applying: the pivot+filter combination causes the filter to be ignored",
-        "The agent applies a workaround: either removes the pivot array and runs as a flat table, or uses a different query structure that avoids the bug",
-        "The corrected query returns a different (filtered) row count than the original unfiltered version"
+        "The agent identifies that the filter is not binding in the pivoted query instead of treating the identical row count as normal",
+        "The agent validates the diagnosis by comparing filtered and unfiltered behavior or by inspecting the concrete API error returned by the filtered query",
+        "The agent applies a verified workaround: a typed date filter object, a flat/non-pivoted query, or another query shape that avoids the filter-drop/parser issue",
+        "The corrected query returns filtered results whose row count or date range differs from the unfiltered query"
       ],
       "expected_skill": "omni-query"
     },
@@ -162,12 +162,12 @@
     {
       "id": "14",
       "question": "Show order status, total revenue, and a VLOOKUP column that retrieves the Complete-status revenue on every row.",
-      "ground_truth": "A status-by-revenue table where the lookup column shows the Complete-status revenue value on every row.",
+      "ground_truth": "A status-by-revenue table where the lookup column shows the Complete-status revenue value on every row. If static-string OMNI_FX_VLOOKUP fails because Omni treats the string as a referenced query id, the agent should report that concrete limitation and use OMNI_FX_SUM_IF as the validated in-result equivalent rather than falling back to raw SQL.",
       "expected_behavior": [
-        "The calc uses Omni.OMNI_FX_VLOOKUP with FOUR operands (not three) \u2014 the formula's 3-arg signature decomposes into lookup_value, key_field, range_OFFSET_MULTI, column_number",
-        "The lookup_range operand is an OMNI_OFFSET_MULTI whose 5th operand (step) equals the column width of the Excel range (e.g. 3 for A:C)",
-        "The column_number operand is a 1-based integer literal indexing into query.fields starting at the key column",
-        "The agent does NOT fall back to userEditedSQL with raw SQL when expressing the lookup"
+        "The agent attempts or explains the Omni table-calc approach rather than using userEditedSQL or raw SQL",
+        "If using OMNI_FX_VLOOKUP, the calc uses FOUR operands (not three): lookup_value, key_field, range_OFFSET_MULTI, column_number",
+        "If static-string VLOOKUP fails with an error like 'No referenced query with id Complete found in query', the agent reports that concrete limitation and stops retrying VLOOKUP variants",
+        "The final validated query returns the Complete-status revenue on every row, either through working OMNI_FX_VLOOKUP or through the OMNI_FX_SUM_IF broadcast pattern"
       ],
       "expected_skill": "omni-query"
     },

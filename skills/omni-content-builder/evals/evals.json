@@ -3,7 +3,7 @@
   "skill_name": "omni-content-builder",
   "defaults": {
     "timeout_sec": 600,
-    "judge_model": "claude-haiku-4-5-20251001"
+    "judge_model": "claude-sonnet-4-6"
   },
   "cases": [
     {
@@ -12,7 +12,7 @@
       "ground_truth": "Dashboard created with two working tiles. Both queries validated before creation. Dashboard read back and queries verified after creation. Share link provided.",
       "expected_behavior": [
         "The agent runs omni query run to test each tile's query before creating the dashboard \u2014 not after",
-        "The agent checks summary.row_count in each query response before proceeding",
+        "The agent checks that each query returned rows before proceeding, using the row-count field exposed by the response such as summary.row_count or cache_metadata.num_rows",
         "The agent reads the created document back with omni documents get and confirms both queryPresentations are present",
         "The agent runs omni documents get-queries and executes the dashboard's queries to verify they work after creation",
         "The agent provides a dashboard URL in the format {OMNI_BASE_URL}/dashboards/{identifier} \u2014 using identifier, not id"
@@ -22,12 +22,15 @@
     {
       "id": "2",
       "question": "Add a KPI tile showing total revenue this quarter to the existing dashboard with identifier '{{EVAL_DASHBOARD_TILES}}'.",
-      "ground_truth": "Existing dashboard read first. KPI tile added to the queryPresentations array. Full document PUT with all existing tiles preserved. Verification confirms the new tile is present.",
+      "ground_truth": "Existing dashboard read first. If the filtered KPI query validates, KPI tile is attempted via full document PUT with all existing tiles preserved, then read back. If the server rejects the required query-level date filter during validation, the agent validates the unfiltered base query once, then either uses a verified dashboard-level date filter fallback or leaves the dashboard unchanged and reports the exact blocker. If readback shows the API dropped required KPI presentation fields, the original dashboard is restored once and the partial-write blocker is reported.",
       "expected_behavior": [
         "The agent reads the existing document with omni documents get before making any changes",
-        "The agent's update includes all existing queryPresentations from the read \u2014 it does not discard existing tiles",
-        "The KPI tile uses visType: omni-kpi (not visType: basic)",
-        "The agent verifies the tile was added by reading the document back after the update"
+        "When attempting an update, the agent's submitted document includes all existing queryPresentations from the read \u2014 it does not discard existing tiles",
+        "When attempting the KPI tile, the submitted tile uses visType: omni-kpi (not visType: basic)",
+        "The agent reads the document back after the update and either verifies the KPI tile was added with its required visualization fields intact or detects a failed partial write",
+        "If the required query-level date filter returns a server-side parsing error during omni query run, the agent validates the unfiltered base query once and does not save the known-broken query-level filter; it either uses a verified dashboard-level date filter fallback or leaves the existing dashboard unchanged and reports the blocker",
+        "If the document update API returns a server-side write-path error, the agent stops after a bounded retry and reports the blocker instead of using documents-import, creating replacement dashboards, or probing draft/import endpoints",
+        "If readback shows the API dropped required KPI presentation fields such as visType/config/fields, the agent makes one rollback attempt using the original document payload, verifies or reports the rollback result, and reports the partial-write blocker instead of claiming the KPI was added successfully"
       ],
       "expected_skill": "omni-content-builder"
     },
@@ -38,7 +41,7 @@
       "expected_behavior": [
         "The filterConfig includes a date filter with a fieldName set to the fully qualified field name (e.g., order_items.created_at) \u2014 without a timeframe bracket",
         "The filterOrder array includes the filter key, matching the filterConfig key",
-        "The agent validates the filter expression by including it in an omni query run call before creating the dashboard",
+        "The agent attempts to validate the filter expression with omni query run before creating the dashboard; if the query API returns a server-side filter error, it validates the base query and verifies filterConfig/filterOrder after creation instead",
         "The agent provides the dashboard URL after successful creation and verification"
       ],
       "expected_skill": "omni-content-builder"

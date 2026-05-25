@@ -36,6 +36,15 @@ omni ai --help                 # AI-powered query generation
 
 > **Tip**: Use `-o json` to force structured output for programmatic parsing, or `-o human` for readable tables. The default is `auto` (human in a TTY, JSON when piped).
 
+## Known Issues & Safe Defaults
+
+- When the user asks for a **calculated column**, **table calculation**, **running total**, **moving average**, **percent change**, **row total**, **tier label**, **VLOOKUP**, **SUMIF**, or **date difference**, satisfy it with a `calculations[]` table calc selected in `query.fields`. Do not substitute an existing model field, `userEditedSQL`, client-side math, or a narrative-only explanation unless the user explicitly asks for that alternative.
+- For table-calc prompts, keep the final answer auditable: include a compact query JSON excerpt showing `query.fields`, `calculations[]`, relevant `pivots[]`/`limit`, and the validation result. Long CSV output can bury the important query shape; show a few result rows and the reusable query shape.
+- Do not paraphrase `sql_expression` in the final answer with placeholders such as `{ "OMNI_OFFSET_MULTI over": "field" }` or prose like "computed via `OMNI_RUNNING_TOTAL`." If you include reusable query JSON, copy the actual executed `calculations[]` object with operators and operands intact, or explicitly say you are omitting the full JSON for brevity.
+- Do not call a table-calc task complete until your final answer names the calc column and shows that same `calc_name` in both `query.fields` and `calculations[]`. This applies even for simple built-in operators like `OMNI_RUNNING_TOTAL`.
+- If a calc query succeeds but the calc column is blank, treat it as a failed calc until proven otherwise. Re-check operand order, `for_calc`, date truncation, `outside_pivot`, and whether the `calc_name` appears in `query.fields`.
+- Prefer the documented Omni calc operators over lower-level raw SQL/window ASTs when a template exists. For example, use `Omni.OMNI_RUNNING_TOTAL`, `Omni.OMNI_PERCENT_CHANGE_FROM_PREVIOUS`, and `Omni.OMNI_FX_AVERAGE(Omni.OMNI_OFFSET_MULTI(...))` for moving averages instead of hand-authored `window_call`/`LAG` when the prompt asks for a table calculation.
+
 ## Running a Query
 
 ### Basic Query
@@ -100,6 +109,22 @@ users.created_at[year]      — Yearly
 
 Expressions: `"last 90 days"`, `"this quarter"`, `"2024-01-01 to 2024-12-31"`, `"not California"`, `"null"`, `"not null"`, `">100"`, `"between 10 and 100"`, `"contains sales"`, `"starts with A"`. See [references/filter-expressions.md](references/filter-expressions.md) for the complete expression syntax reference.
 
+If a date filter string fails with an API error like `Cannot use 'in' operator
+to search for 'query_id' in last 12 months`, keep the query semantic and retry
+with the typed date-filter object shape instead of dropping the filter:
+
+```json
+"filters": {
+  "order_items.created_at": {
+    "type": "date",
+    "kind": "TIME_FOR_INTERVAL_DURATION",
+    "left_side": "12 months ago",
+    "right_side": "12 months",
+    "ui_type": "PAST"
+  }
+}
+```
+
 ### Pivots
 
 ```json
@@ -142,8 +167,43 @@ Minimum-viable calc:
 
 **The #1 gotcha:** `calc_name` must also appear in `query.fields` (and the outer `queryPresentation.fields` for dashboard tiles). A calc defined in `calculations[]` but absent from `fields` is computed but never rendered.
 
+When reporting a successful table-calc query, include the minimal query JSON or an explicit field list that shows both `query.fields` and `calculations[]`. Do not only show the calculation object; the user needs to verify that the calc column was actually requested in `fields`. Keep result output short enough that the AST proof remains visible.
+
 The five quick-template operators (each takes one `field` operand with `for_calc: true`):
 `Omni.OMNI_PERCENT_OF_TOTAL`, `Omni.OMNI_PERCENT_OF_PREVIOUS`, `Omni.OMNI_PERCENT_CHANGE_FROM_PREVIOUS`, `Omni.OMNI_RUNNING_TOTAL`, `Omni.OMNI_RANK`.
+
+For these template operators, the final answer should include the exact selected
+calc shape, not just the result table. Show `fields: [..., "<calc_name>"]` and
+`calculations: [{ "calc_name": "...", "sql_expression": { "operator": "...",
+"operands": [{ "field_name": "...", "for_calc": true }] } }]` so the user can
+reuse or audit the query.
+
+Use `omni query run` with a hand-authored or copied AST when the user explicitly asks for a calculated column/table calculation. Do not route simple table-calc prompts through `omni ai job-submit`; agentic jobs can fall back to `userEditedSQL`, omit calc metadata, or leave a generated query pending. Reserve `job-submit` for requests that explicitly ask for the async agentic workflow or for broad multi-step analysis.
+
+Query tasks are read-only unless the user explicitly asks to change the model.
+If a field appears missing, inspect topics/dashboard queries and use the right
+model/topic/branch or report the missing-field blocker. Do not create branches,
+add measures, or edit YAML just to make a query work. Do not compute requested
+table calculations client-side after the fact; the result must come from
+`calculations[]` selected in `query.fields`, or you should report why the Omni
+calc could not run. If the model already contains an equivalent field such as
+`users.tier_label` or `order_items.days_to_ship`, do not use it to satisfy a
+request for a calculated column; build and validate the table calc unless the
+user explicitly asks to use the existing model field.
+
+Quick recipes for common calc requests:
+
+- **Percent of total**: add a calc using `Omni.OMNI_PERCENT_OF_TOTAL` with one `for_calc: true` operand pointing at the selected measure field; set `format: "0.0%"`; include the calc name in `query.fields`.
+- **Running total**: add a calc using `Omni.OMNI_RUNNING_TOTAL` with one `for_calc: true` field operand. Sort the time dimension ascending before presenting values; do not sort descending and then reverse/recompute the running total outside Omni. In the final answer, include a compact query shape that shows the running-total `calc_name` in `fields` and the `OMNI_RUNNING_TOTAL` `calculations[]` entry; a result table plus prose is not enough for a reusable query answer.
+- **Trailing 3-period moving average**: if you are unsure of the exact AST, first call `omni ai generate-query <modelId> "monthly revenue with a trailing 3-month moving average" --run-query=false`, copy the structured calculation, then run it directly. The expected shape is `Omni.OMNI_FX_AVERAGE` over `Omni.OMNI_OFFSET_MULTI(field, -2, 0, 3, 1)`. If the helper returns a raw `window_call`, rewrite it to this canonical Omni calc shape unless the user specifically asked for a custom SQL window not expressible with Omni calc operators.
+- **Month-over-month % change**: add a calc using `Omni.OMNI_PERCENT_CHANGE_FROM_PREVIOUS` with the same single `for_calc: true` revenue operand; sort the date field ascending; set `format: "0.0%"`; do not use `omni_period_pivot`, raw SQL, or a hand-authored `LAG` window when the template operator fits.
+- **Row total across pivot columns**: for a pivoted query, set a numeric `limit` and add a calc with `outside_pivot: true`, `Omni.OMNI_FX_SUM`, and `Omni.OMNI_PIVOT_OFFSET(field, 0, 0, 1, 50)` to sweep across pivot columns. Include the row-total `calc_name` in `query.fields`; a pivoted query with `limit: null` is invalid.
+- **Multi-branch tier labels**: use `Omni.OMNI_FX_IFS`, not an existing model field or `SqlStdOperatorTable.CASE`, for prompts like `High if revenue > 10000, Mid if > 1000, else Low`. `OMNI_FX_IFS` operands alternate `(condition, value)`. Represent the default branch as a final tautology such as `SqlStdOperatorTable.EQUALS(1, 1)` followed by `"Low"`. Build labels like `"High - Acme Corp"` with nested binary `Omni.OMNI_FX_AMPERSAND` calls: `(tier & " - ") & <name field>`. If the tier depends on a grouped measure, create two calcs: one for the tier and one for the concatenated label.
+- **SUMIF-style filtered total broadcast on every row**: use `Omni.OMNI_FX_SUM_IF` (underscore between `SUM` and `IF`). Both the criteria range and sum range must be full-column `Omni.OMNI_OFFSET_MULTI` calls with `(field, -536870911, 0, 1073741823, 1)`. The criterion is a string literal like `"Complete"`, not a SQL predicate.
+- **VLOOKUP-style in-result lookup**: first attempt `Omni.OMNI_FX_VLOOKUP` with four operands: lookup value, key field, full-column `OMNI_OFFSET_MULTI` over the key field, and a 1-based column number into `query.fields` starting at the key column. Use literal nodes for static lookup values and column numbers. Validate the query. If a static string lookup like `"Complete"` fails with `No referenced query with id Complete found in query`, report that this Omni deployment is treating the string as a query reference, stop retrying VLOOKUP variants, and use the `OMNI_FX_SUM_IF` broadcast pattern when the user needs a single status revenue repeated on every row. Do not replace this with `userEditedSQL`.
+- **Date difference**: use `Omni.OMNI_FX_DATEDIF` in AST order `(unit_literal, start_date, end_date)`, with the unit literal `"DAY"` and date-truncated operands such as `created_at[date]` and `shipped_at[date]`. Do not substitute a native model field unless the user asked for that existing field rather than a calculated column. A bare timestamp operand can produce blank values under `swallow_errors`; select `[date]` timeframes or cast to DATE. Filter out or separately explain null shipped dates so the validated diff column contains populated integer values.
+
+For exact JSON AST examples, use [references/table-calculations.md](references/table-calculations.md), especially the sections on running totals, moving averages, conditional labels, pivot row totals, DATEDIF, SUM_IF, and VLOOKUP. Keep `SKILL.md` as the workflow guardrail and the reference file as the source of detailed shapes.
 
 At execution, calcs compile into an outer `SELECT` wrapping the base aggregation; window-style operators emit `... OVER (...)` there, so the shared data model never needs window functions to support them. In pivoted queries, template operators auto-partition by the pivot column for per-segment series; set `outside_pivot: true` and wrap an aggregator around `OMNI_PIVOT_OFFSET` for a row-summary that sweeps across pivot columns.
 
@@ -308,6 +368,8 @@ omni ai job-result <jobId>
 
 The result contains an `actions` array with each step the AI took — look for actions with `type: "generate_query"` to extract the generated queries. The response also includes `resultSummary` with the AI's narrative interpretation.
 
+Before presenting an async job answer, inspect the `actions[]` entries. A job can reach `COMPLETE` while an individual `generate_query` action has `status: "pending"` or no `csvResult`; the narrative may then describe a query that was generated but not executed. If a required action is pending, do not treat the job summary as final. Run or regenerate that specific query, or continue the same analysis with another async job, then present only validated results.
+
 Additional job commands:
 - `omni ai job-cancel <jobId>` — cancel a running job
 - `omni ai job-visualization <jobId>` — get the visualization output
@@ -327,11 +389,12 @@ For the complete transformation algorithm, discriminator logic, field-ref inject
 | Approach | Best For |
 |----------|----------|
 | `omni query run` | You know exactly which fields, filters, and sorts you need |
+| `omni query run` with `calculations[]` | Explicit table-calculation requests where you know or can copy the AST shape |
 | `omni ai generate-query --run-query=false` | Getting a query AST shape to inspect or hand-edit before running |
 | `omni ai generate-query --run-query=true` | Simple dimension/measure queries where you want a synchronous response |
-| `omni ai job-submit` | **Any query involving calculations — prefer this for reliability.** Also best for complex multi-step questions. |
+| `omni ai job-submit` | Requests that explicitly ask for the async agentic workflow, or broad multi-step questions where Blobby should plan and execute analysis |
 
-**Prefer `job-submit` over `generate-query` when calculations are involved.** The two endpoints produce equivalent structured `calculations[]` output on most prompts, but `job-submit` is more reliable: its SQL fallback catches cases where the structured calc has wrong operands and would silently return blanks. It also validates the result by executing the query and returning data, so failures surface immediately.
+For explicit table-calculation work, prefer `omni query run` with `calculations[]`. If you need help discovering an unfamiliar AST shape, use `omni ai generate-query --run-query=false` to draft the query, then inspect and copy the structured `calculations[]` into a direct `query run`. Treat `job-submit` results as analysis output, not as the safest source for reusable calc JSON: job results may include `userEditedSQL`, pending generated queries, or SQL fallbacks that do not satisfy a request for a real table calc.
 
 `generate-query --run-query=false` remains useful when you want to inspect or hand-edit the query structure before executing — see eval #6.
 
@@ -356,6 +419,7 @@ For complex analysis, chain queries:
 
 - **`IS_NOT_NULL` filter generates `IS NULL`** (reported Omni bug) — workaround: invert the filter logic or use the base view to apply the filter differently.
 - **Boolean filters may be silently dropped** when a `pivots` array is present — if boolean filters aren't applying, remove the pivot and test again.
+- **Some natural-language date filter strings can hit `query_id` parser errors** — retry with the typed date filter object shape shown above before abandoning the filter.
 
 ## Linking to Results
 

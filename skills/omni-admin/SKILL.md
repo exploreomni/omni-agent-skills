@@ -24,6 +24,12 @@ omni config show
 omni config use <profile-name>
 ```
 
+If no CLI profile exists but the environment provides credentials, pass them explicitly:
+
+```bash
+omni <command> --base-url "$OMNI_BASE_URL" --token "$OMNI_API_TOKEN"
+```
+
 ## Discovering Commands
 
 ```bash
@@ -35,6 +41,12 @@ omni folders --help          # Folder permissions
 ```
 
 > **Tip**: Use `-o json` to force structured output for programmatic parsing, or `-o human` for readable tables. The default is `auto` (human in a TTY, JSON when piped).
+
+## Safe Admin Defaults
+
+- For create operations, first try the requested create. If the API returns a conflict because the resource already exists, look it up and verify it exactly matches the requested state before reporting success.
+- Prefer read-after-write checks that inspect the specific created or changed resource, not just a successful status response.
+- Use the role names returned by Omni permission APIs (`VIEWER`, `EXPLORER`, `EDITOR`, `MANAGER`) when updating content access.
 
 ## Connections
 
@@ -103,6 +115,9 @@ omni scim groups-update <groupId> --body '{
 # List attributes
 omni user-attributes list
 
+# Find the user by email before setting an attribute
+omni scim users-list --filter 'userName eq "user@company.com"'
+
 # Set attribute on user (via SCIM)
 omni scim users-update <userId> --body '{
   "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
@@ -115,6 +130,19 @@ omni scim users-update <userId> --body '{
 ```
 
 User attributes work with `access_filters` in topics for row-level security.
+SCIM can set values only for attribute definitions that already exist. Use
+`omni user-attributes list` to confirm the requested attribute definition exists
+before setting a value, but do not use it as proof that a specific user's value
+changed. If the definition is missing, report that it must be created in
+Admin -> User Attributes before values can be assigned; do not keep retrying
+SCIM paths or claim the value was set from an empty `User attributes set: {}`
+response.
+
+When the user explicitly asks to set or update a user attribute, converge the
+user record with a SCIM update even if the initial user lookup already shows the
+requested value. This keeps the operation idempotent while still honoring the
+requested admin action. After the update, read back the same user and verify the
+value under `urn:omni:params:1.0:UserAttribute`.
 
 ## Model Roles
 
@@ -133,15 +161,22 @@ omni users user-groups-assign-model-role <groupId> --body '{ "modelId": "{modelI
 ## Document Permissions
 
 ```bash
-# Get permissions for a user (userId required)
+# Check effective permissions for a user (userId required)
 omni documents get-permissions <documentId> --userid <userId>
 
-# Set permissions
-omni documents update-permission-settings <documentId> --body '{
-  "permissions": [
-    { "type": "group", "id": "group-uuid", "access": "view" },
-    { "type": "user", "id": "user-uuid", "access": "edit" }
-  ]
+# List document access principals
+omni documents access-list <documentId>
+
+# Add direct access for a group
+omni documents add-permits <documentId> --body '{
+  "userGroupIds": ["group-uuid"],
+  "role": "VIEWER"
+}'
+
+# Add direct access for a user
+omni documents add-permits <documentId> --body '{
+  "userIds": ["user-uuid"],
+  "role": "EDITOR"
 }'
 ```
 
@@ -165,18 +200,21 @@ omni schedules list
 
 # Create schedule
 omni schedules create --body '{
-  "documentId": "dashboard-identifier",
-  "frequency": "weekly",
-  "dayOfWeek": "monday",
-  "hour": 9,
+  "identifier": "dashboard-identifier",
+  "name": "Weekly Dashboard - Monday 9am PT",
+  "schedule": "0 9 ? * MON *",
   "timezone": "America/Los_Angeles",
-  "format": "pdf"
+  "destinationType": "email",
+  "content": "dashboard",
+  "format": "pdf",
+  "subject": "Weekly dashboard",
+  "recipients": ["team@company.com"]
 }'
 
-# Manage recipients
+# Manage recipients for an existing schedule
 omni schedules recipients-get <scheduleId>
 
-omni schedules add-recipients <scheduleId> --body '{ "recipients": [{ "type": "email", "value": "team@company.com" }] }'
+omni schedules add-recipients <scheduleId> --body '{ "recipients": ["team@company.com"] }'
 ```
 
 ## Verification After Changes
@@ -204,21 +242,29 @@ Check that: the group exists with the expected `displayName`, and `members` arra
 ### After Permission Changes
 
 ```bash
-# After setting document permissions, verify for the target user
+# After setting document permissions, verify the principal and role
+omni documents access-list <documentId>
+
+# For a specific user, also check effective permissions
 omni documents get-permissions <documentId> --userid <userId>
 
 # After setting folder permissions, verify
 omni folders get-permissions <folderId>
 ```
 
-Check that: the permission `access` level matches what you set (`view`, `edit`), and the target user/group ID is listed.
+Check that: the principal is listed and the `role` matches what you set (`VIEWER`, `EDITOR`, etc.).
 
 ### After User Attribute Changes
 
 ```bash
-# Verify the attribute value was set
-omni user-attributes list
+# Verify the user's assigned attribute value was set
+omni scim users-list --filter 'userName eq "user@company.com"'
 ```
+
+Check that: the response contains the target user, the user's
+`urn:omni:params:1.0:UserAttribute` object includes the requested attribute name,
+and the value exactly matches what you set. `omni user-attributes list` only
+verifies that the attribute definition exists.
 
 If the attribute is used for row-level security (`access_filters`), test it by running a query as the target user:
 
@@ -232,13 +278,13 @@ Verify the results are correctly filtered — the user should only see rows matc
 
 ```bash
 # Verify schedule was created with correct settings
-omni schedules list
+omni schedules list -o json
 
 # Verify recipients were added
 omni schedules recipients-get <scheduleId>
 ```
 
-Check that: `frequency`, `dayOfWeek`, `hour`, `timezone`, and `format` match what you set, and all intended recipients are listed.
+Check that: the created schedule id appears in the list and the returned fields match the requested `schedule` cron, `timezone`, `destinationType`, `content`, `format`, and dashboard `identifier`. If the list/get response shape is not parseable, report that schedule setting verification was inconclusive instead of silently treating an empty parser result as success. Always verify recipients with `recipients-get`.
 
 ### Verification Checklist
 
@@ -248,7 +294,7 @@ Check that: `frequency`, `dayOfWeek`, `hour`, `timezone`, and `format` match wha
 | Create/update group | `omni scim groups-list` | Group exists, members list correct |
 | Set document permissions | `omni documents get-permissions` | Access level and target correct |
 | Set folder permissions | `omni folders get-permissions` | Access level and target correct |
-| Set user attribute | `omni user-attributes list` | Attribute value set |
+| Set user attribute | `omni scim users-list --filter ...` | User attribute extension contains requested value |
 | User attribute + access filter | `omni query run` with `userId` | Row-level filtering works |
 | Create schedule | `omni schedules list` | Schedule settings correct |
 | Add recipients | `omni schedules recipients-get` | All recipients listed |

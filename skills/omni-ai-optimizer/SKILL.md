@@ -35,6 +35,14 @@ omni models yaml-create --help        # Show flags for writing YAML
 
 > **Tip**: Use `-o json` to force structured output for programmatic parsing, or `-o human` for readable tables. The default is `auto` (human in a TTY, JSON when piped).
 
+## Safe Model Write Defaults
+
+- **Branch first** — never write AI optimization YAML directly to the shared model unless the user explicitly asks for a production change. Create or use a model branch, then pass the branch id to `omni models yaml-create`.
+- **Read before writing** — inspect the current topic/view YAML before adding `ai_context`, `ai_fields`, `sample_queries`, descriptions, or synonyms. If the requested optimization already exists, report that it is already configured instead of duplicating it.
+- **Topic requests stay on topics** — when the user asks to improve a topic, prefer topic-level `ai_context`, `ai_fields`, or `sample_queries`. Use field-level `synonyms` only when the request is clearly about alternate names for one specific field.
+- **Do not add "supporting" synonyms after a complete topic mapping** — for requests like "Blobby confuses revenue with order count" or "map these terms correctly", if topic-level `ai_context` already maps the business terms to the correct fields and includes the needed negative guardrails, stop and report that no duplicate write is needed. Adding field-level synonyms in that case is redundant and increases prompt/token surface.
+- **Create branches with `--name`** — `omni models create-branch <model-id> --name <branch-name>` does not accept a JSON `--body`.
+
 ## How Blobby Works
 
 Blobby generates queries by examining:
@@ -59,6 +67,7 @@ omni models yaml-create <modelId> --body '{
   "fileName": "order_transactions.topic",
   "yaml": "base_view: order_items\nlabel: Order Transactions\nai_context: |\n  Map \"revenue\" → total_revenue. Map \"orders\" → count.\n  Map \"customers\" → unique_users.\n  Status values: complete, pending, cancelled, returned.\n  Only complete orders for revenue unless specified otherwise.",
   "mode": "extension",
+  "branchId": "{branchId}",
   "commitMessage": "Add AI context to order transactions topic"
 }'
 ```
@@ -82,6 +91,27 @@ ai_context: |
   Each row is a line item, not an order. One order has multiple line items.
   total_revenue already excludes returns and cancellations.
   Dates are in UTC.
+```
+
+For requests like "map these terms correctly" or "Blobby confuses X with Y", add explicit positive mappings in topic-level `ai_context`. Field-level `synonyms` are useful supporting signal, but they are not a substitute for a topic-level mapping when the requested behavior depends on choosing between two measures. If the topic context already has both positive mappings and negative guardrails, do not add synonyms just to reinforce it; report that the requested optimization already exists. If synonyms already exist but the topic context only says what not to use, add the direct topic mapping instead of adding more synonyms.
+
+Good:
+
+```yaml
+ai_context: |
+  "revenue" or "sales" -> order_items.total_revenue
+  "order count" or "number of orders" -> order_items.count
+  Never use order_items.count when the user asks for revenue.
+```
+
+Avoid stopping at:
+
+```yaml
+measures:
+  total_revenue:
+    synonyms: [revenue, sales]
+  count:
+    synonyms: [order count, orders]
 ```
 
 **Behavioral guidance** — direct common patterns:

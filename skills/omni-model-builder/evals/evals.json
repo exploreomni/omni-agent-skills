@@ -3,16 +3,16 @@
   "skill_name": "omni-model-builder",
   "defaults": {
     "timeout_sec": 600,
-    "judge_model": "claude-haiku-4-5-20251001"
+    "judge_model": "claude-sonnet-4-6"
   },
   "cases": [
     {
       "id": "1",
-      "question": "Add a new measure called 'completed_revenue' to the order_items view that sums sale_price only for orders where status = 'complete'.",
-      "ground_truth": "Branch created first. Measure written to a branch with correct aggregate_type: sum, sql referencing sale_price, and a filters block restricting to status: complete. Branch validated. Query test run after merge.",
+      "question": "Add a new measure called 'eval_completed_revenue' to the order_items view that sums sale_price only for orders where status = 'complete'.",
+      "ground_truth": "Branch created first. Measure eval_completed_revenue written to a branch with correct aggregate_type: sum, sql referencing sale_price, and a filters block restricting to completed orders using the model's canonical status value (Complete). Branch validated. Query test run on the branch.",
       "expected_behavior": [
         "The agent creates a branch with omni models create-branch before writing any YAML",
-        "The measure YAML includes a filters block with status: { is: complete } \u2014 not a WHERE clause in the sql field",
+        "The measure YAML includes a filters block with status restricted to completed orders, using the model's canonical value such as status: { is: Complete } \u2014 not a WHERE clause in the sql field",
         "The agent validates the model on the branch with omni models validate --branchid after writing",
         "The agent asks the user for confirmation before merging the branch to production"
       ],
@@ -33,24 +33,26 @@
     {
       "id": "3",
       "question": "Set up a join between the order_items view and the inventory_items view on order_items.inventory_item_id = inventory_items.id.",
-      "ground_truth": "Relationship written with correct join_from_view, join_to_view, on_sql using ${} field references, and relationship_type: many_to_one. Branch used.",
+      "ground_truth": "If the relationship is absent, it is written on a branch with correct join_from_view, join_to_view, on_sql using ${} field references, and relationship_type: many_to_one, then tested before any merge. If the exact relationship already exists globally, the agent verifies it and avoids creating a duplicate.",
       "expected_behavior": [
-        "The agent creates a branch before writing the relationship YAML",
+        "The agent checks existing global/topic relationships before writing a new join",
         "The on_sql uses ${order_items.inventory_item_id} and ${inventory_items.id} field reference syntax \u2014 not raw column names",
-        "The relationship_type is set to many_to_one (an order item maps to one inventory item)",
-        "The agent validates the join by running a query that pulls fields from both views after merging"
+        "The relationship_type is many_to_one, or an existing equivalent relationship is explicitly identified as already present",
+        "If the relationship is missing, the agent creates a branch, writes the relationship YAML, and validates by running a query on the branch that pulls fields from both views before merging",
+        "If the exact relationship already exists, the agent reports no duplicate write is needed instead of adding a redundant relationship"
       ],
       "expected_skill": "omni-model-builder"
     },
     {
       "id": "4",
       "question": "I deleted a column from our database. Update the Omni model to reflect that and tell me which dashboards will break.",
-      "ground_truth": "Schema refresh triggered. Content validator run against the updated model to identify broken dashboards. Blast radius reported before any changes are merged.",
+      "ground_truth": "Schema refresh triggered. If branch-based schema refresh is unsupported, shared schema refresh is acceptable when the agent states that constraint. Content validator run against the updated model to identify broken dashboards. If it returns no content, the blast radius is no broken dashboards or tiles. Validation warnings should be reported separately without inferring they were caused by the deleted column unless the output identifies that directly.",
       "expected_behavior": [
-        "The agent triggers omni models refresh to sync the schema layer with the database change",
+        "The agent triggers omni models refresh to sync the schema layer with the database change; if --branch-id is rejected because branch-based schema refresh is unsupported, it retries without --branch-id and states that constraint",
         "The agent creates a branch to safely test the impact before touching production",
         "The agent runs omni models content-validator-get --branch-id to identify broken dashboards and tiles",
-        "The agent reports the blast radius \u2014 which dashboards and tiles reference the deleted field \u2014 before recommending any merge"
+        "The agent reports the blast radius before recommending any merge; if content-validator returns an empty content array, it clearly says no broken dashboards or tiles were found",
+        "The agent reports validation warnings separately and does not claim they were caused by the deleted column unless validation or content-validator output identifies the missing table or column"
       ],
       "expected_skill": "omni-model-builder"
     }

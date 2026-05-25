@@ -3,7 +3,7 @@
   "skill_name": "omni-model-explorer",
   "defaults": {
     "timeout_sec": 600,
-    "judge_model": "claude-haiku-4-5-20251001"
+    "judge_model": "claude-sonnet-4-6"
   },
   "cases": [
     {
@@ -33,7 +33,8 @@
       "question": "I'm about to remove the 'sale_price' field from the model. What will break?",
       "ground_truth": "Field impact analysis run: branch created with field removed, content validator run against the branch, YAML searched for references. Full blast radius reported.",
       "expected_behavior": [
-        "The agent creates a model branch and removes the field there \u2014 it does not touch the production model to assess impact",
+        "The agent creates a model branch and removes the field there, or verifies that an existing branch actually has the field removed \u2014 it does not touch the production model to assess impact",
+        "The agent reads branch YAML or validates the branch setup before treating content-validator output as deletion impact",
         "The agent runs omni models content-validator-get --branch-id to find broken dashboards and tiles",
         "The agent also searches the model YAML for references to sale_price in other views, topics, or calculated fields",
         "The agent reports both broken content (from the validator) and model references (from YAML search) before recommending any action"
@@ -47,7 +48,8 @@
       "expected_behavior": [
         "The agent calls omni models get-topic to retrieve the topic detail \u2014 it does not guess or hallucinate the ai_context content",
         "The agent reports the actual ai_context text from the API response",
-        "If sample_queries are present in the topic, the agent includes them in the summary"
+        "The agent reports configured ai_fields or AI field-selection values from the topic response or topic YAML",
+        "If sample_queries are present in the topic, the agent includes their names, prompts, and relevant query fields in the summary"
       ],
       "expected_skill": "omni-model-explorer"
     }

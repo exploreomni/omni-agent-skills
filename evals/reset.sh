@@ -6,7 +6,12 @@
 #
 # Resets handled:
 #   - omni-admin eval 1: deletes the `newanalyst@company.com` test user
+#   - omni-content-builder eval 2: recreates the Sales Performance dashboard
+#     and updates EVAL_DASHBOARD_TILES in eval-env.local.json
 #   - omni-content-explorer eval 3: removes `finance` label from EVAL_DASHBOARD_LABEL
+#   - omni-model-builder eval 1: removes `eval_completed_revenue` if it was
+#     accidentally merged into `public/order_items.view`
+#   - omni-model-builder eval 2: deletes `customer_segments.view` fixtures
 #   - omni-model-builder / omni-ai-optimizer: deletes non-baseline model branches
 #     on EVAL_MODEL_ID (branches with names starting with "eval-" are protected
 #     by convention — adjust below if you use a different naming pattern).
@@ -36,14 +41,17 @@ done
 
 # ── Config loading ────────────────────────────────────────────────────────────
 
-CONFIG="$SCRIPT_DIR/eval-env.local.json"
-[[ -f "$CONFIG" ]] || CONFIG="$SCRIPT_DIR/eval-env.json"
+LOCAL_CONFIG="$SCRIPT_DIR/eval-env.local.json"
+TEMPLATE_CONFIG="$SCRIPT_DIR/eval-env.json"
+CONFIG="$LOCAL_CONFIG"
+[[ -f "$CONFIG" ]] || CONFIG="$TEMPLATE_CONFIG"
 [[ -f "$CONFIG" ]] || { echo "ERROR: no eval-env config found" >&2; exit 1; }
 
 get() { jq -r --arg k "$1" '.[$k] // ""' "$CONFIG"; }
 
 MODEL_ID=$(get EVAL_MODEL_ID)
 DASHBOARD_LABEL=$(get EVAL_DASHBOARD_LABEL)
+DASHBOARD_TILES=$(get EVAL_DASHBOARD_TILES)
 TEST_USER="newanalyst@company.com"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -84,9 +92,70 @@ else
 fi
 echo ""
 
-# ── 2. Remove eval label from EVAL_DASHBOARD_LABEL ────────────────────────────
+# ── 2. Recreate Sales Performance dashboard ──────────────────────────────────
 
-echo "2. Removing 'finance' label from EVAL_DASHBOARD_LABEL"
+echo "2. Recreating Sales Performance dashboard for EVAL_DASHBOARD_TILES"
+if [[ "$CONFIG" != "$LOCAL_CONFIG" ]]; then
+  echo "  (eval-env.local.json is missing — cannot update local dashboard identifier)"
+elif [[ -z "$MODEL_ID" || "$MODEL_ID" == "replace-with-shared-model-id" ]]; then
+  echo "  (EVAL_MODEL_ID not configured — skipping)"
+else
+  if $DRY_RUN; then
+    echo "  omni documents create --body <Sales Performance fixture>"
+    echo "  jq update EVAL_DASHBOARD_TILES in $CONFIG"
+    if [[ -n "$DASHBOARD_TILES" && "$DASHBOARD_TILES" != "replace-with-dashboard-identifier" ]]; then
+      echo "  omni documents delete $DASHBOARD_TILES"
+    fi
+  else
+    SALES_BODY=$(jq -n --arg m "$MODEL_ID" '{
+      modelId: $m,
+      name: "Sales Performance",
+      queryPresentations: [
+        {
+          name: "Revenue by Month",
+          topicName: "order_items",
+          prefersChart: true,
+          visType: "basic",
+          fields: ["order_items.created_at[month]", "order_items.total_revenue"],
+          query: {
+            table: "order_items",
+            join_paths_from_topic_name: "order_items",
+            fields: ["order_items.created_at[month]", "order_items.total_revenue"],
+            sorts: [{column_name: "order_items.created_at[month]", sort_descending: false}],
+            limit: 24,
+            visConfig: {chartType: "area"}
+          },
+          config: {}
+        }
+      ]
+    }')
+    if CREATE_OUTPUT=$(omni documents create --body "$SALES_BODY" -o json 2>&1); then
+      if ! NEW_DASHBOARD_TILES=$(jq -r '.workbook.identifier // .identifier // ""' <<< "$CREATE_OUTPUT" 2>/dev/null); then
+        echo "  (created document but Omni returned non-JSON output — skipping config update)"
+        echo "$CREATE_OUTPUT" | sed 's/^/    /'
+      elif [[ -z "$NEW_DASHBOARD_TILES" || "$NEW_DASHBOARD_TILES" == "null" ]]; then
+        echo "  (created document but could not parse identifier — skipping config update)"
+        echo "$CREATE_OUTPUT" | sed 's/^/    /'
+      else
+        TMP_CONFIG=$(mktemp "${CONFIG}.tmp.XXXXXX")
+        jq --arg id "$NEW_DASHBOARD_TILES" '.EVAL_DASHBOARD_TILES = $id' "$CONFIG" > "$TMP_CONFIG"
+        mv "$TMP_CONFIG" "$CONFIG"
+        echo "  updated EVAL_DASHBOARD_TILES: $NEW_DASHBOARD_TILES"
+        if [[ -n "$DASHBOARD_TILES" && "$DASHBOARD_TILES" != "replace-with-dashboard-identifier" && "$DASHBOARD_TILES" != "$NEW_DASHBOARD_TILES" ]]; then
+          run "omni documents delete $DASHBOARD_TILES"
+        fi
+      fi
+    else
+      echo "  (failed to create Sales Performance dashboard — skipping)"
+      echo "$CREATE_OUTPUT" | sed 's/^/    /'
+    fi
+  fi
+fi
+echo ""
+
+# ── 3. Remove eval label from EVAL_DASHBOARD_LABEL ────────────────────────────
+
+echo "3. Removing 'finance' label from EVAL_DASHBOARD_LABEL"
 if [[ -n "$DASHBOARD_LABEL" && "$DASHBOARD_LABEL" != "replace-with-dashboard-identifier" ]]; then
   run "omni documents remove-label $DASHBOARD_LABEL finance"
 else
@@ -94,15 +163,67 @@ else
 fi
 echo ""
 
-# ── 3. Delete non-baseline model branches ─────────────────────────────────────
+# ── 4. Delete model-builder shared-model fixtures ─────────────────────────────
 
-echo "3. Deleting model branches on EVAL_MODEL_ID (excluding 'eval-comparison-branch')"
+echo "4. Deleting model-builder eval-created shared model files"
 if [[ -n "$MODEL_ID" && "$MODEL_ID" != "replace-with-shared-model-id" ]]; then
-  BRANCH_NAMES=$(omni models list --include activeBranches -o json 2>/dev/null \
-    | jq -r --arg m "$MODEL_ID" '
+  if $DRY_RUN; then
+    echo "  remove eval_completed_revenue from public/order_items.view if present"
+    echo "  omni models yaml-delete $MODEL_ID --filename public/customer_segments.view --mode extension"
+    echo "  omni models yaml-delete $MODEL_ID --filename customer_segments.view --mode extension"
+  else
+    if ORDER_ITEMS_JSON=$(omni models yaml-get "$MODEL_ID" --filename public/order_items.view -o json 2>/dev/null); then
+      ORDER_ITEMS_YAML=$(jq -r '.files["public/order_items.view"] // ""' <<< "$ORDER_ITEMS_JSON")
+      CLEAN_ORDER_ITEMS_YAML=${ORDER_ITEMS_YAML//DATE_PART(day,/DATE_PART(\'day\',}
+      CLEAN_ORDER_ITEMS_YAML=${CLEAN_ORDER_ITEMS_YAML//\$\{status\} = Complete/\$\{status\} = \'Complete\'}
+      if grep -q '^  eval_completed_revenue:' <<< "$ORDER_ITEMS_YAML"; then
+        CLEAN_ORDER_ITEMS_YAML=$(awk '
+          /^  eval_completed_revenue:/ { skip = 1; removed = 1; next }
+          skip && /^  [A-Za-z0-9_]+:/ { skip = 0 }
+          !skip { print }
+          END { if (!removed) exit 2 }
+        ' <<< "$CLEAN_ORDER_ITEMS_YAML")
+      fi
+      if [[ "$CLEAN_ORDER_ITEMS_YAML" != "$ORDER_ITEMS_YAML" ]]; then
+        BODY=$(jq -n \
+          --arg fileName public/order_items.view \
+          --arg yaml "$CLEAN_ORDER_ITEMS_YAML" \
+          '{
+            fileName: $fileName,
+            yaml: $yaml,
+            mode: "extension",
+            commitMessage: "Remove eval-created eval_completed_revenue measure"
+          }')
+        echo "  omni models yaml-create $MODEL_ID --body <cleaned public/order_items.view>"
+        omni models yaml-create "$MODEL_ID" --body "$BODY" 2>&1 | sed 's/^/    /' || true
+      else
+        echo "  (public/order_items.view fixture already clean — skipping)"
+      fi
+    else
+      echo "  (could not read public/order_items.view — skipping eval_completed_revenue cleanup)"
+    fi
+
+    for filename in public/customer_segments.view customer_segments.view; do
+      if omni models yaml-get "$MODEL_ID" --filename "$filename" -o json 2>/dev/null \
+        | jq -e --arg f "$filename" '.files[$f]? // "" | contains("customer_segments")' >/dev/null; then
+        run "omni models yaml-delete $MODEL_ID --filename $filename --mode extension"
+      else
+        echo "  ($filename not present — skipping)"
+      fi
+    done
+  fi
+else
+  echo "  (EVAL_MODEL_ID not configured — skipping)"
+fi
+echo ""
+
+# ── 5. Delete non-baseline model branches ─────────────────────────────────────
+
+echo "5. Deleting model branches on EVAL_MODEL_ID (excluding 'eval-comparison-branch')"
+if [[ -n "$MODEL_ID" && "$MODEL_ID" != "replace-with-shared-model-id" ]]; then
+  BRANCH_NAMES=$(omni models list --basemodelid "$MODEL_ID" --modelkind BRANCH -o json 2>/dev/null \
+    | jq -r '
         .records[]?
-        | select(.id==$m)
-        | (.activeBranches // [])[]?
         | select(.name | startswith("eval-comparison-branch") | not)
         | .name
       ')
@@ -121,4 +242,6 @@ fi
 echo ""
 
 echo "Reset complete."
-$DRY_RUN && echo "(Dry-run — no changes made)"
+if $DRY_RUN; then
+  echo "(Dry-run — no changes made)"
+fi

@@ -164,6 +164,27 @@ Surfaced in the Omni UI as quick-calc templates. Each takes one `field` operand 
 }
 ```
 
+### 4.2a Percent change from previous row
+
+Use the template operator for month-over-month, week-over-week, or any sorted period-over-period percent change. The date dimension must be sorted ascending so "previous" means the prior period.
+
+```json
+{
+  "calc_name": "mom_pct_change",
+  "label": "MoM % Change",
+  "format": "0.0%",
+  "sql_expression": {
+    "type": "call",
+    "operator": "Omni.OMNI_PERCENT_CHANGE_FROM_PREVIOUS",
+    "operands": [
+      { "type": "field", "field_name": "orders.total_revenue", "for_calc": true }
+    ]
+  }
+}
+```
+
+For monthly revenue, select fields like `["orders.month", "orders.total_revenue", "mom_pct_change"]` and sort `orders.month` ascending. Do not use the period-comparison pivot (`omni_period_pivot`) when the user asks for a calculated column; it returns current/previous columns rather than a table calc. Do not hand-author `SqlStdOperatorTable.LAG` for this common case; the template operator exists and carries the correct calc semantics.
+
 ### 4.3 Running total (lowered form, what `=SUM(B$1:B1)` produces)
 
 ```json
@@ -222,6 +243,10 @@ Surfaced in the Omni UI as quick-calc templates. Each takes one `field` operand 
 **Prefer this over inlining.** When one calc's logic depends on another's, reference by `field_name` rather than duplicating the dependent AST inline. The query engine inlines the reference automatically — the compiled SQL is identical — but the named-reference form is smaller, single-source-of-truth, and stays in sync if you later change the source calc.
 
 ### 4.5 Conditional — `IF(revenue > 1000, "high", "low")`
+
+Use this simple `CASE` shape only for a binary if/else. For multi-branch bucket
+labels such as `High` / `Mid` / `Low`, use the `OMNI_FX_IFS` pattern in section
+4.7 so the calc matches Omni's Excel-style table calculation semantics.
 
 ```json
 {
@@ -555,6 +580,35 @@ Swap the outer aggregator (`OMNI_FX_SUM`, `OMNI_FX_AVERAGE`, `OMNI_FX_MIN`, `OMN
 }
 ```
 
+For a static lookup key such as "return Complete-status revenue on every row", make the first operand a string literal and set the column number to the revenue column's 1-based position within the range. With `query.fields` ordered as `["orders.status", "orders.total_revenue", "complete_revenue_lookup"]`, the key column is position 1 and revenue is position 2:
+
+```json
+{
+  "calc_name": "complete_revenue_lookup",
+  "original_formula": "=VLOOKUP(\"Complete\", A:B, 2)",
+  "sql_expression": {
+    "type": "call",
+    "operator": "Omni.OMNI_FX_VLOOKUP",
+    "operands": [
+      { "type": "literal", "value": "Complete", "string_value": "Complete" },
+      { "type": "field", "field_name": "orders.status" },
+      {
+        "type": "call",
+        "operator": "Omni.OMNI_OFFSET_MULTI",
+        "operands": [
+          { "type": "field", "field_name": "orders.status" },
+          { "type": "literal", "value": -536870911, "string_value": "-536870911" },
+          { "type": "literal", "value": 0,          "string_value": "0" },
+          { "type": "literal", "value": 1073741823, "string_value": "1073741823" },
+          { "type": "literal", "value": 2,          "string_value": "2" }
+        ]
+      },
+      { "type": "literal", "value": 2, "string_value": "2" }
+    ]
+  }
+}
+```
+
 **Formula signature is 3-arg, AST is 4-operand.** `=VLOOKUP(lookup_value, lookup_range, column_number)` decomposes into:
 
 | Operand | Source in formula | Meaning |
@@ -567,6 +621,13 @@ Swap the outer aggregator (`OMNI_FX_SUM`, `OMNI_FX_AVERAGE`, `OMNI_FX_MIN`, `OMN
 **This is an in-result-set lookup, not a cross-query lookup.** The range is the calc engine's view of the current result set's column ordering — `column_number` indexes into `query.fields` starting at the key column. There is no way to look up values from a different topic, model, or tile through this operator.
 
 **Self-referential degenerate case** — `=VLOOKUP(A1, A:C, 2)` always finds the current row's own A-value in column A and returns column B unchanged. Useful only as a smoke test; for actual logic you'd use a static lookup key (`=VLOOKUP("Complete", A:C, 2)` → returns the row matching "Complete" on every row) or a reference to a calc that produces the lookup key.
+
+**Observed limitation in some deployments** — a static string lookup key can be
+interpreted as a referenced query id, producing an error such as `No referenced
+query with id Complete found in query`. When that happens, stop retrying VLOOKUP
+operand variants. For "broadcast the Complete-status revenue on every row", use
+the `OMNI_FX_SUM_IF` pattern in section 4.11 instead; it is the same result for
+status-by-revenue tables and avoids `userEditedSQL`.
 
 **For cross-tile lookups, this operator is the wrong tool.** Use Omni's `XLOOKUP` / `TLOOKUP` (different AST not covered here) or model the lookup as a join in the topic.
 

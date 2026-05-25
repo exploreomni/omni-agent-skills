@@ -3,17 +3,18 @@
   "skill_name": "omni-ai-eval",
   "defaults": {
     "timeout_sec": 600,
-    "judge_model": "claude-haiku-4-5-20251001"
+    "judge_model": "claude-sonnet-4-6"
   },
   "cases": [
     {
       "id": "1",
       "question": "Run a quick eval of Omni AI on these 3 prompts and tell me the pass rate: 'Show me revenue by month', 'Top 10 customers by spend', 'How many orders were placed last week'.",
-      "ground_truth": "Three generate-query calls made with --run-query false, results scored across topic/fields/filters/sorts dimensions, and a pass rate reported.",
+      "ground_truth": "Three generate-query calls made in query-generation-only mode. Because no golden expected query JSON is provided, the agent infers expected query dimensions from each prompt, scores topic/fields/filters/sorts or limit where applicable, and reports a numeric pass rate. The eval is not scored solely on valid JSON, command success, or absence of errors.",
       "expected_behavior": [
-        "The agent uses omni ai generate-query with --run-query false for each prompt (not --run-query true), avoiding unnecessary query execution",
-        "The agent scores each result across at least the topic and fields dimensions \u2014 not just a single pass/fail",
-        "The agent reports a numeric pass rate or per-case scores, not just a narrative description of what the AI returned"
+        "The agent uses omni ai generate-query for each prompt and avoids unnecessary query execution, either by using --run-query false or by otherwise returning generated query JSON without result rows",
+        "The agent infers reasonable expected dimensions from each prompt and scores each generated query across at least topic and fields, plus filters, sorts, or limit when those are implied by the prompt",
+        "The agent does not score solely on valid JSON, command success, or absence of errors",
+        "The agent reports a numeric pass rate or per-case dimension scores, not just a narrative description of what the AI returned"
       ],
       "expected_skill": "omni-ai-eval"
     },
@@ -22,9 +23,10 @@
       "question": "Compare AI accuracy on the main model vs branch id '{{EVAL_BRANCH_ID}}' using these prompts: 'Monthly revenue trend', 'Top products by category'. Tell me if the branch is better or worse.",
       "ground_truth": "Each prompt run twice \u2014 once against main, once against the branch. Results compared side-by-side with a clear delta and regression check.",
       "expected_behavior": [
-        "The agent runs each prompt twice \u2014 once without --branch-id (main) and once with --branch-id branch-uuid-123",
+        "The agent produces one main result and one branch-specific result for each prompt, identifying the branch UUID from the task in the comparison",
         "The agent explicitly checks for regressions \u2014 prompts that passed on main but fail on the branch \u2014 not just whether the overall score improved",
-        "The output includes a comparison table or structured delta showing the score difference per prompt or dimension"
+        "The output includes a comparison table or structured delta showing the score difference per prompt or dimension",
+        "The agent judges main and branch against the same prompt-intent or golden criteria, not by treating extra filters, fill fields, or different result rows as inherently better"
       ],
       "expected_skill": "omni-ai-eval"
     },

@@ -83,6 +83,7 @@ The response includes:
 - `relationships[]` — how views join together
 - `default_filters` — filters applied by default
 - `ai_context` — instructions for Blobby (Omni's AI)
+- `sample_queries` and AI field-selection metadata when configured
 
 ### Step 4: Read the Model YAML
 
@@ -162,12 +163,52 @@ omni models yaml-get <modelId> --includeschemas PUBLIC
 
 Calculation fields in the model use a different format than regular dimensions/measures. The field key is `calc_name` and the expression property is `sql_expression` — not `name`/`sql`.
 
+## AI Context Inspection
+
+When the user asks what Blobby knows about a topic, inspect the topic and report the actual AI configuration — do not infer it from field names:
+
+```bash
+omni models get-topic <modelId> <topicName>
+omni models yaml-get <modelId> --filename '<topicName>\.topic'
+```
+
+Read `ai_context`, `sample_queries`, and AI field-selection values. Depending on CLI/API shape, `get-topic` may wrap these under a top-level `topic` object; if a top-level `ai_context` is null, check `topic.ai_context` before concluding none exists. If `get-topic` does not expose the full `ai_fields` list, read the topic YAML and report the configured `ai_fields` there. Include configured sample query names/prompts and the fields they exercise when present.
+
 ## Field Impact Analysis
 
 Assess the blast radius of a field migration or removal before pushing changes to dbt:
 
-1. **Create a model branch** with `omni-model-builder` where the field is removed or renamed
-2. **Run the content validator** against that branch:
+1. **Create a model branch** where the field is actually absent before running validator checks:
+
+```bash
+omni models create-branch <modelId> --name "field-impact-<field-name>"
+```
+
+Then use the right setup for the change being tested:
+- **Database column deletion/rename**: refresh the schema on the branch after the warehouse change is present, then validate the branch.
+- **Model-only field removal/rename**: write the modified YAML to the branch with `omni models yaml-create`, using the exact `fileName` key returned by `yaml-get`.
+
+`yaml-create` accepts the update as a JSON body, not separate `--filename` or `--branchid` flags:
+
+```bash
+omni models yaml-create <modelId> \
+  --body '{"branchId":"<branchId>","fileName":"public/order_items.view","yaml":"<full modified YAML string>"}'
+```
+
+Use the response and `yaml-get --branchid` readback to verify the file was written to the branch. For model-only field removal impact, remove the field's own definition from the branch YAML, but leave existing dependent field references in place unless the user's planned change also removes them. Those unresolved references are what `omni models validate` uses to reveal dependent measures, dimensions, topics, and joins that would break.
+
+Do not reuse an existing branch unless `yaml-get --branchid <branchId>` proves the target field is absent or renamed there. A branch with a matching name but unchanged YAML is not a valid blast-radius branch.
+
+2. **Validate the branch setup** before interpreting content results:
+
+```bash
+omni models yaml-get <modelId> --filename '<viewName>\.view' --branchid <branchId>
+omni models validate <modelId> --branchid <branchId>
+```
+
+Verify the field definition precisely, not with a whole-file substring search. For example, `sale_price` may still appear in `sql: ${sale_price}` after the `dimensions: sale_price: {}` definition has been removed; that is a valid impact-test branch and should be reported as a dependent reference. If the original field definition still appears in branch YAML, say the branch setup is invalid and do not claim validator results represent removal impact.
+
+3. **Run the content validator** against the verified branch:
 
 ```bash
 omni models content-validator-get <modelId> --branch-id <branchId>
@@ -175,7 +216,7 @@ omni models content-validator-get <modelId> --branch-id <branchId>
 
 This returns all dashboards and tiles with broken references to the removed field.
 
-3. **Search model YAML** for additional references (run in parallel with step 2):
+4. **Search model YAML** for additional references (run in parallel with step 3):
 
 ```bash
 omni models yaml-get <modelId> --filename '.*'
@@ -183,7 +224,7 @@ omni models yaml-get <modelId> --filename '.*'
 
 Search the response for the field name to find references in other views, topics, and calculated fields.
 
-4. **Report**: Combine content-validator results (broken dashboards/tiles) with YAML search results (model references) into a structured blast-radius report.
+5. **Report**: Combine branch validation, content-validator results (broken dashboards/tiles), and YAML search results (model references) into a structured blast-radius report. Separate direct field references, cascading references through dependent fields, raw SQL column references, and saved-content breakage.
 
 > Do NOT paginate documents and check queries individually — the content validator does this for you in one call.
 

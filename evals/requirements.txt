@@ -1,1 +1,1 @@
-benchflow
+benchflow @ git+https://github.com/benchflow-ai/benchflow.git@main

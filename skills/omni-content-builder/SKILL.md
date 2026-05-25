@@ -12,11 +12,17 @@ Create, update, and manage Omni documents and dashboards programmatically via th
 ## Known Issues & Safe Defaults
 
 - **Always run the full validation loop** — see [Validation Loops](#validation-loops) below. At minimum: validate the model, test every query via `omni query run`, check viz spec consistency, and verify the dashboard after creation by reading it back and executing its queries.
-- **Chart rendering**: Complex chart types may show "No chart available" in the Omni UI if `config`, `visType`, or `prefersChart` are misconfigured. Default to `chartType: "table"` for reliable rendering, and configure chart visualizations in the Omni UI.
+- **Chart rendering**: Complex chart types may show "No chart available" in the Omni UI if `config`, `visType`, or `prefersChart` are misconfigured. If the user asks for a specific chart, include the complete chart-specific `config` from [references/queryPresentations.md](references/queryPresentations.md) or [references/visConfig.md](references/visConfig.md). Use `chartType: "table"` with `config: {}` only as a deliberate table fallback, not for requested charts.
 - **Every query must include at least one measure** — a query with only dimensions produces empty/nonsense tiles (e.g., just months with no data).
 - **Use `identifier` not `id`** for all document API calls — `.id` is null for workbook-type documents and will silently fail.
+- **Normalize raw API base URLs** — when using `curl` with `$OMNI_BASE_URL`, set `BASE_URL="${OMNI_BASE_URL%/}"` first. A trailing slash can produce `//api/v1/...` paths that return false 404s.
 - **Boolean filters may be silently dropped** when a `pivots` array is present (reported Omni bug). If boolean filters aren't applying, remove the pivot and test again.
 - **Dashboard updates are full replacements** — `PUT /api/v1/documents/{documentId}` replaces the entire document state. Always read the existing document first and modify from there, or you'll lose tiles you didn't include.
+- **Do not use `omni unstable documents-import` to update an existing dashboard** — import creates a new document and may drop newly-added tiles. For an existing dashboard, use `PUT /api/v1/documents/{documentId}` once with the full modified document.
+- **Do not persist invalid query-level filters** — if `omni query run` returns a server-side parsing error for a tile query filter, validate the unfiltered base query once. Do not save that broken filter into the tile. If a dashboard-level `filterConfig` can satisfy the user request, use that path and verify it by readback; otherwise leave the dashboard unchanged and report the blocker.
+- **Bound failed dashboard updates** — if `PUT` or `PATCH` returns a server-side filter or document validation error, stop after one corrected retry at most. Do not try repeated filter syntaxes, import/export cycles, draft endpoints, or test-document creation loops. Report that the existing dashboard contains a filter/write-path issue and explain what was preserved.
+- **Treat dropped visualization config as a failed partial update** — after `PUT`, read the document back. If a required visualization field such as `visType`, `fields`, or `config` comes back `null`, missing, or absent for a tile that needs it, restore the original document payload once, then report the partial write and rollback result instead of continuing to probe alternate endpoints or claiming completion.
+- **Create readback shape differs from update validation** — after `documents create`, Omni may omit presentation-level `visType`, `fields`, and `config` on `documents get` while keeping the executable query and `query.visConfig` available through `documents get-queries`. For new dashboards, verify tile count, `prefersChart`, `query.visConfig.chartType`, and per-tile query execution. Do not treat create readback omissions as the same failed partial-write condition used for `PUT` updates.
 
 ## Prerequisites
 
@@ -97,7 +103,7 @@ omni documents create --body '{
 }'
 ```
 
-> **Tip**: Default to `"config": {}` for reliable rendering — Omni will auto-generate chart config. For precise chart styling, build a reference dashboard in the UI and read it back via `GET /api/v1/documents/{documentId}`. See [references/queryPresentations.md](references/queryPresentations.md) for complete config examples by chart type (KPI, line, bar, area, pie, scatter, etc.).
+> **Tip**: Use the full chart-specific `config` for requested visualizations. `config: {}` is reliable for table tiles, but it is not enough to guarantee a requested line, bar, area, scatter, or KPI tile renders as that chart. For precise chart styling, build a reference dashboard in the UI and read it back via `GET /api/v1/documents/{documentId}`. See [references/queryPresentations.md](references/queryPresentations.md) for complete config examples by chart type (KPI, line, bar, area, pie, scatter, etc.).
 
 #### queryPresentation Structure
 
@@ -109,7 +115,7 @@ See [references/queryPresentations.md](references/queryPresentations.md) for the
 - `visConfig` goes **inside** the `query` object (silently dropped if placed as sibling)
 - `fields` must be duplicated at both the `queryPresentation` and `query` levels
 - `modelId` is inherited from the document — not needed inside `query`
-- Default to `"config": {}` for reliable rendering — Omni auto-generates chart config
+- Use a chart-specific `config` for requested charts; reserve `"config": {}` for tables or explicit fallback behavior
 - For full `visConfig` and `config` schema details, see [references/visConfig.md](references/visConfig.md)
 
 **To learn the exact structure for a chart type**, build a reference dashboard in the Omni UI and read it back:
@@ -183,7 +189,8 @@ This returns the full document including `queryPresentations`, `filterConfig`, `
 # Note: Full document replacement via PUT is not yet available in the CLI.
 # Use direct HTTP for now, or use omni documents update for partial updates (PATCH).
 # Derive OMNI_BASE_URL and OMNI_API_TOKEN from the active profile for this call.
-curl -L -X PUT "$OMNI_BASE_URL/api/v1/documents/{documentId}" \
+BASE_URL="${OMNI_BASE_URL%/}"
+curl -L -X PUT "$BASE_URL/api/v1/documents/{documentId}" \
   -H "Authorization: Bearer $OMNI_API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -199,6 +206,35 @@ curl -L -X PUT "$OMNI_BASE_URL/api/v1/documents/{documentId}" \
 ```
 
 The `queryPresentations` array uses the same structure as document creation — see above.
+
+If query validation fails before the dashboard update with a server-side filter
+parsing error, do not save that broken filter into an existing dashboard.
+Validate the unfiltered base query once to prove the fields/model are correct.
+If the user request can be satisfied with a dashboard-level `filterConfig`
+instead of a tile-level query filter, use that path and verify `filterConfig`,
+`filterOrder`, and the tile queries by reading the dashboard back. Otherwise,
+report that the requested filtered tile is blocked by query filter parsing and
+that the dashboard was left unchanged.
+
+If the update fails with a server-side filter or document validation error, do
+not continue probing with multiple filter strings or `documents-import`. These
+errors can be triggered by pre-existing dashboard filters in the stored document,
+even if the new tile is valid. Preserve the original dashboard, report the exact
+error, and ask the user whether they want to rebuild/clean the dashboard state.
+
+After the update succeeds, read the document back before declaring success. If
+the API saved the tile query but returned `null`, omitted, or absent required
+presentation fields such as `visType`, `fields`, or `config`, treat the result
+as a failed partial write, not a completed dashboard update. This applies even
+if the original tile also omits those fields in readback; KPI/chart tiles need
+their own renderer/config fields to be observable after the update. Make one
+bounded rollback attempt by restoring the original document payload you read in
+Step 1, then report the exact missing fields and whether rollback succeeded. Do
+not leave a known-broken KPI/table fallback in place and call it done. `omni
+documents get-queries` and `omni query run` verify the data query only; they do
+not prove that Omni persisted the visualization renderer/config. Do not use
+them to override a `documents get` readback showing missing KPI/chart
+presentation fields.
 
 ### Required Fields
 
@@ -223,6 +259,7 @@ The `queryPresentations` array uses the same structure as document creation — 
 
 - **Full replacement**: Every `queryPresentation` you include becomes a tile. Any tile you omit from the array is removed. Always start from the existing document's `queryPresentations` and modify from there.
 - **Draft conflict**: Published documents with existing drafts return 409 unless `clearExistingDraft: true` is set.
+- **Import is not an update fallback**: `omni unstable documents-import` creates a separate document, so it is not a safe fallback for adding tiles to an existing dashboard identifier.
 - See also [Caveats When Reusing queryPresentations](#caveats-when-reusing-querypresentations) (e.g., stripping `model_extension_id`).
 
 ## Updating a Dashboard's Model
@@ -350,6 +387,10 @@ Workbook:  {OMNI_BASE_URL}/w/{identifier}
 ```
 
 The `identifier` comes from the document's `identifier` field in API responses (not `id`, which is null for workbooks).
+Replace `{OMNI_BASE_URL}` with the actual base URL from the active profile or
+environment, normalized without a trailing slash. Do not return the literal
+placeholder string unless credentials are unavailable and you explicitly say the
+URL is a template.
 
 ## Validation Loops
 
@@ -409,7 +450,7 @@ Before assembling `queryPresentations`, check each tile's viz configuration agai
 | `fields` must be duplicated | The `fields` array must appear at both the `queryPresentation` level AND inside the `query` object |
 | Every query must have a measure | Queries with only dimensions produce empty/broken tiles |
 
-> **Tip**: When unsure about a viz config, default to `"prefersChart": false` with `"config": {}` to render as a table. Tables always work. Configure charts in the Omni UI afterward.
+> **Tip**: When unsure about a viz config and the user did not explicitly require a chart type, default to `"prefersChart": false` with `"config": {}` to render as a table. If the user did request a chart, use the complete chart examples in the references or report that chart rendering needs UI/reference-dashboard confirmation.
 
 ### Step 4: Post-Creation Verification
 
@@ -443,6 +484,11 @@ omni query run --body '{
 }'
 ```
 
+For every tile, print or record a concrete verification line with the tile name,
+query status, and row count. Use `summary.row_count` when present, otherwise
+use `cache_metadata.num_rows`. Do not leave post-build verification as silent
+command output.
+
 Using `"resultType": "csv"` makes it easy to spot-check that the data looks reasonable (correct columns, non-empty rows, expected value ranges).
 
 **What to check:**
@@ -450,7 +496,7 @@ Using `"resultType": "csv"` makes it easy to spot-check that the data looks reas
 - `summary.row_count` > 0 for tiles that should show data
 - No unexpected `remaining_job_ids` (which might indicate query timeout issues)
 
-**4c. If any query fails:** The dashboard has a broken tile. Either update the document to fix the query (via `PUT /api/v1/documents/{documentId}`) or flag the issue to the user before sharing the link.
+**4c. If any query fails:** The dashboard has a broken tile. Either update the document to fix the query (via `PUT /api/v1/documents/{documentId}`) or flag the issue to the user before sharing the link. Do not enter an open-ended repair loop; after one failed corrected update attempt, report the blocker and stop.
 
 ### Validation Checklist Summary
 
