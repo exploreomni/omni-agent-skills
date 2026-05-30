@@ -339,12 +339,27 @@ Result: `created_at` inherits its type from the schema layer (DATE with automati
 
 **Key insight**: If your extension defines a dimension but there's no schema layer base dimension to provide type information, Omni can't infer granularities or types. Trigger a schema refresh to auto-generate the schema layer first.
 
+**Reading back what you wrote — `--mode`.** `yaml-get` returns your **extension** layer by default — just the deltas you authored, *not* the auto-generated base columns. To see the **fully-composed** result (schema base + your extension merged), read with `--mode combined`:
+
+```bash
+# What you authored (deltas only) — default
+omni models yaml-get <modelId> --filename your_view.view --branchid <branchId> --mode extension
+
+# What the model actually resolves to (schema + extension merged)
+omni models yaml-get <modelId> --filename your_view.view --branchid <branchId> --mode combined
+```
+
+Use `extension` to confirm *what you changed*, and `combined` to confirm *what the model resolves to*. When the model is git-integrated, the **combined** output mirrors what's written to the repository — which is why committed `*.view.yaml` files carry the schema-layer `table_name:` and base columns, while the extension layer holds only your deltas. (Other `--mode` values: `staged`, `merged`, `history`.)
+
 ### Dimension Parameters
 
 See `references/modelParameters.md` for the complete list of 35+ dimension parameters, format values, and timeframes.
 
 Most common parameters:
-- `sql` — SQL expression using `${field_name}` references
+- `sql` — SQL expression using `${field_name}` references. Reference other fields
+  with `${field}` / `${view.field}`; a raw column auto-maps by name (no `sql:`).
+  There is no `${TABLE}` construct — `${TABLE}.column` errors with
+  `Column "__omni_scoped" not found` at validation and query time.
 - `label` — display name · `description` — help text (also used by Blobby)
 - `primary_key: true` — unique key (critical for aggregations)
 - `hidden: true` — hides from picker, still usable in SQL

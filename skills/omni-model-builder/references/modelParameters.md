@@ -42,6 +42,14 @@ Complete parameter reference for views, topics, dimensions, and measures. Use th
 | `ignore_from_extended` | Controls field omission during view extensions |
 | `custom_primary_key_sql_for_quick_aggs` | Custom primary key for aggregate measures |
 
+> **`sql` references fields, not `${TABLE}`.** Use `${field}` / `${view.field}`
+> to reference another defined dimension or measure. There is **no `${TABLE}`
+> construct in Omni** — `${TABLE}.column` is a LookML-ism that does not resolve;
+> it errors with `Column "__omni_scoped" not found` at both `omni models
+> validate` (blocking) and query time. To use a raw database column, just let
+> the dimension auto-map by its column name (no `sql:` needed); only add `sql:`
+> for derived/computed expressions, referencing other fields via `${field}`.
+
 ### Common dimension examples
 
 ```yaml
@@ -60,12 +68,12 @@ dimensions:
     timeframes: [raw, date, week, month, quarter, year]
 
   sale_price:
-    sql: ${TABLE}.sale_price
+    # A plain column dimension auto-maps by name — no `sql:` needed.
     format: currency_2
     hidden: true
 
   customer_tier:
-    sql: ${TABLE}.tier
+    sql: ${tier}
     groups:
       - filter:
           is: [enterprise, strategic]
@@ -297,7 +305,7 @@ Bucket string field values using CASE-like logic:
 ```yaml
 dimensions:
   customer_segment:
-    sql: ${TABLE}.tier
+    sql: ${tier}
     groups:
       - filter:
           is: [enterprise, strategic]
