@@ -55,67 +55,14 @@ Use dialect-appropriate functions in your SQL (e.g. `SAFE_DIVIDE` for BigQuery, 
 
 ## Schema Refresh: Syncing with Database Changes
 
-The **schema layer** is auto-generated from your database. When your database schema changes (new/deleted/renamed columns, type changes), refresh Omni's schema layer to stay in sync.
+The **schema layer** is auto-generated from your database. When your database schema changes (new/deleted/renamed columns, type changes), refresh it to stay in sync: `omni models refresh <modelId>` (add `--branch-id <branchId>` to scope to a branch; requires **Connection Admin**).
+
+See `references/schema-refresh.md` for when to trigger, what it does and its side effects, the deleted/renamed-column impact-check workflow, and connection/credential error handling.
 
 ## Known Issues & Safe Defaults
 
 - **Do not merge without explicit confirmation** — after branch validation and query testing, stop and ask the user before `omni models merge-branch`, even when the model is not git-connected. Treat requests like "add a field" or "create a view" as requests to prepare validated branch changes, not as permission to ship to production.
 - **Keep eval-created files on branches until confirmed** — if you create fields/views for validation, report the branch name/id, validation status, and test query result. Only merge after the user explicitly says to merge, ship, publish, or promote.
-
-**When to trigger:** new/renamed/deleted tables or columns, a new view that needs auto-generated base dimensions, or any time the model is out of sync with the database.
-
-**What it does:** Introspects your data warehouse, auto-generates base dimensions with correct types and timeframes, detects deletions and broken references. Runs as a background job (can take several minutes).
-
-**Side effect:** May auto-generate dimensions for columns you don't need. Suppress with `hidden: true` in your extension layer.
-
-**Trigger via API:**
-
-```bash
-omni models refresh <modelId>
-
-# With branch:
-omni models refresh <modelId> --branch-id <branchId>
-```
-
-Requires **Connection Admin** permissions.
-
-**Deleted or renamed columns:** If the user says a database column was deleted or renamed but does not name the exact table/column, do not stop immediately for clarification. First create a branch, refresh the schema on that branch, validate the branch, and run the content validator to identify broken model fields, dashboards, and tiles:
-
-```bash
-omni models create-branch <modelId> --name "schema-refresh-impact-check"
-omni models refresh <modelId> --branch-id <branchId>
-omni models validate <modelId> --branchid <branchId>
-omni models content-validator-get <modelId> --branch-id <branchId>
-```
-
-Some connections do not support branch-based schema refresh. If
-`omni models refresh <modelId> --branch-id <branchId>` returns that
-`branch_id is not allowed`, run `omni models refresh <modelId>` without a
-branch ID, then continue with branch-scoped validation and content validation
-where the CLI supports it. State that schema refresh was shared because the
-connection does not support branch refresh.
-
-Report the blast radius from validation and content-validator results before recommending any merge. Ask for the deleted table/column only if the refresh and validator output are too broad or ambiguous to identify the affected field.
-
-If refresh and content validation complete successfully and the content validator
-returns no broken dashboards or tiles, say that no dashboard breakage was found
-in the checked model state. Do not turn that into a blocker; only ask for the
-specific deleted table/column if the user wants you to remove or hide a
-particular model field after the impact check.
-
-Distinguish validation warnings from dashboard breakage. A warning such as
-`No join path from ...` should be reported as a model validation warning, but
-do not infer that it was caused by the deleted column unless validation or the
-content validator identifies the missing table/column directly.
-
-If model/topic reads fail with an infrastructure error such as `This connection
-uses dynamic environments and you don't have a value set for the required user
-attribute`, stop after confirming the error on one direct model read. Report the
-credential or connection-environment blocker and the exact command that failed.
-Do not spend time probing unrelated admin APIs or trying to reconfigure
-connection environments unless the user explicitly asked you to administer the
-instance; the schema-impact workflow cannot produce a reliable blast radius
-until the model is readable.
 
 ## Discovering Commands
 
@@ -160,89 +107,26 @@ omni models yaml-create <modelId> --body '{
 
 ### Step 2: Validate and Test
 
-Every YAML write must be validated and tested before merging. Silent failures are common — a field can be syntactically valid YAML but produce wrong results or broken queries.
-
-**2a. Run model validation:**
+Every YAML write must be validated and tested before merging — a field can be valid YAML yet produce wrong results or broken queries.
 
 ```bash
+# 1. Validate — any issue with is_warning:false is a blocking error; fix before proceeding
 omni models validate <modelId> --branchid <branchId>
-```
 
-Check the response:
-- If any issue has `is_warning: false`, it's an error — fix before proceeding
-- Common errors: broken column references, duplicate field names, invalid SQL syntax, missing join paths
-- If `auto_fix` is present, review the suggestion before applying
+# 2. Query the fields you changed — confirm no error and summary.row_count > 0
+omni query run --body '{"query":{"modelId":"<modelId>","table":"your_view","fields":["your_view.new_dimension","your_view.new_measure"],"limit":10,"join_paths_from_topic_name":"your_topic"},"branchId":"<branchId>"}'
 
-**2b. Test new/modified fields with a query:**
-
-Run a query that exercises the fields you just created or modified:
-
-```bash
-omni query run --body '{
-  "query": {
-    "modelId": "<modelId>",
-    "table": "your_view",
-    "fields": ["your_view.new_dimension", "your_view.new_measure"],
-    "limit": 10,
-    "join_paths_from_topic_name": "your_topic"
-  },
-  "branchId": "<branchId>"
-}'
-```
-
-> **Two complementary validation tools:**
-> - `omni query run` — structured validation using explicit field expressions; use to precisely test specific dimensions, measures, and join paths
-> - `omni ai job-submit --branch-id <branchId> --topic-name <topicName>` — natural language validation; use to confirm the topic answers business questions correctly against live branch data. `omni ai generate-query --run-query true` does not resolve branch-only topics at execution time and should not be used for branch validation.
-
-**What to check:**
-- **No error in response** — if the query returns an error, the field SQL is broken (bad column reference, wrong aggregate, dialect mismatch)
-- **`summary.row_count` > 0** — confirms the field resolves to actual data
-- **Values look correct** — spot-check that a `sum` isn't returning a `count`, that a boolean dimension returns true/false (not 0/1 unexpectedly), etc.
-- **Joins work** — if your field references another view (e.g., `${users.id}`), include fields from both views to confirm the join resolves
-
-**2c. If you modified a relationship or topic join, test the join path:**
-
-```bash
-omni query run --body '{
-  "query": {
-    "modelId": "<modelId>",
-    "table": "base_view",
-    "fields": ["base_view.id", "joined_view.some_field"],
-    "limit": 10,
-    "join_paths_from_topic_name": "your_topic"
-  }
-}'
-```
-
-A working join returns rows with data from both views. A broken join returns an error or null values in the joined columns.
-
-**2d. Verify the field appears in the model:**
-
-```bash
-# Check the topic to confirm new fields are listed
-omni models get-topic <modelId> <topicName> --branch-id <branchId>
-
-# Or read back the YAML you just wrote
+# 3. Read it back — confirm the field is present (and not duplicated at a second path)
 omni models yaml-get <modelId> --filename your_view.view --branchid <branchId>
-
 ```
 
-Confirm your new fields are listed in the response. If they're missing, the YAML write may have silently failed (e.g., wrong `fileName`, malformed YAML string) — or the view may live in an offloaded schema that `yaml-get` doesn't surface. Before concluding a view doesn't exist, run the lazy-load fallback (see "Fallback: View Missing from yaml-get" below).
-
-> **Confirm you didn't create a duplicate.** `success: true` means accepted, not that it hit the intended file (see Step 1). Re-list files and check the same view name doesn't now exist at two paths (e.g. `MARTS/foo.view` and `foo.view`); if it does, delete the stray one (empty `yaml`) and re-write with the full-path key.
+Spot-check that values look right (a `sum` isn't returning a `count`; booleans read true/false), and if a field references another view include fields from both to confirm the join resolves. See `references/validation-and-testing.md` for join-path testing, natural-language validation via `omni ai job-submit`, the full results checklist, and duplicate-file recovery.
 
 ### Step 3: Ship the Branch
 
 > **Important**: Always ask the user for confirmation before shipping. Changes applied to the production model cannot be easily undone. Only ship after validation and testing pass (Step 2).
 
-First, check whether the model is git-connected — this determines which path to take:
-
-```bash
-omni models git-get <modelId>
-```
-
-- **Returns a config with `sshUrl` / `baseBranch`** → git-connected → use **Path A** (open/update a PR).
-- **Returns 404 or no config** → not git-connected → use **Path B** (merge directly in Omni).
+Check whether the model is git-connected — `omni models git-get <modelId>`. A config with `sshUrl` / `baseBranch` → git-connected → **Path A** (open/update a PR); a `404`/no config → not git-connected → **Path B** (merge directly in Omni).
 
 #### Path A — Git-connected: open or update a PR
 
