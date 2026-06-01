@@ -478,51 +478,7 @@ Status labels use `🟢 Pass`, `🟡 Warn`, `🔴 Fail`, and `⚫ Error`.
 
 ## Contributing
 
-Contributions welcome! This is the single source of truth for all Omni Analytics agent skills. Please open an issue or PR.
-
-### Versioning and Changelog
-
-Use semantic versioning for published plugin changes. If you change distributed plugin behavior or metadata and do not bump the affected versions, existing installs may not pick up the update cleanly.
-
-**When to bump:**
-
-| Change type | Version component |
-|---|---|
-| Bug fixes, clarifications, doc corrections | `PATCH` (e.g. `1.2.0` → `1.2.1`) |
-| New skills, new features, behavior changes | `MINOR` (e.g. `1.2.0` → `1.3.0`) |
-| Breaking changes to existing skill behavior | `MAJOR` (e.g. `1.2.0` → `2.0.0`) |
-
-Only bump the plugin(s) whose behavior changed. A fix to `omni-integrations` does not require bumping `omni-analytics`.
-
-**Which files to update:**
-
-This repo currently duplicates version metadata across `plugin.json` and `marketplace.json`. Until that is centralized, keep all affected version fields in sync:
-
-- `omni-analytics`: `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.cursor-plugin/plugin.json`, `.cursor-plugin/marketplace.json`
-- `omni-integrations`: `skills/omni-integrations/.claude-plugin/plugin.json`, `skills/omni-integrations/.cursor-plugin/plugin.json`, `.claude-plugin/marketplace.json` (omni-integrations entry), `.cursor-plugin/marketplace.json` (omni-integrations entry)
-
-**Changelog format:**
-
-Document all user-visible changes in `CHANGELOG.md` under the affected version. Use `Added`, `Changed`, and `Fixed` sections. The date should be the release date (when the version is published), not the commit date.
-
-```markdown
-## [1.3.0] - YYYY-MM-DD
-
-### omni-analytics
-
-**Added**
-- Description of new capability
-
-**Changed**
-- Description of behavior change
-
-**Fixed**
-- Description of bug fix
-```
-
-**PR workflow:**
-
-Version bumps and `CHANGELOG.md` entries should be included in the same PR as the changes — not batched separately after the fact. If a PR introduces multiple changes across a release cycle without bumping, the changelog will drift and users reporting stale plugin versions will be harder to diagnose.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contributor guidance, including skill and agent authoring, validation, evals, versioning, changelog entries, and PR expectations.
 
 ## License
 
