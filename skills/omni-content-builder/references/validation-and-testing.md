@@ -107,7 +107,7 @@ Using `"resultType": "csv"` makes it easy to spot-check that the data looks reas
 - `summary.row_count` > 0 for tiles that should show data
 - No unexpected `remaining_job_ids` (which might indicate query timeout issues)
 
-**4c. If any query fails:** The dashboard has a broken tile. Either update the document to fix the query (via `PUT /api/v1/documents/{documentId}`) or flag the issue to the user before sharing the link. Do not enter an open-ended repair loop; after one failed corrected update attempt, report the blocker and stop.
+**4c. If any query fails:** The dashboard has a broken tile. Either update the document to fix the query (via `omni documents put <identifier>`) or flag the issue to the user before sharing the link. Do not enter an open-ended repair loop; after one failed corrected update attempt, report the blocker and stop.
 
 ## Validation Checklist Summary
 
