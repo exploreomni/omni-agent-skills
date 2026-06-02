@@ -4,6 +4,19 @@ Complete reference for queryPresentation objects — parameter tables, the visua
 
 Every chart `queryPresentation` requires: `name`, `prefersChart: true`, `chartType`, `visConfig`, `fields`, and `query`. The `visConfig.config` shape varies by chart family — the examples below show the exact structure for each.
 
+## Table of Contents
+
+- [Where the visualization config lives](#where-the-visualization-config-lives-read-this-first) — the #1 gotcha
+- [Key Parameters](#key-parameters)
+- [queryPresentation Object Parameters](#querypresentation-object-parameters)
+- [Query Object Parameters](#query-object-parameters)
+- [chartType values (summary)](#charttype-values-summary)
+- [Discovering the Full Structure from Existing Dashboards](#discovering-the-full-structure-from-existing-dashboards)
+- [Caveats When Reusing queryPresentations](#caveats-when-reusing-querypresentations)
+- [Chart Type Examples](#chart-type-examples)
+- [Cartesian Config Fields](#cartesian-config-fields-visconfigconfig)
+- [Quick Reference: chartType → visType → config](#quick-reference-charttype--vistype--config)
+
 ## Where the visualization config lives (read this first)
 
 This is the single most common source of "my chart renders as a table / as the wrong chart type" bugs. Get this right and everything else follows.
