@@ -86,7 +86,23 @@ omni documents create --body '{
       "name": "Monthly Revenue Trend",
       "topicName": "order_items",
       "prefersChart": true,
-      "visType": "basic",
+      "chartType": "lineColor",
+      "visConfig": {
+        "visType": "basic",
+        "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
+        "config": {
+          "x": { "field": { "name": "order_items.created_at[month]" } },
+          "mark": { "type": "line" },
+          "color": {},
+          "series": [{ "field": { "name": "order_items.total_revenue" }, "yAxis": "y" }],
+          "tooltip": [
+            { "field": { "name": "order_items.created_at[month]" } },
+            { "field": { "name": "order_items.total_revenue" } }
+          ],
+          "configType": "cartesian",
+          "_dependentAxis": "y"
+        }
+      },
       "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
       "query": {
         "table": "order_items",
@@ -96,14 +112,13 @@ omni documents create --body '{
         "limit": 100,
         "join_paths_from_topic_name": "order_items",
         "visConfig": { "chartType": "lineColor" }
-      },
-      "config": {}
+      }
     }
   ]
 }'
 ```
 
-> **Tip**: Use the full chart-specific `config` for requested visualizations. `config: {}` is reliable for table tiles, but it is not enough to guarantee a requested line, bar, area, scatter, or KPI tile renders as that chart. For precise chart styling, build a reference dashboard in the UI and read it back via `GET /api/v1/documents/{documentId}`. See [references/queryPresentations.md](references/queryPresentations.md) for complete config examples by chart type (KPI, line, bar, area, pie, scatter, etc.).
+> **Tip**: The rendering spec belongs in **`visConfig.config`** with `chartType` set at the queryPresentation level — a bare top-level `config` is silently dropped, and `query.visConfig.chartType` alone does not produce a chart. `visConfig.config: {}` is fine for tables. A correctly-shaped `create` reliably one-shots a styled chart (no export/import needed); for advanced styling you can still build a reference dashboard in the UI and read it back via `omni documents get`. See [references/queryPresentations.md](references/queryPresentations.md) and [references/visConfig.md](references/visConfig.md) for complete config examples by chart type.
 
 #### queryPresentation Structure
 
@@ -111,12 +126,14 @@ See [references/queryPresentations.md](references/queryPresentations.md) for the
 
 **Key points:**
 - `prefersChart` must be `true` to render a chart (otherwise always shows table)
-- `visType`: `"omni-kpi"` for KPI tiles, `"basic"` for all other charts
-- `visConfig` goes **inside** the `query` object (silently dropped if placed as sibling)
+- A chart is defined by **two queryPresentation-level fields**: `chartType` (the enum value) and `visConfig` (`{ config, visType, fields }`). The rendering spec goes in **`visConfig.config`**.
+- A bare top-level `config` on the queryPresentation is **silently dropped** — do not put the spec there. `query.visConfig.chartType` is only a hint and does not drive the tile on its own.
+- `visType`: `"omni-kpi"` for KPI, `"basic"` for cartesian/pie/heatmap/boxplot, `"funnel"`/`"sankey"`/`"map"`/`"svg-map"` for those families, `"omni-table"` for tables
+- `chartType` must be a valid enum value — e.g. `column`/`columnStacked` (vertical), `bar`/`barStacked` (horizontal), `lineColor`, `area`, `pie`, `kpi`. **`barColor`/`areaColor`/`stackedBarColor` are NOT valid.**
 - `fields` must be duplicated at both the `queryPresentation` and `query` levels
 - `modelId` is inherited from the document — not needed inside `query`
-- Use a chart-specific `config` for requested charts; reserve `"config": {}` for tables or explicit fallback behavior
-- For full `visConfig` and `config` schema details, see [references/visConfig.md](references/visConfig.md)
+- `automaticVis` is set from `prefersChart` and is harmless — it does not discard an explicit `chartType`/`visConfig.config`
+- For the full enum, the `chartType → visType → configType` mapping, and per-family `config` shapes, see [references/visConfig.md](references/visConfig.md)
 
 **To learn the exact structure for a chart type**, build a reference dashboard in the Omni UI and read it back:
 
@@ -440,17 +457,20 @@ Before assembling `queryPresentations`, check each tile's viz configuration agai
 | Rule | What to check |
 |------|---------------|
 | `prefersChart` must be `true` for charts | If `false` or omitted, Omni renders a table regardless of other viz settings |
-| `visType` must match chart category | `"omni-kpi"` for KPI tiles, `"basic"` for all other chart types (line, bar, area, scatter, pie, table) |
-| `visConfig.chartType` must be valid | Must be one of: `table`, `kpi`, `lineColor`, `barColor`, `areaColor`, `stackedBarColor`, `pie`, `scatter`, `heatmap`, `map` |
-| `config` fields must match chart type | Cartesian charts (line, bar, area, scatter) require `mark`, `series`, `tooltip`, `version`, `behaviors`, `configType: "cartesian"`, `_dependentAxis` |
-| `_dependentAxis` must match orientation | `"y"` for vertical charts (line, vertical bar, area, scatter), `"x"` for horizontal bar charts |
-| `mark.type` must match `visConfig.chartType` | `lineColor` → `"line"`, `barColor`/`stackedBarColor` → `"bar"`, `areaColor` → `"area"`, `scatter` → `"point"` |
-| `series[].yAxis` or `series[].xAxis` | Must use `yAxis: "y"` for vertical charts, `xAxis: "x"` for horizontal bars |
-| KPI tiles need `markdownConfig` | `config.markdownConfig` array with at least one entry referencing a field from the query |
-| `fields` must be duplicated | The `fields` array must appear at both the `queryPresentation` level AND inside the `query` object |
+| Spec lives in `visConfig.config` | The rendering spec must be in `visConfig.config` at the queryPresentation level — a bare top-level `config` is silently dropped |
+| `chartType` set at the presentation level | The chart type enum value must be a queryPresentation-level `chartType` (not only `query.visConfig.chartType`) |
+| `visType` must match chart category | `"omni-kpi"` for KPI, `"basic"` for cartesian/pie/heatmap/boxplot, `"funnel"`/`"sankey"`/`"map"`/`"svg-map"` for those, `"omni-table"` for tables |
+| `chartType` must be a valid enum value | e.g. `table`, `kpi`, `line`/`lineColor`, `column`/`columnStacked`, `bar`/`barStacked`, `area`/`areaStacked`, `point`/`pointColor`, `pie`, `heatmap`, `boxplot`, `funnel`, `sankey`, `map`, `regionMap`. **NOT** `barColor`/`areaColor`/`stackedBarColor`/`scatter` |
+| `config` fields must match chart family | Cartesian (line/column/bar/area/point) require `mark`, `series`, `tooltip`, `behaviors`, `configType: "cartesian"`, `_dependentAxis`; pie uses `configType: "polar"`; heatmap `"heatmap"`; boxplot `"boxplot"`; funnel/sankey/map have no `configType` |
+| `_dependentAxis` must match orientation | `"y"` for vertical charts (line, **column**, area, scatter), `"x"` for horizontal **bar** charts |
+| `mark.type` must match the chart | `line`/`lineColor` → `"line"`; `column*`/`bar*` → `"bar"`; `area*` → `"area"`; `point*` → `"point"` |
+| `series[].yAxis` or `series[].xAxis` | Use `yAxis: "y"` for vertical charts, `xAxis: "x"` for horizontal bars |
+| Stack/group dimension is pivoted | The `color.field` used for stacking must also be in `query.pivots` |
+| KPI tiles need `markdownConfig` | `visConfig.config.markdownConfig` array with at least one entry referencing a field from the query |
+| `fields` must be duplicated | The `fields` array must appear at the `queryPresentation` level AND inside the `query` object |
 | Every query must have a measure | Queries with only dimensions produce empty/broken tiles |
 
-> **Tip**: When unsure about a viz config and the user did not explicitly require a chart type, default to `"prefersChart": false` with `"config": {}` to render as a table. If the user did request a chart, use the complete chart examples in the references or report that chart rendering needs UI/reference-dashboard confirmation.
+> **Tip**: When unsure about a viz config and the user did not explicitly require a chart type, default to `"prefersChart": false` with `"visConfig": { "config": {}, "visType": "omni-table", "fields": [...] }` to render as a table. If the user did request a chart, use the complete chart examples in the references. Always read the document back afterward (`omni unstable documents-export`) and confirm the persisted `visConfig.spec` is non-empty.
 
 ### Step 4: Post-Creation Verification
 

@@ -1,334 +1,254 @@
 # visConfig Reference
 
-Complete reference for the `visConfig` object — accepted `chartType` values, the `config` object structure for each chart family, and worked examples for every supported visualization type.
+Complete reference for the visualization config on a queryPresentation — where it lives, accepted `chartType` values, the `config` object structure for each chart family, and worked examples.
 
 ## Table of Contents
 
-- [Where visConfig Lives](#where-visconfig-lives) — placement inside the query object
-- [chartType Values](#charttype-values) — all 35+ accepted values and mapping to config properties
-- [Config Object: Cartesian Charts](#config-object-cartesian-charts) — line, bar, area, scatter, combo, heatmap, boxplot
-- [Config Object: KPI](#config-object-kpi) — single value and multi-value tiles
+- [Where the visualization config lives](#where-the-visualization-config-lives) — the #1 gotcha
+- [chartType Values](#charttype-values) — the authoritative enum
+- [chartType → visType → configType mapping](#charttype--vistype--configtype-mapping)
+- [Config Object: Cartesian Charts](#config-object-cartesian-charts) — line, column, bar, area, scatter, combo
+- [Config Object: KPI](#config-object-kpi)
 - [Config Object: Pie / Donut](#config-object-pie--donut)
+- [Config Object: Heatmap](#config-object-heatmap)
+- [Config Object: Boxplot](#config-object-boxplot)
 - [Config Object: Funnel](#config-object-funnel)
 - [Config Object: Sankey](#config-object-sankey)
-- [Config Object: Heatmap](#config-object-heatmap)
-- [Config Object: Map](#config-object-map) — point maps with lat/lng
-- [Config Object: Region Map](#config-object-region-map) — choropleth maps
-- [Complete Examples](#complete-examples) — 17 worked examples covering every chart family
-- [Discovering Config for Advanced Chart Types](#discovering-config-for-advanced-chart-types) — reading configs from the UI
-- [resultConfig](#resultconfig) — column order, hidden columns, widths
-- [aiConfig](#aiconfig) — AI-generated descriptions and subtitles
-- [Common Mistakes](#common-mistakes) — symptoms and fixes
-- [Safe Defaults](#safe-defaults) — fallback patterns when unsure
+- [Config Object: Map / Region Map](#config-object-map--region-map)
+- [Complete Examples](#complete-examples)
+- [Discovering Config for Advanced Chart Types](#discovering-config-for-advanced-chart-types)
+- [resultConfig](#resultconfig)
+- [aiConfig](#aiconfig)
+- [Common Mistakes](#common-mistakes)
+- [Safe Defaults](#safe-defaults)
 
-> **Important**: The `visConfig` schema is not fully documented in Omni's public API docs. The examples below are based on reading back visualizations from dashboards created in the Omni UI via `GET /api/v1/documents/{documentId}`. **Always verify config structure** by building a reference chart in the UI and reading it back before relying on these examples for advanced or uncommon chart types.
+> **Important**: The visualization config schema is not fully documented in Omni's public API docs. The structures below are derived from Omni's visualization type definitions and confirmed by reading dashboards back via `omni documents get` / `omni unstable documents-export`. For uncommon chart types, **always verify** by building a reference chart in the UI and reading it back before relying on these examples.
 
-## Where visConfig Lives
+## Where the visualization config lives
 
-`visConfig` belongs **inside the `query` object** — not at the `queryPresentation` level. When placed as a sibling of `query`, it is silently dropped.
-
-```json
-{
-  "queryPresentations": [{
-    "name": "My Tile",
-    "prefersChart": true,
-    "visType": "basic",
-    "config": { ... },
-    "query": {
-      "table": "order_items",
-      "fields": [...],
-      "visConfig": {             
-        "chartType": "lineColor"
-      }
-    }
-  }]
-}
-```
-
-`visConfig` alone does **not** control chart rendering. It stores the chart type hint on the query. The actual rendering is driven by three fields at the `queryPresentation` level:
+A chart tile is driven by **two fields at the queryPresentation level**:
 
 | Field | Purpose |
 |-------|---------|
-| `prefersChart` | Must be `true` to render any chart (otherwise always shows table) |
-| `visType` | Renderer: `"basic"` for standard charts, `"omni-kpi"` for KPI tiles, `"markdown"` for markdown tiles |
-| `config` | Chart-specific rendering configuration (structure varies by chart type) |
+| `chartType` | The chart type — a valid enum value (see below). |
+| `visConfig` | An object `{ config, visType, fields }`. The rendering spec goes in **`visConfig.config`**. |
+
+Plus `prefersChart: true` to default the tile to chart (vs. table) view.
+
+```json
+{
+  "name": "My Tile",
+  "prefersChart": true,
+  "chartType": "columnStacked",
+  "visConfig": {
+    "config": { "configType": "cartesian", "_dependentAxis": "y", "...": "spec" },
+    "visType": "basic",
+    "fields": ["..."]
+  },
+  "fields": ["..."],
+  "query": { "...": "...", "visConfig": { "chartType": "columnStacked" } }
+}
+```
+
+**Common failure modes — all caused by misplacing the config:**
+
+| What you did | What happens |
+|--------------|--------------|
+| Put the spec in a top-level `config` key on the queryPresentation | Spec is **silently dropped**; `visConfig.config` ends up `{}` and the tile auto-renders (often a line chart). |
+| Set only `query.visConfig.chartType` and no queryPresentation-level `chartType`/`visConfig` | The query carries a hint, but the tile is not configured — renders as auto/table. |
+| Put the spec under `visConfig.spec` instead of `visConfig.config` | Dropped — the input field is `config` (the export/DB field is named `spec`, but the create/update **input** is `config`). |
+| Used `barColor` / `areaColor` / `stackedBarColor` | Rejected — not in the `chartType` enum. |
+
+> **`automaticVis` is set from `prefersChart`** (`true` → `true`). That is expected and harmless — it only controls whether the tile defaults to the chart or the table view. It does **not** discard an explicit `chartType`/`visConfig.config`. A tile with `automaticVis: true` and an explicit spec still renders that spec.
+
+**Verify after writing:** read the document back (`omni unstable documents-export <identifier>`) and confirm the persisted `queryPresentation.visConfig` has a non-empty `spec` and the expected `chartType`. If `spec` is `{}`, the payload put the config in the wrong place.
 
 ## chartType Values
 
-The `chartType` field on `visConfig` (inside `query`) and optionally on `queryPresentation` accepts these values:
+This is Omni's authoritative `chartType` enum. A stacked **column** is vertical; a stacked **bar** is horizontal.
 
-### Standard Chart Types
-
-| chartType | Category | Description |
-|-----------|----------|-------------|
-| `"table"` | Table | Data table (default) |
+| chartType | Family | Description |
+|-----------|--------|-------------|
+| `"auto"` | Auto | Let Omni choose the chart type |
+| `"table"` | Table | Data table |
 | `"kpi"` | KPI | Single value / big number |
-| `"line"` | Cartesian | Line chart (auto color) |
-| `"lineColor"` | Cartesian | Line chart with color encoding |
-| `"area"` | Cartesian | Area chart (auto color) |
-| `"areaStacked"` | Cartesian | Stacked area chart |
-| `"areaStackedPercentage"` | Cartesian | 100% stacked area chart |
-| `"bar"` | Cartesian | Bar chart (auto orientation) |
-| `"barColor"` | Cartesian | Bar chart with color encoding |
-| `"barGrouped"` | Cartesian | Grouped (side-by-side) bars |
-| `"barStacked"` | Cartesian | Stacked bar chart |
-| `"barStackedPercentage"` | Cartesian | 100% stacked bar chart |
-| `"barLine"` | Cartesian | Combo bar + line chart |
-| `"column"` | Cartesian | Vertical bar (alias) |
+| `"line"` | Cartesian | Line chart |
+| `"lineColor"` | Cartesian | Line chart with color (series) encoding |
+| `"column"` | Cartesian | Vertical bars |
 | `"columnGrouped"` | Cartesian | Grouped vertical bars |
 | `"columnStacked"` | Cartesian | Stacked vertical bars |
 | `"columnStackedPercentage"` | Cartesian | 100% stacked vertical bars |
-| `"point"` | Cartesian | Scatter plot (auto) |
+| `"bar"` | Cartesian | Horizontal bars |
+| `"barGrouped"` | Cartesian | Grouped horizontal bars |
+| `"barStacked"` | Cartesian | Stacked horizontal bars |
+| `"barStackedPercentage"` | Cartesian | 100% stacked horizontal bars |
+| `"barLine"` | Cartesian | Combo bar + line |
+| `"area"` | Cartesian | Area chart |
+| `"areaStacked"` | Cartesian | Stacked area chart |
+| `"areaStackedPercentage"` | Cartesian | 100% stacked area chart |
+| `"point"` | Cartesian | Scatter plot |
 | `"pointColor"` | Cartesian | Scatter with color encoding |
 | `"pointSize"` | Cartesian | Scatter with size encoding |
-| `"pointSizeColor"` | Cartesian | Scatter with size + color encoding |
-| `"pie"` | Radial | Pie / donut chart |
-| `"funnel"` | Specialty | Funnel chart |
-| `"sankey"` | Specialty | Sankey flow diagram |
-| `"heatmap"` | Grid | Heatmap |
-| `"boxplot"` | Statistical | Box-and-whisker plot |
-| `"map"` | Geo | Point map (lat/lng) |
-| `"regionMap"` | Geo | Choropleth / filled region map |
-| `"summaryValue"` | KPI | Summary value display |
-| `"singleRecord"` | Detail | Single record viewer |
+| `"pointSizeColor"` | Cartesian | Bubble (size + color) |
+| `"boxplot"` | Cartesian/boxplot | Box-and-whisker plot |
+| `"heatmap"` | Heatmap | Heatmap grid |
+| `"pie"` | Polar | Pie / donut |
+| `"funnel"` | Funnel | Funnel chart |
+| `"sankey"` | Sankey | Sankey flow diagram |
+| `"map"` | Map | Point map (lat/lng) |
+| `"regionMap"` | Map | Choropleth / region map |
+| `"svgMap"` | Map | Vector (SVG) map |
 | `"markdown"` | Text | Markdown content tile |
 | `"omni-ai-summary-markdown"` | Text | AI-generated summary tile |
-| `"auto"` | Auto | Let Omni choose the best chart type |
-| `null` | Default | No chart type specified (renders as table) |
+| `"singleRecord"` | Detail | Single record viewer |
+| `"omni-spreadsheet"` | Sheet | Interactive spreadsheet |
+| `"code"` | App | Custom HTML/JS app |
+| `"summaryValue"` | KPI | Deprecated — use `"kpi"` |
 
-### Mapping: visConfig.chartType to config Properties
+> **Not valid** (common mistakes): `barColor`, `areaColor`, `stackedBarColor`, `scatter`, `rect`. Use `column`/`bar`, `area`, `columnStacked`/`barStacked`, `point`, and `heatmap` respectively.
 
-| visConfig.chartType | visType | mark.type | configType | _dependentAxis |
-|---------------------|---------|-----------|------------|----------------|
-| `"table"` | `"basic"` | n/a | n/a | n/a |
-| `"kpi"` | `"omni-kpi"` | n/a | n/a | n/a |
-| `"lineColor"` | `"basic"` | `"line"` | `"cartesian"` | `"y"` |
-| `"barColor"` (horizontal) | `"basic"` | `"bar"` | `"cartesian"` | `"x"` |
-| `"barColor"` (vertical) | `"basic"` | `"bar"` | `"cartesian"` | `"y"` |
-| `"barGrouped"` | `"basic"` | `"bar"` | `"cartesian"` | `"y"` or `"x"` |
-| `"barStacked"` | `"basic"` | `"bar"` | `"cartesian"` | `"y"` |
-| `"barStackedPercentage"` | `"basic"` | `"bar"` | `"cartesian"` | `"y"` |
-| `"barLine"` | `"basic"` | mixed | `"cartesian"` | `"y"` |
-| `"areaColor"` | `"basic"` | `"area"` | `"cartesian"` | `"y"` |
-| `"areaStacked"` | `"basic"` | `"area"` | `"cartesian"` | `"y"` |
-| `"areaStackedPercentage"` | `"basic"` | `"area"` | `"cartesian"` | `"y"` |
-| `"point"` / `"pointColor"` | `"basic"` | `"point"` | `"cartesian"` | `"y"` |
-| `"pointSize"` / `"pointSizeColor"` | `"basic"` | `"point"` | `"cartesian"` | `"y"` |
-| `"pie"` | `"basic"` | n/a | `"pie"` | n/a |
-| `"funnel"` | `"basic"` | n/a | `"funnel"` | n/a |
-| `"sankey"` | `"basic"` | n/a | `"sankey"` | n/a |
-| `"heatmap"` | `"basic"` | `"rect"` | `"cartesian"` | n/a |
-| `"boxplot"` | `"basic"` | `"boxplot"` | `"cartesian"` | `"y"` |
-| `"map"` | `"basic"` | n/a | `"map"` | n/a |
-| `"regionMap"` | `"basic"` | n/a | `"regionMap"` | n/a |
+## chartType → visType → configType mapping
+
+`visType` is the renderer. `configType` is the discriminator **inside `visConfig.config`** — and it only exists for the `"basic"` renderer (cartesian, polar, heatmap, boxplot). Funnel/sankey/map/etc. have their own `visType` and **no `configType`**.
+
+| chartType | visType | configType | mark.type | _dependentAxis |
+|-----------|---------|------------|-----------|----------------|
+| `table` | `omni-table` | — | — | — |
+| `kpi` | `omni-kpi` | — | — | — |
+| `line`, `lineColor` | `basic` | `cartesian` | `line` | `y` |
+| `column`, `columnGrouped`, `columnStacked`, `columnStackedPercentage` | `basic` | `cartesian` | `bar` | `y` |
+| `bar`, `barGrouped`, `barStacked`, `barStackedPercentage` | `basic` | `cartesian` | `bar` | `x` |
+| `area`, `areaStacked`, `areaStackedPercentage` | `basic` | `cartesian` | `area` | `y` |
+| `point`, `pointColor`, `pointSize`, `pointSizeColor` | `basic` | `cartesian` | `point` | `y` |
+| `barLine` | `basic` | `cartesian` | per-series | `y` |
+| `pie` | `basic` | `polar` | — | — |
+| `heatmap` | `basic` | `heatmap` | — | — |
+| `boxplot` | `basic` | `boxplot` | — | — |
+| `funnel` | `funnel` | — | — | — |
+| `sankey` | `sankey` | — | — | — |
+| `map` | `map` | — | — | — |
+| `regionMap` / `svgMap` | `svg-map` | — | — | — |
+| `markdown` | `omni-markdown` | — | — | — |
+| `singleRecord` | `single-record` | — | — | — |
+| `omni-spreadsheet` | `omni-spreadsheet` | — | — | — |
+| `code` | `app` | — | — | — |
 
 ## Config Object: Cartesian Charts
 
-All line, bar, area, scatter, and combo charts use the cartesian config structure. This is the most common config type.
-
-### Cartesian Config Fields
+Line, column, bar, area, scatter, and combo charts use the cartesian config (`configType: "cartesian"`). This is the most common config type.
 
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
 | `configType` | Yes | string | Always `"cartesian"` |
-| `version` | Yes | number | Always `0` |
-| `x` | Conditional | object | X-axis field. Required for vertical charts. |
-| `y` | Conditional | object | Y-axis field. Required for horizontal bar charts. |
-| `mark` | Yes | object | Mark type definition |
-| `mark.type` | Yes | string | `"line"`, `"bar"`, `"area"`, `"point"`, `"rect"`, `"boxplot"` |
-| `color` | Yes | object | Color and stacking configuration |
-| `series` | Yes | array | Measure field definitions with axis binding |
+| `_dependentAxis` | Yes | string | `"y"` for vertical charts (line, area, **column**, scatter); `"x"` for horizontal **bar** charts |
+| `x` | Conditional | object | Independent (category) axis field; used when `_dependentAxis: "y"` |
+| `y` | Conditional | object | Independent (category) axis field; used when `_dependentAxis: "x"` (horizontal bars) |
+| `mark` | Yes | object | `{ "type": "line" \| "bar" \| "area" \| "point" }` (both column and bar use `"bar"`) |
+| `color` | Yes | object | Color/stacking config (see below) |
+| `series` | Yes | array | Measure fields, each with `"yAxis": "y"` (vertical) or `"xAxis": "x"` (horizontal) |
 | `tooltip` | Yes | array | Fields shown on hover |
-| `behaviors` | Yes | object | Interaction behaviors |
-| `behaviors.stackMultiMark` | Yes | boolean | `true` for stacked charts, `false` for grouped |
-| `_dependentAxis` | Yes | string | `"y"` for vertical charts, `"x"` for horizontal bars |
+| `behaviors.stackMultiMark` | No | boolean | `true` for stacked, `false` for grouped/overlay |
+| `size` | No | object | Field for bubble sizing (`pointSize` / `pointSizeColor`) |
 
-### Axis Fields (`x` and `y`)
+### Axis fields (`x` / `y`)
 
 ```json
-"x": {
-  "field": { "name": "order_items.created_at[month]" }
-}
+"x": { "field": { "name": "order_items.created_at[month]" } }
 ```
 
-Optional axis properties:
+Optional axis properties: `label`, `showLabel`, `showGridLines`, `tickFormat`, `scale` (e.g. `{ "type": "log" }`), `domain` (`[min, max]`).
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `field.name` | string | Fully qualified field name |
-| `label` | string | Custom axis label (overrides field name) |
-| `showLabel` | boolean | Show/hide axis label |
-| `showGridLines` | boolean | Show/hide grid lines |
-| `tickFormat` | string | Number/date format string |
-| `scale` | object | Scale configuration (e.g., `{ "type": "log" }` for log scale) |
-| `domain` | array | Fixed axis domain `[min, max]` |
+### color object — controls stacking and series color
 
-### Color Object
+| Pattern | Usage |
+|---------|-------|
+| `{}` | Single series, auto color |
+| `{ "_stack": "group", "field": { "name": "..." } }` | Grouped (side-by-side) — `chartType` `*Grouped` |
+| `{ "_stack": "stack", "field": { "name": "..." } }` | Stacked — `chartType` `*Stacked` |
+| `{ "_stack": "normalize", "field": { "name": "..." } }` | 100% stacked — `chartType` `*StackedPercentage` |
+| `{ "field": { "name": "..." } }` | Color by dimension (no stacking) — e.g. multi-series line/scatter |
 
-| Pattern | Usage | Example |
-|---------|-------|---------|
-| `{}` | Single series, auto color | `"color": {}` |
-| `{ "_stack": "group" }` | Grouped (side-by-side) | Bar charts with multiple categories |
-| `{ "_stack": "stack", "field": { "name": "..." } }` | Stacked | Stacked bar/area with pivot field |
-| `{ "_stack": "normalize", "field": { "name": "..." } }` | 100% stacked | Percentage stacked charts |
-| `{ "field": { "name": "..." } }` | Color by field | Scatter/line colored by dimension |
+The `color.field` is the dimension that splits the series; it must also be in `query.pivots` for stacked/grouped charts.
 
-### Series Array
-
-Each entry maps a measure to an axis:
+### series array
 
 ```json
 "series": [
-  {
-    "field": { "name": "order_items.total_revenue" },
-    "yAxis": "y"
-  }
+  { "field": { "name": "order_items.total_revenue" }, "yAxis": "y" }
 ]
 ```
 
-Series entry properties:
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `field.name` | string | Fully qualified measure field name |
-| `yAxis` | string | `"y"` for vertical charts (measure on y-axis) |
-| `xAxis` | string | `"x"` for horizontal bar charts (measure on x-axis) |
-| `label` | string | Custom series label |
-| `color` | string | Hex color override (e.g., `"#1f77b4"`) |
-| `mark` | object | Per-series mark override (e.g., `{ "type": "line" }` for combo charts) |
-| `yAxis2` | string | `"y2"` to place series on secondary y-axis |
-
-### Tooltip Array
-
-Include all dimension and measure fields that should appear on hover:
-
-```json
-"tooltip": [
-  { "field": { "name": "order_items.created_at[month]" } },
-  { "field": { "name": "order_items.total_revenue" } }
-]
-```
+Per-entry properties: `field.name`, `yAxis` (`"y"`/`"y2"`) or `xAxis` (`"x"`/`"x2"`), `label`, `color` (hex override), `mark` (per-series mark for combo charts), `dataLabel`.
 
 ## Config Object: KPI
 
-KPI tiles use `visType: "omni-kpi"` and have a unique config structure.
+KPI tiles use `chartType: "kpi"`, `visType: "omni-kpi"`, and **no `configType`**.
 
-### KPI Config Fields
+| Field | Required | Description |
+|-------|----------|-------------|
+| `alignment` | No | Horizontal: `"left"`, `"center"`, `"right"` |
+| `verticalAlignment` | No | Vertical: `"top"`, `"center"`, `"bottom"` |
+| `markdownConfig` | Yes | Array of KPI section entries |
 
-| Field | Required | Type | Description |
-|-------|----------|------|-------------|
-| `alignment` | No | string | Horizontal: `"left"`, `"center"`, `"right"` |
-| `verticalAlignment` | No | string | Vertical: `"top"`, `"center"`, `"bottom"` |
-| `markdownConfig` | Yes | array | Array of KPI value entries |
-
-### markdownConfig Entry
-
-| Field | Required | Type | Description |
-|-------|----------|------|-------------|
-| `id` | Yes | string | Unique ID (e.g., `"kpi-1"`) |
-| `type` | Yes | string | `"number"` for numeric values |
-| `config.field.row` | Yes | string | Always `"_first"` |
-| `config.field.field.name` | Yes | string | Fully qualified field name |
-| `config.field.field.pivotMap` | Yes | object | Empty `{}` unless using pivots |
-| `config.field.label.value` | Yes | string | Display label |
-| `config.descriptionBefore` | No | string | Text above the number |
-| `config.descriptionAfter` | No | string | Text below the number |
-| `config.comparison` | No | object | Comparison/sparkline configuration |
+Each `markdownConfig` entry: `{ id, type, config, lastModified? }` where `type` is `"number"` (also `comparison`, `sparkline`, `progress`, `text`, `image`). For a number: `config.field = { row: "_first", field: { name, pivotMap: {} }, label: { value } }`, plus optional `config.descriptionBefore` / `descriptionAfter`.
 
 ## Config Object: Pie / Donut
 
-Pie charts use `configType: "pie"`.
+`chartType: "pie"`, `visType: "basic"`, `config.configType: "polar"`.
 
-### Pie Config Fields
-
-| Field | Required | Type | Description |
-|-------|----------|------|-------------|
-| `configType` | Yes | string | `"pie"` |
-| `version` | Yes | number | `0` |
-| `dimension` | Yes | object | Category field |
-| `measure` | Yes | object | Value field |
-| `tooltip` | Yes | array | Fields for hover tooltip |
-| `innerRadius` | No | number | `0` for pie, `0.3`–`0.7` for donut |
-| `showLabels` | No | boolean | Show slice labels |
-| `showLegend` | No | boolean | Show legend |
-
-## Config Object: Funnel
-
-Funnel charts use `configType: "funnel"`.
-
-### Funnel Config Fields
-
-| Field | Required | Type | Description |
-|-------|----------|------|-------------|
-| `configType` | Yes | string | `"funnel"` |
-| `version` | Yes | number | `0` |
-| `dimension` | Yes | object | Stage field (categorical) |
-| `measure` | Yes | object | Value field (numeric) |
-| `tooltip` | Yes | array | Fields for hover tooltip |
-
-## Config Object: Sankey
-
-Sankey diagrams use `configType: "sankey"`.
-
-### Sankey Config Fields
-
-| Field | Required | Type | Description |
-|-------|----------|------|-------------|
-| `configType` | Yes | string | `"sankey"` |
-| `version` | Yes | number | `0` |
-| `source` | Yes | object | Source dimension field |
-| `target` | Yes | object | Target dimension field |
-| `value` | Yes | object | Flow value measure field |
+| Field | Required | Description |
+|-------|----------|-------------|
+| `configType` | Yes | `"polar"` |
+| `theta` | Yes | The measure field that sizes each slice (`{ "field": { "name": "..." } }`) |
+| `color` | Recommended | The dimension that defines the slices (`{ "field": { "name": "..." } }`) |
+| `pastry` | No | `"pie"` (default) or `"donut"` |
+| `innerRadiusPercent` | No | `0`–`100`, donut hole size |
+| `tooltip` | No | Fields for hover |
 
 ## Config Object: Heatmap
 
-Heatmaps use cartesian config with `mark.type: "rect"`.
+`chartType: "heatmap"`, `visType: "basic"`, `config.configType: "heatmap"`.
 
-### Heatmap Config Fields
+| Field | Required | Description |
+|-------|----------|-------------|
+| `configType` | Yes | `"heatmap"` |
+| `x` | Yes | X-axis dimension field |
+| `y` | Yes | Y-axis dimension field |
+| `color` | Yes | The measure field that drives cell intensity |
+| `tooltip` | No | Fields for hover |
 
-| Field | Required | Type | Description |
-|-------|----------|------|-------------|
-| `configType` | Yes | string | `"cartesian"` |
-| `version` | Yes | number | `0` |
-| `x` | Yes | object | X-axis dimension field |
-| `y` | Yes | object | Y-axis dimension field |
-| `mark` | Yes | object | `{ "type": "rect" }` |
-| `color` | Yes | object | Color scale field (the measure) |
-| `tooltip` | Yes | array | Fields for hover |
+## Config Object: Boxplot
 
-## Config Object: Map
+`chartType: "boxplot"`, `visType: "basic"`, `config.configType: "boxplot"`. Fields: `x` or `y` (category), `color`, `dataLabel`, `tooltip`.
 
-Point maps use `configType: "map"`.
+## Config Object: Funnel
 
-### Map Config Fields
+`chartType: "funnel"`, `visType: "funnel"`, **no `configType`**.
 
-| Field | Required | Type | Description |
-|-------|----------|------|-------------|
-| `configType` | Yes | string | `"map"` |
-| `version` | Yes | number | `0` |
-| `latitude` | Yes | object | Latitude field |
-| `longitude` | Yes | object | Longitude field |
-| `size` | No | object | Measure field for point sizing |
-| `color` | No | object | Measure or dimension field for coloring |
-| `tooltip` | Yes | array | Fields for hover |
+| Field | Required | Description |
+|-------|----------|-------------|
+| `value` | Yes | The measure field (segment size) |
+| `color` | No | Dimension that colors/labels segments |
+| `orientation` | No | `"horizontal"` / `"vertical"` |
+| `dataLabel`, `tooltip` | No | Labels / hover |
 
-## Config Object: Region Map
+## Config Object: Sankey
 
-Region/choropleth maps use `configType: "regionMap"`.
+`chartType: "sankey"`, `visType: "sankey"`, **no `configType`**. Fields: `source`, `target` (node dimensions), `value` (flow measure), `color`, `tooltip`.
 
-### Region Map Config Fields
+## Config Object: Map / Region Map
 
-| Field | Required | Type | Description |
-|-------|----------|------|-------------|
-| `configType` | Yes | string | `"regionMap"` |
-| `version` | Yes | number | `0` |
-| `region` | Yes | object | Geographic dimension field (state, country, etc.) |
-| `color` | Yes | object | Measure field for color intensity |
-| `tooltip` | Yes | array | Fields for hover |
+**Point map** — `chartType: "map"`, `visType: "map"`, no `configType`. Key fields: `latitudeFieldName`, `longitudeFieldName`, plus optional `markType` (`"circle"`/`"heatmap"`), `markRadius`, `color`, `size`, `tooltip`, `zoom`, `center`.
+
+**Region / choropleth map** — `chartType: "regionMap"`, `visType: "svg-map"`, no `configType`. Key fields: `regionType` (`"US"`, `"CA"`, …, `"Custom"`), `regionFieldName`, `color`, `tooltip` (and `sourceType`/`sourceUrl` for custom GeoJSON/vector).
+
+> Map and region-map specs are best captured by building one in the UI and reading it back.
 
 ---
 
 ## Complete Examples
+
+Every example places the spec in `visConfig.config` and sets `chartType` at the queryPresentation level.
 
 ### Line Chart
 
@@ -337,7 +257,24 @@ Region/choropleth maps use `configType: "regionMap"`.
   "name": "Monthly Revenue Trend",
   "topicName": "order_items",
   "prefersChart": true,
-  "visType": "basic",
+  "chartType": "lineColor",
+  "visConfig": {
+    "visType": "basic",
+    "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
+    "config": {
+      "x": { "field": { "name": "order_items.created_at[month]" } },
+      "mark": { "type": "line" },
+      "color": {},
+      "series": [{ "field": { "name": "order_items.total_revenue" }, "yAxis": "y" }],
+      "tooltip": [
+        { "field": { "name": "order_items.created_at[month]" } },
+        { "field": { "name": "order_items.total_revenue" } }
+      ],
+      "behaviors": { "stackMultiMark": false },
+      "configType": "cartesian",
+      "_dependentAxis": "y"
+    }
+  },
   "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
   "query": {
     "table": "order_items",
@@ -347,73 +284,35 @@ Region/choropleth maps use `configType: "regionMap"`.
     "limit": 100,
     "join_paths_from_topic_name": "order_items",
     "visConfig": { "chartType": "lineColor" }
-  },
-  "config": {
-    "x": { "field": { "name": "order_items.created_at[month]" } },
-    "mark": { "type": "line" },
-    "color": {},
-    "series": [
-      { "field": { "name": "order_items.total_revenue" }, "yAxis": "y" }
-    ],
-    "tooltip": [
-      { "field": { "name": "order_items.created_at[month]" } },
-      { "field": { "name": "order_items.total_revenue" } }
-    ],
-    "version": 0,
-    "behaviors": { "stackMultiMark": false },
-    "configType": "cartesian",
-    "_dependentAxis": "y"
   }
 }
 ```
 
-### Multi-Series Line Chart
-
-```json
-{
-  "name": "Revenue vs Orders Over Time",
-  "topicName": "order_items",
-  "prefersChart": true,
-  "visType": "basic",
-  "fields": ["order_items.created_at[month]", "order_items.total_revenue", "order_items.count"],
-  "query": {
-    "table": "order_items",
-    "fields": ["order_items.created_at[month]", "order_items.total_revenue", "order_items.count"],
-    "sorts": [{ "column_name": "order_items.created_at[month]", "sort_descending": false }],
-    "limit": 100,
-    "join_paths_from_topic_name": "order_items",
-    "visConfig": { "chartType": "lineColor" }
-  },
-  "config": {
-    "x": { "field": { "name": "order_items.created_at[month]" } },
-    "mark": { "type": "line" },
-    "color": {},
-    "series": [
-      { "field": { "name": "order_items.total_revenue" }, "yAxis": "y" },
-      { "field": { "name": "order_items.count" }, "yAxis": "y" }
-    ],
-    "tooltip": [
-      { "field": { "name": "order_items.created_at[month]" } },
-      { "field": { "name": "order_items.total_revenue" } },
-      { "field": { "name": "order_items.count" } }
-    ],
-    "version": 0,
-    "behaviors": { "stackMultiMark": false },
-    "configType": "cartesian",
-    "_dependentAxis": "y"
-  }
-}
-```
-
-### Bar Chart (Vertical)
+### Column Chart (Vertical Bars)
 
 ```json
 {
   "name": "Revenue by Category",
   "topicName": "order_items",
   "prefersChart": true,
-  "visType": "basic",
-  "chartType": "barGrouped",
+  "chartType": "column",
+  "visConfig": {
+    "visType": "basic",
+    "fields": ["products.category", "order_items.total_revenue"],
+    "config": {
+      "x": { "field": { "name": "products.category" } },
+      "mark": { "type": "bar" },
+      "color": {},
+      "series": [{ "field": { "name": "order_items.total_revenue" }, "yAxis": "y" }],
+      "tooltip": [
+        { "field": { "name": "products.category" } },
+        { "field": { "name": "order_items.total_revenue" } }
+      ],
+      "behaviors": { "stackMultiMark": false },
+      "configType": "cartesian",
+      "_dependentAxis": "y"
+    }
+  },
   "fields": ["products.category", "order_items.total_revenue"],
   "query": {
     "table": "order_items",
@@ -421,28 +320,12 @@ Region/choropleth maps use `configType: "regionMap"`.
     "sorts": [{ "column_name": "order_items.total_revenue", "sort_descending": true }],
     "limit": 10,
     "join_paths_from_topic_name": "order_items",
-    "visConfig": { "chartType": "barColor" }
-  },
-  "config": {
-    "x": { "field": { "name": "products.category" } },
-    "mark": { "type": "bar" },
-    "color": { "_stack": "group" },
-    "series": [
-      { "field": { "name": "order_items.total_revenue" }, "yAxis": "y" }
-    ],
-    "tooltip": [
-      { "field": { "name": "products.category" } },
-      { "field": { "name": "order_items.total_revenue" } }
-    ],
-    "version": 0,
-    "behaviors": { "stackMultiMark": false },
-    "configType": "cartesian",
-    "_dependentAxis": "y"
+    "visConfig": { "chartType": "column" }
   }
 }
 ```
 
-### Bar Chart (Horizontal)
+### Bar Chart (Horizontal Bars)
 
 Dimension on y-axis, measure on x-axis. Note `_dependentAxis: "x"` and `series[].xAxis`.
 
@@ -451,8 +334,24 @@ Dimension on y-axis, measure on x-axis. Note `_dependentAxis: "x"` and `series[]
   "name": "Top 10 Products by Revenue",
   "topicName": "order_items",
   "prefersChart": true,
-  "visType": "basic",
-  "chartType": "barGrouped",
+  "chartType": "bar",
+  "visConfig": {
+    "visType": "basic",
+    "fields": ["products.name", "order_items.total_revenue"],
+    "config": {
+      "y": { "field": { "name": "products.name" } },
+      "mark": { "type": "bar" },
+      "color": {},
+      "series": [{ "field": { "name": "order_items.total_revenue" }, "xAxis": "x" }],
+      "tooltip": [
+        { "field": { "name": "products.name" } },
+        { "field": { "name": "order_items.total_revenue" } }
+      ],
+      "behaviors": { "stackMultiMark": false },
+      "configType": "cartesian",
+      "_dependentAxis": "x"
+    }
+  },
   "fields": ["products.name", "order_items.total_revenue"],
   "query": {
     "table": "order_items",
@@ -460,118 +359,87 @@ Dimension on y-axis, measure on x-axis. Note `_dependentAxis: "x"` and `series[]
     "sorts": [{ "column_name": "order_items.total_revenue", "sort_descending": true }],
     "limit": 10,
     "join_paths_from_topic_name": "order_items",
-    "visConfig": { "chartType": "barColor" }
-  },
-  "config": {
-    "y": { "field": { "name": "products.name" } },
-    "mark": { "type": "bar" },
-    "color": { "_stack": "group" },
-    "series": [
-      { "field": { "name": "order_items.total_revenue" }, "xAxis": "x" }
-    ],
-    "tooltip": [
-      { "field": { "name": "products.name" } },
-      { "field": { "name": "order_items.total_revenue" } }
-    ],
-    "version": 0,
-    "behaviors": { "stackMultiMark": false },
-    "configType": "cartesian",
-    "_dependentAxis": "x"
+    "visConfig": { "chartType": "bar" }
   }
 }
 ```
 
-### Stacked Bar Chart
+### Stacked Column Chart (Vertical)
 
-Uses `_stack: "stack"` with a pivot field for color breakdown.
+`_stack: "stack"` with a **pivoted** color dimension. For horizontal, use `chartType: "barStacked"` with `_dependentAxis: "x"` and `series[].xAxis: "x"`. For 100% stacking, use `columnStackedPercentage` with `color._stack: "normalize"`.
 
 ```json
 {
-  "name": "Monthly Revenue by Status",
+  "name": "Distinct Orders by Status, Quarterly",
   "topicName": "order_items",
   "prefersChart": true,
-  "visType": "basic",
-  "fields": ["order_items.created_at[month]", "order_items.status", "order_items.total_revenue"],
+  "chartType": "columnStacked",
+  "visConfig": {
+    "visType": "basic",
+    "fields": ["order_items.created_at[quarter]", "order_items.status", "order_items.distinct_order_count"],
+    "config": {
+      "x": { "field": { "name": "order_items.created_at[quarter]" } },
+      "mark": { "type": "bar" },
+      "color": { "_stack": "stack", "field": { "name": "order_items.status" } },
+      "series": [{ "field": { "name": "order_items.distinct_order_count" }, "yAxis": "y" }],
+      "tooltip": [
+        { "field": { "name": "order_items.created_at[quarter]" } },
+        { "field": { "name": "order_items.status" } },
+        { "field": { "name": "order_items.distinct_order_count" } }
+      ],
+      "behaviors": { "stackMultiMark": true },
+      "configType": "cartesian",
+      "_dependentAxis": "y"
+    }
+  },
+  "fields": ["order_items.created_at[quarter]", "order_items.status", "order_items.distinct_order_count"],
   "query": {
     "table": "order_items",
-    "fields": ["order_items.created_at[month]", "order_items.status", "order_items.total_revenue"],
-    "sorts": [{ "column_name": "order_items.created_at[month]", "sort_descending": false }],
+    "fields": ["order_items.created_at[quarter]", "order_items.status", "order_items.distinct_order_count"],
+    "sorts": [{ "column_name": "order_items.created_at[quarter]", "sort_descending": false }],
     "pivots": ["order_items.status"],
-    "limit": 100,
+    "limit": 50,
     "join_paths_from_topic_name": "order_items",
-    "visConfig": { "chartType": "stackedBarColor" }
-  },
-  "config": {
-    "x": { "field": { "name": "order_items.created_at[month]" } },
-    "mark": { "type": "bar" },
-    "color": { "_stack": "stack", "field": { "name": "order_items.status" } },
-    "series": [
-      { "field": { "name": "order_items.total_revenue" }, "yAxis": "y" }
-    ],
-    "tooltip": [
-      { "field": { "name": "order_items.created_at[month]" } },
-      { "field": { "name": "order_items.status" } },
-      { "field": { "name": "order_items.total_revenue" } }
-    ],
-    "version": 0,
-    "behaviors": { "stackMultiMark": false },
-    "configType": "cartesian",
-    "_dependentAxis": "y"
+    "visConfig": { "chartType": "columnStacked" }
   }
 }
 ```
 
-### 100% Stacked Bar Chart
+### Stacked Area Chart
 
-Uses `_stack: "normalize"` instead of `"stack"`.
-
-```json
-{
-  "name": "Revenue Share by Status",
-  "topicName": "order_items",
-  "prefersChart": true,
-  "visType": "basic",
-  "fields": ["order_items.created_at[month]", "order_items.status", "order_items.total_revenue"],
-  "query": {
-    "table": "order_items",
-    "fields": ["order_items.created_at[month]", "order_items.status", "order_items.total_revenue"],
-    "sorts": [{ "column_name": "order_items.created_at[month]", "sort_descending": false }],
-    "pivots": ["order_items.status"],
-    "limit": 100,
-    "join_paths_from_topic_name": "order_items",
-    "visConfig": { "chartType": "barStackedPercentage" }
-  },
-  "config": {
-    "x": { "field": { "name": "order_items.created_at[month]" } },
-    "mark": { "type": "bar" },
-    "color": { "_stack": "normalize", "field": { "name": "order_items.status" } },
-    "series": [
-      { "field": { "name": "order_items.total_revenue" }, "yAxis": "y" }
-    ],
-    "tooltip": [
-      { "field": { "name": "order_items.created_at[month]" } },
-      { "field": { "name": "order_items.status" } },
-      { "field": { "name": "order_items.total_revenue" } }
-    ],
-    "version": 0,
-    "behaviors": { "stackMultiMark": false },
-    "configType": "cartesian",
-    "_dependentAxis": "y"
-  }
-}
-```
+Same as the stacked column but `chartType: "areaStacked"` and `mark.type: "area"`.
 
 ### Combo Chart (Bar + Line)
 
-Uses different `mark` types per series. One series renders as bar, another as line.
+`chartType: "barLine"`; each series carries its own `mark`, and the line series uses the secondary axis `yAxis: "y2"`.
 
 ```json
 {
   "name": "Revenue (Bar) vs Order Count (Line)",
   "topicName": "order_items",
   "prefersChart": true,
-  "visType": "basic",
   "chartType": "barLine",
+  "visConfig": {
+    "visType": "basic",
+    "fields": ["order_items.created_at[month]", "order_items.total_revenue", "order_items.count"],
+    "config": {
+      "x": { "field": { "name": "order_items.created_at[month]" } },
+      "mark": { "type": "bar" },
+      "color": {},
+      "series": [
+        { "field": { "name": "order_items.total_revenue" }, "yAxis": "y", "mark": { "type": "bar" } },
+        { "field": { "name": "order_items.count" }, "yAxis": "y2", "mark": { "type": "line" } }
+      ],
+      "tooltip": [
+        { "field": { "name": "order_items.created_at[month]" } },
+        { "field": { "name": "order_items.total_revenue" } },
+        { "field": { "name": "order_items.count" } }
+      ],
+      "behaviors": { "stackMultiMark": false },
+      "configType": "cartesian",
+      "_dependentAxis": "y"
+    }
+  },
   "fields": ["order_items.created_at[month]", "order_items.total_revenue", "order_items.count"],
   "query": {
     "table": "order_items",
@@ -580,146 +448,40 @@ Uses different `mark` types per series. One series renders as bar, another as li
     "limit": 100,
     "join_paths_from_topic_name": "order_items",
     "visConfig": { "chartType": "barLine" }
-  },
-  "config": {
-    "x": { "field": { "name": "order_items.created_at[month]" } },
-    "mark": { "type": "bar" },
-    "color": {},
-    "series": [
-      { "field": { "name": "order_items.total_revenue" }, "yAxis": "y", "mark": { "type": "bar" } },
-      { "field": { "name": "order_items.count" }, "yAxis": "y2", "mark": { "type": "line" } }
-    ],
-    "tooltip": [
-      { "field": { "name": "order_items.created_at[month]" } },
-      { "field": { "name": "order_items.total_revenue" } },
-      { "field": { "name": "order_items.count" } }
-    ],
-    "version": 0,
-    "behaviors": { "stackMultiMark": false },
-    "configType": "cartesian",
-    "_dependentAxis": "y"
   }
 }
 ```
 
-### Area Chart
+### Scatter / Bubble
+
+`chartType: "pointColor"` (color by dimension) or `"pointSizeColor"` (add `size`). `mark.type: "point"`.
 
 ```json
 {
-  "name": "Revenue Over Time (Area)",
+  "name": "Price vs Count by Category (Bubble)",
   "topicName": "order_items",
   "prefersChart": true,
-  "visType": "basic",
-  "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
-  "query": {
-    "table": "order_items",
-    "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
-    "sorts": [{ "column_name": "order_items.created_at[month]", "sort_descending": false }],
-    "limit": 100,
-    "join_paths_from_topic_name": "order_items",
-    "visConfig": { "chartType": "areaColor" }
+  "chartType": "pointSizeColor",
+  "visConfig": {
+    "visType": "basic",
+    "fields": ["order_items.average_sale_price", "order_items.count", "order_items.total_revenue", "products.category"],
+    "config": {
+      "x": { "field": { "name": "order_items.average_sale_price" } },
+      "mark": { "type": "point" },
+      "color": { "field": { "name": "products.category" } },
+      "size": { "field": { "name": "order_items.total_revenue" } },
+      "series": [{ "field": { "name": "order_items.count" }, "yAxis": "y" }],
+      "tooltip": [
+        { "field": { "name": "order_items.average_sale_price" } },
+        { "field": { "name": "order_items.count" } },
+        { "field": { "name": "order_items.total_revenue" } },
+        { "field": { "name": "products.category" } }
+      ],
+      "behaviors": { "stackMultiMark": false },
+      "configType": "cartesian",
+      "_dependentAxis": "y"
+    }
   },
-  "config": {
-    "x": { "field": { "name": "order_items.created_at[month]" } },
-    "mark": { "type": "area" },
-    "color": {},
-    "series": [
-      { "field": { "name": "order_items.total_revenue" }, "yAxis": "y" }
-    ],
-    "tooltip": [
-      { "field": { "name": "order_items.created_at[month]" } },
-      { "field": { "name": "order_items.total_revenue" } }
-    ],
-    "version": 0,
-    "behaviors": { "stackMultiMark": false },
-    "configType": "cartesian",
-    "_dependentAxis": "y"
-  }
-}
-```
-
-### Stacked Area Chart
-
-```json
-{
-  "name": "Revenue by Status (Stacked Area)",
-  "topicName": "order_items",
-  "prefersChart": true,
-  "visType": "basic",
-  "fields": ["order_items.created_at[month]", "order_items.status", "order_items.total_revenue"],
-  "query": {
-    "table": "order_items",
-    "fields": ["order_items.created_at[month]", "order_items.status", "order_items.total_revenue"],
-    "sorts": [{ "column_name": "order_items.created_at[month]", "sort_descending": false }],
-    "pivots": ["order_items.status"],
-    "limit": 100,
-    "join_paths_from_topic_name": "order_items",
-    "visConfig": { "chartType": "areaStacked" }
-  },
-  "config": {
-    "x": { "field": { "name": "order_items.created_at[month]" } },
-    "mark": { "type": "area" },
-    "color": { "_stack": "stack", "field": { "name": "order_items.status" } },
-    "series": [
-      { "field": { "name": "order_items.total_revenue" }, "yAxis": "y" }
-    ],
-    "tooltip": [
-      { "field": { "name": "order_items.created_at[month]" } },
-      { "field": { "name": "order_items.status" } },
-      { "field": { "name": "order_items.total_revenue" } }
-    ],
-    "version": 0,
-    "behaviors": { "stackMultiMark": false },
-    "configType": "cartesian",
-    "_dependentAxis": "y"
-  }
-}
-```
-
-### Scatter Plot
-
-```json
-{
-  "name": "Price vs Quantity",
-  "topicName": "order_items",
-  "prefersChart": true,
-  "visType": "basic",
-  "fields": ["order_items.average_sale_price", "order_items.count", "products.category"],
-  "query": {
-    "table": "order_items",
-    "fields": ["order_items.average_sale_price", "order_items.count", "products.category"],
-    "limit": 500,
-    "join_paths_from_topic_name": "order_items",
-    "visConfig": { "chartType": "pointColor" }
-  },
-  "config": {
-    "x": { "field": { "name": "order_items.average_sale_price" } },
-    "mark": { "type": "point" },
-    "color": { "field": { "name": "products.category" } },
-    "series": [
-      { "field": { "name": "order_items.count" }, "yAxis": "y" }
-    ],
-    "tooltip": [
-      { "field": { "name": "order_items.average_sale_price" } },
-      { "field": { "name": "order_items.count" } },
-      { "field": { "name": "products.category" } }
-    ],
-    "version": 0,
-    "behaviors": { "stackMultiMark": false },
-    "configType": "cartesian",
-    "_dependentAxis": "y"
-  }
-}
-```
-
-### Scatter Plot with Size Encoding
-
-```json
-{
-  "name": "Revenue vs Count by Category (Bubble)",
-  "topicName": "order_items",
-  "prefersChart": true,
-  "visType": "basic",
   "fields": ["order_items.average_sale_price", "order_items.count", "order_items.total_revenue", "products.category"],
   "query": {
     "table": "order_items",
@@ -727,25 +489,6 @@ Uses different `mark` types per series. One series renders as bar, another as li
     "limit": 500,
     "join_paths_from_topic_name": "order_items",
     "visConfig": { "chartType": "pointSizeColor" }
-  },
-  "config": {
-    "x": { "field": { "name": "order_items.average_sale_price" } },
-    "mark": { "type": "point" },
-    "color": { "field": { "name": "products.category" } },
-    "size": { "field": { "name": "order_items.total_revenue" } },
-    "series": [
-      { "field": { "name": "order_items.count" }, "yAxis": "y" }
-    ],
-    "tooltip": [
-      { "field": { "name": "order_items.average_sale_price" } },
-      { "field": { "name": "order_items.count" } },
-      { "field": { "name": "order_items.total_revenue" } },
-      { "field": { "name": "products.category" } }
-    ],
-    "version": 0,
-    "behaviors": { "stackMultiMark": false },
-    "configType": "cartesian",
-    "_dependentAxis": "y"
   }
 }
 ```
@@ -757,103 +500,61 @@ Uses different `mark` types per series. One series renders as bar, another as li
   "name": "Total Revenue",
   "topicName": "order_items",
   "prefersChart": true,
-  "visType": "omni-kpi",
+  "chartType": "kpi",
+  "visConfig": {
+    "visType": "omni-kpi",
+    "fields": ["order_items.total_revenue"],
+    "config": {
+      "alignment": "left",
+      "verticalAlignment": "top",
+      "markdownConfig": [
+        {
+          "id": "kpi-1",
+          "type": "number",
+          "config": {
+            "field": {
+              "row": "_first",
+              "field": { "name": "order_items.total_revenue", "pivotMap": {} },
+              "label": { "value": "Total Revenue" }
+            },
+            "descriptionBefore": ""
+          }
+        }
+      ]
+    }
+  },
   "fields": ["order_items.total_revenue"],
   "query": {
     "table": "order_items",
     "fields": ["order_items.total_revenue"],
     "join_paths_from_topic_name": "order_items",
     "visConfig": { "chartType": "kpi" }
-  },
-  "config": {
-    "alignment": "left",
-    "verticalAlignment": "top",
-    "markdownConfig": [
-      {
-        "id": "kpi-1",
-        "type": "number",
-        "config": {
-          "field": {
-            "row": "_first",
-            "field": { "name": "order_items.total_revenue", "pivotMap": {} },
-            "label": { "value": "Total Revenue" }
-          },
-          "descriptionBefore": ""
-        }
-      }
-    ]
   }
 }
 ```
 
-### KPI (Multiple Values)
-
-```json
-{
-  "name": "Key Metrics",
-  "topicName": "order_items",
-  "prefersChart": true,
-  "visType": "omni-kpi",
-  "fields": ["order_items.total_revenue", "order_items.count", "order_items.average_sale_price"],
-  "query": {
-    "table": "order_items",
-    "fields": ["order_items.total_revenue", "order_items.count", "order_items.average_sale_price"],
-    "join_paths_from_topic_name": "order_items",
-    "visConfig": { "chartType": "kpi" }
-  },
-  "config": {
-    "alignment": "center",
-    "verticalAlignment": "center",
-    "markdownConfig": [
-      {
-        "id": "kpi-revenue",
-        "type": "number",
-        "config": {
-          "field": {
-            "row": "_first",
-            "field": { "name": "order_items.total_revenue", "pivotMap": {} },
-            "label": { "value": "Revenue" }
-          },
-          "descriptionBefore": ""
-        }
-      },
-      {
-        "id": "kpi-orders",
-        "type": "number",
-        "config": {
-          "field": {
-            "row": "_first",
-            "field": { "name": "order_items.count", "pivotMap": {} },
-            "label": { "value": "Orders" }
-          },
-          "descriptionBefore": ""
-        }
-      },
-      {
-        "id": "kpi-aov",
-        "type": "number",
-        "config": {
-          "field": {
-            "row": "_first",
-            "field": { "name": "order_items.average_sale_price", "pivotMap": {} },
-            "label": { "value": "Avg Sale Price" }
-          },
-          "descriptionBefore": ""
-        }
-      }
-    ]
-  }
-}
-```
-
-### Pie Chart
+### Pie / Donut
 
 ```json
 {
   "name": "Revenue by Category",
   "topicName": "order_items",
   "prefersChart": true,
-  "visType": "basic",
+  "chartType": "pie",
+  "visConfig": {
+    "visType": "basic",
+    "fields": ["products.category", "order_items.total_revenue"],
+    "config": {
+      "configType": "polar",
+      "theta": { "field": { "name": "order_items.total_revenue" } },
+      "color": { "field": { "name": "products.category" } },
+      "pastry": "pie",
+      "tooltip": [
+        { "field": { "name": "products.category" } },
+        { "field": { "name": "order_items.total_revenue" } }
+      ]
+    }
+  },
   "fields": ["products.category", "order_items.total_revenue"],
   "query": {
     "table": "order_items",
@@ -862,82 +563,11 @@ Uses different `mark` types per series. One series renders as bar, another as li
     "limit": 10,
     "join_paths_from_topic_name": "order_items",
     "visConfig": { "chartType": "pie" }
-  },
-  "config": {
-    "configType": "pie",
-    "version": 0,
-    "dimension": { "field": { "name": "products.category" } },
-    "measure": { "field": { "name": "order_items.total_revenue" } },
-    "tooltip": [
-      { "field": { "name": "products.category" } },
-      { "field": { "name": "order_items.total_revenue" } }
-    ]
   }
 }
 ```
 
-### Donut Chart
-
-Same as pie but with `innerRadius` set.
-
-```json
-{
-  "name": "Revenue by Category (Donut)",
-  "topicName": "order_items",
-  "prefersChart": true,
-  "visType": "basic",
-  "fields": ["products.category", "order_items.total_revenue"],
-  "query": {
-    "table": "order_items",
-    "fields": ["products.category", "order_items.total_revenue"],
-    "sorts": [{ "column_name": "order_items.total_revenue", "sort_descending": true }],
-    "limit": 10,
-    "join_paths_from_topic_name": "order_items",
-    "visConfig": { "chartType": "pie" }
-  },
-  "config": {
-    "configType": "pie",
-    "version": 0,
-    "dimension": { "field": { "name": "products.category" } },
-    "measure": { "field": { "name": "order_items.total_revenue" } },
-    "innerRadius": 0.5,
-    "tooltip": [
-      { "field": { "name": "products.category" } },
-      { "field": { "name": "order_items.total_revenue" } }
-    ]
-  }
-}
-```
-
-### Funnel Chart
-
-```json
-{
-  "name": "Conversion Funnel",
-  "topicName": "funnel_stages",
-  "prefersChart": true,
-  "visType": "basic",
-  "fields": ["funnel_stages.stage_name", "funnel_stages.user_count"],
-  "query": {
-    "table": "funnel_stages",
-    "fields": ["funnel_stages.stage_name", "funnel_stages.user_count"],
-    "sorts": [{ "column_name": "funnel_stages.stage_order", "sort_descending": false }],
-    "limit": 20,
-    "join_paths_from_topic_name": "funnel_stages",
-    "visConfig": { "chartType": "funnel" }
-  },
-  "config": {
-    "configType": "funnel",
-    "version": 0,
-    "dimension": { "field": { "name": "funnel_stages.stage_name" } },
-    "measure": { "field": { "name": "funnel_stages.user_count" } },
-    "tooltip": [
-      { "field": { "name": "funnel_stages.stage_name" } },
-      { "field": { "name": "funnel_stages.user_count" } }
-    ]
-  }
-}
-```
+For a donut, set `"pastry": "donut"` and optionally `"innerRadiusPercent": 50`.
 
 ### Heatmap
 
@@ -946,7 +576,22 @@ Same as pie but with `innerRadius` set.
   "name": "Orders by Day of Week and Hour",
   "topicName": "order_items",
   "prefersChart": true,
-  "visType": "basic",
+  "chartType": "heatmap",
+  "visConfig": {
+    "visType": "basic",
+    "fields": ["order_items.created_day_of_week", "order_items.created_hour", "order_items.count"],
+    "config": {
+      "configType": "heatmap",
+      "x": { "field": { "name": "order_items.created_hour" } },
+      "y": { "field": { "name": "order_items.created_day_of_week" } },
+      "color": { "field": { "name": "order_items.count" } },
+      "tooltip": [
+        { "field": { "name": "order_items.created_day_of_week" } },
+        { "field": { "name": "order_items.created_hour" } },
+        { "field": { "name": "order_items.count" } }
+      ]
+    }
+  },
   "fields": ["order_items.created_day_of_week", "order_items.created_hour", "order_items.count"],
   "query": {
     "table": "order_items",
@@ -954,19 +599,6 @@ Same as pie but with `innerRadius` set.
     "limit": 500,
     "join_paths_from_topic_name": "order_items",
     "visConfig": { "chartType": "heatmap" }
-  },
-  "config": {
-    "x": { "field": { "name": "order_items.created_hour" } },
-    "y": { "field": { "name": "order_items.created_day_of_week" } },
-    "mark": { "type": "rect" },
-    "color": { "field": { "name": "order_items.count" } },
-    "tooltip": [
-      { "field": { "name": "order_items.created_day_of_week" } },
-      { "field": { "name": "order_items.created_hour" } },
-      { "field": { "name": "order_items.count" } }
-    ],
-    "version": 0,
-    "configType": "cartesian"
   }
 }
 ```
@@ -978,7 +610,8 @@ Same as pie but with `innerRadius` set.
   "name": "Order Details",
   "topicName": "order_items",
   "prefersChart": false,
-  "visType": "basic",
+  "chartType": "table",
+  "visConfig": { "config": {}, "visType": "omni-table", "fields": ["order_items.status", "order_items.count", "order_items.total_revenue"] },
   "fields": ["order_items.status", "order_items.count", "order_items.total_revenue"],
   "query": {
     "table": "order_items",
@@ -987,8 +620,7 @@ Same as pie but with `innerRadius` set.
     "limit": 100,
     "join_paths_from_topic_name": "order_items",
     "visConfig": { "chartType": "table" }
-  },
-  "config": {}
+  }
 }
 ```
 
@@ -996,42 +628,30 @@ Same as pie but with `innerRadius` set.
 
 ## Discovering Config for Advanced Chart Types
 
-For chart types not fully documented here (sankey, boxplot, map, regionMap, singleRecord), the most reliable approach is to build the chart in the Omni UI and read it back:
+For families not fully covered here (funnel, sankey, boxplot, map, regionMap, singleRecord), build the chart in the Omni UI and read it back:
 
 ```bash
-# Step 1: Build the visualization in the Omni UI
-# Step 2: Read the document to capture its config
+omni unstable documents-export <identifier>   # full visConfig incl. spec
+# or
 omni documents get <documentId>
 ```
 
-The response includes the complete `queryPresentations` array with `visConfig`, `config`, and all rendering parameters — use this as the source of truth.
+The export's `queryPresentation.visConfig` shows the persisted `visType`, `chartType`, and `spec` (the spec is the same object you pass as `visConfig.config` on create). Use it as a template.
 
-> **Tip**: Build one reference dashboard in the UI with every chart type you need. Read it back once, and use those configs as templates for all future programmatic dashboard creation.
+> **Tip**: Build one reference dashboard in the UI with every chart type you need, export it once, and reuse those `config` objects as templates.
 
 ## resultConfig
 
-The `resultConfig` object is an optional field on `queryPresentation` that controls result display settings independent of visualization. It is not well-documented in the public API, but commonly includes:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `columnOrder` | array | Ordered list of field names controlling column display order in tables |
-| `hiddenColumns` | array | Field names to hide from the table view |
-| `columnWidths` | object | Map of field name to pixel width |
+Optional field on `queryPresentation` controlling result display independent of the visualization. Commonly includes `columnOrder` (array), `hiddenColumns` (array), `columnWidths` (object of field → pixel width).
 
 ## aiConfig
 
-The `aiConfig` object enables AI-generated descriptions and subtitles on tiles:
+Enables AI-generated descriptions/subtitles on tiles:
 
 ```json
 "aiConfig": {
-  "description": {
-    "enabled": true,
-    "aiContext": "Summarize this data focusing on trends"
-  },
-  "subTitle": {
-    "enabled": true,
-    "aiContext": "One-line summary of the key takeaway"
-  }
+  "description": { "enabled": true, "aiContext": "Summarize this data focusing on trends" },
+  "subTitle": { "enabled": true, "aiContext": "One-line summary of the key takeaway" }
 }
 ```
 
@@ -1039,43 +659,24 @@ The `aiConfig` object enables AI-generated descriptions and subtitles on tiles:
 
 | Mistake | Symptom | Fix |
 |---------|---------|-----|
-| `visConfig` placed outside `query` | Chart renders as table | Move `visConfig` inside the `query` object |
+| Spec placed in top-level `config` (not `visConfig.config`) | Tile auto-renders (often a line chart); exported `spec` is `{}` | Put the spec in `visConfig.config` at the queryPresentation level |
+| Only `query.visConfig.chartType` set | Renders as auto/table | Set `chartType` + `visConfig` at the queryPresentation level |
+| `barColor` / `areaColor` / `stackedBarColor` | Request rejected (invalid enum) | Use `column`/`bar`, `area`, `columnStacked`/`barStacked` |
+| `configType: "pie"` / `"funnel"` / `"map"` | Wrong/missing config | Pie → `configType: "polar"`; funnel/sankey/map have **no** `configType` (use the right `visType`) |
 | `prefersChart` is `false` or missing | Always shows table | Set `prefersChart: true` |
-| `visType` wrong for chart type | "No chart available" | Use `"omni-kpi"` for KPI, `"basic"` for everything else |
-| `_dependentAxis` mismatched | Chart axes inverted or broken | `"y"` for vertical, `"x"` for horizontal bars |
-| `series[].yAxis` vs `xAxis` wrong | Measures don't render | Use `yAxis: "y"` for vertical, `xAxis: "x"` for horizontal |
-| Missing `fields` at presentation level | Tile may not render | Duplicate `query.fields` at the `queryPresentation` level |
-| Missing measure in query | Empty tile with no error | Every query must include at least one measure |
-| `mark.type` doesn't match chartType | Unexpected rendering | See mapping table above |
-| `behaviors.stackMultiMark` wrong | Stacking behavior incorrect | `true` for stacked, `false` for grouped |
-| `config: {}` with `prefersChart: true` | Omni auto-generates config | Safe default — Omni picks the best chart |
+| `_dependentAxis` mismatched | Axes inverted / column vs bar wrong | `"y"` for vertical (column/line/area), `"x"` for horizontal bars |
+| `series[].yAxis` vs `xAxis` wrong | Measures don't render | `yAxis: "y"` for vertical, `xAxis: "x"` for horizontal |
+| Stack dimension not pivoted | Single un-split series | Add the `color.field` dimension to `query.pivots` |
+| Missing `fields` at presentation level | Tile may not render | Duplicate `query.fields` at the queryPresentation level |
+| Missing measure in query | Empty tile, no error | Every query must include at least one measure |
 
 ## Safe Defaults
 
-When unsure about config structure, use these safe patterns:
-
-**Safest**: Let Omni auto-generate the config:
+**Table fallback (always works):**
 ```json
-{
-  "prefersChart": true,
-  "visType": "basic",
-  "config": {},
-  "query": {
-    "visConfig": { "chartType": "lineColor" }
-  }
-}
+{ "prefersChart": false, "chartType": "table", "visConfig": { "config": {}, "visType": "omni-table", "fields": ["..."] }, "query": { "...": "..." } }
 ```
 
-**Table fallback**: Always works:
-```json
-{
-  "prefersChart": false,
-  "visType": "basic",
-  "config": {},
-  "query": {
-    "visConfig": { "chartType": "table" }
-  }
-}
-```
+**Let Omni auto-pick the chart** (when you don't need a specific type): set `chartType: "auto"`, `prefersChart: true`, `visConfig: { "config": {}, "visType": "basic", "fields": [...] }`. Then export the document to capture the config Omni generated and refine from there.
 
-> **Recommendation**: For new or unfamiliar chart types, start with `"config": {}` and let Omni auto-generate the rendering config. Then read the document back with `omni documents get` to capture the full config for future use as a template.
+> **Recommendation**: For an unfamiliar chart type, build it once in the UI, export it, and reuse the `spec` as your `visConfig.config` template — that is the most reliable path to a correct config.
