@@ -127,7 +127,8 @@ This is Omni's authoritative `chartType` enum. A stacked **column** is vertical;
 | `funnel` | `funnel` | — | — | — |
 | `sankey` | `sankey` | — | — | — |
 | `map` | `map` | — | — | — |
-| `regionMap` / `svgMap` | `svg-map` | — | — | — |
+| `regionMap` | `map` | — | — | — |
+| `svgMap` | `svg-map` | — | — | — |
 | `markdown` | `omni-markdown` | — | — | — |
 | `singleRecord` | `single-record` | — | — | — |
 | `omni-spreadsheet` | `omni-spreadsheet` | — | — | — |
@@ -227,22 +228,36 @@ Each `markdownConfig` entry: `{ id, type, config, lastModified? }` where `type` 
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `value` | Yes | The measure field (segment size) |
-| `color` | No | Dimension that colors/labels segments |
-| `orientation` | No | `"horizontal"` / `"vertical"` |
+| `value` | Yes | The measure field (segment size), `{field:{name}}` |
+| `color` | Recommended | Dimension that defines/labels segments, `{field:{name}}` |
+| `orient` | No | `"vertical"` (default) / `"horizontal"` — note the key is `orient`, not `orientation` |
+| `funnelAlign` | No | `"center"` / `"left"` / `"right"` / `"top"` / `"bottom"` |
+| `sort` | No | `"descending"` (default) / `"ascending"` / `"none"` |
 | `dataLabel`, `tooltip` | No | Labels / hover |
+
+> In a wide, short dashboard tile a funnel can collapse to an unreadable sliver. Set `orient: "vertical"`, `funnelAlign: "center"`, `sort: "descending"`, and `dataLabel: { "enabled": true, "position": "inside" }` so it draws a clean funnel regardless of tile aspect.
 
 ## Config Object: Sankey
 
 `chartType: "sankey"`, `visType: "sankey"`, **no `configType`**. Fields: `source`, `target` (node dimensions), `value` (flow measure), `color`, `tooltip`.
 
-## Config Object: Map / Region Map
+## Config Object: Map / Region Map / SVG Map
 
-**Point map** — `chartType: "map"`, `visType: "map"`, no `configType`. Key fields: `latitudeFieldName`, `longitudeFieldName`, plus optional `markType` (`"circle"`/`"heatmap"`), `markRadius`, `color`, `size`, `tooltip`, `zoom`, `center`.
+**Point map** — `chartType: "map"`, `visType: "map"`, no `configType`. Key fields: `latitudeFieldName`, `longitudeFieldName` (plain field-name strings), plus optional `markType` (`"circle"`/`"heatmap"`), `markRadius`, `color`, `size`, `tooltip`, `zoom`, `center`.
 
-**Region / choropleth map** — `chartType: "regionMap"`, `visType: "svg-map"`, no `configType`. Key fields: `regionType` (`"US"`, `"CA"`, …, `"Custom"`), `regionFieldName`, `color`, `tooltip` (and `sourceType`/`sourceUrl` for custom GeoJSON/vector).
+**Region / choropleth map** — `chartType: "regionMap"`, `visType: "map"` (the Mapbox renderer — **not** `svg-map`), no `configType`.
 
-> Map and region-map specs are best captured by building one in the UI and reading it back.
+| Field | Required | Description |
+|-------|----------|-------------|
+| `regionType` | Yes | `"us-states"` or `"countries"` (not `"US"`) |
+| `regionFieldName` | Yes | Dimension holding the region names/codes (plain string) |
+| `sourceProperty` | Yes | Which layer property your values match. US states: `"NAME"` (full names) or `"CODE"` (2-letter). Countries: `"iso_3166_1"` (2-letter), `"iso_3166_1_alpha_3"` (3-letter), or `"name_en"`. **A mismatch renders the base map with no shading.** |
+| `color` | Yes | The measure, `{field:{name}}` |
+| `center`, `zoom` | Recommended | Viewport (e.g. `[-98.35, 39.5]` / `3` for the US). Without it the map fits to data and may zoom into a single locality. |
+
+**SVG map** — `chartType: "svgMap"`, `visType: "svg-map"`, no `configType`. **Bring-your-own geometry**: the renderer returns nothing (tile shows "No chart available") unless you provide BOTH `svgContent` (an inline `<svg>` whose element `name="…"` attributes match your `region` field values) AND `mapName`. Fields: `region: {field:{name}}`, `color: {field:{name}}`, `svgContent`, `mapName`, `tooltip`. There is no built-in world/country geometry — for a country or world choropleth use `regionMap` with `regionType: "countries"`, not `svgMap`.
+
+> Map specs are best captured by building one in the UI and reading it back (`omni unstable documents-export`).
 
 ---
 
@@ -669,6 +684,16 @@ Enables AI-generated descriptions/subtitles on tiles:
 | Stack dimension not pivoted | Single un-split series | Add the `color.field` dimension to `query.pivots` |
 | Missing `fields` at presentation level | Tile may not render | Duplicate `query.fields` at the queryPresentation level |
 | Missing measure in query | Empty tile, no error | Every query must include at least one measure |
+| `regionMap` with `visType: "svg-map"` or `regionType: "US"` | "No chart available" / no shading | Use `visType: "map"`, `regionType: "us-states"`, and a `sourceProperty` matching your field's values (`"NAME"`/`"CODE"`) |
+| `svgMap` with only `region`/`color` | "No chart available" | SVG maps require BOTH `svgContent` and `mapName`; for country/world use `regionMap` `regionType: "countries"` |
+| `chartType: "auto"` with empty config | "No chart available" | `auto` can't persist a render; populate a concrete spec (or build in UI and export) |
+| `aiContext`/`markdown` on AI-summary tile | Renders blank/wrong | Use `ai_context` + `showWarning` (snake_case) |
+
+## Text & AI tiles
+
+- **Markdown** (`chartType: "markdown"`, `visType: "omni-markdown"`): `config: { markdown: "...", version: 1 }`. The markdown body is **mustache-templated against the tile's query** — loop rows with `{{#result}} … {{view_name.field_name.value_static}} … {{/result}}` and reference single values like `{{result._first.view_name.field_name.value_static}}` or `{{result._total.first.view_name.field_name.value_static}}`. Keep a real query on the tile so the template has data.
+- **AI summary** (`chartType: "omni-ai-summary-markdown"`, `visType: "omni-ai-summary-markdown"`): `config: { ai_context: "...", showWarning: true }` (snake_case `ai_context`, **not** `aiContext`; no `markdown`/`version`). Requires a query — the AI summarizes its results.
+- **summaryValue** is **deprecated** — use `kpi` instead.
 
 ## Safe Defaults
 
@@ -677,6 +702,8 @@ Enables AI-generated descriptions/subtitles on tiles:
 { "prefersChart": false, "chartType": "table", "visConfig": { "config": {}, "visType": "omni-table", "fields": ["..."] }, "query": { "...": "..." } }
 ```
 
-**Let Omni auto-pick the chart** (when you don't need a specific type): set `chartType: "auto"`, `prefersChart: true`, `visConfig: { "config": {}, "visType": "basic", "fields": [...] }`. Then export the document to capture the config Omni generated and refine from there.
+> **`chartType: "auto"` is not a persistable render** — a tile saved with `auto` + an empty `config` shows "No chart available", because `auto` only resolves to a concrete chart at render time from live results. To create an auto-styled tile, populate a concrete `chartType` + `visConfig.config` (build it in the UI and export if unsure).
+
+> **Recommendation**: For an unfamiliar chart type, build it once in the UI, export it, and reuse the `spec` as your `visConfig.config` template — that is the most reliable path to a correct config.
 
 > **Recommendation**: For an unfamiliar chart type, build it once in the UI, export it, and reuse the `spec` as your `visConfig.config` template — that is the most reliable path to a correct config.
