@@ -103,7 +103,7 @@ The `query` object within each query presentation uses the same structure as the
 
 > **Note**: `modelId` is not needed inside the query object — it's inherited from the document's top-level `modelId`.
 
-> **Querying a topic — base view + join path.** Set `table` to the topic's **base view** and pass `join_paths_from_topic_name: <topic>` (with `topicName` on the presentation). The topic's join map determines how *joined*-view fields are reached from that base view — e.g. to put `users.state` on an `order_items`-based topic, `table` stays `order_items` and the join comes from the topic; you do **not** set `table: users`. Omit `join_paths_from_topic_name` (or point `table` at a non-base view) and joined-view fields may fail to resolve or join wrong. Confirm with `omni models get-topic <modelId> <topic>` — the `base_view_name` and `join_via_map` in the response show the base view and the join path to every reachable view. (For *choosing* which topic to query, or deciding when to extend/create one, see the `omni-query` and `omni-model-builder` skills.)
+> **Querying a topic — base view + join path.** Set `table` to the topic's **base view**, pass `join_paths_from_topic_name: <topic>`, and set `topicName` on the parent queryPresentation. Joined-view fields (e.g. `users.state` on an `order_items` topic) resolve through the topic's join map — keep `table` at the base view, not the joined view. For the full mechanics, the omit-it failure mode, and verifying with `omni models get-topic` (`base_view_name`/`join_via_map`), see **`omni-query`**'s *Build queries on a topic*. (For *choosing* which topic, or when to extend/create one, see `omni-query` and `omni-model-builder`.)
 
 ## chartType values (summary)
 

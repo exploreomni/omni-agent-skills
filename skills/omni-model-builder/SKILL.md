@@ -109,10 +109,6 @@ omni models yaml-create <modelId> --body '{
 
 > **Inspect a branch.** `yaml-get <modelId> --branchid <branchId>` **without** `--filename` enumerates the whole model — `--mode extension` returns only the files the branch **changed** (your deltas); `--mode combined` returns the **full composed** model (schema + shared + branch). Then drill into any file by its exact path.
 
-> **Advanced — shared extensions on a branch.** If you're editing a *shared extension* (an optional layer some orgs add between the shared model and workbooks):
-> - **Non-isolated (default):** branch the **shared** model, then write to the **extension's** model id with that shared `branchId` and `mode:"extension"` — each extension gets its own branch layer implicitly.
-> - **Isolated** (`usesIsolatedBranches`): the extension's branch must be **created in the IDE** (the API can't create one); then write to the **branch model id** directly with `mode:"merged"`.
-
 ### Step 2: Validate and Test
 
 Every YAML write must be validated and tested before merging — a field can be valid YAML yet produce wrong results or broken queries.

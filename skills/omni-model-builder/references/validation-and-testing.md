@@ -42,6 +42,8 @@ omni query run --body '{
 
 ## Test the join path (if you modified a relationship or topic join)
 
+Build the validation query **on the topic** — `table` = base view + `join_paths_from_topic_name` (joined-view fields resolve through the topic's join map). For the full query shape and how the join map works, see **`omni-query`**'s *Build queries on a topic*.
+
 ```bash
 omni query run --body '{
   "query": {

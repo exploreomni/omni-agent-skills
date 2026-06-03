@@ -59,7 +59,7 @@ Documents can be created with full query and visualization configurations via `q
 
 ## Build queries on a topic
 
-Build every tile's query **on a topic** whenever possible: set the query `table` to the topic's **base view** and pass `join_paths_from_topic_name: <topic>` (with `topicName: <topic>` on the presentation). The topic's join map resolves how *joined*-view fields are reached from the base view — to put `users.state` on an `order_items`-based topic, `table` stays `order_items` and the join comes from the topic; you do **not** set `table: users`. Confirm the base view and reachable joins with `omni models get-topic <modelId> <topic>` (`base_view_name` + `join_via_map`).
+Build every tile's query **on a topic** whenever possible: set the query `table` to the topic's **base view** and pass `join_paths_from_topic_name: <topic>`, plus `topicName: <topic>` on the **presentation** (the presentation-level `topicName` is tile-specific — a standalone query has no equivalent). Joined-view fields then resolve through the topic's join map from the base view. For the full shape — how the join map reaches joined-view fields, the worked example, and verifying with `omni models get-topic` (`base_view_name`/`join_via_map`) — see **`omni-query`**'s *Build queries on a topic*.
 
 **Access matters:** a tile **not** built on a topic is **not accessible to restricted queriers/viewers**. A bare base-view query still works (it traverses the global `relationships` file) but is restricted-access-invisible in a dashboard — use it only when no topic fits *and* the audience isn't restricted.
 
@@ -206,9 +206,11 @@ Full field reference (`required`/`optional`), `clearExistingDraft`/409 handling,
 > **First decide where a new field belongs.** Skill users are almost always **modelers or admins** who *can* write to the shared model — so choose the field's right home, not the lowest-friction path. In order:
 > 1. **Can it be a calculation?** A table calculation is scoped to a **single query/tile** (computed on the result set). Prefer one for logic local to one query — but lean to a model field (→ #2/#3) when (a) the **query shape rules a calc out**, or (b) you're building **multiple queries at once** and the same logic spans them and can be expressed as a dimension/measure. **Window-shaped logic** (running total, moving average, % change) should almost always stay a calc — it runs post-query on the result set, not in-warehouse; only reach for an in-warehouse field when the window must span rows *outside* the result set. (See `omni-query`'s table-calculation guidance.)
 > 2. **Reusable elsewhere?** If the field is likely to be used beyond this one dashboard, prefer adding it to a **branch on the shared model** and follow **`omni-model-builder`** to create, validate, and ship it.
-> 3. **One-off for this dashboard (and not a calculation)?** Add it to the **workbook model** (below) — but still follow **`omni-model-builder`'s field-level guidance** for correct syntax, and verify the query behaves as intended.
+> 3. **One-off for this dashboard (and not a calculation)?** Add it to the **workbook model** — see [Building a tile that queries a workbook-model field](#building-a-tile-that-queries-a-workbook-model-field) below for the `create` → `yaml-create` → `put` flow — but still follow **`omni-model-builder`'s field-level guidance** for correct syntax, and verify the query behaves as intended.
 > 4. **Unsure?** Ask the creator where the field should live.
 > 5. **Never write to the schema model** — it's auto-generated and read-only.
+>
+> **Whichever home you pick, if the field isn't in the *published* shared model yet** — it lives only on a model **branch** that hasn't merged, or only in the **workbook model** — the tile must go on a **branch-bound draft**, and you must stamp each tile's `query.modelId` with the document's workbook model or restricted-role users get a spurious "Invalid model" warning. See **[references/branch-bound-drafts.md](references/branch-bound-drafts.md)** for the recipes and the `modelId` fix.
 
 Push custom dimensions and measures to a specific dashboard by writing to its workbook model. Each workbook has its own model that **extends** the shared model — so the ID you write YAML to is a model ID, not a separate "workbook ID". This is a two-step flow:
 
@@ -234,6 +236,19 @@ omni models yaml-create <workbookModelId> --body '{
 > **Critical**: Always pass `"mode": "extension"` when editing an existing view in a workbook model. The default is `"combined"`, which treats your YAML body as the *complete* view definition and marks every field you didn't include as `ignored: true` — silently breaking queries that depend on fields from the shared base view. Extension mode layers your new dimensions and measures on top of the inherited view.
 
 `fileName` must be `"model"`, `"relationships"`, or end with `.view` or `.topic`. The `yaml` value is a YAML string (not a JSON object). Writing to a workbook model skips git sync entirely — authorization is still checked against the underlying shared model's permissions.
+
+### Building a tile that *queries* a workbook-model field
+
+Two rules govern any tile whose query references a workbook-model field — both verified against a live instance:
+
+- **The tile's `query.modelId` must be the workbook model.** A workbook field doesn't exist in the shared model, so a tile with `query.modelId` = the shared model **fails to resolve the field outright** (not a soft warning — the query errors). But `documents create` stamps the *shared* model onto every tile's `query.modelId`, regardless of the workbook model it just provisioned. So a one-shot `create` can't produce a working workbook-field tile; you must `put` the tile afterward with `query.modelId` set to the workbook model.
+- **The field must exist before the `put` that references it,** and the workbook model itself only exists *after* `create`. So the order is fixed:
+  1. **`documents create`** (empty, or with shared-field tiles) — provisions the workbook model.
+  2. **`documents get <id>`** → the top-level `modelId` (the workbook model).
+  3. **`yaml-create <workbookModelId>` `mode: "extension"`** → add the field (above).
+  4. **`documents put <id>`** with each workbook-field tile's `query.modelId` = the workbook model (and the top-level `modelId` too).
+
+> **On a branch-bound draft this differs:** a draft has its *own* workbook model (a distinct id), so the field must be written there, and that model extends the branch — letting one `query.modelId` resolve branch-only and workbook-model fields together. See **[references/branch-bound-drafts.md](references/branch-bound-drafts.md)**.
 
 ### Verify the Extension Worked
 
@@ -332,6 +347,8 @@ Dashboard: {OMNI_BASE_URL}/dashboards/{identifier}
 Workbook:  {OMNI_BASE_URL}/w/{identifier}
 ```
 
+A **draft** is linked the same way as any dashboard, using the *draft's own* `identifier` (from the `create-draft` response or `documents list-drafts`): `{OMNI_BASE_URL}/dashboards/{draftIdentifier}`.
+
 The `identifier` comes from the document's `identifier` field in API responses (not `id`, which is null for workbooks).
 Replace `{OMNI_BASE_URL}` with the actual base URL from the active profile or
 environment, normalized without a trailing slash. Do not return the literal
@@ -391,7 +408,7 @@ omni dashboards download-status <dashboardId> <jobId>
 ## Docs Reference
 
 - [Documents API](https://docs.omni.co/api/documents.md) · [Update Document](https://docs.omni.co/api/documents/update-document) · [Dashboard Filters](https://docs.omni.co/api/dashboard-filters.md) · [Dashboard Downloads](https://docs.omni.co/api/dashboard-downloads.md) · [Query API](https://docs.omni.co/api/queries.md) · [Schedules API](https://docs.omni.co/api/schedules.md) · [Visualization Types](https://docs.omni.co/visualize-present/visualizations.md)
-- **Skill references**: [queryPresentations.md](references/queryPresentations.md) · [visConfig.md](references/visConfig.md) · [filterConfig.md](references/filterConfig.md)
+- **Skill references**: [queryPresentations.md](references/queryPresentations.md) · [visConfig.md](references/visConfig.md) · [filterConfig.md](references/filterConfig.md) · [branch-bound-drafts.md](references/branch-bound-drafts.md)
 
 ## Related Skills
 

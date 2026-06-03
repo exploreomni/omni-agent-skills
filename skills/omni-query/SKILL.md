@@ -49,6 +49,8 @@ omni ai --help                 # AI-powered query generation
 
 Prefer building every query **on a topic**, not a bare base view. Topics carry the governed joins, labels, and access — and **a query not built on a topic is not accessible to restricted queriers/viewers** (it works for you as a modeler/admin but silently fails for restricted roles). Set the query `table` to the topic's base view and pass `join_paths_from_topic_name: <topic>`.
 
+**How the join map resolves joined-view fields.** `table` stays the topic's **base view**; `join_paths_from_topic_name` lets the topic's join map reach *joined*-view fields from it — e.g. to select `users.state` on an `order_items`-based topic, `table` stays `order_items` and the join comes from the topic; you do **not** set `table: users`. Omit `join_paths_from_topic_name` (or point `table` at a non-base view) and joined-view fields may fail to resolve or join wrong. Confirm the base view and every reachable join with `omni models get-topic <modelId> <topic>` — its `base_view_name` and `join_via_map` show the base view and the join path to each reachable view. (This is the canonical topic-query shape; `omni-content-builder` tiles and `omni-model-builder` validation queries use it too.)
+
 **Decide where the query should come from:**
 1. **An existing topic answers it** (its base view + a join-reachable view) → query that topic.
 2. **The field is on a join-reachable view but the topic doesn't expose it / lacks the join** → propose *extending* the topic (add the relationship/join), then build it via `omni-model-builder`.
