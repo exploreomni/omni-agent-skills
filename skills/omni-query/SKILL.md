@@ -45,6 +45,19 @@ omni ai --help                 # AI-powered query generation
 - If a calc query succeeds but the calc column is blank, treat it as a failed calc until proven otherwise. Re-check operand order, `for_calc`, date truncation, `outside_pivot`, and whether the `calc_name` appears in `query.fields`.
 - Prefer the documented Omni calc operators over lower-level raw SQL/window ASTs when a template exists. For example, use `Omni.OMNI_RUNNING_TOTAL`, `Omni.OMNI_PERCENT_CHANGE_FROM_PREVIOUS`, and `Omni.OMNI_FX_AVERAGE(Omni.OMNI_OFFSET_MULTI(...))` for moving averages instead of hand-authored `window_call`/`LAG` when the prompt asks for a table calculation.
 
+## Build queries on a topic
+
+Prefer building every query **on a topic**, not a bare base view. Topics carry the governed joins, labels, and access — and **a query not built on a topic is not accessible to restricted queriers/viewers** (it works for you as a modeler/admin but silently fails for restricted roles). Set the query `table` to the topic's base view and pass `join_paths_from_topic_name: <topic>`.
+
+**Decide where the query should come from:**
+1. **An existing topic answers it** (its base view + a join-reachable view) → query that topic.
+2. **The field is on a join-reachable view but the topic doesn't expose it / lacks the join** → propose *extending* the topic (add the relationship/join), then build it via `omni-model-builder`.
+3. **Fundamentally different subject, constraints, or audience** → propose a *new* topic (see the "new topic vs extend" criteria in `omni-model-builder`). Prompt the requestor first, and build it on a branch.
+
+**Fallback:** a query can run on a bare base view with no topic — it traverses joins via the global `relationships` file — but in a dashboard that tile is **invisible to restricted queriers/viewers**. Use only when no topic fits *and* the audience isn't restricted.
+
+When the conclusion is "build or modify a topic," hand off to **`omni-model-builder`** to do it right.
+
 ## Running a Query
 
 ### Basic Query

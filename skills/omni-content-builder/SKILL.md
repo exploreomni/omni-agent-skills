@@ -203,6 +203,13 @@ Full field reference (`required`/`optional`), `clearExistingDraft`/409 handling,
 
 ## Updating a Dashboard's Model
 
+> **First decide where a new field belongs.** Skill users are almost always **modelers or admins** who *can* write to the shared model — so choose the field's right home, not the lowest-friction path. In order:
+> 1. **Can it be a calculation?** A table calculation is scoped to a **single query/tile** (computed on the result set). Prefer one for logic local to one query — but lean to a model field (→ #2/#3) when (a) the **query shape rules a calc out**, or (b) you're building **multiple queries at once** and the same logic spans them and can be expressed as a dimension/measure. **Window-shaped logic** (running total, moving average, % change) should almost always stay a calc — it runs post-query on the result set, not in-warehouse; only reach for an in-warehouse field when the window must span rows *outside* the result set. (See `omni-query`'s table-calculation guidance.)
+> 2. **Reusable elsewhere?** If the field is likely to be used beyond this one dashboard, prefer adding it to a **branch on the shared model** and follow **`omni-model-builder`** to create, validate, and ship it.
+> 3. **One-off for this dashboard (and not a calculation)?** Add it to the **workbook model** (below) — but still follow **`omni-model-builder`'s field-level guidance** for correct syntax, and verify the query behaves as intended.
+> 4. **Unsure?** Ask the creator where the field should live.
+> 5. **Never write to the schema model** — it's auto-generated and read-only.
+
 Push custom dimensions and measures to a specific dashboard by writing to its workbook model. Each workbook has its own model that **extends** the shared model — so the ID you write YAML to is a model ID, not a separate "workbook ID". This is a two-step flow:
 
 **Step 1 — get the document to find its workbook model ID:**
