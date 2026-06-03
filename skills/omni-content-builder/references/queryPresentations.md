@@ -76,12 +76,14 @@ A chart is defined by **two queryPresentation-level fields**:
 | `description` | No | Tile description. |
 | `query` | Yes | Query definition (see below). |
 
+> *(charts)* in the Required column means the field is required **for chart tiles**; a plain table tile can omit it (`prefersChart: false`, `visConfig.config: {}`).
+
 ### visConfig object
 
 | Field | Required | Description |
 |-------|----------|-------------|
 | `config` | Yes (charts) | The chart rendering spec. Cartesian families carry `configType: "cartesian"`; see per-family shapes in [visConfig.md](visConfig.md). |
-| `visType` | Yes (charts) | Renderer: `"basic"` for cartesian/pie/heatmap/boxplot, `"omni-kpi"` for KPI, `"funnel"`, `"sankey"`, `"map"` (point **and** region/choropleth maps), `"svg-map"` (custom SVG maps only), `"omni-table"` for tables. |
+| `visType` | Yes (charts) | Renderer: `"basic"` for cartesian/pie/heatmap/boxplot, `"omni-kpi"` for KPI, `"funnel"`, `"sankey"`, `"map"` (point **and** region/choropleth maps), `"omni-table"` for tables. |
 | `fields` | Recommended | The fields the visualization uses; mirror `query.fields`. |
 
 ## Query Object Parameters
@@ -561,6 +563,5 @@ All line, column/bar, area, scatter, and combo charts use this structure:
 | Sankey | `"sankey"` | `"sankey"` | — | — | — |
 | Point map | `"map"` | `"map"` | — | — | — |
 | Region map | `"regionMap"` | `"map"` | — | — | — |
-| SVG map | `"svgMap"` | `"svg-map"` | — | — | — |
 
 > For funnel, sankey, map, region map, heatmap, and boxplot, the inner `config` field names are best confirmed by building the chart once in the Omni UI and reading it back (`omni documents get`) — see [visConfig.md](visConfig.md) for the known shapes.

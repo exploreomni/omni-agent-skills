@@ -48,7 +48,7 @@ Before assembling `queryPresentations`, check each tile's viz configuration agai
 | `prefersChart` must be `true` for charts | If `false` or omitted, Omni renders a table regardless of other viz settings |
 | Spec lives in `visConfig.config` | The rendering spec must be in `visConfig.config` at the queryPresentation level — a bare top-level `config` is silently dropped |
 | `chartType` set at the presentation level | The chart type enum value must be a queryPresentation-level `chartType` (not only `query.visConfig.chartType`) |
-| `visType` must match chart category | `"omni-kpi"` for KPI, `"basic"` for cartesian/pie/heatmap/boxplot, `"funnel"`/`"sankey"`/`"map"`/`"svg-map"` for those, `"omni-table"` for tables |
+| `visType` must match chart category | `"omni-kpi"` for KPI, `"basic"` for cartesian/pie/heatmap/boxplot, `"funnel"`/`"sankey"`/`"map"` for those, `"omni-table"` for tables |
 | `chartType` must be a valid enum value | e.g. `table`, `kpi`, `line`/`lineColor`, `column`/`columnStacked`, `bar`/`barStacked`, `area`/`areaStacked`, `point`/`pointColor`, `pie`, `heatmap`, `boxplot`, `funnel`, `sankey`, `map`, `regionMap`. **NOT** `barColor`/`areaColor`/`stackedBarColor`/`scatter` |
 | `config` fields must match chart family | Cartesian (line/column/bar/area/point) require `mark`, `series`, `tooltip`, `behaviors`, `configType: "cartesian"`, `_dependentAxis`; pie uses `configType: "polar"`; heatmap `"heatmap"`; boxplot `"boxplot"`; funnel/sankey/map have no `configType` |
 | `_dependentAxis` must match orientation | `"y"` for vertical charts (line, **column**, area, scatter), `"x"` for horizontal **bar** charts |

@@ -127,7 +127,7 @@ See [references/queryPresentations.md](references/queryPresentations.md) for the
 - `prefersChart` must be `true` to render a chart (otherwise always shows table)
 - A chart is defined by **two queryPresentation-level fields**: `chartType` (the enum value) and `visConfig` (`{ config, visType, fields }`). The rendering spec goes in **`visConfig.config`**.
 - A bare top-level `config` on the queryPresentation is **silently dropped** — do not put the spec there. `query.visConfig.chartType` is only a hint and does not drive the tile on its own.
-- `visType`: `"omni-kpi"` for KPI, `"basic"` for cartesian/pie/heatmap/boxplot, `"funnel"`/`"sankey"`/`"map"`/`"svg-map"` for those families, `"omni-table"` for tables
+- `visType`: `"omni-kpi"` for KPI, `"basic"` for cartesian/pie/heatmap/boxplot, `"funnel"`/`"sankey"`/`"map"` for those families, `"omni-table"` for tables
 - `chartType` must be a valid enum value — e.g. `column`/`columnStacked` (vertical), `bar`/`barStacked` (horizontal), `lineColor`, `area`, `pie`, `kpi`. **`barColor`/`areaColor`/`stackedBarColor` are NOT valid.**
 - `fields` must be duplicated at both the `queryPresentation` and `query` levels
 - `modelId` is inherited from the document — not needed inside `query`

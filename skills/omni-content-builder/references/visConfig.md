@@ -65,7 +65,7 @@ Plus `prefersChart: true` to default the tile to chart (vs. table) view.
 
 ## chartType Values
 
-This is Omni's authoritative `chartType` enum. A stacked **column** is vertical; a stacked **bar** is horizontal.
+These are the supported `chartType` values for building tiles with a structured `visConfig.config`. Feature-flagged, deprecated, and non-config-driven viz types — e.g. the raw Vega code editor and interactive spreadsheets — are intentionally omitted. A stacked **column** is vertical; a stacked **bar** is horizontal.
 
 | chartType | Family | Description |
 |-----------|--------|-------------|
@@ -97,13 +97,9 @@ This is Omni's authoritative `chartType` enum. A stacked **column** is vertical;
 | `"sankey"` | Sankey | Sankey flow diagram |
 | `"map"` | Map | Point map (lat/lng) |
 | `"regionMap"` | Map | Choropleth / region map |
-| `"svgMap"` | Map | Vector (SVG) map |
 | `"markdown"` | Text | Markdown content tile |
 | `"omni-ai-summary-markdown"` | Text | AI-generated summary tile |
 | `"singleRecord"` | Detail | Single record viewer |
-| `"omni-spreadsheet"` | Sheet | Interactive spreadsheet |
-| `"code"` | App | Custom HTML/JS app |
-| `"summaryValue"` | KPI | Deprecated — use `"kpi"` |
 
 > **Not valid** (common mistakes): `barColor`, `areaColor`, `stackedBarColor`, `scatter`, `rect`. Use `column`/`bar`, `area`, `columnStacked`/`barStacked`, `point`, and `heatmap` respectively.
 
@@ -128,11 +124,8 @@ This is Omni's authoritative `chartType` enum. A stacked **column** is vertical;
 | `sankey` | `sankey` | — | — | — |
 | `map` | `map` | — | — | — |
 | `regionMap` | `map` | — | — | — |
-| `svgMap` | `svg-map` | — | — | — |
 | `markdown` | `omni-markdown` | — | — | — |
 | `singleRecord` | `single-record` | — | — | — |
-| `omni-spreadsheet` | `omni-spreadsheet` | — | — | — |
-| `code` | `app` | — | — | — |
 
 ## Config Object: Cartesian Charts
 
@@ -241,11 +234,11 @@ Each `markdownConfig` entry: `{ id, type, config, lastModified? }` where `type` 
 
 `chartType: "sankey"`, `visType: "sankey"`, **no `configType`**. Fields: `source`, `target` (node dimensions), `value` (flow measure), `color`, `tooltip`.
 
-## Config Object: Map / Region Map / SVG Map
+## Config Object: Map / Region Map
 
 **Point map** — `chartType: "map"`, `visType: "map"`, no `configType`. Key fields: `latitudeFieldName`, `longitudeFieldName` (plain field-name strings), plus optional `markType` (`"circle"`/`"heatmap"`), `markRadius`, `color`, `size`, `tooltip`, `zoom`, `center`.
 
-**Region / choropleth map** — `chartType: "regionMap"`, `visType: "map"` (the Mapbox renderer — **not** `svg-map`), no `configType`.
+**Region / choropleth map** — `chartType: "regionMap"`, `visType: "map"` (the Mapbox renderer), no `configType`.
 
 | Field | Required | Description |
 |-------|----------|-------------|
@@ -254,8 +247,6 @@ Each `markdownConfig` entry: `{ id, type, config, lastModified? }` where `type` 
 | `sourceProperty` | Yes | Which layer property your values match. US states: `"NAME"` (full names) or `"CODE"` (2-letter). Countries: `"iso_3166_1"` (2-letter), `"iso_3166_1_alpha_3"` (3-letter), or `"name_en"`. **A mismatch renders the base map with no shading.** |
 | `color` | Yes | The measure, `{field:{name}}` |
 | `center`, `zoom` | Recommended | Viewport (e.g. `[-98.35, 39.5]` / `3` for the US). Without it the map fits to data and may zoom into a single locality. |
-
-**SVG map** — `chartType: "svgMap"`, `visType: "svg-map"`, no `configType`. **Bring-your-own geometry**: the renderer returns nothing (tile shows "No chart available") unless you provide BOTH `svgContent` (an inline `<svg>` whose element `name="…"` attributes match your `region` field values) AND `mapName`. Fields: `region: {field:{name}}`, `color: {field:{name}}`, `svgContent`, `mapName`, `tooltip`. There is no built-in world/country geometry — for a country or world choropleth use `regionMap` with `regionType: "countries"`, not `svgMap`.
 
 > Map specs are best captured by building one in the UI and reading it back (`omni unstable documents-export`).
 
@@ -684,8 +675,7 @@ Enables AI-generated descriptions/subtitles on tiles:
 | Stack dimension not pivoted | Single un-split series | Add the `color.field` dimension to `query.pivots` |
 | Missing `fields` at presentation level | Tile may not render | Duplicate `query.fields` at the queryPresentation level |
 | Missing measure in query | Empty tile, no error | Every query must include at least one measure |
-| `regionMap` with `visType: "svg-map"` or `regionType: "US"` | "No chart available" / no shading | Use `visType: "map"`, `regionType: "us-states"`, and a `sourceProperty` matching your field's values (`"NAME"`/`"CODE"`) |
-| `svgMap` with only `region`/`color` | "No chart available" | SVG maps require BOTH `svgContent` and `mapName`; for country/world use `regionMap` `regionType: "countries"` |
+| `regionMap` not shading | "No chart available" / blank map | Use `visType: "map"`, `regionType: "us-states"`/`"countries"`, a `sourceProperty` matching your field's values (`"NAME"`/`"CODE"`/iso codes), and `center`/`zoom` |
 | `chartType: "auto"` with empty config | "No chart available" | `auto` can't persist a render; populate a concrete spec (or build in UI and export) |
 | `aiContext`/`markdown` on AI-summary tile | Renders blank/wrong | Use `ai_context` + `showWarning` (snake_case) |
 
@@ -693,7 +683,6 @@ Enables AI-generated descriptions/subtitles on tiles:
 
 - **Markdown** (`chartType: "markdown"`, `visType: "omni-markdown"`): `config: { markdown: "...", version: 1 }`. The markdown body is **mustache-templated against the tile's query** — loop rows with `{{#result}} … {{view_name.field_name.value_static}} … {{/result}}` and reference single values like `{{result._first.view_name.field_name.value_static}}` or `{{result._total.first.view_name.field_name.value_static}}`. Keep a real query on the tile so the template has data.
 - **AI summary** (`chartType: "omni-ai-summary-markdown"`, `visType: "omni-ai-summary-markdown"`): `config: { ai_context: "...", showWarning: true }` (snake_case `ai_context`, **not** `aiContext`; no `markdown`/`version`). Requires a query — the AI summarizes its results.
-- **summaryValue** is **deprecated** — use `kpi` instead.
 
 ## Safe Defaults
 
