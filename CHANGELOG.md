@@ -6,6 +6,16 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.3.18] - 2026-06-02
+
+### omni-analytics
+
+**Changed**
+- `omni-model-builder` adds branch-editing guidance to the Safe Development Workflow: `yaml-create` is a whole-file write (read-modify-write to edit a single field), how to inspect a branch (`yaml-get` with no `--filename`; `extension` = the branch's changed files, `combined` = the full composed model), and writing to shared-extension branches (non-isolated vs isolated).
+- `omni-model-builder` adds "new topic vs extend an existing one" criteria (different subject/base view, always-applied constraints, or audience/labels) and notes that querying on a topic is what makes results accessible to restricted queriers/viewers.
+- `omni-query` adds topic-first guidance: prefer querying a topic (set `table` to the base view + `join_paths_from_topic_name`); a decision flow for use-existing / extend / new topic; the access-control consequence (non-topic queries are invisible to restricted queriers/viewers); the bare-base-view fallback; and a handoff to `omni-model-builder` when a topic needs building/modifying.
+- `omni-content-builder` adds a "where a new field belongs" decision order to *Updating a Dashboard's Model*: prefer a table calculation; else a shared-model branch (reusable) via `omni-model-builder`; else the workbook model (one-off, still using model-builder field syntax); ask if unsure; never the read-only schema model.
+
 ## [1.3.17] - 2026-06-02
 
 ### omni-analytics
