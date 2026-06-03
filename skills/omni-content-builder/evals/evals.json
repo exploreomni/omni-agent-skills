@@ -57,6 +57,49 @@
         "The agent does not modify the shared model for this dashboard-specific field"
       ],
       "expected_skill": "omni-content-builder"
+    },
+    {
+      "id": "5",
+      "question": "Build a dashboard called 'Orders by Status Over Time' with a single vertical stacked column chart showing order count by month, stacked by order status.",
+      "ground_truth": "Dashboard created with one vertical stacked column tile. The tile uses chartType 'columnStacked' with the rendering spec in visConfig.config at the queryPresentation level, the status dimension pivoted, and is read back to confirm the visualization spec persisted (non-empty). Share link provided.",
+      "expected_behavior": [
+        "The agent runs omni query run to validate the tile query — including the status dimension in pivots — before creating the dashboard",
+        "The chart uses a valid chartType enum value for a vertical stacked bar: 'columnStacked' (NOT invalid values like 'stackedBarColor' or 'barColor')",
+        "The rendering spec is placed in visConfig.config at the queryPresentation level (with chartType set at the presentation level) — not in a bare top-level 'config' key, which is silently dropped",
+        "The cartesian spec is internally consistent: mark.type 'bar', configType 'cartesian', _dependentAxis 'y', series with yAxis 'y', and color with _stack 'stack' referencing the status field",
+        "The status dimension used for the stack/color is included in the query's pivots",
+        "After creation, the agent reads the document back and confirms the persisted visualization config is non-empty — i.e., the chart spec was not silently dropped to a table or auto-selected chart",
+        "The agent provides a dashboard URL in the format {OMNI_BASE_URL}/dashboards/{identifier}"
+      ],
+      "expected_skill": "omni-content-builder"
+    },
+    {
+      "id": "6",
+      "question": "Build a dashboard with a heatmap of order count by month and status.",
+      "ground_truth": "Dashboard created with a heatmap tile using chartType 'heatmap', visType 'basic', and a spec whose configType is 'heatmap' (x = created_at month, y = status, color = the count measure), placed in visConfig.config and read back to confirm it persisted. Share link provided.",
+      "expected_behavior": [
+        "The agent validates the query (created_at by month, status, and a count measure) with omni query run before creating the dashboard",
+        "The heatmap uses chartType 'heatmap' with visType 'basic'",
+        "The spec uses configType 'heatmap' (NOT 'cartesian'), with x and y dimension fields and color bound to the count measure",
+        "The rendering spec is placed in visConfig.config at the queryPresentation level, not a bare top-level 'config' key",
+        "After creation, the agent reads the document back and confirms the persisted visualization config is non-empty",
+        "The agent provides a dashboard URL in the format {OMNI_BASE_URL}/dashboards/{identifier}"
+      ],
+      "expected_skill": "omni-content-builder"
+    },
+    {
+      "id": "7",
+      "question": "Build a dashboard with a pie chart of order count by status.",
+      "ground_truth": "Dashboard created with a pie tile using chartType 'pie', visType 'basic', and a spec whose configType is 'polar' (the dimension as the slice/color encoding and the measure as theta), placed in visConfig.config and read back to confirm it persisted. Share link provided.",
+      "expected_behavior": [
+        "The agent validates the query (status dimension plus a measure) with omni query run before creating the dashboard",
+        "The pie chart uses chartType 'pie' with visType 'basic'",
+        "The spec uses configType 'polar' (NOT 'pie' or 'cartesian'), with the measure as theta and the status dimension as the color encoding",
+        "The rendering spec is placed in visConfig.config at the queryPresentation level, not a bare top-level 'config' key",
+        "After creation, the agent reads the document back and confirms the persisted visualization config is non-empty",
+        "The agent provides a dashboard URL in the format {OMNI_BASE_URL}/dashboards/{identifier}"
+      ],
+      "expected_skill": "omni-content-builder"
     }
   ]
 }

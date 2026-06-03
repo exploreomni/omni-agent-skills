@@ -1,8 +1,8 @@
 # filterConfig Reference
 
-Complete filter and control configuration examples for creating dashboards with pre-configured filters. Include `filterConfig`, `filterOrder`, and optionally `controls` in the `POST /api/v1/documents` body alongside `queryPresentations`.
+Complete filter and control configuration examples for creating dashboards with pre-configured filters. Include `filterConfig`, `filterOrder`, and optionally `controls` in the `omni documents create` body alongside `queryPresentations`.
 
-> **Important**: The `filterConfig` schema is not fully documented in Omni's public API docs. The examples below are based on reading back filters from dashboards created in the Omni UI via `GET /api/v1/dashboards/{dashboardId}/filters`. **Always verify filter structure** by creating a reference filter in the UI and reading it back before relying on these examples.
+> **Important**: The `filterConfig` schema is not fully documented in Omni's public API docs. The examples below are based on reading back filters from dashboards created in the Omni UI via `omni dashboards get-filters <dashboardId>`. **Always verify filter structure** by creating a reference filter in the UI and reading it back before relying on these examples.
 
 ## Structure Overview
 
@@ -308,8 +308,8 @@ Lets viewers swap one field for another (e.g., switch between revenue and order 
 
 ## Tips
 
-- **Always verify filter structure**: Create the filter in the Omni UI and read it back with `GET /api/v1/dashboards/{dashboardId}/filters` — the response includes both `filters` and `controls` objects you can use as templates.
-- `PUT` and `PATCH` on `/dashboards/{id}/filters` may return 405 or 500. Include filters during document creation instead.
+- **Always verify filter structure**: Create the filter in the Omni UI and read it back with `omni dashboards get-filters <dashboardId>` — the response includes both `filters` and `controls` objects you can use as templates.
+- Updating filters via `omni dashboards update-filters` may return 405 or 500. Include filters during document creation instead.
 - Filter IDs are arbitrary strings — use descriptive names for readability.
 - Filters can be **mapped to different fields across tiles** — e.g., a date filter based on `order_items.created_at` can map to `users.created_at` on a different tile. This mapping is managed in the Omni UI after creation.
 - **Filters will not automatically apply to custom-written SQL queries** — use dynamic filtering (templated filters) for SQL-mode tiles.
