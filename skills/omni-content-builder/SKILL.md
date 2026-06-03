@@ -57,6 +57,14 @@ Omni dashboards are built from **documents** (workbooks). Each has:
 
 Documents can be created with full query and visualization configurations via `queryPresentations`. Fine-tuning tile layout is best done in the Omni UI.
 
+## Build queries on a topic
+
+Build every tile's query **on a topic** whenever possible: set the query `table` to the topic's **base view** and pass `join_paths_from_topic_name: <topic>` (with `topicName: <topic>` on the presentation). The topic's join map resolves how *joined*-view fields are reached from the base view — to put `users.state` on an `order_items`-based topic, `table` stays `order_items` and the join comes from the topic; you do **not** set `table: users`. Confirm the base view and reachable joins with `omni models get-topic <modelId> <topic>` (`base_view_name` + `join_via_map`).
+
+**Access matters:** a tile **not** built on a topic is **not accessible to restricted queriers/viewers**. A bare base-view query still works (it traverses the global `relationships` file) but is restricted-access-invisible in a dashboard — use it only when no topic fits *and* the audience isn't restricted.
+
+**If no existing topic fits the request**, don't just fall back to a base view — decide whether to *extend* an existing topic or *create* a new one, and build it on a branch. Use **`omni-query`** to choose/decide the topic and **`omni-model-builder`** to create or modify one.
+
 ## Document Management
 
 ### Create Document (Name Only)

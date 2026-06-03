@@ -92,20 +92,22 @@ The `query` object within each query presentation uses the same structure as the
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `table` | Yes | Base view name |
+| `table` | Yes | The topic's **base view** (not a joined view) |
 | `fields` | Yes | Array of `view.field_name` references (supports timeframe brackets like `[month]`) |
 | `sorts` | No | Array of `{ "column_name": "...", "sort_descending": bool }` |
 | `filters` | No | Object of `{ "field_name": "expression" }` — supports `"last 90 days"`, `"this quarter"`, `">100"`, etc. |
 | `limit` | No | Row limit (default 1000, max 50000) |
-| `join_paths_from_topic_name` | Recommended | Topic name for join resolution — set this alongside `topicName` on the parent queryPresentation. |
+| `join_paths_from_topic_name` | Strongly recommended | The topic name — resolves joins from the topic's base view so joined-view fields work. Set alongside `topicName` on the parent queryPresentation. |
 | `pivots` | No | Array of field names to pivot on. A color/stack dimension (e.g. for a stacked chart) must be pivoted. |
 | `visConfig` | No | Optional `{ "chartType": "..." }` hint stored on the query. Does **not** drive the tile by itself — set `chartType` + `visConfig` at the queryPresentation level for that. |
 
 > **Note**: `modelId` is not needed inside the query object — it's inherited from the document's top-level `modelId`.
 
+> **Querying a topic — base view + join path.** Set `table` to the topic's **base view** and pass `join_paths_from_topic_name: <topic>` (with `topicName` on the presentation). The topic's join map determines how *joined*-view fields are reached from that base view — e.g. to put `users.state` on an `order_items`-based topic, `table` stays `order_items` and the join comes from the topic; you do **not** set `table: users`. Omit `join_paths_from_topic_name` (or point `table` at a non-base view) and joined-view fields may fail to resolve or join wrong. Confirm with `omni models get-topic <modelId> <topic>` — the `base_view_name` and `join_via_map` in the response show the base view and the join path to every reachable view. (For *choosing* which topic to query, or deciding when to extend/create one, see the `omni-query` and `omni-model-builder` skills.)
+
 ## chartType values (summary)
 
-A stacked **column** is vertical; a stacked **bar** is horizontal — Omni distinguishes the two. See [visConfig.md](visConfig.md) for the complete, authoritative enum and the `chartType → visType → configType` mapping.
+A stacked **column** is vertical; a stacked **bar** is horizontal — Omni distinguishes the two. See [visConfig.md](visConfig.md) for the full supported list and the `chartType → visType → configType` mapping.
 
 | chartType | Visualization |
 |-----------|--------------|
