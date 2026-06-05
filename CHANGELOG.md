@@ -6,6 +6,15 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.3.18] - 2026-06-02
+
+### omni-analytics
+
+**Changed**
+- `omni-model-builder` adds branch-editing guidance to the Safe Development Workflow (`yaml-create` is a whole-file write; inspecting a branch via `yaml-get` — `extension` = changed files, `combined` = full composed model) and "new topic vs extend" criteria (different subject/base view, always-applied constraints, or audience/labels), noting that querying on a topic is what exposes results to restricted queriers/viewers.
+- `omni-query` adds topic-first guidance and now owns the canonical topic-query shape: prefer querying a topic (`table` = base view + `join_paths_from_topic_name`); the **join-map mechanics** (how `join_paths_from_topic_name` reaches joined-view fields from the base view, verified via `get-topic`'s `base_view_name`/`join_via_map`) — `omni-content-builder` and `omni-model-builder` now reference this instead of restating it; a use-existing / extend / new-topic decision flow; the access-control consequence (non-topic queries are invisible to restricted queriers/viewers); the bare-base-view fallback; and a handoff to `omni-model-builder` for topic changes.
+- `omni-content-builder` adds field-placement guidance: a "where a new field belongs" decision order in *Updating a Dashboard's Model* (table calculation → shared-model branch → workbook model; never the schema model) and `references/branch-bound-drafts.md` for tiles whose query references a field not in the *published* shared model — the restricted-querier "Invalid model" gotcha (`documents create` stamps the base model on tiles) and its `documents put` workbook-model fix, covering both branch-only fields (warning) and workbook-model fields (the field *fails to resolve* unless `query.modelId` is the workbook model), the fixed `create` → `get` → `yaml-create … mode:extension` → `put` order, and draft tiles using the draft's own workbook model which extends its branch. Also tells the agent to flag the pending-merge draft status to the creator (a branch-bound draft only publishes when its branch merges), notes drafts link via `/dashboards/<draftIdentifier>`, and adds eval cases (workbook-field tiles, branch-bound-draft tiles, running-total-as-calculation routing).
+
 ## [1.3.17] - 2026-06-02
 
 ### omni-analytics

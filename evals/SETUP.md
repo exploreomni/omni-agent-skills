@@ -330,6 +330,7 @@ Some evals write state. Reset before re-running:
 | omni-admin eval 1 | Creates `newanalyst@company.com` user | Delete via SCIM or admin UI |
 | omni-admin eval 3 | Creates a schedule on `EVAL_DASHBOARD_SCHEDULE` | Delete via admin UI or `omni schedules delete` |
 | omni-content-builder eval 2 | Adds a tile to `EVAL_DASHBOARD_TILES` | `./evals/reset.sh` recreates Sales Performance and updates `eval-env.local.json` |
+| omni-content-builder eval 10 | Creates its own throwaway model branch (with an `eval_branch_avg_price` measure) and a branch-bound draft on it | Branch-cleanup command below removes it and its draft — the branch name does not start with `eval-`, so the filter catches it. Leaves `EVAL_BRANCH_ID`/`eval-comparison-branch` untouched. |
 | omni-content-explorer eval 3 | Adds `finance` label to `EVAL_DASHBOARD_LABEL` | `omni documents remove-label <id> finance` |
 | omni-model-builder evals 1–4 | Creates model branches | `omni models list --include activeBranches` then `omni models delete-branch` |
 | omni-ai-optimizer evals 1–3 | Creates model branches | Same as above |

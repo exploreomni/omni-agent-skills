@@ -100,6 +100,53 @@
         "The agent provides a dashboard URL in the format {OMNI_BASE_URL}/dashboards/{identifier}"
       ],
       "expected_skill": "omni-content-builder"
+    },
+    {
+      "id": "8",
+      "question": "Build a dashboard called 'Pricing Watch' with one tile charting a new measure 'Max Sale Price' (the maximum of sale_price) that should live only on this dashboard — not in the shared model — by month, with a running total of order count alongside it.",
+      "ground_truth": "A shell document is created first (which provisions the workbook model), the 'Max Sale Price' measure is added to that workbook model via yaml-create in extension mode, and the tile is written via documents put with the tile's query.modelId set to the workbook model (not the shared model) and a running-total table calculation. The query is validated against the workbook model and the tile is read back and confirmed to render. Share link provided.",
+      "expected_behavior": [
+        "The agent creates the document before writing the field — it does not attempt a single documents create that both defines the workbook field and references it, because the workbook model does not exist until create runs",
+        "The agent retrieves the document's workbook model from the top-level modelId of omni documents get",
+        "The 'Max Sale Price' measure is added to the workbook model via omni models yaml-create with mode 'extension' — not to the shared model, and not in combined mode",
+        "The tile's query.modelId is set to the workbook model, not the shared model — the agent recognizes the workbook field will not resolve under the shared model (documents create stamps the shared model on tiles)",
+        "The running total is implemented as a table calculation (calculations[] using OMNI_RUNNING_TOTAL) with its calc_name included in query.fields — not as a new model field",
+        "The agent validates the tile query against the workbook model with omni query run",
+        "After creation, the agent reads the document back and confirms the tile persisted with a renderer that matches its chartType (e.g. a table tile uses visType 'omni-table', not 'basic')",
+        "The agent provides a dashboard URL in the format {OMNI_BASE_URL}/dashboards/{identifier}"
+      ],
+      "expected_skill": "omni-content-builder"
+    },
+    {
+      "id": "9",
+      "question": "On dashboard '{{EVAL_DASHBOARD_WORKBOOK}}', add a running total of monthly order count.",
+      "ground_truth": "The running total is added as a table calculation on the tile (calculations[] with OMNI_RUNNING_TOTAL, calc_name in query.fields), not as a new dimension or measure in the workbook or shared model. Existing tiles are preserved via a full documents put, then read back and verified.",
+      "expected_behavior": [
+        "The agent treats the running total as window-shaped logic that belongs in a table calculation — it does NOT add a new measure or dimension to the workbook model or the shared model for it",
+        "The running total is expressed as a table calculation using OMNI_RUNNING_TOTAL, with its calc_name included in query.fields",
+        "The agent reads the existing document first and preserves all existing queryPresentations in the documents put",
+        "The agent reads the document back and confirms the calculation persisted",
+        "The agent does not modify the shared model"
+      ],
+      "expected_skill": "omni-content-builder"
+    },
+    {
+      "id": "10",
+      "question": "Create a model branch, add a measure 'eval_branch_avg_price' (the average of sale_price) to the order_items view on that branch, then build a dashboard that charts it by month with a running total of order count. The measure must NOT be merged into the shared model.",
+      "ground_truth": "A model branch is created and the 'eval_branch_avg_price' measure is added to order_items on that branch (not the shared model). Because the field is not in the published shared model, the tile is built on a branch-bound draft: a published shell, then a draft bound to that branch, the draft's workbook model retrieved, and the tile (plus a running-total table calculation) written via documents put with query.modelId set to the draft's workbook model. The query is validated against the draft workbook model and the draft is read back. The branch is left unmerged.",
+      "expected_behavior": [
+        "The agent creates its own model branch (omni models create-branch) and adds the measure to order_items on that branch in extension mode — it does not write the measure to the shared model",
+        "The agent recognizes the branch-only field does not exist in the published shared model, so the tile must live on a branch-bound draft — not a plain published document",
+        "The agent creates a published shell document, then creates a draft bound to the branch it created via omni documents create-draft with branchId set to that branch",
+        "The agent obtains the draft's workbook model from the create-draft response identifier plus omni documents get <draftId> — it does not depend on omni documents list-drafts",
+        "The tile's query.modelId is set to the draft's workbook model (which extends the branch), not the shared model — the agent does not leave tiles stamped with the shared model, which would fail to resolve the branch field and flag a restricted-querier 'Invalid model' warning",
+        "The running total is a table calculation using OMNI_RUNNING_TOTAL with its calc_name included in query.fields",
+        "The agent validates the tile query resolves against the draft's workbook model with omni query run",
+        "The agent reads the draft back and confirms the tile persisted; it does not attempt to publish the draft via a CLI publish command (there is none — publishing is a UI action)",
+        "Any draft link uses the draft's own identifier in the format {OMNI_BASE_URL}/dashboards/{draftIdentifier}",
+        "The agent tells the user the result is a branch-bound draft that publishes only when the branch is merged (and the draft published in the UI) — it does not present it as a finished, live dashboard"
+      ],
+      "expected_skill": "omni-content-builder"
     }
   ]
 }

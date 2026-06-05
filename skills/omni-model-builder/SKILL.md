@@ -105,6 +105,10 @@ omni models yaml-create <modelId> --body '{
 
 > **⚠️ Editing an existing file? `fileName` is its exact path, not a regex (unlike on read).** Reuse the full-path key from your `yaml-get` response verbatim, including any folder prefix — e.g. `MARTS/fct_ai_events.view`, not `fct_ai_events.view`. A non-matching `fileName` doesn't error: Omni **silently creates a new file at that path** and returns `success: true`, so shortening the key produces a duplicate view at the repo root.
 
+> **Edits are whole-file writes — read-modify-write.** `yaml-create` **replaces** a file's authored content; it does not merge field-by-field. To change or add one field on an existing view, `yaml-get` the file first, edit it, and write the **complete** file back — otherwise the other authored fields are dropped. (Schema base columns are unaffected — they live in the schema layer, not the authored file.)
+
+> **Inspect a branch.** `yaml-get <modelId> --branchid <branchId>` **without** `--filename` enumerates the whole model — `--mode extension` returns only the files the branch **changed** (your deltas); `--mode combined` returns the **full composed** model (schema + shared + branch). Then drill into any file by its exact path.
+
 ### Step 2: Validate and Test
 
 Every YAML write must be validated and tested before merging — a field can be valid YAML yet produce wrong results or broken queries.
@@ -300,6 +304,16 @@ If the schema isn't in the `get-schemas` list at all, the connection likely does
 ## Writing Topics
 
 > **Before writing a topic, verify all views you plan to reference actually exist.** Run `omni models yaml-get <modelId>` and confirm each view appears. If a view is missing, run the lazy-load fallback above before concluding it doesn't exist — it may simply be in an offloaded schema.
+
+### New topic vs extend an existing one
+
+When a query can't be answered by an existing topic, first check whether you should simply **extend** one rather than create a new one. Extending is usually right when the request's base view (the FROM) matches an existing topic's base view — e.g. add a relationship/join so a needed view becomes reachable, or add a field/label. **Create a new topic** when any of these is fundamentally different:
+
+- **Subject / object** — a different base view (FROM). What is the query fundamentally describing — orders? users? *time* (dates)? A different core entity warrants its own topic.
+- **Constraints** — conditions that are *always* applied (e.g. an `always_where` that excludes test users from order data). Different always-on filters → a different topic.
+- **Audience** — the same fields but different labels/terminology for a different consumer; jargon that differs by audience justifies a separate topic.
+
+Prompt the requestor when it's a judgment call, and build new topics on a branch (see the Safe Development Workflow above). Note that querying on a topic (vs a bare base view) is also what makes the result accessible to restricted queriers/viewers.
 
 See [Topics setup](https://docs.omni.co/modeling/topics/setup.md) for complete YAML examples with joins, fields, and ai_context, and [Topic parameters](https://docs.omni.co/modeling/topics/parameters.md) for all available options.
 
