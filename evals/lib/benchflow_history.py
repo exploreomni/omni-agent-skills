@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import argparse
 import csv
+import functools
 import json
+import subprocess
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -13,7 +15,8 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_JOBS_DIR = ROOT / "evals" / "workspaces" / "benchflow"
+EVALS_DIR = ROOT / "evals"
+DEFAULT_JOBS_DIR = EVALS_DIR / "workspaces" / "benchflow"
 TOKEN_PENALTY_FREE_PER_CASE = 1_000_000
 TOKEN_PENALTY_STEP = 250_000
 MAX_TOKEN_PENALTY_PCT = 20.0
@@ -26,6 +29,47 @@ def load_json(path: Path) -> dict[str, Any]:
         return json.loads(path.read_text())
     except (OSError, json.JSONDecodeError):
         return {}
+
+
+@functools.lru_cache(maxsize=None)
+def env_local_url() -> str | None:
+    env_local = EVALS_DIR / ".env.local"
+    if not env_local.exists():
+        return None
+    for raw in env_local.read_text().splitlines():
+        line = raw.strip()
+        if line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if key.strip() == "OMNI_BASE_URL":
+            return value.strip().strip('"').strip("'")
+    return None
+
+
+_git_sha_cache: dict[str, str | None] = {}
+
+
+def git_sha_at(timestamp_str: str) -> str | None:
+    if timestamp_str in _git_sha_cache:
+        return _git_sha_cache[timestamp_str]
+    try:
+        result = subprocess.run(
+            ["git", "log", "--format=%H", f"--before={timestamp_str}", "-1"],
+            capture_output=True, text=True, cwd=ROOT, timeout=5,
+        )
+        sha = result.stdout.strip()
+        value = sha if result.returncode == 0 and sha else None
+    except (OSError, subprocess.TimeoutExpired):
+        value = None
+    _git_sha_cache[timestamp_str] = value
+    return value
+
+
+def workspace_version(run_dir: Path, skill_name: str) -> str | None:
+    evals_path = run_dir / "_generated" / skill_name / "evals" / "evals.json"
+    data = load_json(evals_path)
+    v = data.get("version")
+    return str(v) if v is not None else None
 
 
 def parse_score(value: Any) -> float | None:
@@ -195,6 +239,10 @@ def mode_row(record: SummaryRecord, mode: str, summary: dict[str, Any]) -> dict[
         "agent": summary.get("agent", combined.get("agent")),
         "model": summary.get("model", combined.get("model")),
         "sandbox": summary.get("environment", combined.get("sandbox")),
+        "branch": combined.get("branch"),
+        "git_sha": combined.get("git_sha") or git_sha_at(parse_run_started_at(run_dir)),
+        "version": combined.get("version") or workspace_version(run_dir, combined.get("skill_name", run_dir.parent.name)),
+        "environment": combined.get("environment") or env_local_url(),
         "cases": ",".join(str(c) for c in combined.get("cases", [])),
         "total": summary.get("total"),
         "passed": summary.get("passed"),
@@ -243,6 +291,10 @@ def collect_rows(jobs_dir: Path) -> list[dict[str, Any]]:
                     "agent": combined.get("agent"),
                     "model": combined.get("model"),
                     "sandbox": combined.get("sandbox"),
+                    "branch": combined.get("branch"),
+                    "git_sha": combined.get("git_sha") or git_sha_at(parse_run_started_at(summary_path.parent)),
+                    "version": combined.get("version") or workspace_version(summary_path.parent, combined.get("skill_name", summary_path.parent.parent.name)),
+                    "environment": combined.get("environment") or env_local_url(),
                     "cases": ",".join(str(c) for c in combined.get("cases", [])),
                     "score_pct": combined.get("lift_score_points"),
                     "job_dir": combined.get("job_dir", str(summary_path.parent)),
@@ -271,6 +323,10 @@ def main() -> None:
         "agent",
         "model",
         "sandbox",
+        "branch",
+        "git_sha",
+        "version",
+        "environment",
         "cases",
         "total",
         "passed",
