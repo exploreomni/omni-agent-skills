@@ -6,6 +6,16 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.4.0] - 2026-06-12
+
+### omni-analytics
+
+**Changed**
+- `omni-content-builder` migrated document create/edit to the GA **v2 documents API** (requires a CLI release with the `documents v2-*` commands — exploreomni/cli#62). Creation is `documents v2-create`; every edit rides the **draft flow** (`v2-get` → `v2-patch-draft` → validate the draft → `v2-publish-draft`), replacing the v1 `documents create`/`put` full-replacement path. Patches **merge by key** (null deletes; `order` arrays and `containers` replace wholesale), so updates no longer resend the whole document, and failed edits roll back by discarding the draft — the published dashboard is never touched. v1 commands remain for lifecycle ops (list/delete/move/duplicate/get-queries/list-drafts/discard-draft), downloads, workbook-model YAML, and workbook-model-ID discovery; a command boundary table routes between the generations.
+- All behaviors live-verified against a GA instance with a CLI built from exploreomni/cli#62, including: the flat-read/nested-write inner vis-config asymmetry (a flat-sent spec silently keeps only `visType` — the round-trip footgun), tile queries carrying **no `modelId`** (a sent value is silently rewritten; the server anchors tiles to the workbook model), **workbook-model rotation** on every draft publish (extensions carry over; never cache the ID), the required query collection-field set (400 with per-field errors), seed-tile `"1"` merge on create, multi-tile create laying out only tile `"1"`, filter `map` per-tile scoping now working (switcher `map` still UI-only), `branchId` binding only from the JSON body (`--body` silently drops all shorthand flags), `v2-publish-draft` being main-draft-only (branch drafts publish via branch merge), and the 422 classic-layout rejection with no API fallback.
+- References restructured: `documents-v2.md`/`containers.md`/`controls.md` (initially authored by Scott Barber against the experimental surface) refreshed for GA and promoted to the primary path; `updating-dashboards.md` rewritten around the draft loop with merge-by-key recipes and a live-verified error map; `branch-bound-drafts.md` rewritten — the v1 `query.modelId`-stamping gotcha is gone, replaced by body-`branchId` + `list-drafts` binding verification; `queryPresentations.md`/`visConfig.md` re-enveloped (`visConfig: {chartType, fields, version, visConfig: {visType, config}}`) with a v1→v2 field-location table; `filterConfig.md` folded into `controls.md` (filters and controls are one keyed `controls` slice); `validation-and-testing.md` re-pointed at validating the draft **before** publishing.
+- Eval cases re-targeted to the draft flow: merge-by-key tile additions (no full-document resend), nested-under-`config` vis specs with flat-readback verification, the no-`modelId` workbook-field flow, body-`branchId` branch binding with `list-drafts` verification, and controls-slice filters.
+
 ## [1.3.18] - 2026-06-02
 
 ### omni-analytics
