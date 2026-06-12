@@ -16,7 +16,7 @@ In the [v2 documents API](documents-v2.md), `controls.data` holds dashboard filt
 - `"<tileKey>": "<fieldName>"` — remap to a different field on that tile.
 - **Omit or empty `map` ⇒ the control applies to every tile by its `config.fieldName`.**
 
-> **Known limitation.** A **filter's** `map` works (e.g. excluding a tile from a date filter so it stays all-time). An **interactive control's** `map` (a `FIELD_SELECTION` field/timeframe switcher) is currently a **no-op through the API** — the switcher applies to all tiles using its field and cannot be scoped programmatically. Scope these in the **UI Mapping panel**. Plan layouts so a global switcher is acceptable, or expect to finish scoping in the UI.
+> **Known limitation.** A **filter's** `map` works — re-verified against the GA surface (e.g. `{"<tileKey>": false}` persisted and excluded that tile from a date filter so it stays all-time). An **interactive control's** `map` (a `FIELD_SELECTION` field/timeframe switcher) is currently a **no-op through the API** — the switcher applies to all tiles using its field and cannot be scoped programmatically. Scope these in the **UI Mapping panel**. Plan layouts so a global switcher is acceptable, or expect to finish scoping in the UI.
 
 ## Config shapes
 
@@ -65,6 +65,70 @@ Binds to tiles whose query uses that timeframed field.
 ```
 
 > `config.field` is **both** the default selected option **and** the field the control swaps. They cannot be decoupled — you cannot point the swap at a throwaway field while keeping a real default. This matters when a switcher would otherwise corrupt other tiles that share the field (see the metric-switch pattern in [visConfig.md](visConfig.md)).
+
+## More filter config shapes
+
+Each shape below is a `controls.data.<id>.config` body. Common optional properties across filter types: `description` (info-icon tooltip), `required: true` (a value must be selected), `hidden: true` (see below). Rules:
+
+- **Every filter MUST include `fieldName`** — fully qualified (e.g. `"users.state"`) — or it won't bind to any column. Date filters take **no timeframe bracket** (`order_items.created_at`, not `created_at[month]`).
+- Configs read back from UI-built dashboards also carry `topic` and `base_view` (see the date-filter example above) — include them.
+- `config.type` values include `"string"`, `"number"`, `"date"`, `"boolean"`, `"null"`, `"by_query"`, `"user_attribute"`, `"composite"`. Shapes for the common ones are below; for the rest, build the filter in the Omni UI and read it back — `omni documents v2-get <identifier>` returns a `controls` slice you can copy directly into a patch.
+
+### String dropdown
+
+```jsonc
+"config": {
+  "type": "string", "kind": "EQUALS",
+  "fieldName": "order_items.status", "label": "Order Status",
+  "values": []        // default selection: [] = none (show all); ["complete"] pre-selects
+}
+```
+
+### Boolean toggle
+
+```jsonc
+"config": {
+  "type": "boolean",
+  "fieldName": "users.is_active", "label": "Active Only",
+  "is_negative": false   // false = keep true rows; true = keep false rows
+}
+```
+
+### Relative date range ("last 6 months")
+
+```jsonc
+"config": {
+  "type": "date", "kind": "TIME_FOR_INTERVAL_DURATION", "ui_type": "PAST",
+  "left_side": "6 months ago", "right_side": "6 months",
+  "fieldName": "order_items.created_at", "label": "Date Range"
+}
+```
+
+`ui_type` is `"PAST"` for lookback, `"FUTURE"` for forward-looking. `left_side` is the human-readable start (`"30 days ago"`, `"1 year ago"`); `right_side` is the duration (`"30 days"`, `"1 year"`). Note `"1 year ago"`/`"1 year"` means the calendar year, not a rolling window — use `"12 months"` for rolling.
+
+### Absolute date range
+
+```jsonc
+"config": {
+  "type": "date", "kind": "WITHIN_RANGE",
+  "left_side": "2024-01-01", "right_side": "2024-12-31",
+  "fieldName": "order_items.created_at", "label": "Date Range"
+}
+```
+
+### Hidden filter
+
+Any filter type with `"hidden": true` — applied to queries but not shown in the dashboard UI. Useful for hardcoded filters viewers shouldn't change. (Omni recommends model **access filters** over hidden dashboard filters for data restriction.)
+
+```jsonc
+"config": {
+  "type": "string", "kind": "EQUALS",
+  "fieldName": "order_items.status", "label": "Status",
+  "values": ["complete"], "hidden": true
+}
+```
+
+Filters do **not** auto-apply to SQL-mode tiles — use templated (dynamic) filters in the SQL instead.
 
 ## Control vs. content-item — and syncing a filter across pages
 
