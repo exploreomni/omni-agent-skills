@@ -1,12 +1,23 @@
 # queryPresentations Reference
 
-Complete reference for queryPresentation objects — parameter tables, the visualization-config structure, chart type examples, and caveats for reusing presentations from existing dashboards.
+Complete reference for v2 tile queryPresentation objects — the keyed-map envelope, parameter tables, the visualization-config nesting, chart type examples, and caveats for reusing tiles from existing dashboards.
 
-Every chart `queryPresentation` requires: `name`, `prefersChart: true`, `chartType`, `visConfig`, `fields`, and `query`. The `visConfig.config` shape varies by chart family — the examples below show the exact structure for each.
+In the v2 documents API, tiles live in the `queryPresentations` slice of the document envelope:
+
+```jsonc
+"queryPresentations": {
+  "data": { "<tileKey>": { /* queryPresentation */ } },
+  "order": ["1", "2"]
+}
+```
+
+Every chart queryPresentation requires: `name`, `prefersChart: true`, a `visConfig` envelope (carrying `chartType` and the nested rendering spec), and a `query` with the full required-field set. The inner rendering-spec shape varies by chart family — the examples below show the exact structure for each.
 
 ## Table of Contents
 
+- [Keyed map & order semantics](#keyed-map--order-semantics)
 - [Where the visualization config lives](#where-the-visualization-config-lives-read-this-first) — the #1 gotcha
+- [v1 → v2 field locations](#v1--v2-field-locations)
 - [Key Parameters](#key-parameters)
 - [queryPresentation Object Parameters](#querypresentation-object-parameters)
 - [Query Object Parameters](#query-object-parameters)
@@ -14,94 +25,136 @@ Every chart `queryPresentation` requires: `name`, `prefersChart: true`, `chartTy
 - [Discovering the Full Structure from Existing Dashboards](#discovering-the-full-structure-from-existing-dashboards)
 - [Caveats When Reusing queryPresentations](#caveats-when-reusing-querypresentations)
 - [Chart Type Examples](#chart-type-examples)
-- [Cartesian Config Fields](#cartesian-config-fields-visconfigconfig)
+- [Cartesian Config Fields](#cartesian-config-fields-visconfigvisconfigconfig)
 - [Quick Reference: chartType → visType → config](#quick-reference-charttype--vistype--config)
+
+## Keyed map & order semantics
+
+`queryPresentations.data` is a map keyed by string record keys (`"1"`, `"2"`, …); `order` is the tab order and must list every live key. Patches **merge by key** — keys you don't send are untouched.
+
+| Operation | What to send |
+|---|---|
+| Add a tile | New key in `data` + the key appended to a complete `order` array (+ a `containers` stack so it renders — see [containers.md](containers.md)) |
+| Edit a tile | Just that key, with the full tile object — re-author the inner vis config nested under `config` (never echo the flat GET shape) |
+| Delete a tile | The key set to `null` in `data` + a complete `order` without it (+ remove its `containers` stack) |
+| Reorder tabs | Just `order` |
+
+- **`order` replaces wholesale** — whenever you send it, send the complete array.
+- **A single patch can touch at most 48 `data` entries** — batch larger rewrites into multiple patches on the same draft.
+- **Tile `"1"` on create merges over a server seed tile** — some seed properties can win over what you sent (verified live: `automaticVis: false` came back `true` on tile `"1"` while tile `"2"` kept `false`). Read the document back and re-patch tile `"1"` if its exact fields matter.
+- **A multi-tile `v2-create` auto-lays-out only tile `"1"`** — author the full `containers` tree for the rest.
 
 ## Where the visualization config lives (read this first)
 
-This is the single most common source of "my chart renders as a table / as the wrong chart type" bugs. Get this right and everything else follows.
-
-A chart is defined by **two queryPresentation-level fields**:
-
-| Field | Where | Purpose |
-|-------|-------|---------|
-| `chartType` | top level of the queryPresentation | The chart type — must be a valid enum value (see [visConfig.md](visConfig.md)). |
-| `visConfig` | top level of the queryPresentation | An object `{ config, visType, fields }` holding the rendering spec. The spec goes in `visConfig.config`. |
-
-> **The rendering spec belongs in `visConfig.config` — NOT in a top-level `config` key.** A bare top-level `config` on the queryPresentation is **silently dropped** by the create/update endpoints. Likewise, putting only `visConfig.chartType` inside the `query` object is **not enough** — that is just a hint on the query and does not, by itself, produce the chart. The tile is driven by the queryPresentation-level `chartType` + `visConfig`.
-
-### Canonical structure
+This is the single most common source of "my chart renders as a table / loses its spec" bugs. A chart is defined by **one queryPresentation-level field**: the `visConfig` envelope.
 
 ```json
-{
-  "name": "My Tile",
-  "topicName": "order_items",
-  "prefersChart": true,
+"visConfig": {
   "chartType": "columnStacked",
+  "fields": ["order_items.created_at[quarter]", "order_items.status", "order_items.distinct_order_count"],
+  "version": 0,
   "visConfig": {
-    "config": { "configType": "cartesian", "_dependentAxis": "y", "...": "family-specific spec" },
     "visType": "basic",
-    "fields": ["order_items.created_at[month]", "order_items.status", "order_items.total_revenue"]
-  },
-  "fields": ["order_items.created_at[month]", "order_items.status", "order_items.total_revenue"],
-  "query": {
-    "table": "order_items",
-    "fields": ["order_items.created_at[month]", "order_items.status", "order_items.total_revenue"],
-    "join_paths_from_topic_name": "order_items",
-    "visConfig": { "chartType": "columnStacked" }
+    "config": { "configType": "cartesian", "_dependentAxis": "y", "...": "family-specific spec" }
   }
 }
 ```
 
-> **About `automaticVis`:** the create/update endpoints set the stored `automaticVis` from `prefersChart` (`prefersChart: true` → `automaticVis: true`). This is harmless: `automaticVis` only governs whether the tile *defaults* to the chart view vs. the data table — it does **not** discard the explicit `chartType`/`visConfig.config` you provided. A tile created with `automaticVis: true` and an explicit `columnStacked` spec still renders as a stacked column chart.
+- `chartType` and `fields` sit at the **outer** `visConfig` level. They are **no longer top-level presentation keys** — the v1 top-level `chartType`/`fields`/`config` are unknown keys and 400.
+- The renderer (`visType`) and the rendering spec live in the **inner** `visConfig` — and on write the spec **must be nested under `config`**.
+
+> **Write vs. read asymmetry — the one remaining silent failure.** `v2-get` returns the inner vis config **flat**: the spec keys spread beside `visType`, with no `config` key. A patch that sends that flat shape back **silently keeps only `visType`** and drops everything else (verified live: flat-sent `markdownConfig`/`alignment` dropped; `config`-nested persisted). Always re-author the inner spec nested under `config` before writing.
+
+Everything else now fails **loudly** — tile bodies are strict (`additionalProperties: false`), so unknown or misplaced top-level keys return a clean 400:
+
+| What you send | What happens |
+|---|---|
+| Top-level `chartType`, `fields`, or `config` on the presentation (v1 shape) | **400** "Unrecognized key" |
+| `modelId` / `model_extension_id` inside `query` | **Silently rewritten** — the server re-anchors the tile to the document's workbook model (verified live: a sent shared-model id read back as the workbook model). Omit them. |
+| `query` missing any required collection field | **400** listing each missing field |
+| Inner vis spec sent **flat** (no `config` key) | **Silently dropped** — only `visType` persists |
+
+Set `automaticVis: false` whenever you author an explicit vis config — otherwise the renderer may derive its own chart instead of using your spec.
+
+## v1 → v2 field locations
+
+If you're carrying payloads or muscle memory over from the v1 documents API:
+
+| v1 location | v2 location |
+|---|---|
+| presentation `chartType` (top level) | `visConfig.chartType` |
+| presentation `visConfig.visType` | `visConfig.visConfig.visType` |
+| presentation `visConfig.config` (rendering spec) | `visConfig.visConfig.config` on **write**; flattened into `visConfig.visConfig` on **read** |
+| presentation `fields` (top-level duplicate of query fields) | gone — only `visConfig.fields` |
+| `query.visConfig` (`{ "chartType": … }` hint) | gone — not part of the v2 query schema; the tile is driven entirely by the presentation-level envelope |
+| `query.modelId` | gone — server-anchored to the workbook model; a sent value is silently rewritten |
+
+The rendering-spec **content** (mark/series/tooltip/configType/`_dependentAxis`, …) is unchanged from v1 — only the envelope moved.
 
 ## Key Parameters
 
 | Parameter | Notes |
 |-----------|-------|
-| `modelId` | Use the **base shared model UUID**, not a branchId. Get this from the List Models API. (Top level of the document, not the queryPresentation.) |
+| `modelId` | Only at the top level of a `v2-create` body — the **shared** model UUID, not a branchId. Never inside a tile or its query. |
 | Field format | `table.field_name` or `table.field_name[week\|month\|day\|quarter\|year]` for time granularity |
 | `sorts` | `column_name` must match the **exact field string** (e.g., `"order_items.created_at[month]"`), with `sort_descending` boolean |
 
 ## queryPresentation Object Parameters
 
+The allowed tile keys — anything else is a 400:
+
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `name` | Yes | Tile/tab title |
+| `type` | Recommended | `"query"` for standard query tiles |
 | `topicName` | Recommended | Topic name for the query — set this whenever querying from a topic. Ensures correct join context in the dashboard. |
 | `prefersChart` | Yes (charts) | **Must be `true` to render a chart.** Without it, Omni always shows the results table regardless of any other vis settings. |
-| `chartType` | Yes (charts) | The chart type enum value (e.g. `"columnStacked"`, `"lineColor"`, `"pie"`, `"kpi"`). See the full list in [visConfig.md](visConfig.md). |
-| `visConfig` | Yes (charts) | `{ config, visType, fields }`. `config` is the rendering spec (shape varies by family); `visType` is the renderer; `fields` mirrors the query fields. |
-| `fields` | Yes | Duplicate of `query.fields` — must be present at this level too. |
-| `description` | No | Tile description. |
+| `automaticVis` | Recommended | Set `false` when authoring an explicit vis config (and always for markdown tiles). Seed-tile caveat: tile `"1"` on create can come back `true` — re-patch if it matters. |
+| `visConfig` | Yes (charts) | The envelope: `{ chartType, fields, version, visConfig: { visType, config } }` — see above. |
 | `query` | Yes | Query definition (see below). |
+| `description` | No | Tile description. |
+| `subTitle` | No | Tile subtitle. |
+| `filterOrder` | No | Ordering of tile-level filters. |
+| `isSql` | No | `true` for SQL-mode tiles. |
+| `resultConfig` | No | Result display: `columnOrder`, `hiddenColumns`, `columnWidths`, `tableType`, `conditionalFormatters` — see [visConfig.md](visConfig.md). |
+| `aiConfig` | No | AI-generated description/subtitle settings — see [visConfig.md](visConfig.md). |
+| `sourceQueryPresentationKey` | No | Reference to another tile's key (appears in read-back on derived tiles; not normally authored). |
 
-> *(charts)* in the Required column means the field is required **for chart tiles**; a plain table tile can omit it (`prefersChart: false`, `visConfig.config: {}`).
+> *(charts)* in the Required column means the field is required **for chart tiles**; a plain table tile uses `prefersChart: false` and an inner `config: {}`.
 
-### visConfig object
+### visConfig envelope
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `config` | Yes (charts) | The chart rendering spec. Cartesian families carry `configType: "cartesian"`; see per-family shapes in [visConfig.md](visConfig.md). |
-| `visType` | Yes (charts) | Renderer: `"basic"` for cartesian/pie/heatmap/boxplot, `"omni-kpi"` for KPI, `"funnel"`, `"sankey"`, `"map"` (point **and** region/choropleth maps), `"omni-table"` for tables. |
-| `fields` | Recommended | The fields the visualization uses; mirror `query.fields`. |
+| `chartType` | Yes (charts) | The chart type enum value (e.g. `"columnStacked"`, `"lineColor"`, `"pie"`, `"kpi"`). See the full list in [visConfig.md](visConfig.md). |
+| `fields` | Yes | The fields the visualization uses — mirror `query.fields`. (The v1 top-level duplicate is gone; this is the only copy outside the query.) |
+| `version` | Recommended | `0` |
+| `visConfig.visType` | Yes (charts) | Renderer: `"basic"` for cartesian/pie/heatmap/boxplot, `"omni-kpi"` for KPI, `"funnel"`, `"sankey"`, `"map"` (point **and** region/choropleth maps), `"omni-table"` for tables. |
+| `visConfig.config` | Yes (charts) | The chart rendering spec — **nested under `config` on write** (reads back flat). Per-family shapes in [visConfig.md](visConfig.md). |
 
 ## Query Object Parameters
 
-The `query` object within each query presentation uses the same structure as the [Query API](https://docs.omni.co/api/queries.md):
+The `query` object follows the [Query API](https://docs.omni.co/api/queries.md) shape, with two v2-specific rules:
+
+1. **Send all twelve fields below** — ten are schema-required and omitting any of those returns a 400 listing each one (empty values are fine for the collections); `limit` and `join_paths_from_topic_name` are technically optional but always send them (an unbounded query and broken topic joins are worse than a 400).
+2. **No `modelId` / `model_extension_id`** — the server anchors every tile to the document's workbook model; a sent value is silently rewritten. Omit them.
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `table` | Yes | The topic's **base view** (not a joined view) |
 | `fields` | Yes | Array of `view.field_name` references (supports timeframe brackets like `[month]`) |
-| `sorts` | No | Array of `{ "column_name": "...", "sort_descending": bool }` |
-| `filters` | No | Object of `{ "field_name": "expression" }` — supports `"last 90 days"`, `"this quarter"`, `">100"`, etc. |
-| `limit` | No | Row limit (default 1000, max 50000) |
-| `join_paths_from_topic_name` | Strongly recommended | The topic name — resolves joins from the topic's base view so joined-view fields work. Set alongside `topicName` on the parent queryPresentation. |
-| `pivots` | No | Array of field names to pivot on. A color/stack dimension (e.g. for a stacked chart) must be pivoted. |
-| `visConfig` | No | Optional `{ "chartType": "..." }` hint stored on the query. Does **not** drive the tile by itself — set `chartType` + `visConfig` at the queryPresentation level for that. |
+| `limit` | Yes | Row limit |
+| `join_paths_from_topic_name` | Yes | The topic name — resolves joins from the topic's base view so joined-view fields work. Set alongside `topicName` on the parent queryPresentation. |
+| `sorts` | Yes | Array of `{ "column_name": "...", "sort_descending": bool }` — `[]` fine |
+| `filters` | Yes | Object of `{ "field_name": "expression" }` — supports `"last 90 days"`, `"this quarter"`, `">100"`, etc. — `{}` fine |
+| `calculations` | Yes | `[]` fine |
+| `column_totals` | Yes | `{}` fine |
+| `row_totals` | Yes | `{}` fine |
+| `fill_fields` | Yes | `[]` fine |
+| `pivots` | Yes | Array of field names to pivot on — a color/stack dimension (e.g. for a stacked chart) **must** be pivoted. `[]` fine |
+| `userEditedSQL` | Yes | `""` fine |
 
-> **Note**: `modelId` is not needed inside the query object — it's inherited from the document's top-level `modelId`.
+There is no `query.visConfig` in v2 — the v1 `{ "chartType": … }` hint is not part of the schema and does nothing. The tile is driven entirely by the presentation-level `visConfig` envelope.
 
 > **Querying a topic — base view + join path.** Set `table` to the topic's **base view**, pass `join_paths_from_topic_name: <topic>`, and set `topicName` on the parent queryPresentation. Joined-view fields (e.g. `users.state` on an `order_items` topic) resolve through the topic's join map — keep `table` at the base view, not the joined view. For the full mechanics, the omit-it failure mode, and verifying with `omni models get-topic` (`base_view_name`/`join_via_map`), see **`omni-query`**'s *Build queries on a topic*. (For *choosing* which topic, or when to extend/create one, see `omni-query` and `omni-model-builder`.)
 
@@ -131,67 +184,120 @@ A stacked **column** is vertical; a stacked **bar** is horizontal — Omni disti
 
 ## Discovering the Full Structure from Existing Dashboards
 
-The most reliable way to learn the exact `config` for a chart family (especially the less common ones) is to build it once in the Omni UI and read it back:
+The most reliable way to learn the exact inner config for a chart family (especially the less common ones) is to build it once in the Omni UI and read it back:
 
 ```bash
-omni documents get <documentId>
+omni documents v2-get <identifier>
 ```
 
-Returns the complete `queryPresentations` array including `topicName`, `visConfig` (with `config`, `visType`, `fields`), and the full `query` object for each tile — use this as the source of truth when recreating or templating dashboards.
+Returns the full envelope — `queryPresentations` (`data` keyed map + `order`), `controls`, `containers`, `settings`. Each tile includes `topicName`, the `visConfig` envelope, and the full `query` object — use this as the source of truth when recreating or templating dashboards.
+
+> **Read-back warning:** the inner vis config comes back **flat** (spec keys spread beside `visType`, no `config` key). Before reusing a tile in a create/patch body, re-nest everything except `visType` under `config`. Round-tripping the flat shape silently strips the spec.
 
 ## Caveats When Reusing queryPresentations
 
-These apply when copying queryPresentations from an existing document (for both creating new dashboards and updating existing ones):
+These apply when copying tiles from an existing document (for both creating new dashboards and updating existing ones):
 
-- **Strip `model_extension_id`** from each query object — these reference model extensions scoped to the source document and will cause "Chart unavailable" errors.
-- **Filter to the tiles you want** — `omni documents get` returns all queries including workbook-only tabs not shown on the dashboard. Only include the `queryPresentations` you want as visible tiles.
+- **Re-nest the inner vis config** — `visConfig.visConfig` from a GET is flat; move every key except `visType` under a `config` key before writing.
+- **Strip `modelId` and `model_extension_id`** from each query object — the server re-anchors tiles to the target document's workbook model and silently rewrites any value you send, so a copied id is at best dead weight.
+- **Strip the v1 `query.visConfig` hint** if copying from old v1 exports — it is not part of the v2 query schema.
+- **Filter to the tiles you want** — a document's `data` map can include workbook-only tabs not placed on the dashboard. Only carry over (and `order` + lay out) the tiles you want visible.
 - **Queries without `topicName` are valid** — SQL-mode and tab-selector queries won't have a `topicName`. Do not add one.
-- **Do not save known-broken query-level filters** — if `omni query run` rejects a tile query filter with a server-side parsing error, validate the unfiltered base query once. Do not save the broken filter into the tile; either use a verified dashboard-level `filterConfig` fallback or leave the dashboard unchanged and report the blocker.
-- **Bound server-side filter failures** — if updating an existing document fails with a server-side filter or document validation error, stop after one corrected retry. The stored dashboard can contain filter state that the write path cannot validate; repeated filter rewrites, import/export attempts, or draft probing are usually wasted work.
-- **Check readback for dropped presentation fields** — after creating or updating a dashboard, read it back (`omni documents get` or `omni unstable documents-export`) and verify each tile still has `visConfig.config` populated (not `{}`) and `visConfig.chartType` set. If only the query persisted and the spec was dropped, the payload almost certainly put the spec in a top-level `config` instead of `visConfig.config` — fix the shape and retry.
+- **Do not save known-broken query-level filters** — if `omni query run` rejects a tile query filter with a server-side parsing error, validate the unfiltered base query once. Do not save the broken filter into the tile; either use a verified dashboard-level control or leave the dashboard unchanged and report the blocker.
+- **Bound server-side failures** — if a patch fails with a validation error, stop after one corrected retry; discard the draft and report rather than looping filter rewrites.
+- **Check readback for a stripped spec** — after writing, read the tile back (`v2-get` / `v2-get-draft`) and confirm its (flat) inner `visConfig` contains more than just `visType`, and `visConfig.chartType` is set. If only `visType` survived, the write sent the flat shape — re-nest under `config` and retry.
 
 ## Chart Type Examples
 
-All cartesian examples below share the same shape: `chartType` + `visConfig: { config, visType, fields }` at the queryPresentation level, with the spec in `visConfig.config`.
+**Convention:** the first example shows a complete tile in the v2 envelope. Every example after it shows **only the `visConfig` object** — drop it into a tile alongside `name`, `type: "query"`, `topicName`, `prefersChart`, `automaticVis: false`, and a `query` with the full required-field set (query shape called out where it matters, e.g. pivots).
 
-### Table (Safe Default)
+### Complete tile: Line Chart
 
-The simplest and most reliable tile. Use when unsure about chart config.
+Time-series or continuous data. `visType: "basic"`, cartesian config, `_dependentAxis: "y"`.
 
 ```json
 {
-  "name": "Orders by Status",
+  "name": "Monthly Revenue Trend",
+  "type": "query",
   "topicName": "order_items",
-  "prefersChart": false,
-  "chartType": "table",
-  "visConfig": { "config": {}, "visType": "omni-table", "fields": ["order_items.status", "order_items.count", "order_items.total_revenue"] },
-  "fields": ["order_items.status", "order_items.count", "order_items.total_revenue"],
+  "prefersChart": true,
+  "automaticVis": false,
+  "visConfig": {
+    "chartType": "lineColor",
+    "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
+    "version": 0,
+    "visConfig": {
+      "visType": "basic",
+      "config": {
+        "x": { "field": { "name": "order_items.created_at[month]" } },
+        "mark": { "type": "line" },
+        "color": {},
+        "series": [
+          { "field": { "name": "order_items.total_revenue" }, "yAxis": "y" }
+        ],
+        "tooltip": [
+          { "field": { "name": "order_items.created_at[month]" } },
+          { "field": { "name": "order_items.total_revenue" } }
+        ],
+        "behaviors": { "stackMultiMark": false },
+        "configType": "cartesian",
+        "_dependentAxis": "y"
+      }
+    }
+  },
   "query": {
     "table": "order_items",
-    "fields": ["order_items.status", "order_items.count", "order_items.total_revenue"],
-    "sorts": [{ "column_name": "order_items.total_revenue", "sort_descending": true }],
+    "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
+    "sorts": [{ "column_name": "order_items.created_at[month]", "sort_descending": false }],
+    "filters": { "order_items.created_at": "this quarter" },
     "limit": 100,
     "join_paths_from_topic_name": "order_items",
-    "visConfig": { "chartType": "table" }
+    "calculations": [], "column_totals": {}, "row_totals": {},
+    "fill_fields": [], "pivots": [], "userEditedSQL": ""
   }
 }
 ```
 
-Key differences from chart types: `prefersChart` is `false`, and `visConfig.config` is an empty object `{}`.
+### Line chart with multiple series
+
+Add more entries to `series` (in `visConfig.visConfig.config`) and include them in `tooltip`:
+
+```json
+"series": [
+  { "field": { "name": "order_items.total_revenue" }, "yAxis": "y" },
+  { "field": { "name": "order_items.count" }, "yAxis": "y" }
+],
+"tooltip": [
+  { "field": { "name": "order_items.created_at[month]" } },
+  { "field": { "name": "order_items.total_revenue" } },
+  { "field": { "name": "order_items.count" } }
+]
+```
+
+### Table (Safe Default)
+
+The simplest and most reliable tile. Use when unsure about chart config. Set `prefersChart: false` on the tile; the inner `config` is an empty object.
+
+```json
+"visConfig": {
+  "chartType": "table",
+  "fields": ["order_items.status", "order_items.count", "order_items.total_revenue"],
+  "version": 0,
+  "visConfig": { "visType": "omni-table", "config": {} }
+}
+```
 
 ### KPI (Single Value)
 
 Displays one or more big numbers. Uses `visType: "omni-kpi"` and `chartType: "kpi"`. No `configType`.
 
 ```json
-{
-  "name": "Total Revenue",
-  "topicName": "order_items",
-  "prefersChart": true,
+"visConfig": {
   "chartType": "kpi",
+  "fields": ["order_items.total_revenue"],
+  "version": 0,
   "visConfig": {
     "visType": "omni-kpi",
-    "fields": ["order_items.total_revenue"],
     "config": {
       "alignment": "left",
       "verticalAlignment": "top",
@@ -210,20 +316,13 @@ Displays one or more big numbers. Uses `visType: "omni-kpi"` and `chartType: "kp
         }
       ]
     }
-  },
-  "fields": ["order_items.total_revenue"],
-  "query": {
-    "table": "order_items",
-    "fields": ["order_items.total_revenue"],
-    "join_paths_from_topic_name": "order_items",
-    "visConfig": { "chartType": "kpi" }
   }
 }
 ```
 
 ### KPI with multiple values
 
-Add more entries to `markdownConfig`, each with a unique `id`:
+Add more entries to `markdownConfig` (inside `visConfig.visConfig.config`), each with a unique `id`:
 
 ```json
 "markdownConfig": [
@@ -269,77 +368,17 @@ Add more entries to `markdownConfig`, each with a unique `id`:
 | `markdownConfig[].config.field.label.value` | Yes | Display label for the KPI |
 | `markdownConfig[].config.descriptionBefore` | No | Text shown above the number |
 
-### Line Chart
-
-Time-series or continuous data. `visType: "basic"`, cartesian config, `_dependentAxis: "y"`.
-
-```json
-{
-  "name": "Monthly Revenue Trend",
-  "topicName": "order_items",
-  "prefersChart": true,
-  "chartType": "lineColor",
-  "visConfig": {
-    "visType": "basic",
-    "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
-    "config": {
-      "x": { "field": { "name": "order_items.created_at[month]" } },
-      "mark": { "type": "line" },
-      "color": {},
-      "series": [
-        { "field": { "name": "order_items.total_revenue" }, "yAxis": "y" }
-      ],
-      "tooltip": [
-        { "field": { "name": "order_items.created_at[month]" } },
-        { "field": { "name": "order_items.total_revenue" } }
-      ],
-      "behaviors": { "stackMultiMark": false },
-      "configType": "cartesian",
-      "_dependentAxis": "y"
-    }
-  },
-  "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
-  "query": {
-    "table": "order_items",
-    "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
-    "sorts": [{ "column_name": "order_items.created_at[month]", "sort_descending": false }],
-    "filters": { "order_items.created_at": "this quarter" },
-    "limit": 100,
-    "join_paths_from_topic_name": "order_items",
-    "visConfig": { "chartType": "lineColor" }
-  }
-}
-```
-
-### Line chart with multiple series
-
-Add more entries to `series` (in `visConfig.config`) and include them in `tooltip`:
-
-```json
-"series": [
-  { "field": { "name": "order_items.total_revenue" }, "yAxis": "y" },
-  { "field": { "name": "order_items.count" }, "yAxis": "y" }
-],
-"tooltip": [
-  { "field": { "name": "order_items.created_at[month]" } },
-  { "field": { "name": "order_items.total_revenue" } },
-  { "field": { "name": "order_items.count" } }
-]
-```
-
 ### Column Chart (Vertical Bars)
 
 Dimension on x-axis, measure on y-axis. `chartType: "column"`, `_dependentAxis: "y"`, `series[].yAxis: "y"`.
 
 ```json
-{
-  "name": "Revenue by Category",
-  "topicName": "order_items",
-  "prefersChart": true,
+"visConfig": {
   "chartType": "column",
+  "fields": ["products.category", "order_items.total_revenue"],
+  "version": 0,
   "visConfig": {
     "visType": "basic",
-    "fields": ["products.category", "order_items.total_revenue"],
     "config": {
       "x": { "field": { "name": "products.category" } },
       "mark": { "type": "bar" },
@@ -355,15 +394,6 @@ Dimension on x-axis, measure on y-axis. `chartType: "column"`, `_dependentAxis: 
       "configType": "cartesian",
       "_dependentAxis": "y"
     }
-  },
-  "fields": ["products.category", "order_items.total_revenue"],
-  "query": {
-    "table": "order_items",
-    "fields": ["products.category", "order_items.total_revenue"],
-    "sorts": [{ "column_name": "order_items.total_revenue", "sort_descending": true }],
-    "limit": 10,
-    "join_paths_from_topic_name": "order_items",
-    "visConfig": { "chartType": "column" }
   }
 }
 ```
@@ -373,14 +403,12 @@ Dimension on x-axis, measure on y-axis. `chartType: "column"`, `_dependentAxis: 
 Dimension on y-axis, measure on x-axis. `chartType: "bar"`, `_dependentAxis: "x"`, `series[].xAxis: "x"`. Good for ranked lists (Top N).
 
 ```json
-{
-  "name": "Top 10 Products by Revenue",
-  "topicName": "order_items",
-  "prefersChart": true,
+"visConfig": {
   "chartType": "bar",
+  "fields": ["products.name", "order_items.total_revenue"],
+  "version": 0,
   "visConfig": {
     "visType": "basic",
-    "fields": ["products.name", "order_items.total_revenue"],
     "config": {
       "y": { "field": { "name": "products.name" } },
       "mark": { "type": "bar" },
@@ -396,15 +424,6 @@ Dimension on y-axis, measure on x-axis. `chartType: "bar"`, `_dependentAxis: "x"
       "configType": "cartesian",
       "_dependentAxis": "x"
     }
-  },
-  "fields": ["products.name", "order_items.total_revenue"],
-  "query": {
-    "table": "order_items",
-    "fields": ["products.name", "order_items.total_revenue"],
-    "sorts": [{ "column_name": "order_items.total_revenue", "sort_descending": true }],
-    "limit": 10,
-    "join_paths_from_topic_name": "order_items",
-    "visConfig": { "chartType": "bar" }
   }
 }
 ```
@@ -414,14 +433,12 @@ Dimension on y-axis, measure on x-axis. `chartType: "bar"`, `_dependentAxis: "x"
 Same as a line chart but with `mark.type: "area"` and `chartType: "area"`.
 
 ```json
-{
-  "name": "Revenue Over Time (Area)",
-  "topicName": "order_items",
-  "prefersChart": true,
+"visConfig": {
   "chartType": "area",
+  "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
+  "version": 0,
   "visConfig": {
     "visType": "basic",
-    "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
     "config": {
       "x": { "field": { "name": "order_items.created_at[month]" } },
       "mark": { "type": "area" },
@@ -437,32 +454,21 @@ Same as a line chart but with `mark.type: "area"` and `chartType: "area"`.
       "configType": "cartesian",
       "_dependentAxis": "y"
     }
-  },
-  "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
-  "query": {
-    "table": "order_items",
-    "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
-    "sorts": [{ "column_name": "order_items.created_at[month]", "sort_descending": false }],
-    "limit": 100,
-    "join_paths_from_topic_name": "order_items",
-    "visConfig": { "chartType": "area" }
   }
 }
 ```
 
 ### Stacked Column Chart (Vertical)
 
-A category/time dimension on x, a measure on y, and a **pivoted** dimension that becomes the stack. `chartType: "columnStacked"`, `color._stack: "stack"` with the pivoted field, `_dependentAxis: "y"`. (For a horizontal stacked **bar**, use `chartType: "barStacked"` with `_dependentAxis: "x"` and `series[].xAxis: "x"`. For 100% stacking, use `columnStackedPercentage` / `barStackedPercentage` with `color._stack: "normalize"`.)
+A category/time dimension on x, a measure on y, and a **pivoted** dimension that becomes the stack. `chartType: "columnStacked"`, `color._stack: "stack"` with the pivoted field, `_dependentAxis: "y"`. **The query must pivot the stack dimension**: `"pivots": ["order_items.status"]`. (For a horizontal stacked **bar**, use `chartType: "barStacked"` with `_dependentAxis: "x"` and `series[].xAxis: "x"`. For 100% stacking, use `columnStackedPercentage` / `barStackedPercentage` with `color._stack: "normalize"`.)
 
 ```json
-{
-  "name": "Distinct Orders by Status, Quarterly",
-  "topicName": "order_items",
-  "prefersChart": true,
+"visConfig": {
   "chartType": "columnStacked",
+  "fields": ["order_items.created_at[quarter]", "order_items.status", "order_items.distinct_order_count"],
+  "version": 0,
   "visConfig": {
     "visType": "basic",
-    "fields": ["order_items.created_at[quarter]", "order_items.status", "order_items.distinct_order_count"],
     "config": {
       "x": { "field": { "name": "order_items.created_at[quarter]" } },
       "mark": { "type": "bar" },
@@ -479,33 +485,21 @@ A category/time dimension on x, a measure on y, and a **pivoted** dimension that
       "configType": "cartesian",
       "_dependentAxis": "y"
     }
-  },
-  "fields": ["order_items.created_at[quarter]", "order_items.status", "order_items.distinct_order_count"],
-  "query": {
-    "table": "order_items",
-    "fields": ["order_items.created_at[quarter]", "order_items.status", "order_items.distinct_order_count"],
-    "sorts": [{ "column_name": "order_items.created_at[quarter]", "sort_descending": false }],
-    "pivots": ["order_items.status"],
-    "limit": 50,
-    "join_paths_from_topic_name": "order_items",
-    "visConfig": { "chartType": "columnStacked" }
   }
 }
 ```
 
 ### Pie / Donut
 
-`chartType: "pie"`, `visType: "basic"`, `config.configType: "polar"`. The category is `theta`; for a donut set `pastry: "donut"` (and optionally `innerRadiusPercent`).
+`chartType: "pie"`, `visType: "basic"`, inner `config.configType: "polar"`. The category is `theta`; for a donut set `pastry: "donut"` (and optionally `innerRadiusPercent`).
 
 ```json
-{
-  "name": "Revenue by Category",
-  "topicName": "order_items",
-  "prefersChart": true,
+"visConfig": {
   "chartType": "pie",
+  "fields": ["products.category", "order_items.total_revenue"],
+  "version": 0,
   "visConfig": {
     "visType": "basic",
-    "fields": ["products.category", "order_items.total_revenue"],
     "config": {
       "configType": "polar",
       "theta": { "field": { "name": "order_items.total_revenue" } },
@@ -516,20 +510,11 @@ A category/time dimension on x, a measure on y, and a **pivoted** dimension that
         { "field": { "name": "order_items.total_revenue" } }
       ]
     }
-  },
-  "fields": ["products.category", "order_items.total_revenue"],
-  "query": {
-    "table": "order_items",
-    "fields": ["products.category", "order_items.total_revenue"],
-    "sorts": [{ "column_name": "order_items.total_revenue", "sort_descending": true }],
-    "limit": 10,
-    "join_paths_from_topic_name": "order_items",
-    "visConfig": { "chartType": "pie" }
   }
 }
 ```
 
-## Cartesian Config Fields (`visConfig.config`)
+## Cartesian Config Fields (`visConfig.visConfig.config`)
 
 All line, column/bar, area, scatter, and combo charts use this structure:
 
@@ -566,4 +551,4 @@ All line, column/bar, area, scatter, and combo charts use this structure:
 | Point map | `"map"` | `"map"` | — | — | — |
 | Region map | `"regionMap"` | `"map"` | — | — | — |
 
-> For funnel, sankey, map, region map, heatmap, and boxplot, the inner `config` field names are best confirmed by building the chart once in the Omni UI and reading it back (`omni documents get`) — see [visConfig.md](visConfig.md) for the known shapes.
+> For funnel, sankey, map, region map, heatmap, and boxplot, the inner `config` field names are best confirmed by building the chart once in the Omni UI and reading it back (`omni documents v2-get`, re-nesting the flat inner spec under `config`) — see [visConfig.md](visConfig.md) for the known shapes.
