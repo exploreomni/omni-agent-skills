@@ -650,6 +650,23 @@ The export's `queryPresentation.visConfig` shows the persisted `visType`, `chart
 
 Optional field on `queryPresentation` controlling result display independent of the visualization. Commonly includes `columnOrder` (array), `hiddenColumns` (array), `columnWidths` (object of field → pixel width).
 
+### Table display & conditional formatting
+
+- **Fill the tile**: set `resultConfig.tableType: "stretch"` — the default `"spreadsheet"` hugs the left and leaves whitespace.
+- **Conditional formatting** lives in `resultConfig.conditionalFormatters` (an array):
+
+```jsonc
+"conditionalFormatters": [
+  { "id": "…", "type": "scale",  "selection": { "type": "field", "field": "…" },
+    "format": { "range": ["#f00","#ff0","#0f0"], "domain": { "min": 0, "mid": 50, "max": 100 } } },
+  { "id": "…", "type": "single", "selection": { "type": "field", "field": "…" },
+    "rule":   { "type": "greater-than", "value": 1000, "valueType": "number" },
+    "format": { "backgroundColor": "#fee", "color": "#900", "fontWeight": "bold" } }
+]
+```
+
+`selection.type` may be `field`, `row`, or `cellRange`. **To keep conditional formatting from being dropped**, set the tile to `visType: "omni-table"` with `automaticVis: false` (otherwise a later write can regenerate a default table config and discard your formatters). The omni-table viz also needs `prefersChart: true` to apply `resultConfig`.
+
 ## aiConfig
 
 Enables AI-generated descriptions/subtitles on tiles:
@@ -682,7 +699,49 @@ Enables AI-generated descriptions/subtitles on tiles:
 ## Text & AI tiles
 
 - **Markdown** (`chartType: "markdown"`, `visType: "omni-markdown"`): `config: { markdown: "...", version: 1 }`. The markdown body is **mustache-templated against the tile's query** — loop rows with `{{#result}} … {{view_name.field_name.value_static}} … {{/result}}` and reference single values like `{{result._first.view_name.field_name.value_static}}` or `{{result._total.first.view_name.field_name.value_static}}`. Keep a real query on the tile so the template has data.
+  - **Use `.value_static` for a clean value**, not `.value`. `.value_static` is the formatted display string; `.value` is an interactive drill element (a clickable component, not plain text).
+  - Result rows are keyed by **field name** — there is **no positional column token** (you must name the field, not "column 1").
+  - **(v2) Set `automaticVis: false` and `prefersChart: false` on the tile**, or the published renderer ignores your markdown and tries to auto-derive a chart from the query → the tile renders **blank** with no error. Tell-tale: `{{result…}}` tokens resolve when tested but the whole tile is white.
+  - **The HTML sanitizer allows `style`, `className`, and `data-*` attributes plus `<style>` blocks**, so you can ship scoped CSS inside a markdown tile. (A sandboxed `<iframe>` with `allow-scripts` is also available for arbitrary JS if CSS isn't enough.)
+  - **`{{controls.<id>.summary}}`** injects a dashboard control's current selection (its friendly label) into the body — the basis of dynamic captions and the metric-switch pattern below. Only **dashboard** controls resolve here, not tile-embedded `query.controls`. See [controls.md](controls.md).
 - **AI summary** (`chartType: "omni-ai-summary-markdown"`, `visType: "omni-ai-summary-markdown"`): `config: { ai_context: "...", showWarning: true }` (snake_case `ai_context`, **not** `aiContext`; no `markdown`/`version`). Requires a query — the AI summarizes its results.
+
+### Sizing markdown tiles (heights) — they clip easily
+
+Markdown/text tiles clip far more readily than chart tiles. What actually governs it:
+
+- **Grid `h` is ~4–5px per unit.** Empirical reference points for a markdown tile with the default `style: "tile"` chrome: a **single line of text ≈ h:7–8**, **two lines ≈ h:11**, a **28–32px KPI value ≈ h:16–18**.
+- **`style: "tile"` eats ~16px** of vertical space (`--tile-margin` padding on every side). The usable content height ≈ tile height − that chrome, so small tiles clip even when the text "should" fit — **budget +3–4 h-units over the bare text height**.
+- **Keep the markdown tight.** A `<style>` block followed by **blank lines** renders as empty paragraphs at the *top* of the tile, pushing the visible content down so it looks bottom-anchored or clipped. Put `<style>` and the content on adjacent lines with no blank lines between blocks.
+- **Vertical-center only when there's room.** `<div style="height:100%; display:flex; align-items:center; justify-content:center">` centers cleanly — but only once the tile clears chrome + content. At minimal heights it still clips; there, use natural top-flow with small padding instead.
+- **When a tile clips, add height, not padding.** The content area is simply smaller than what's rendering; +2–3 h-units fixes it where padding tweaks won't.
+
+### A markdown KPI card that follows a metric picker (v2)
+
+A markdown tile can present a styled KPI whose value **and** label track a `FIELD_SELECTION` switcher — without a table calc. The trick is a **multi-measure query + a CSS attribute-selector switch**:
+
+1. Query returns **all** candidate measures as columns (one `limit 1` row).
+2. Render one hidden `<span data-m="<Label>">` per measure, each reading `{{result._first.<view>.<field>.value_static}}`.
+3. Put the control's selection on a wrapper via `data-sel="{{controls.<id>.summary}}"`, and add one CSS rule per metric that reveals the matching span.
+
+```html
+<style>
+.kpival .m{display:none;font-size:32px;font-weight:700;}
+.kpicard[data-sel="Total Revenue"] .m[data-m="Total Revenue"],
+.kpicard[data-sel="Total Margin"]  .m[data-m="Total Margin"]{display:block;}
+</style>
+<div class="kpicard" data-sel="{{controls.kpi_metric_1.summary}}">
+  <div class="kpilabel">{{controls.kpi_metric_1.summary}}</div>
+  <div class="kpival">
+    <span class="m" data-m="Total Revenue">{{result._first.ecomm__order_items.total_revenue.value_static}}</span>
+    <span class="m" data-m="Total Margin">{{result._first.ecomm__order_items.total_margin.value_static}}</span>
+  </div>
+</div>
+```
+
+The control's option **labels must match** the `data-m`/`data-sel` strings (`.summary` returns the label). This switches in the presentation layer — the control never mutates the query — so it sidesteps the interactive-control scoping limitation. Place the switcher in-tile (see [containers.md](containers.md)).
+
+> **Why a table calc can't do this.** A table calc — including a cell reference like `=A1` — binds to a **field name at author time** (stored as `{type:'field', field_name:…}`). A field picker swaps *which field* is in the query, so the calc keeps pointing at the original field and does not follow the switch. Use the CSS pattern above (or a templated-filter + CASE measure) instead.
 
 ## Safe Defaults
 
