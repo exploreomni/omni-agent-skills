@@ -14,6 +14,10 @@ Create, update, and manage Omni documents and dashboards programmatically via th
 - **Always run the full validation loop** — see [Validation Loops](#validation-loops) below. At minimum: validate the model, test every query via `omni query run`, check viz spec consistency, and verify the dashboard after creation by reading it back and executing its queries.
 - **Chart rendering**: Complex chart types may show "No chart available" in the Omni UI if `config`, `visType`, or `prefersChart` are misconfigured. If the user asks for a specific chart, include the complete chart-specific `config` from [references/queryPresentations.md](references/queryPresentations.md) or [references/visConfig.md](references/visConfig.md). Use `chartType: "table"` with `config: {}` only as a deliberate table fallback, not for requested charts.
 - **Every query must include at least one measure** — a query with only dimensions produces empty/nonsense tiles (e.g., just months with no data).
+- **(v2) Never round-trip a `v2-get` tile back into a patch unchanged** — a GET returns the inner vis config *flat*, but a patch only persists it *nested under `config`*. Re-sending the flat shape — even for an unrelated edit like a rename — silently drops the vis config (KPI loses its number, charts lose `mark`/`series`, markdown goes blank). Always re-author the inner `visConfig` nested under `config`. See [references/documents-v2.md](references/documents-v2.md).
+- **(v2) A multi-tile `v2-create` only lays out the first tile** — the rest are stored but render nowhere until you author the full `containers` tree. See [references/containers.md](references/containers.md).
+- **(v2) Interactive controls can't be scoped per-tile via the API** — a field/timeframe switcher's `map` is a no-op (a filter's `map` works). Scope switchers in the UI Mapping panel. See [references/controls.md](references/controls.md).
+- **(v2) Markdown tiles need `automaticVis: false`** — otherwise the renderer auto-derives a chart and the tile is blank. See [references/visConfig.md](references/visConfig.md).
 - **Use `identifier` not `id`** for all document API calls — `.id` is null for workbook-type documents and will silently fail.
 - **Boolean filters may be silently dropped** when a `pivots` array is present (reported Omni bug). If boolean filters aren't applying, remove the pivot and test again.
 - **Dashboard updates are full replacements** — `omni documents put <identifier>` replaces the entire document state. Always read the existing document first and modify from there, or you'll lose tiles you didn't include.
@@ -56,6 +60,12 @@ Omni dashboards are built from **documents** (workbooks). Each has:
 - A **workbook model** (per-dashboard model customizations)
 
 Documents can be created with full query and visualization configurations via `queryPresentations`. Fine-tuning tile layout is best done in the Omni UI.
+
+### v1 vs v2 documents API
+
+Two surfaces exist:
+- **v1** (`documents create` / `put` / `get`) — the default. Use it for most dashboards. Covered throughout this SKILL.
+- **v2** (`documents v2-*`) — **experimental**. Reach for it only when you need programmatic control the v1 path lacks: explicit **container** layout (multi-tile grids, grouped/movable bands, **multi-page tabs**) or interactive **controls** (field/timeframe switchers). It has its own envelope and several behaviors to design around. See [references/documents-v2.md](references/documents-v2.md), [references/containers.md](references/containers.md), and [references/controls.md](references/controls.md). Always read v2 results back with `v2-get` and verify.
 
 ## Build queries on a topic
 
@@ -409,6 +419,7 @@ omni dashboards download-status <dashboardId> <jobId>
 
 - [Documents API](https://docs.omni.co/api/documents.md) · [Update Document](https://docs.omni.co/api/documents/update-document) · [Dashboard Filters](https://docs.omni.co/api/dashboard-filters.md) · [Dashboard Downloads](https://docs.omni.co/api/dashboard-downloads.md) · [Query API](https://docs.omni.co/api/queries.md) · [Schedules API](https://docs.omni.co/api/schedules.md) · [Visualization Types](https://docs.omni.co/visualize-present/visualizations.md)
 - **Skill references**: [queryPresentations.md](references/queryPresentations.md) · [visConfig.md](references/visConfig.md) · [filterConfig.md](references/filterConfig.md) · [branch-bound-drafts.md](references/branch-bound-drafts.md)
+- **v2 (experimental)**: [documents-v2.md](references/documents-v2.md) · [containers.md](references/containers.md) · [controls.md](references/controls.md)
 
 ## Related Skills
 
