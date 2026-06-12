@@ -9,51 +9,54 @@
     {
       "id": "1",
       "question": "Build a dashboard called 'Weekly Sales Overview' with two tiles: monthly revenue trend (line chart) and top 10 customers by revenue (table).",
-      "ground_truth": "Dashboard created with two working tiles. Both queries validated before creation. Dashboard read back and queries verified after creation. Share link provided.",
+      "ground_truth": "Dashboard created via omni documents v2-create with two working tiles in the keyed queryPresentations envelope. Both queries validated before creation. Because a multi-tile v2-create only auto-lays-out tile \"1\", the agent authors a containers tree (or patches one in) so both tiles render. Dashboard read back via v2-get and queries verified after creation. Share link provided.",
       "expected_behavior": [
-        "The agent runs omni query run to test each tile's query before creating the dashboard \u2014 not after",
+        "The agent runs omni query run to test each tile's query before creating the dashboard — not after",
         "The agent checks that each query returned rows before proceeding, using the row-count field exposed by the response such as summary.row_count or cache_metadata.num_rows",
-        "The agent reads the created document back with omni documents get and confirms both queryPresentations are present",
+        "The agent creates the document with omni documents v2-create using the keyed queryPresentations envelope ({data: {\"1\": ..., \"2\": ...}, order: [\"1\",\"2\"]}), with each tile's query carrying the full required collection-field set and no modelId",
+        "The agent ensures both tiles actually render: it authors a containers tree placing both tiles (at create or via a follow-up draft patch), because a multi-tile v2-create only lays out tile \"1\"",
+        "The agent reads the created document back with omni documents v2-get and confirms both entries exist in queryPresentations.data and order",
         "The agent runs omni documents get-queries and executes the dashboard's queries to verify they work after creation",
-        "The agent provides a dashboard URL in the format {OMNI_BASE_URL}/dashboards/{identifier} \u2014 using identifier, not id"
+        "The agent provides a dashboard URL in the format {OMNI_BASE_URL}/dashboards/{identifier} — using the identifier from the v2-create response"
       ],
       "expected_skill": "omni-content-builder"
     },
     {
       "id": "2",
       "question": "Add a KPI tile showing total revenue this quarter to the existing dashboard with identifier '{{EVAL_DASHBOARD_TILES}}'.",
-      "ground_truth": "Existing dashboard read first. If the filtered KPI query validates, KPI tile is attempted via full document PUT with all existing tiles preserved, then read back. If the server rejects the required query-level date filter during validation, the agent validates the unfiltered base query once, then either uses a verified dashboard-level date filter fallback or leaves the dashboard unchanged and reports the exact blocker. If readback shows the API dropped required KPI presentation fields, the original dashboard is restored once and the partial-write blocker is reported.",
+      "ground_truth": "Existing dashboard read first via v2-get. If the filtered KPI query validates, the KPI tile is added on a draft via v2-patch-draft — sending only the new tile key (merge-by-key preserves existing tiles), the complete order array, and a full containers tree placing the new tile. The draft is read back and verified before v2-publish-draft. If the server rejects the required query-level date filter during validation, the agent validates the unfiltered base query once, then either uses a verified dashboard-level date control fallback or leaves the dashboard unchanged and reports the exact blocker. On a failed patch, the draft is discarded and the published dashboard is untouched.",
       "expected_behavior": [
-        "The agent reads the existing document with omni documents get before making any changes",
-        "When attempting an update, the agent's submitted document includes all existing queryPresentations from the read \u2014 it does not discard existing tiles",
-        "When attempting the KPI tile, the submitted tile uses visType: omni-kpi (not visType: basic)",
-        "The agent reads the document back after the update and either verifies the KPI tile was added with its required visualization fields intact or detects a failed partial write",
-        "If the required query-level date filter returns a server-side parsing error during omni query run, the agent validates the unfiltered base query once and does not save the known-broken query-level filter; it either uses a verified dashboard-level date filter fallback or leaves the existing dashboard unchanged and reports the blocker",
-        "If the document update API returns a server-side write-path error, the agent stops after a bounded retry and reports the blocker instead of using documents-import, creating replacement dashboards, or probing draft/import endpoints",
-        "If readback shows the API dropped required KPI presentation fields such as visType/config/fields, the agent makes one rollback attempt using the original document payload, verifies or reports the rollback result, and reports the partial-write blocker instead of claiming the KPI was added successfully"
+        "The agent reads the existing document with omni documents v2-get before making any changes",
+        "The agent adds the tile on a draft (omni documents v2-patch-draft) rather than writing directly to the published document, and sends only the new tile's key in queryPresentations.data — it relies on merge-by-key instead of resending every existing tile",
+        "When sending order or containers, the agent sends them complete: order lists every live tile key, and containers is the full layout tree including a stack for the new tile",
+        "The submitted KPI tile uses visType omni-kpi with its rendering spec (markdownConfig etc.) nested under visConfig.visConfig.config — not flat",
+        "The agent reads the draft back (v2-get-draft) and verifies the KPI tile persisted with a non-empty inner vis config before publishing with v2-publish-draft",
+        "If the required query-level date filter returns a server-side parsing error during omni query run, the agent validates the unfiltered base query once and does not save the known-broken query-level filter; it either uses a verified dashboard-level date control fallback or leaves the existing dashboard unchanged and reports the blocker",
+        "If a patch returns a server-side error, the agent stops after a bounded retry, discards the draft (omni documents discard-draft), and reports the blocker instead of using documents-import, creating replacement dashboards, or probing alternate endpoints"
       ],
       "expected_skill": "omni-content-builder"
     },
     {
       "id": "3",
       "question": "Create a dashboard with a date range filter that defaults to the last 90 days, controlling a revenue by month tile.",
-      "ground_truth": "Dashboard created with filterConfig including a date filter with left_side: '90 days ago', a queryPresentation that references the order_items.created_at field, and filterOrder set correctly.",
+      "ground_truth": "Dashboard created with a controls slice containing a date filter config (type date, kind TIME_FOR_INTERVAL_DURATION, left_side '90 days ago') keyed in controls.data, the key listed in controls.order, and a queryPresentation referencing the order_items.created_at field.",
       "expected_behavior": [
-        "The filterConfig includes a date filter with a fieldName set to the fully qualified field name (e.g., order_items.created_at) \u2014 without a timeframe bracket",
-        "The filterOrder array includes the filter key, matching the filterConfig key",
-        "The agent attempts to validate the filter expression with omni query run before creating the dashboard; if the query API returns a server-side filter error, it validates the base query and verifies filterConfig/filterOrder after creation instead",
+        "The filter lives in the v2 controls slice — controls.data.<id>.config — not in v1 filterConfig/filterOrder keys (which the v2 API rejects with a 400)",
+        "The date filter config includes a fieldName set to the fully qualified field name (e.g., order_items.created_at) — without a timeframe bracket",
+        "The controls.order array includes the filter's key, matching its key in controls.data",
+        "The agent attempts to validate the filter expression with omni query run before creating the dashboard; if the query API returns a server-side filter error, it validates the base query and verifies the controls slice by readback (v2-get) after creation instead",
         "The agent provides the dashboard URL after successful creation and verification"
       ],
       "expected_skill": "omni-content-builder"
     },
     {
       "id": "4",
-      "question": "I need to add a custom calculated field 'High Value Order' (sale_price > 100) to dashboard '{{EVAL_DASHBOARD_WORKBOOK}}' only \u2014 not to the shared model.",
-      "ground_truth": "Custom dimension added to the dashboard's workbook model (not the shared model) by first getting the workbook_id and then posting YAML to it.",
+      "question": "I need to add a custom calculated field 'High Value Order' (sale_price > 100) to dashboard '{{EVAL_DASHBOARD_WORKBOOK}}' only — not to the shared model.",
+      "ground_truth": "Custom dimension added to the dashboard's workbook model (not the shared model) by first getting the workbook model ID from the top-level modelId of omni documents get and then posting YAML to it in extension mode.",
       "expected_behavior": [
-        "The agent calls omni documents get to retrieve the workbook_id before writing YAML",
-        "The agent writes YAML to the workbook model ID (not the shared model ID)",
-        "The YAML file name ends in .view as required by the workbook model API",
+        "The agent calls omni documents get and uses the top-level modelId — the workbook model ID — before writing YAML (and does not reuse a cached/stale model ID, since the workbook model rotates on every draft publish)",
+        "The agent writes YAML to the workbook model ID (not the shared model ID) with mode 'extension'",
+        "The YAML file name ends in .view as required by the workbook model API, and the YAML body contains the view contents with no views: wrapper",
         "The agent does not modify the shared model for this dashboard-specific field"
       ],
       "expected_skill": "omni-content-builder"
@@ -61,14 +64,14 @@
     {
       "id": "5",
       "question": "Build a dashboard called 'Orders by Status Over Time' with a single vertical stacked column chart showing order count by month, stacked by order status.",
-      "ground_truth": "Dashboard created with one vertical stacked column tile. The tile uses chartType 'columnStacked' with the rendering spec in visConfig.config at the queryPresentation level, the status dimension pivoted, and is read back to confirm the visualization spec persisted (non-empty). Share link provided.",
+      "ground_truth": "Dashboard created with one vertical stacked column tile. The tile uses chartType 'columnStacked' at the outer visConfig level with the rendering spec nested under visConfig.visConfig.config, the status dimension pivoted, and is read back to confirm the visualization spec persisted (non-empty). Share link provided.",
       "expected_behavior": [
         "The agent runs omni query run to validate the tile query — including the status dimension in pivots — before creating the dashboard",
         "The chart uses a valid chartType enum value for a vertical stacked bar: 'columnStacked' (NOT invalid values like 'stackedBarColor' or 'barColor')",
-        "The rendering spec is placed in visConfig.config at the queryPresentation level (with chartType set at the presentation level) — not in a bare top-level 'config' key, which is silently dropped",
+        "The rendering spec is nested under visConfig.visConfig.config, with chartType and fields at the outer visConfig level — not flat inside the inner visConfig (silently dropped) and not at the tile's top level (400)",
         "The cartesian spec is internally consistent: mark.type 'bar', configType 'cartesian', _dependentAxis 'y', series with yAxis 'y', and color with _stack 'stack' referencing the status field",
         "The status dimension used for the stack/color is included in the query's pivots",
-        "After creation, the agent reads the document back and confirms the persisted visualization config is non-empty — i.e., the chart spec was not silently dropped to a table or auto-selected chart",
+        "After creation, the agent reads the document back with v2-get and confirms the persisted (flat-read) inner visualization config contains more than just visType — i.e., the chart spec was not silently dropped",
         "The agent provides a dashboard URL in the format {OMNI_BASE_URL}/dashboards/{identifier}"
       ],
       "expected_skill": "omni-content-builder"
@@ -76,13 +79,13 @@
     {
       "id": "6",
       "question": "Build a dashboard with a heatmap of order count by month and status.",
-      "ground_truth": "Dashboard created with a heatmap tile using chartType 'heatmap', visType 'basic', and a spec whose configType is 'heatmap' (x = created_at month, y = status, color = the count measure), placed in visConfig.config and read back to confirm it persisted. Share link provided.",
+      "ground_truth": "Dashboard created with a heatmap tile using chartType 'heatmap', visType 'basic', and a spec whose configType is 'heatmap' (x = created_at month, y = status, color = the count measure), nested under visConfig.visConfig.config and read back to confirm it persisted. Share link provided.",
       "expected_behavior": [
         "The agent validates the query (created_at by month, status, and a count measure) with omni query run before creating the dashboard",
         "The heatmap uses chartType 'heatmap' with visType 'basic'",
         "The spec uses configType 'heatmap' (NOT 'cartesian'), with x and y dimension fields and color bound to the count measure",
-        "The rendering spec is placed in visConfig.config at the queryPresentation level, not a bare top-level 'config' key",
-        "After creation, the agent reads the document back and confirms the persisted visualization config is non-empty",
+        "The rendering spec is nested under visConfig.visConfig.config — not flat inside the inner visConfig and not at the tile's top level",
+        "After creation, the agent reads the document back with v2-get and confirms the persisted inner visualization config is non-empty",
         "The agent provides a dashboard URL in the format {OMNI_BASE_URL}/dashboards/{identifier}"
       ],
       "expected_skill": "omni-content-builder"
@@ -90,13 +93,13 @@
     {
       "id": "7",
       "question": "Build a dashboard with a pie chart of order count by status.",
-      "ground_truth": "Dashboard created with a pie tile using chartType 'pie', visType 'basic', and a spec whose configType is 'polar' (the dimension as the slice/color encoding and the measure as theta), placed in visConfig.config and read back to confirm it persisted. Share link provided.",
+      "ground_truth": "Dashboard created with a pie tile using chartType 'pie', visType 'basic', and a spec whose configType is 'polar' (the dimension as the slice/color encoding and the measure as theta), nested under visConfig.visConfig.config and read back to confirm it persisted. Share link provided.",
       "expected_behavior": [
         "The agent validates the query (status dimension plus a measure) with omni query run before creating the dashboard",
         "The pie chart uses chartType 'pie' with visType 'basic'",
         "The spec uses configType 'polar' (NOT 'pie' or 'cartesian'), with the measure as theta and the status dimension as the color encoding",
-        "The rendering spec is placed in visConfig.config at the queryPresentation level, not a bare top-level 'config' key",
-        "After creation, the agent reads the document back and confirms the persisted visualization config is non-empty",
+        "The rendering spec is nested under visConfig.visConfig.config — not flat inside the inner visConfig and not at the tile's top level",
+        "After creation, the agent reads the document back with v2-get and confirms the persisted inner visualization config is non-empty",
         "The agent provides a dashboard URL in the format {OMNI_BASE_URL}/dashboards/{identifier}"
       ],
       "expected_skill": "omni-content-builder"
@@ -104,15 +107,15 @@
     {
       "id": "8",
       "question": "Build a dashboard called 'Pricing Watch' with one tile charting a new measure 'Max Sale Price' (the maximum of sale_price) that should live only on this dashboard — not in the shared model — by month, with a running total of order count alongside it.",
-      "ground_truth": "A shell document is created first (which provisions the workbook model), the 'Max Sale Price' measure is added to that workbook model via yaml-create in extension mode, and the tile is written via documents put with the tile's query.modelId set to the workbook model (not the shared model) and a running-total table calculation. The query is validated against the workbook model and the tile is read back and confirmed to render. Share link provided.",
+      "ground_truth": "A shell document is created first via v2-create (which provisions the workbook model), the 'Max Sale Price' measure is added to that workbook model via yaml-create in extension mode, and the tile is added on a draft via v2-patch-draft with no modelId in the tile query (the server anchors tiles to the draft's workbook model) plus a running-total table calculation, then the draft is verified and published via v2-publish-draft. Share link provided.",
       "expected_behavior": [
-        "The agent creates the document before writing the field — it does not attempt a single documents create that both defines the workbook field and references it, because the workbook model does not exist until create runs",
+        "The agent creates the document before writing the field — it does not attempt a single create that both defines the workbook field and references it, because the workbook model does not exist until create runs",
         "The agent retrieves the document's workbook model from the top-level modelId of omni documents get",
         "The 'Max Sale Price' measure is added to the workbook model via omni models yaml-create with mode 'extension' — not to the shared model, and not in combined mode",
-        "The tile's query.modelId is set to the workbook model, not the shared model — the agent recognizes the workbook field will not resolve under the shared model (documents create stamps the shared model on tiles)",
+        "The tile is added via the draft flow (v2-patch-draft then v2-publish-draft) with no modelId in the tile query — the agent relies on the server anchoring the tile to the draft's workbook model instead of stamping model IDs",
         "The running total is implemented as a table calculation (calculations[] using OMNI_RUNNING_TOTAL) with its calc_name included in query.fields — not as a new model field",
-        "The agent validates the tile query against the workbook model with omni query run",
-        "After creation, the agent reads the document back and confirms the tile persisted with a renderer that matches its chartType (e.g. a table tile uses visType 'omni-table', not 'basic')",
+        "The agent validates the tile query against the workbook model with omni query run (standalone query run bodies still take a modelId)",
+        "Before publishing, the agent reads the draft back and confirms the tile persisted with a renderer that matches its chartType (e.g. a table tile uses visType 'omni-table', not 'basic')",
         "The agent provides a dashboard URL in the format {OMNI_BASE_URL}/dashboards/{identifier}"
       ],
       "expected_skill": "omni-content-builder"
@@ -120,12 +123,13 @@
     {
       "id": "9",
       "question": "On dashboard '{{EVAL_DASHBOARD_WORKBOOK}}', add a running total of monthly order count.",
-      "ground_truth": "The running total is added as a table calculation on the tile (calculations[] with OMNI_RUNNING_TOTAL, calc_name in query.fields), not as a new dimension or measure in the workbook or shared model. Existing tiles are preserved via a full documents put, then read back and verified.",
+      "ground_truth": "The running total is added as a table calculation on the tile (calculations[] with OMNI_RUNNING_TOTAL, calc_name in query.fields), not as a new dimension or measure in the workbook or shared model. The edit rides the draft flow: v2-get to read, v2-patch-draft sending only the affected tile key (merge-by-key preserves the rest, with the inner vis config re-nested under config), draft verified, then v2-publish-draft.",
       "expected_behavior": [
         "The agent treats the running total as window-shaped logic that belongs in a table calculation — it does NOT add a new measure or dimension to the workbook model or the shared model for it",
         "The running total is expressed as a table calculation using OMNI_RUNNING_TOTAL, with its calc_name included in query.fields",
-        "The agent reads the existing document first and preserves all existing queryPresentations in the documents put",
-        "The agent reads the document back and confirms the calculation persisted",
+        "The agent reads the existing document first (v2-get) and edits via the draft flow, sending only the affected tile's key — merge-by-key preserves the other tiles without resending them",
+        "When resending the edited tile, the agent re-authors its inner vis config nested under visConfig.visConfig.config rather than echoing the flat shape v2-get returned (which would silently strip the spec)",
+        "The agent reads the draft back, confirms the calculation persisted, and publishes with v2-publish-draft",
         "The agent does not modify the shared model"
       ],
       "expected_skill": "omni-content-builder"
@@ -133,16 +137,16 @@
     {
       "id": "10",
       "question": "Create a model branch, add a measure 'eval_branch_avg_price' (the average of sale_price) to the order_items view on that branch, then build a dashboard that charts it by month with a running total of order count. The measure must NOT be merged into the shared model.",
-      "ground_truth": "A model branch is created and the 'eval_branch_avg_price' measure is added to order_items on that branch (not the shared model). Because the field is not in the published shared model, the tile is built on a branch-bound draft: a published shell, then a draft bound to that branch, the draft's workbook model retrieved, and the tile (plus a running-total table calculation) written via documents put with query.modelId set to the draft's workbook model. The query is validated against the draft workbook model and the draft is read back. The branch is left unmerged.",
+      "ground_truth": "A model branch is created and the 'eval_branch_avg_price' measure is added to order_items on that branch (not the shared model). Because the field is not in the published shared model, the tile is built on a branch-bound draft: a published shell via v2-create, then v2-patch-draft with branchId inside the JSON body, binding verified via list-drafts (branch is non-null), and the tile (plus a running-total table calculation) applied to the draft with no modelId in the tile query. The query is validated against the draft's workbookModelId from list-drafts and the draft is read back. The branch is left unmerged and the draft unpublished (v2-publish-draft cannot publish branch drafts).",
       "expected_behavior": [
         "The agent creates its own model branch (omni models create-branch) and adds the measure to order_items on that branch in extension mode — it does not write the measure to the shared model",
         "The agent recognizes the branch-only field does not exist in the published shared model, so the tile must live on a branch-bound draft — not a plain published document",
-        "The agent creates a published shell document, then creates a draft bound to the branch it created via omni documents create-draft with branchId set to that branch",
-        "The agent obtains the draft's workbook model from the create-draft response identifier plus omni documents get <draftId> — it does not depend on omni documents list-drafts",
-        "The tile's query.modelId is set to the draft's workbook model (which extends the branch), not the shared model — the agent does not leave tiles stamped with the shared model, which would fail to resolve the branch field and flag a restricted-querier 'Invalid model' warning",
+        "The agent creates a published shell document, then binds a draft to its branch via omni documents v2-patch-draft with branchId INSIDE the JSON body — not via the --branch-id flag combined with --body, which the CLI silently ignores",
+        "The agent verifies the binding with omni documents list-drafts — the draft record shows branch: {id, name} (a branch: null draft is a silently-mainline draft and must not be published)",
+        "The tile query carries no modelId — the draft's workbook model extends the branch, so the branch field resolves with no per-tile model wiring",
         "The running total is a table calculation using OMNI_RUNNING_TOTAL with its calc_name included in query.fields",
-        "The agent validates the tile query resolves against the draft's workbook model with omni query run",
-        "The agent reads the draft back and confirms the tile persisted; it does not attempt to publish the draft via a CLI publish command (there is none — publishing is a UI action)",
+        "The agent validates the tile query resolves by running it with modelId set to the draft's workbookModelId from list-drafts via omni query run",
+        "The agent reads the draft back (v2-get-draft, draft identifier first) and confirms the tile persisted; it does not attempt to publish the branch draft via v2-publish-draft (which only sees the main draft and returns 404) — branch drafts go live by merging the branch and publishing in the UI",
         "Any draft link uses the draft's own identifier in the format {OMNI_BASE_URL}/dashboards/{draftIdentifier}",
         "The agent tells the user the result is a branch-bound draft that publishes only when the branch is merged (and the draft published in the UI) — it does not present it as a finished, live dashboard"
       ],
