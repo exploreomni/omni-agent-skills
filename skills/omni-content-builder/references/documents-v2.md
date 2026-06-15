@@ -8,12 +8,12 @@ The `omni documents v2-*` commands are the **only** surface for creating, readin
 |---|---|
 | `v2-create` | Create + publish a document live |
 | `v2-get <identifier>` | Read document state (draft state if a draft exists, else published) |
-| `v2-get-draft <draftIdentifier> <identifier>` | Read a draft's state |
+| `v2-get-draft <identifier> <draftIdentifier>` | Read a draft's state |
 | `v2-patch-draft <identifier>` | Create a draft (optionally branch-bound) and apply a patch |
-| `v2-patch-draft-by-identifier <draftIdentifier> <identifier>` | Patch an existing draft |
+| `v2-patch-draft-by-identifier <identifier> <draftIdentifier>` | Patch an existing draft |
 | `v2-publish-draft <identifier>` | Publish the document's **main** draft |
 
-- Draft commands take the **draft identifier first**: `<draftIdentifier> <identifier>`.
+- Draft commands take the **document identifier first, then the draft identifier**: `<identifier> <draftIdentifier>`.
 - There is **no one-shot patch** — every edit is patch-draft → verify → publish-draft.
 - Patch responses return `{identifier, name, description, draftIdentifier}` — capture `draftIdentifier` for `v2-get-draft`, `v2-patch-draft-by-identifier`, and the draft URL.
 

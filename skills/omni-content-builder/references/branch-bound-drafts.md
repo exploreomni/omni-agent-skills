@@ -43,11 +43,11 @@ omni documents list-drafts <identifier>
 
 ## Iterating on the draft
 
-Same as any draft — draft identifier FIRST:
+Same as any draft — document identifier first, then draft id:
 
 ```bash
-omni documents v2-get-draft <draftIdentifier> <identifier>
-omni documents v2-patch-draft-by-identifier <draftIdentifier> <identifier> --body '{ … }'
+omni documents v2-get-draft <identifier> <draftIdentifier>
+omni documents v2-patch-draft-by-identifier <identifier> <draftIdentifier> --body '{ … }'
 ```
 
 The draft's workbook model extends the **branch** model, so branch-only fields resolve on the draft's tiles with no per-tile model wiring. To verify a branch field runs, take the tile's query and run it via `omni query run` with `modelId` set to the draft's `workbookModelId` (from `list-drafts`) — branch-authored fields resolve against the workbook model, not the shared model.
@@ -81,7 +81,7 @@ omni models yaml-create <draftWorkbookModelId> --body '{
 }'
 
 # 2) patch the tile referencing the field into the draft (no modelId in the tile query)
-omni documents v2-patch-draft-by-identifier <draftIdentifier> <identifier> --body '{ … }'
+omni documents v2-patch-draft-by-identifier <identifier> <draftIdentifier> --body '{ … }'
 ```
 
 When the draft is also branch-bound, its workbook model extends the branch — one model resolves branch-only fields **and** workbook fields together, even in the same tile.

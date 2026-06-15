@@ -28,13 +28,13 @@ Capture `draftIdentifier` from the response.
 **Step 4 — Validate the draft** before anything goes live (see [validation-and-testing.md](validation-and-testing.md)):
 
 ```bash
-omni documents v2-get-draft <draftIdentifier> <identifier>          # draft id FIRST
+omni documents v2-get-draft <identifier> <draftIdentifier>          # identifier first, then draft id
 ```
 
 Check tile counts (`queryPresentations.order` vs `data` keys), viz specs, and run the affected queries. Iterate with:
 
 ```bash
-omni documents v2-patch-draft-by-identifier <draftIdentifier> <identifier> --body '…'   # draft id FIRST
+omni documents v2-patch-draft-by-identifier <identifier> <draftIdentifier> --body '…'   # identifier first, then draft id
 ```
 
 **Step 5 — Publish**:

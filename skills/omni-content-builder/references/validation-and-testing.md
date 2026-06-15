@@ -74,7 +74,7 @@ This is the big v2 win: edits land on a draft, and nothing goes live until `v2-p
 **4a. Read back the state:**
 
 ```bash
-omni documents v2-get-draft <draftIdentifier> <identifier>   # draft state (draft id FIRST)
+omni documents v2-get-draft <identifier> <draftIdentifier>   # draft state (identifier first, then draft id)
 omni documents v2-get <identifier>                           # published state
 ```
 
@@ -115,7 +115,7 @@ Using `"resultType": "csv"` makes it easy to spot-check that the data looks reas
 - `summary.row_count` > 0 for tiles that should show data
 - No unexpected `remaining_job_ids` (which might indicate query timeout issues)
 
-**4c. If any query fails:** the draft has a broken tile. Fix it with one corrected `omni documents v2-patch-draft-by-identifier <draftIdentifier> <identifier>` at most; if that also fails, `omni documents discard-draft <identifier>` and report the blocker — the published dashboard was never touched. Do not enter an open-ended repair loop, and do not publish a draft with a known-broken tile.
+**4c. If any query fails:** the draft has a broken tile. Fix it with one corrected `omni documents v2-patch-draft-by-identifier <identifier> <draftIdentifier>` at most; if that also fails, `omni documents discard-draft <identifier>` and report the blocker — the published dashboard was never touched. Do not enter an open-ended repair loop, and do not publish a draft with a known-broken tile.
 
 **4d. Publish, then spot-check:** after `v2-publish-draft`, a final `omni documents v2-get <identifier>` confirms the published state matches the validated draft.
 

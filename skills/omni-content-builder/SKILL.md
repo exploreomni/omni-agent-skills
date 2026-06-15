@@ -20,7 +20,7 @@ Documents are created and edited through the **v2 documents API** (`omni documen
 - **Tile `"1"` on create merges over a server seed tile** — some seed properties (e.g. `automaticVis: true`) can win over what you sent. Read the document back and re-patch tile `"1"` if its exact fields matter.
 - **Every tile `query` must include the full collection-field set** — `sorts`, `filters`, `calculations`, `column_totals`, `row_totals`, `fill_fields`, `pivots`, `userEditedSQL` (empty values are fine) alongside `table`, `fields`, `limit`, `join_paths_from_topic_name`. Omitting the schema-required ones is a 400 with per-field errors. Do **not** include `modelId` or `model_extension_id` — the server anchors tiles to the document's workbook model and silently rewrites any value you send.
 - **`--body` silently wins over shorthand flags** — if you pass `--body`, every promoted flag (`--name`, `--summary`, `--branch-id`, …) is ignored without warning. Put those fields inside the JSON body instead, or use flags alone with no `--body`.
-- **Draft commands take the draft identifier FIRST**: `v2-get-draft <draftIdentifier> <identifier>` and `v2-patch-draft-by-identifier <draftIdentifier> <identifier>`.
+- **Draft commands take the document identifier first, then the draft identifier**: `v2-get-draft <identifier> <draftIdentifier>` and `v2-patch-draft-by-identifier <identifier> <draftIdentifier>`.
 - **Classic-layout dashboards return 422 from every v2 endpoint** — "Upgrade the dashboard to the advanced layout before editing it through the API." There is no API fallback; ask the user to upgrade the layout in the Omni UI, then retry.
 - **The workbook model ID rotates on every draft → publish cycle** — each draft clones the workbook model (carrying extensions along), and publishing swaps the document to the clone. Never cache a workbook model ID; read it fresh from the draft's `workbookModelId` (`omni documents list-drafts <identifier>`) each time you need it.
 - **Interactive controls can't be scoped per-tile via the API** — a field/timeframe switcher's `map` is a no-op (a **filter's** `map` works — verified). Scope switchers in the UI Mapping panel. See [references/controls.md](references/controls.md).
@@ -224,7 +224,7 @@ Edits go through the **draft flow** — the published dashboard is untouched unt
    - **Delete a tile**: set its key to `null` and remove it from `order` (and its stack from `containers`).
    - **Layout**: `containers` is a full replacement — send the whole tree with your edit applied.
 3. **Create the draft + apply**: `omni documents v2-patch-draft <identifier> --body - < patch.json` — capture `draftIdentifier` from the response. Include a `summary` in the body for the audit trail.
-4. **Validate the draft** — `omni documents v2-get-draft <draftIdentifier> <identifier>`, run the affected queries (see [Validation Loops](#validation-loops)). Iterate with `omni documents v2-patch-draft-by-identifier <draftIdentifier> <identifier> --body …`.
+4. **Validate the draft** — `omni documents v2-get-draft <identifier> <draftIdentifier>`, run the affected queries (see [Validation Loops](#validation-loops)). Iterate with `omni documents v2-patch-draft-by-identifier <identifier> <draftIdentifier> --body …`.
 5. **Publish**: `omni documents v2-publish-draft <identifier>`. On failure or abandonment, `omni documents discard-draft <identifier>` cleans up without touching the published doc.
 
 Error map, merge-semantics details, and recipes are in **[references/updating-dashboards.md](references/updating-dashboards.md)**.
@@ -274,7 +274,7 @@ v2 tile queries carry **no `modelId`** — the server anchors each tile to the d
 2. **`documents v2-patch-draft <identifier>`** — open the draft (a `--summary`-only patch is enough to create it).
 3. **`documents list-drafts <identifier>`** → the draft's `workbookModelId`.
 4. **`models yaml-create <draftWorkbookModelId>` with `mode: "extension"`** → add the field (above).
-5. **`documents v2-patch-draft-by-identifier <draftIdentifier> <identifier>`** adding the tile that references the field — no `modelId` anywhere in the tile query.
+5. **`documents v2-patch-draft-by-identifier <identifier> <draftIdentifier>`** adding the tile that references the field — no `modelId` anywhere in the tile query.
 6. **`documents v2-publish-draft <identifier>`** — the field and tile go live together.
 
 After publishing, the workbook model ID has **changed** — open a new draft and re-read `workbookModelId` from `list-drafts` before any further `yaml-create`.

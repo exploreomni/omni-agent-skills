@@ -146,7 +146,7 @@
         "The tile query carries no modelId — the draft's workbook model extends the branch, so the branch field resolves with no per-tile model wiring",
         "The running total is a table calculation using OMNI_RUNNING_TOTAL with its calc_name included in query.fields",
         "The agent validates the tile query resolves by running it with modelId set to the draft's workbookModelId from list-drafts via omni query run",
-        "The agent reads the draft back (v2-get-draft, draft identifier first) and confirms the tile persisted; it does not attempt to publish the branch draft via v2-publish-draft (which only sees the main draft and returns 404) — branch drafts go live by merging the branch and publishing in the UI",
+        "The agent reads the draft back (v2-get-draft, identifier first then draft id) and confirms the tile persisted; it does not attempt to publish the branch draft via v2-publish-draft (which only sees the main draft and returns 404) — branch drafts go live by merging the branch and publishing in the UI",
         "Any draft link uses the draft's own identifier in the format {OMNI_BASE_URL}/dashboards/{draftIdentifier}",
         "The agent tells the user the result is a branch-bound draft that publishes only when the branch is merged (and the draft published in the UI) — it does not present it as a finished, live dashboard"
       ],
