@@ -1,77 +1,144 @@
 # Updating an Existing Dashboard
 
-Update the tiles, queries, filters, and visualizations on an existing dashboard with **`omni documents put <identifier>`** — a **full replacement**: you pass the complete desired state of the document, not just the fields you want to change. Any tile you omit from `queryPresentations` is removed.
+Edits go through the **v2 draft flow**: read the published state, author a merge-by-key patch, apply it to a draft, validate the draft, publish. The published dashboard is untouched until `v2-publish-draft` — a bad draft is discarded with zero impact.
 
-> **Dashboard documents only.** `documents put` works on dashboard documents; workbook-only documents return 400.
->
-> **`put` vs `update`.** `omni documents put` does the full-document replacement described here. `omni documents update` is a partial update for `name`/`description`/`identifier` only — it does not touch tiles or filters.
+> **Advanced layout only.** Classic-layout dashboards return **422** from the v2 endpoints: *"This document uses the classic dashboard layout, which the documents API does not support. Upgrade the dashboard to the advanced layout before editing it through the API."* There is no API fallback — ask the user to upgrade the layout in the Omni UI, then retry.
 
-## Update Workflow
+## The five-step loop
 
-**Step 1 — Read the existing document** to get its current state:
+**Step 1 — Read** the current state:
 
 ```bash
-omni documents get <identifier>
+omni documents v2-get <identifier> > doc.json
 ```
 
-This returns the full document including `queryPresentations`, `filterConfig`, `filterOrder`, `modelId`, `name`, and other fields. Use this as your starting point.
+Returns the envelope: `name`, `description`, `queryPresentations {data, order}`, `controls {data, order}`, `containers`, `settings`. The response carries no `identifier`/`modelId` — keep the identifier you queried with. If a draft already exists, `v2-get` returns the draft state.
 
-**Step 2 — Modify the response** as needed:
+**Step 2 — Author the patch.** Patches **merge by key** (semantics below) — send only what you're changing. Include a `summary` string in the body; it is written to the document's history audit trail.
 
-- **Add a tile**: append a new entry to `queryPresentations` (keep all existing entries you want to retain).
-- **Remove a tile**: drop it from `queryPresentations`.
-- **Edit a tile**: modify the entry's `query`, `visConfig`, `fields`, etc.
-- **Update filters**: modify `filterConfig` and `filterOrder`.
-
-**Step 3 — Write it back** with a full document body:
+**Step 3 — Create the draft and apply it**:
 
 ```bash
-omni documents put <identifier> --body '{
-  "modelId": "your-model-id",
-  "name": "Q1 Revenue Report",
-  "facetFilters": false,
-  "refreshInterval": null,
-  "filterConfig": {},
-  "filterOrder": [],
-  "clearExistingDraft": true,
-  "queryPresentations": [ ... ]
-}'
+omni documents v2-patch-draft <identifier> --body - < patch.json
+# → {identifier, name, description, draftIdentifier}
 ```
 
-The `queryPresentations` array uses the same structure as document creation — see [queryPresentations.md](queryPresentations.md). To add tiles without losing any, include the existing tiles **plus** the new ones (this is how you build a dashboard up additively even though `put` is a full replacement).
+Capture `draftIdentifier` from the response.
 
-**Step 4 — Read back and verify** (see [validation-and-testing.md](validation-and-testing.md)). Confirm each tile's `visConfig` persisted (non-empty `spec` for charts); if a write saved the query but dropped `visType`/`config`/`fields`, treat it as a failed partial write, not success.
+**Step 4 — Validate the draft** before anything goes live (see [validation-and-testing.md](validation-and-testing.md)):
 
-## Required Fields
+```bash
+omni documents v2-get-draft <identifier> <draftIdentifier>          # identifier first, then draft id
+```
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `modelId` | string | Model ID for query transformation |
-| `name` | string | Document name (1–254 characters) |
-| `facetFilters` | boolean | Enable facet filters on the dashboard |
-| `refreshInterval` | integer or null | Auto-refresh interval in seconds (min 60), or `null` to disable |
-| `filterConfig` | object | Dashboard filter configuration — pass `{}` for no filters |
-| `filterOrder` | array | Ordered filter IDs — pass `[]` for no filters |
-| `queryPresentations` | array | At least one query presentation required (same structure as document creation) |
+Check tile counts (`queryPresentations.order` vs `data` keys), viz specs, and run the affected queries. Iterate with:
 
-## Optional Fields
+```bash
+omni documents v2-patch-draft-by-identifier <identifier> <draftIdentifier> --body '…'   # identifier first, then draft id
+```
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `clearExistingDraft` | boolean | Discard existing draft before updating. **Required when the published document has a draft** — otherwise returns 409 Conflict. |
-| `documentMetadata` | object | Presentation settings including filter collapsibility |
+**Step 5 — Publish**:
 
-## Caveats
+```bash
+omni documents v2-publish-draft <identifier>
+```
 
-- **Full replacement**: every `queryPresentation` you include becomes a tile; any tile you omit is removed. Always start from the existing document's `queryPresentations` and modify from there.
-- **Draft conflict**: published documents with existing drafts return 409 unless `clearExistingDraft: true` is set.
-- **Import is not an update fallback**: `omni unstable documents-import` creates a separate document, so it is not a safe way to add tiles to an existing dashboard identifier.
-- See also [Caveats When Reusing queryPresentations](queryPresentations.md#caveats-when-reusing-querypresentations) (e.g., stripping `model_extension_id`).
+Publishes the **main** draft only. Publishing swaps the document to the draft's workbook model — the workbook model id changes; if you need it afterwards, open a new draft and read `workbookModelId` from `omni documents list-drafts <identifier>`.
 
-## Failure Handling
+## Merge-by-key semantics
 
-**Broken query-level filter.** If query validation fails before the update with a server-side filter parsing error, do not save that broken filter into the dashboard. Validate the unfiltered base query once to prove the fields/model are correct. If the request can be satisfied with a dashboard-level `filterConfig` instead of a tile-level query filter, use that path and verify `filterConfig`, `filterOrder`, and the tile queries by reading the dashboard back. Otherwise report that the requested filtered tile is blocked by query-filter parsing and that the dashboard was left unchanged.
+- `queryPresentations.data` and `controls.data` merge **by key**: keys you send are written, keys you omit are preserved, a key set to `null` is deleted.
+- The `order` arrays are **full replacements** — always send the complete ordered list.
+- `containers` is a **full replacement** of the layout tree — send the whole tree with your edit applied.
+- `settings` is shallow-merged — send only the keys you're changing.
+- A single patch's `queryPresentations` is capped at **48 entries** — split larger edits across multiple patches to the same draft.
 
-**Server-side document/filter error on write.** If the `put` fails with a server-side filter or document validation error, do not keep probing with multiple filter strings or `documents-import` — these errors can be triggered by pre-existing dashboard filters in the stored document even when the new tile is valid. Preserve the original dashboard, report the exact error, and ask the user whether to rebuild/clean the dashboard state.
+## Recipes
 
-**Partial write (viz fields dropped).** After the update succeeds, read the document back before declaring success. If the API saved the tile query but returned `null`/omitted required presentation fields such as `visType`, `fields`, or `config`, treat it as a failed partial write. This applies even if the original tile also omits those fields in readback; chart/KPI tiles need their own renderer/config fields to be observable. Make one bounded rollback attempt by restoring the original document payload from Step 1, then report the exact missing fields and whether rollback succeeded. Do not leave a known-broken table/KPI fallback in place and call it done. `omni documents get-queries` and `omni query run` verify the data query only; they do **not** prove Omni persisted the visualization renderer/config, so do not use them to override a `documents get` readback that shows missing presentation fields.
+All go in a `v2-patch-draft` (or `…-by-identifier`) body, alongside a `summary`.
+
+**Add a tile** — new key in `data`, append to `order`, add a tile stack to `containers` (full tree):
+
+```json
+{
+  "summary": "add revenue KPI",
+  "queryPresentations": {
+    "data": { "5": { /* full tile — see queryPresentations.md */ } },
+    "order": ["1", "2", "3", "4", "5"]
+  },
+  "containers": [ /* existing tree + a stack referencing tile 5 — see containers.md */ ]
+}
+```
+
+**Edit a tile** — send only that key, but send the **complete tile** with its inner vis config **re-authored nested under `config`**. Never echo the flat shape `v2-get` returned — a flat-sent vis config is silently dropped (only `visType` survives):
+
+```json
+{
+  "summary": "switch trend tile to area",
+  "queryPresentations": { "data": { "2": {
+    "name": "Revenue Trend", "type": "query", "topicName": "order_items",
+    "prefersChart": true, "automaticVis": false,
+    "query": { /* full query incl. every collection field — see below */ },
+    "visConfig": { "chartType": "area", "fields": ["…"], "version": 0,
+      "visConfig": { "visType": "basic", "config": { /* re-authored spec */ } } }
+  } } }
+}
+```
+
+**Delete a tile** — set its key to `null`, remove it from `order`, remove its stack from `containers` (verified live: `"2": null` deleted the tile; untouched tiles intact):
+
+```json
+{
+  "summary": "remove tile 2",
+  "queryPresentations": { "data": { "2": null }, "order": ["1", "3"] },
+  "containers": [ /* full tree without tile 2's stack */ ]
+}
+```
+
+**Rename a tab** — a tab is a tile; its label is the tile's `name`. Even for a rename, send the complete tile with the inner vis config re-nested under `config` — echoing the flat GET shape drops the vis config.
+
+**Reorder tabs** — send the full `order` array; it replaces wholesale: `{"queryPresentations": {"order": ["3", "1", "2"]}}`. Verify by readback.
+
+**Patch one control** — `{"controls": {"data": {"date_filter": {"config": {…}, "map": {…}}}}}` — merges by key like tiles; include `order` only when adding/removing controls.
+
+**Patch one setting** — `{"settings": {"refreshInterval": 300}}` — shallow merge; other settings untouched.
+
+**Metadata-only edits** — shorthand flags work *when there is no `--body`*:
+
+```bash
+omni documents v2-patch-draft <identifier> --name "New Name" --summary "rename"
+```
+
+## The `--body` vs flags gotcha
+
+When `--body` is present, the CLI **silently ignores every shorthand flag** (`--name`, `--summary`, `--branch-id`, …) — verified in the CLI source (the body short-circuits before flag assembly) and live. With `--body`, put everything in the JSON. Flags-only (no `--body`) works for metadata edits.
+
+## Errors (all verified live)
+
+| Status | Trigger | Notes |
+|---|---|---|
+| 400 | Unrecognized top-level key | clean per-key message, e.g. `"Unrecognized key: filterConfig"` |
+| 400 | Tile query missing collection fields | per-field errors; `sorts`, `filters`, `calculations`, `column_totals`, `row_totals`, `fill_fields`, `pivots`, `userEditedSQL` are required (empty values fine) alongside `table` and `fields` — and always send `limit` and `join_paths_from_topic_name` too |
+| 404 | Nonexistent document | |
+| 404 | `v2-publish-draft` with no **main** draft | `"Document draft does not exist"` — including when only a *branch-bound* draft exists ([branch-bound-drafts.md](branch-bound-drafts.md)) |
+| 404 | Patching a draft identifier as if it were published | plain not-found |
+| 422 | Classic dashboard layout | exact message above; no API fallback — upgrade in the UI |
+
+## Failure handling
+
+Edits live on a draft, so rollback is trivial — the published document is never touched:
+
+```bash
+omni documents discard-draft <identifier>     # targets the MAIN draft
+```
+
+- If a patch fails validation, make **one corrected retry at most**, then discard the draft and report the exact error and what was preserved (everything — the published doc is unchanged).
+- Do not probe with repeated filter syntaxes, and do not fall back to `omni unstable documents-import` — import creates a *new* document.
+- Broken query-level filters: validate the unfiltered base query once; if a dashboard-level control can satisfy the request, use that instead and verify by readback; never persist a filter that fails `omni query run` parsing.
+
+## See also
+
+- [documents-v2.md](documents-v2.md) — envelope, tile shape, the flat-read/nested-write vis-config gotcha
+- [containers.md](containers.md) — authoring the layout tree
+- [validation-and-testing.md](validation-and-testing.md) — validating the draft before publishing
+- [branch-bound-drafts.md](branch-bound-drafts.md) — drafts bound to a model branch
