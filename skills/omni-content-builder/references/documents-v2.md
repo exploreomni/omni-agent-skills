@@ -78,7 +78,7 @@ column_totals{}, row_totals{}, fill_fields[], userEditedSQL
 
 All but `limit` and `join_paths_from_topic_name` are schema-required — omitting any of those returns a 400 listing each missing field (verified live). Send `limit` and `join_paths_from_topic_name` anyway: an unbounded query and broken topic joins are worse than a 400. `join_paths_from_topic_name` is the **topic name** (e.g. `"orders"`), not the base view name. Do **not** include `modelId` or `model_extension_id` (see above).
 
-## Three behaviors to design around
+## Behaviors to design around
 
 These are reproducible behaviors, re-verified against the GA surface. Code against them.
 
@@ -96,15 +96,34 @@ A `v2-get` returns each tile's inner vis config **flattened** (the config fields
 
 **Consequence:** echoing a tile straight from a GET back into a patch — even for an unrelated change like a **rename** — silently drops its vis config (KPI loses its number, a chart loses its `mark`/`series`, a markdown tile goes blank). **Always re-author the inner vis config nested under `config`; never round-trip a GET's flat shape back.**
 
-### 2. An interactive control's per-tile `map` does not scope via the API
+### 2. Per-tile `map` scopes both filters and interactive controls
 
-A **filter's** `map` works — re-verified in GA (e.g. `{ "<tileKey>": false }` persisted and excluded that tile). But an **interactive control's** `map` (a `FIELD_SELECTION` field/timeframe switcher) is a no-op through the API — the switcher applies to every tile that uses its field, and you cannot disconnect it programmatically. Scope interactive controls in the **UI Mapping panel** instead. (See [controls.md](controls.md).)
+A `map` exclusion (`{ "<tileKey>": false }`) or remap (`{ "<tileKey>": "<field>" }`) is honored for **both** a filter and an interactive `FIELD_SELECTION` switcher — the switcher stops rewriting (or remaps) the excluded tile, just like a filter. (See [controls.md](controls.md).)
 
 ### 3. Auto-layout only places the seed tile
 
 `v2-create` accepts N tiles but the auto-generated `containers` only places the first (seed) tile. Tiles 2…N are stored and queryable but render **nowhere**, with no warning. You must author the full `containers` tree yourself. (See [containers.md](containers.md).)
 
 Related: tile `"1"` in a create body **merges over the server's seed tile**, and some seed properties can win — verified: `automaticVis` flipped back to `true` on tile `"1"` while tile `"2"` kept `false`. If tile `"1"`'s exact fields matter, read the document back and re-patch it after create.
+
+### 4. `query.filters` needs the object form, not the shorthand string
+
+A tile `query.filters` value must be a **filter object**, not the relative-date shorthand. Sending `{ "ecomm__order_items.created_at": "last 6 months" }` throws a 500 (`Cannot use 'in' operator to search for 'query_id' in last 6 months` — the value is parsed as a filter object and the string fails). Use the object form:
+
+```jsonc
+"filters": {
+  "ecomm__order_items.created_at": {
+    "type": "date", "kind": "TIME_FOR_INTERVAL_DURATION", "ui_type": "PAST",
+    "left_side": "6 months ago", "right_side": "6 months"
+  }
+}
+```
+
+(String/number: `{ "kind": "EQUALS", "type": "string", "values": ["…"] }`.)
+
+### 5. Inline tile filters get auto-materialized into dashboard controls
+
+When a tile's `query.filters` carries a filter, the resolver **materializes it into a dashboard filter control** (a new `controls.data` entry with a generated id) and auto-places it in the tile, scoped to that tile via `map`. This is expected — it's how an inline tile filter becomes a real, adjustable control. Don't be surprised by extra control ids appearing in a read-back after you patch a tile that has inline filters.
 
 ## Running queries to verify tiles
 

@@ -154,6 +154,10 @@ To place a switcher inside a specific tile (e.g. a per-KPI metric picker), add t
 ]
 ```
 
+To **hide** an in-tile switcher (e.g. once a [parent control](controls.md#parent-controls-one-control-drives-many) drives it and you only want the parent visible), remove its content-item from the tile stack **and** set `config.hidden: true` on the control — a control left unplaced but un-hidden gets auto-placed back into the filter bar. The hidden control still feeds the card via `{{controls.<id>.summary}}`. See [controls.md](controls.md#hiding-a-control).
+
+> **`PERIOD_OVER_PERIOD` cannot go in-tile** — a PoP control content-item in a tile stack renders as "Item missing." Place it in the filter bar instead; the tile's comparison columns come from the query's `period_over_period_computations`, not the control's placement.
+
 ## Content-item `padding` (and the switcher-alignment trick)
 
 Any content-item (`chart`, `control`, `filter`, `inline-page-switcher`, `metadata`, …) accepts an optional **`padding`** tuple. It is **CSS-shorthand order** and uses a **discrete size scale**, not pixels — neither is surfaced in the docs or UI (you only see valid values in a validation tooltip after entering a bad one), so it's worth stating:

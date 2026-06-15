@@ -16,9 +16,25 @@ In the [v2 documents API](documents-v2.md), `controls.data` holds dashboard filt
 - `"<tileKey>": "<fieldName>"` — remap to a different field on that tile.
 - **Omit or empty `map` ⇒ the control applies to every tile by its `config.fieldName`.**
 
-> **Known limitation.** A **filter's** `map` works — re-verified against the GA surface (e.g. `{"<tileKey>": false}` persisted and excluded that tile from a date filter so it stays all-time). An **interactive control's** `map` (a `FIELD_SELECTION` field/timeframe switcher) is currently a **no-op through the API** — the switcher applies to all tiles using its field and cannot be scoped programmatically. Scope these in the **UI Mapping panel**. Plan layouts so a global switcher is acceptable, or expect to finish scoping in the UI.
+> **Both filters and interactive controls scope per-tile.** `{"<tileKey>": false}` excludes a tile from either a **filter** (it stays all-time) or an interactive **`FIELD_SELECTION`** switcher (it stops rewriting that tile); `"<tileKey>": "<fieldName>"` remaps it.
 
 ## Config shapes
+
+The full control catalog (`type` values from the `CONTROL_TYPE` enum):
+
+| `type` | Kind | Filter / control | Purpose |
+|---|---|---|---|
+| `date` / `string` / `number` / `boolean` | — | filter | standard dashboard filters |
+| `FIELD_SELECTION` | `FIELD` | control | swap which field/metric a tile shows |
+| `FIELD_SELECTION` | `TIMEFRAME` | control | swap the timeframe grain (day/week/month) |
+| `MULTI_FIELD_SELECTION` | — | control (parent) | one picker sets several child `FIELD_SELECTION` controls |
+| `FIELD_PICKER` | — | control | viewer picks one or more fields to **add** to a tile |
+| `MULTI_FIELD_FILTER` | — | filter | OR a filter across several different fields |
+| `DYNAMIC_FILTER` | — | filter | let viewers add their own ad-hoc filters |
+| `TOP_N` | — | control | override a dimension's dynamic top-N limit |
+| `PERIOD_OVER_PERIOD` | — | control | add prior-period comparison columns (dashboard-only) |
+
+All carry `id` + optional `label`/`description`/`hidden` — **except `PERIOD_OVER_PERIOD`**, which carries only `id` + its own fields (no `label`/`hidden`).
 
 ### Date filter
 
@@ -64,7 +80,86 @@ Binds to tiles whose query uses that timeframed field.
 }
 ```
 
-> `config.field` is **both** the default selected option **and** the field the control swaps. They cannot be decoupled — you cannot point the swap at a throwaway field while keeping a real default. This matters when a switcher would otherwise corrupt other tiles that share the field (see the metric-switch pattern in [visConfig.md](visConfig.md)).
+> `config.field` is **both** the default selected option **and** the field the control swaps. They cannot be decoupled — you cannot point the swap at a throwaway field while keeping a real default. To keep a switcher from rewriting other tiles that share its field, **scope it with `map`** (set those tiles to `false`); the markdown metric-switch pattern in [visConfig.md](visConfig.md) is the alternative when you want a card to follow `.summary` with no field-swap at all.
+
+### Field picker (FIELD_PICKER — adds fields)
+
+```jsonc
+"config": {
+  "id": "extra_fields", "type": "FIELD_PICKER", "label": "Add fields",
+  "options": [
+    { "label": "Department",   "value": "ecomm__products.department", "isDimension": true },
+    { "label": "Total Margin", "value": "ecomm__order_items.total_margin" }
+  ],
+  "values": ["ecomm__products.department"]   // currently-selected fields to ADD
+}
+```
+
+> Unlike `FIELD_SELECTION` (which *swaps* one field), a field picker **adds** its selected `values` to a tile's query — so it has no existing-field-overlap requirement and applies to the tiles it's mapped to. `isDimension` hints whether each option is a dimension; `values` is the live selection.
+>
+> **Known cosmetic bug:** a field picker's chip renders with the string-filter verb — e.g. `is Category,Order Count` — because it falls through to the string-EQUALS summary instead of having its own. Functionality is unaffected (the fields are added correctly).
+
+### Top-N (TOP_N — override the limit)
+
+```jsonc
+"config": {
+  "id": "top_n", "type": "TOP_N", "label": "Top N",
+  "field": "ecomm__products.brand_top",   // BASE dimension name; the tile field carries [N]
+  "value": 10, "defaultValue": 10, "min": 1, "max": 50
+}
+```
+
+> Overrides a dimension's dynamic top-N by swapping its numeric parameterization (top 10 → top 25). `value`/`defaultValue` are integers ≥ 1 within `min`/`max` (and `min ≤ max`).
+>
+> **Requires a `dynamic_top_n` dimension** — `field[N]` is a **no-op** on a plain dimension (returns all rows regardless of N), so the control appears to do nothing. Define it in the model:
+> ```yaml
+> dimensions:
+>   brand_top: { sql: ${brand}, dynamic_top_n: { n: 10, by: ecomm__order_items.total_revenue, desc: true, else: Other } }
+> ```
+> Then the tile queries `ecomm__products.brand_top[10]` and the control's `field` is `ecomm__products.brand_top`. Verify: `brand_top[5]` → 6 rows (5 + "Other"), `brand_top[25]` → 26.
+
+### Period over period (PERIOD_OVER_PERIOD)
+
+```jsonc
+"config": {
+  "id": "pop", "type": "PERIOD_OVER_PERIOD",
+  "filterFieldName": "ecomm__order_items.created_at", "filterId": "order_created_filter",
+  "computations": [ { "timeUnitName": "year", "periodsAgo": 1, "isDynamicPreviousPeriod": false } ]
+}
+```
+
+> Dashboard-only; adds prior-period comparison columns. **Cannot be placed in-tile** (renders "Item missing") — place it in the **filter bar**. The comparison columns come from the tile query's `period_over_period_computations` + a date filter, independent of the control (the control only changes the offset). This control has **no `label`/`hidden`**. Tile-query scaffolding:
+> ```jsonc
+> "query": {
+>   "filters": { "ecomm__order_items.created_at": { "type":"date","kind":"TIME_FOR_INTERVAL_DURATION","ui_type":"PAST","left_side":"6 months ago","right_side":"6 months" } },
+>   "period_over_period_computations": [ { "date_filter_field_name":"ecomm__order_items.created_at", "periods_ago":1, "time_unit_name":"year" } ]
+> }
+> ```
+
+### Multi-field filter (MULTI_FIELD_FILTER — OR across fields)
+
+```jsonc
+"config": {
+  "id": "recent", "type": "MULTI_FIELD_FILTER", "label": "Recent activity", "conjunction": "OR",
+  "filters": [
+    { "id": "f1", "fieldName": "ecomm__users.created_at",       "filter": { /* a filter object */ } },
+    { "id": "f2", "fieldName": "ecomm__order_items.created_at", "filter": { /* a filter object */ } }
+  ]
+}
+```
+
+> ORs each entry's filter across *different* fields. `conjunction` is `"OR"` only (AND is the implicit behavior of separate filters). Each entry's `filter` is a standard filter object (same shapes as "More filter config shapes" below), stored as JSON.
+
+### Dynamic filter (DYNAMIC_FILTER — viewer-added)
+
+```jsonc
+"config": {
+  "id": "adhoc", "type": "DYNAMIC_FILTER", "label": "Add a filter", "includeViewNameInLabels": true,
+  "fieldSelection": { "mode": "specific", "fields": [ { "fieldName": "ecomm__users.state" }, { "fieldName": "ecomm__products.brand" } ] }
+}
+```
+
+> Lets viewers add their own ad-hoc filters at view time. `fieldSelection.mode`: `"full-model"` (any field), `"auto"` (fields from `topics: ["…"]`), or `"specific"` (only the listed `fields: [{ fieldName, topicName? }]`). `includeViewNameInLabels` prefixes labels with the view name.
 
 ## More filter config shapes
 
@@ -129,6 +224,38 @@ Any filter type with `"hidden": true` — applied to queries but not shown in th
 ```
 
 Filters do **not** auto-apply to SQL-mode tiles — use templated (dynamic) filters in the SQL instead.
+
+## Hiding a control
+
+Set **`config.hidden: true`** to keep a control out of the layout: it won't render and won't be auto-placed into the filter bar, yet it still holds live state and reacts to other controls. Remove its content-item from every container at the same time — a control left unplaced **but not hidden** gets auto-placed back into the filter bar.
+
+> The flag lives at **`config.hidden`** (inside the config object). An entry-level `"hidden": true` (sibling of `config`/`map`) is **stripped on save** — set it on the config and read the doc back to confirm.
+
+**In the editor (UI).** Hidden controls collect in a collapsible **HIDDEN CONTROLS** tray pinned to the top of the canvas — collapsed it shows just a count (`▸ HIDDEN CONTROLS (5)`), expanded it lists each so an author can still edit and set values. The UI equivalent of `config.hidden` is **Edit Control → Settings → "Hide this control when viewing the dashboard."** A hidden control is invisible to viewers but its **value still applies**, and can be set via scheduled deliveries, embeds, and the URL param **`?c--<controlId>=<value>`** (`&editControl=<controlId>` opens its edit panel).
+
+## Parent controls (one control drives many)
+
+A **`MULTI_FIELD_SELECTION`** control sets several child `FIELD_SELECTION` controls at once — one button group swaps an entire row of KPIs to a named preset:
+
+```jsonc
+"metric_set": { "config": {
+  "id": "metric_set", "type": "MULTI_FIELD_SELECTION", "display": "BUTTON_TOGGLE",
+  "label": "Metric Set", "value": "fin",
+  "options": [ { "label": "Financials", "value": "fin" }, { "label": "Volume", "value": "vol" } ],
+  "selectionMap": {
+    "kpi_metric_1": { "fin": "ecomm__order_items.total_revenue", "vol": "ecomm__order_items.order_count" },
+    "kpi_metric_2": { "fin": "ecomm__order_items.total_margin",  "vol": "ecomm__order_items.returned_item_count" }
+  }
+}, "map": {} }
+```
+
+- `selectionMap` is `{ "<childControlId>": { "<parentValue>": "<childFieldValue>" } }` — picking a parent option pushes the mapped value into each child.
+- Place **only the parent** in a container; set each child's **`config.hidden: true`** so the children stay invisible.
+- The hidden children feed markdown tiles via `{{controls.<childId>.summary}}` (see [visConfig.md](visConfig.md)), so one parent click re-labels a whole row of KPI cards. The cards follow `.summary` (no field-swap needed); if a child's `config.field` is a real measure other tiles share, scope it with all-`false` child `map`s so it can't bleed into them.
+
+### A parent's Mapping tab is moot
+
+A parent control has **no field of its own** — it acts only through its children's `selectionMap`, so it never injects anything into a tile. Whether a parent affects a tile is structural: it applies only to a tile whose query embeds **all** of its child controls. So its per-tile Mapping checkboxes can at most *exclude*, never *add* — and when the children are read via `.summary` (not embedded in tile queries), the parent touches **zero** tiles regardless of the Mapping tab. The tab still renders and **defaults to all-checked**, which misleadingly reads as "drives every tile"; treat it as exclusion-only.
 
 ## Control vs. content-item — and syncing a filter across pages
 

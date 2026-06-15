@@ -23,8 +23,9 @@ Documents are created and edited through the **v2 documents API** (`omni documen
 - **Draft commands take the document identifier first, then the draft identifier**: `v2-get-draft <identifier> <draftIdentifier>` and `v2-patch-draft-by-identifier <identifier> <draftIdentifier>`.
 - **Classic-layout dashboards return 422 from every v2 endpoint** — "Upgrade the dashboard to the advanced layout before editing it through the API." There is no API fallback; ask the user to upgrade the layout in the Omni UI, then retry.
 - **The workbook model ID rotates on every draft → publish cycle** — each draft clones the workbook model (carrying extensions along), and publishing swaps the document to the clone. Never cache a workbook model ID; read it fresh from the draft's `workbookModelId` (`omni documents list-drafts <identifier>`) each time you need it.
-- **Interactive controls can't be scoped per-tile via the API** — a field/timeframe switcher's `map` is a no-op (a **filter's** `map` works — verified). Scope switchers in the UI Mapping panel. See [references/controls.md](references/controls.md).
+- **Interactive controls scope per-tile via `map`** — a field/timeframe switcher's `{"<tileKey>": false}` excludes that tile, exactly like a filter's. See [references/controls.md](references/controls.md).
 - **Markdown tiles need `automaticVis: false`** — otherwise the renderer auto-derives a chart and the tile is blank. See [references/visConfig.md](references/visConfig.md).
+- **`query.filters` needs the object form** — the relative-date shorthand (`"last 6 months"`) throws a 500; send `{type:"date", kind:"TIME_FOR_INTERVAL_DURATION", ui_type:"PAST", left_side, right_side}`. See [references/documents-v2.md](references/documents-v2.md).
 - **Chart rendering**: Complex chart types may show "No chart available" if the inner config, `visType`, or `prefersChart` are misconfigured. If the user asks for a specific chart, include the complete chart-specific config from [references/visConfig.md](references/visConfig.md) nested under `visConfig.visConfig.config`. Use `chartType: "table"` only as a deliberate table fallback, not for requested charts.
 - **Every query must include at least one measure** — a query with only dimensions produces empty/nonsense tiles (e.g., just months with no data).
 - **Boolean filters may be silently dropped** when a `pivots` array is present (reported Omni bug). If boolean filters aren't applying, remove the pivot and test again.
@@ -335,7 +336,7 @@ omni documents v2-create --body '{
 
 - The keys in `controls.data` are arbitrary IDs and must match `order`.
 - **Filter shapes** (date / string / number / boolean, hidden, required) and **interactive controls** (field/timeframe switchers) are documented with examples in [references/controls.md](references/controls.md).
-- `map` scopes a control per tile: `{"<tileKey>": false}` excludes a tile, `{"<tileKey>": "<fieldName>"}` remaps it (verified working for filters; switcher `map` is a no-op — scope those in the UI).
+- `map` scopes a control per tile: `{"<tileKey>": false}` excludes a tile, `{"<tileKey>": "<fieldName>"}` remaps it — for both filters and interactive switchers.
 - A control renders only where a container places it (filter bar, sidebar, or in-tile) — otherwise it lands in the HIDDEN CONTROLS tray. See [references/containers.md](references/containers.md).
 - **Every filter MUST include `fieldName`** with the fully qualified field name (no timeframe bracket for date filters), or it won't bind to any column.
 - To learn exact shapes, build filters in the Omni UI and read them back with `omni documents v2-get` — the `controls` slice is directly reusable in a patch.
