@@ -9,7 +9,7 @@ Create, update, and manage Omni documents and dashboards programmatically via th
 
 > **Tip**: Use `omni-model-explorer` to understand available fields and `omni-content-explorer` to find existing dashboards to modify or learn from.
 
-Documents are created and edited through the **v2 documents API** (`omni documents v2-*`) — an explicit envelope of `queryPresentations`, `controls`, `containers`, and `settings`, edited through a **draft → publish** flow. Lifecycle operations (list, delete, move, duplicate) and model writes stay on their v1 commands. See the [command boundary table](#which-command-generation-to-use) below.
+Documents are created and edited through the **v2 documents API** (`omni documents v2-*`) — an explicit envelope of `queryPresentations`, `controls`, `containers`, and `settings`, edited through a **draft → publish** flow. This is the only path for building, reading, or changing a document — never fall back to the v1 `documents create`/`get`/`put`/`update` commands. A few document-management operations (list, delete, move, duplicate, downloads) have no v2 form; see [Commands](#commands) below.
 
 ## Known Issues & Safe Defaults
 
@@ -22,13 +22,13 @@ Documents are created and edited through the **v2 documents API** (`omni documen
 - **`--body` silently wins over shorthand flags** — if you pass `--body`, every promoted flag (`--name`, `--summary`, `--branch-id`, …) is ignored without warning. Put those fields inside the JSON body instead, or use flags alone with no `--body`.
 - **Draft commands take the draft identifier FIRST**: `v2-get-draft <draftIdentifier> <identifier>` and `v2-patch-draft-by-identifier <draftIdentifier> <identifier>`.
 - **Classic-layout dashboards return 422 from every v2 endpoint** — "Upgrade the dashboard to the advanced layout before editing it through the API." There is no API fallback; ask the user to upgrade the layout in the Omni UI, then retry.
-- **The workbook model ID rotates on every draft → publish cycle** — each draft clones the workbook model (carrying extensions along), and publishing swaps the document to the clone. Never cache a workbook model ID; re-fetch it via `omni documents get <identifier>` after each publish.
+- **The workbook model ID rotates on every draft → publish cycle** — each draft clones the workbook model (carrying extensions along), and publishing swaps the document to the clone. Never cache a workbook model ID; read it fresh from the draft's `workbookModelId` (`omni documents list-drafts <identifier>`) each time you need it.
 - **Interactive controls can't be scoped per-tile via the API** — a field/timeframe switcher's `map` is a no-op (a **filter's** `map` works — verified). Scope switchers in the UI Mapping panel. See [references/controls.md](references/controls.md).
 - **Markdown tiles need `automaticVis: false`** — otherwise the renderer auto-derives a chart and the tile is blank. See [references/visConfig.md](references/visConfig.md).
 - **Chart rendering**: Complex chart types may show "No chart available" if the inner config, `visType`, or `prefersChart` are misconfigured. If the user asks for a specific chart, include the complete chart-specific config from [references/visConfig.md](references/visConfig.md) nested under `visConfig.visConfig.config`. Use `chartType: "table"` only as a deliberate table fallback, not for requested charts.
 - **Every query must include at least one measure** — a query with only dimensions produces empty/nonsense tiles (e.g., just months with no data).
 - **Boolean filters may be silently dropped** when a `pivots` array is present (reported Omni bug). If boolean filters aren't applying, remove the pivot and test again.
-- **Use `identifier` not `id`** — get a document's `identifier` from the `v2-create`/patch responses or `omni documents list` records (v1 `documents get` does not return it).
+- **Use `identifier` not `id`** — get a document's `identifier` from the `v2-create`/patch responses or `omni documents list` records.
 - **Do not use `omni unstable documents-import` to update an existing dashboard** — import creates a new document and may drop newly-added tiles. Use the draft flow on the existing document.
 - **Do not persist invalid query-level filters** — if `omni query run` returns a server-side parsing error for a tile query filter, validate the unfiltered base query once. Do not save that broken filter into the tile. If a dashboard-level control can satisfy the request, use that path and verify by readback; otherwise leave the dashboard unchanged and report the blocker.
 - **Bound failed updates** — if a patch returns a validation error, stop after one corrected retry at most. Do not try repeated filter syntaxes or endpoint loops. Because edits happen on a draft, recovery is clean: **discard the draft** (`omni documents discard-draft <identifier>`) and report what was preserved — the published document was never touched.
@@ -61,21 +61,19 @@ omni models yaml-create --help  # Writing model YAML
 
 > **Tip**: Use `-o json` to force structured output for programmatic parsing, or `-o human` for readable tables. The default is `auto` (human in a TTY, JSON when piped). `--compact` strips indentation for piping.
 
-## Which command generation to use
+## Commands
 
-| Operation | Command | API |
-|---|---|---|
-| Create document | `documents v2-create` | v2 |
-| Read document / draft state | `documents v2-get` / `v2-get-draft` | v2 |
-| Edit document (tiles, controls, layout, settings, rename) | `documents v2-patch-draft` (+ `v2-patch-draft-by-identifier`) | v2 |
-| Publish a draft | `documents v2-publish-draft` | v2 |
-| Discard a draft | `documents discard-draft` | v1 |
-| List documents / drafts | `documents list` / `list-drafts` | v1 |
-| Delete / move / duplicate | `documents delete` / `move` / `duplicate` | v1 |
-| Get workbook model ID | `documents get` (top-level `modelId`) | v1 |
-| Extract tile queries | `documents get-queries` | v1 |
-| Downloads | `dashboards download` / `download-status` | v1 |
-| Workbook model YAML | `models yaml-create` | v1 |
+**Build and edit documents with the `documents v2-*` commands — always.** There is no situation where you reach back to the v1 `documents create`/`get`/`put`/`update` path to build, read, or change a document; the v2 draft flow covers all of it.
+
+| Operation | Command |
+|---|---|
+| Create document | `documents v2-create` |
+| Read document / draft state | `documents v2-get` / `v2-get-draft` |
+| Edit document (tiles, controls, layout, settings, rename) | `documents v2-patch-draft` (+ `v2-patch-draft-by-identifier`) |
+| Get the workbook model ID | `documents list-drafts` → `workbookModelId` (open a draft first) |
+| Publish a draft | `documents v2-publish-draft` |
+
+A handful of **document-management** operations have no v2 form — they aren't alternatives to the v2 build path, just the only command for that job: `documents list` / `list-drafts` (find documents and drafts), `documents discard-draft` (abandon a draft), `documents delete` / `move` / `duplicate` (lifecycle), `documents get-queries` (extract a tile's runnable query for validation), `dashboards download` / `download-status`, and `models yaml-create` / `validate` (model writes).
 
 ## Dashboard Architecture
 
@@ -94,7 +92,7 @@ Omni dashboards are built from **documents**. A document's v2 state is an envelo
 - **Tiles** live in `queryPresentations.data`, keyed by record key (`"1"`, `"2"`, …); `order` is the tab order.
 - **Filters and interactive controls** are one map: `controls` (see [references/controls.md](references/controls.md)).
 - **Layout** is the `containers` tree — a tile renders only where a container references it (see [references/containers.md](references/containers.md)).
-- Each document also has a **workbook model** (per-dashboard model customizations) — its ID comes from v1 `documents get`.
+- Each document also has a **workbook model** (per-dashboard model customizations) — its ID is the `workbookModelId` on the document's draft record from `documents list-drafts`.
 
 A document is edited through **drafts**: `v2-patch-draft` creates a draft and applies your patch; the published document is untouched until `v2-publish-draft`. `v2-get` returns the current draft state if a draft exists, else the published state. Drafts can also be bound to a **model branch** (see [references/branch-bound-drafts.md](references/branch-bound-drafts.md)).
 
@@ -116,7 +114,7 @@ omni documents v2-create <model-id> "Q1 Revenue Report"
 ```
 
 - `<model-id>` is the **shared** model; the server mints a per-document workbook model.
-- The document is **created and published immediately**. The response returns only `{identifier, name, description}` — when you need the workbook model ID, follow with `omni documents get <identifier>`.
+- The document is **created and published immediately**. The response returns only `{identifier, name, description}` — when you need the workbook model ID, open a draft and read its `workbookModelId` from `omni documents list-drafts <identifier>`.
 - `--folder-id` omitted → the document lands in the creator's personal "My documents" (requires personal-content permission). Pass a folder ID to place it in a shared folder.
 
 ### Create Document with Queries and Visualizations
@@ -242,21 +240,22 @@ Error map, merge-semantics details, and recipes are in **[references/updating-da
 >
 > **If the field isn't in the *published* shared model yet** — it lives only on a model **branch** that hasn't merged — put the tile on a **branch-bound draft**. See **[references/branch-bound-drafts.md](references/branch-bound-drafts.md)**.
 
-Push custom dimensions and measures to a specific dashboard by writing to its workbook model. Each workbook has its own model that **extends** the shared model — so the ID you write YAML to is a model ID, not a separate "workbook ID". This is a two-step flow:
+Push custom dimensions and measures to a specific dashboard by writing to its workbook model. Each workbook has its own model that **extends** the shared model — so the ID you write YAML to is a model ID, not a separate "workbook ID". Because every edit goes through a draft, and the field has to exist before a tile can reference it, the whole flow stays in the v2 draft path:
 
-**Step 1 — get the document to find its workbook model ID:**
+**Step 1 — open a draft and read its workbook model ID:**
 
 ```bash
-omni documents get <identifier>
-# → use the top-level "modelId" field from the response — that IS the workbook model ID
+omni documents v2-patch-draft <identifier> --summary "add workbook field"   # creates the draft
+omni documents list-drafts <identifier>
+# → use the draft record's "workbookModelId" — that IS the model you write YAML to
 ```
 
-> **Note**: The response does not contain a field called `workbook_id`. The top-level `modelId` is the workbook's own model (which extends the shared model) and is what you pass to `omni models yaml-create`. **It changes on every draft → publish cycle** — always re-fetch it; never reuse a cached value.
+> **Note**: The workbook model (which extends the shared model) is what you pass to `omni models yaml-create`. Each draft has its **own** clone of it, and the ID **changes on every draft → publish cycle** — always read it fresh from `list-drafts`; never reuse a cached value.
 
-**Step 2 — POST YAML to the workbook model with `mode: "extension"`:**
+**Step 2 — POST YAML to the draft's workbook model with `mode: "extension"`:**
 
 ```bash
-omni models yaml-create <workbookModelId> --body '{
+omni models yaml-create <draftWorkbookModelId> --body '{
   "fileName": "order_items.view",
   "yaml": "dimensions:\n  is_high_value:\n    sql: \"${sale_price} > 100\"\n    label: High Value Order\nmeasures:\n  high_value_count:\n    sql: \"${order_items.id}\"\n    aggregate_type: count_distinct\n    label: High Value Orders",
   "mode": "extension"
@@ -269,24 +268,25 @@ omni models yaml-create <workbookModelId> --body '{
 
 ### Building a tile that *queries* a workbook-model field
 
-v2 tile queries carry **no `modelId`** — the server anchors each tile to the draft's workbook model, and the draft's model is a clone of the published workbook model (extensions included). So the flow is (verified live end-to-end):
+v2 tile queries carry **no `modelId`** — the server anchors each tile to the draft's workbook model, so the field just has to exist in that model before the tile references it. The order is fixed:
 
 1. **`documents v2-create`** (or use the existing document) — provisions the workbook model.
-2. **`documents get <identifier>`** → top-level `modelId` (the *current* workbook model).
-3. **`models yaml-create <workbookModelId>` with `mode: "extension"`** → add the field (above).
-4. **`documents v2-patch-draft <identifier>`** adding the tile that references the field — no `modelId` anywhere in the tile query.
-5. **`documents v2-publish-draft <identifier>`** — the publish swaps the document to the draft's cloned model, with your extension carried along.
+2. **`documents v2-patch-draft <identifier>`** — open the draft (a `--summary`-only patch is enough to create it).
+3. **`documents list-drafts <identifier>`** → the draft's `workbookModelId`.
+4. **`models yaml-create <draftWorkbookModelId>` with `mode: "extension"`** → add the field (above).
+5. **`documents v2-patch-draft-by-identifier <draftIdentifier> <identifier>`** adding the tile that references the field — no `modelId` anywhere in the tile query.
+6. **`documents v2-publish-draft <identifier>`** — the field and tile go live together.
 
-After publishing, the workbook model ID has **changed** — re-fetch via `documents get` before any further `yaml-create`.
+After publishing, the workbook model ID has **changed** — open a new draft and re-read `workbookModelId` from `list-drafts` before any further `yaml-create`.
 
 ### Verify the Extension Worked
 
-After writing, confirm the base view's fields are still available by querying one:
+After writing, confirm the base view's fields are still available by querying one against the draft's workbook model:
 
 ```bash
 omni query run --body '{
   "query": {
-    "modelId": "<workbookModelId>",
+    "modelId": "<draftWorkbookModelId>",
     "table": "order_items",
     "fields": ["order_items.id", "order_items.high_value_count"],
     "limit": 1,

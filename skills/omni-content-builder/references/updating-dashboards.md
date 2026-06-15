@@ -43,7 +43,7 @@ omni documents v2-patch-draft-by-identifier <draftIdentifier> <identifier> --bod
 omni documents v2-publish-draft <identifier>
 ```
 
-Publishes the **main** draft only. Publishing swaps the document to the draft's workbook model — the workbook model id changes; re-fetch it via `omni documents get <identifier>` if you need it afterwards.
+Publishes the **main** draft only. Publishing swaps the document to the draft's workbook model — the workbook model id changes; if you need it afterwards, open a new draft and read `workbookModelId` from `omni documents list-drafts <identifier>`.
 
 ## Merge-by-key semantics
 

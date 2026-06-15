@@ -1,6 +1,6 @@
 # Documents v2 API Reference
 
-The `omni documents v2-*` commands are the **primary** surface for creating and editing documents — an explicit envelope of `queryPresentations`, `controls`, `containers`, and `settings`, edited through a **draft → publish** flow. Lifecycle operations (list, delete, move, duplicate, discard-draft) and model writes stay on v1 commands — see the command boundary table in [SKILL.md](../SKILL.md). Always read your result back with `v2-get` / `v2-get-draft` and verify.
+The `omni documents v2-*` commands are the **only** surface for creating, reading, and editing documents — an explicit envelope of `queryPresentations`, `controls`, `containers`, and `settings`, edited through a **draft → publish** flow. Never fall back to the v1 `documents create`/`get`/`put`/`update` path. A few document-management operations (list, delete, move, duplicate, discard-draft, get-queries, downloads) have no v2 form and are the only command for that job — see the command list in [SKILL.md](../SKILL.md). Always read your result back with `v2-get` / `v2-get-draft` and verify.
 
 ## Commands
 
@@ -48,7 +48,7 @@ The `omni documents v2-*` commands are the **primary** surface for creating and 
 
 ### The server anchors tiles to the workbook model
 
-On create, the server mints a per-document **workbook** model extending the shared `modelId` you pass. Tile queries carry **no `modelId`** — reads never expose one, and a `modelId` or `model_extension_id` you send in a tile query is **silently rewritten** to the workbook model (verified live), so omit them. The workbook model id comes from v1 `documents get` (top-level `modelId`) — and it **rotates**: each draft clones the workbook model (extensions carried along), and publishing swaps the document to the clone, so the id changes after **every** publish. Never cache it; re-fetch after each publish.
+On create, the server mints a per-document **workbook** model extending the shared `modelId` you pass. Tile queries carry **no `modelId`** — reads never expose one, and a `modelId` or `model_extension_id` you send in a tile query is **silently rewritten** to the workbook model (verified live), so omit them. When you need the workbook model id (to write model YAML), read it from the draft's `workbookModelId` via `documents list-drafts` — and it **rotates**: each draft clones the workbook model (extensions carried along), and publishing swaps the document to the clone, so the id changes after **every** publish. Never cache it; read it fresh from `list-drafts` each time.
 
 ## Tile (queryPresentation) shape
 

@@ -86,7 +86,7 @@ omni documents v2-patch-draft-by-identifier <draftIdentifier> <identifier> --bod
 
 When the draft is also branch-bound, its workbook model extends the branch — one model resolves branch-only fields **and** workbook fields together, even in the same tile.
 
-**Workbook-model rotation:** every draft → publish cycle **mints a new workbook model id**. Extensions written to the published doc's workbook model are carried into later drafts (verified: an extension measure resolved post-publish), but a given draft's model is a different id — never cache one. Re-fetch via `list-drafts` (for a draft) or `documents get <identifier>` (for the published doc) each time.
+**Workbook-model rotation:** every draft → publish cycle **mints a new workbook model id**. Extensions written to a draft's workbook model are carried into the published doc and later drafts (verified: an extension measure resolved post-publish), but a given draft's model is a different id — never cache one. Read it fresh from `list-drafts` (the draft's `workbookModelId`) each time.
 
 > These recipes wire the field into the right model; the tile still needs a valid `visConfig` to render. A query that runs cleanly via `query run` can still show "No chart available" if the viz spec is off. See [validation-and-testing.md](validation-and-testing.md).
 

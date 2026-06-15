@@ -52,9 +52,9 @@
     {
       "id": "4",
       "question": "I need to add a custom calculated field 'High Value Order' (sale_price > 100) to dashboard '{{EVAL_DASHBOARD_WORKBOOK}}' only — not to the shared model.",
-      "ground_truth": "Custom dimension added to the dashboard's workbook model (not the shared model) by first getting the workbook model ID from the top-level modelId of omni documents get and then posting YAML to it in extension mode.",
+      "ground_truth": "Custom dimension added to the dashboard's workbook model (not the shared model) by opening a draft (omni documents v2-patch-draft), reading the draft's workbookModelId from omni documents list-drafts, and posting YAML to that model in extension mode, then publishing. The agent does not fall back to the v1 documents get/put path.",
       "expected_behavior": [
-        "The agent calls omni documents get and uses the top-level modelId — the workbook model ID — before writing YAML (and does not reuse a cached/stale model ID, since the workbook model rotates on every draft publish)",
+        "The agent obtains the workbook model ID from the draft's workbookModelId via omni documents list-drafts (opening a draft first if needed) — it does not use the v1 documents get command, and does not reuse a cached/stale model ID, since the workbook model rotates on every draft publish",
         "The agent writes YAML to the workbook model ID (not the shared model ID) with mode 'extension'",
         "The YAML file name ends in .view as required by the workbook model API, and the YAML body contains the view contents with no views: wrapper",
         "The agent does not modify the shared model for this dashboard-specific field"
@@ -107,10 +107,10 @@
     {
       "id": "8",
       "question": "Build a dashboard called 'Pricing Watch' with one tile charting a new measure 'Max Sale Price' (the maximum of sale_price) that should live only on this dashboard — not in the shared model — by month, with a running total of order count alongside it.",
-      "ground_truth": "A shell document is created first via v2-create (which provisions the workbook model), the 'Max Sale Price' measure is added to that workbook model via yaml-create in extension mode, and the tile is added on a draft via v2-patch-draft with no modelId in the tile query (the server anchors tiles to the draft's workbook model) plus a running-total table calculation, then the draft is verified and published via v2-publish-draft. Share link provided.",
+      "ground_truth": "A shell document is created first via v2-create (which provisions the workbook model), a draft is opened, the 'Max Sale Price' measure is added to the draft's workbook model (workbookModelId from list-drafts) via yaml-create in extension mode, and the tile is added on the draft via v2-patch-draft-by-identifier with no modelId in the tile query (the server anchors tiles to the draft's workbook model) plus a running-total table calculation, then the draft is verified and published via v2-publish-draft. The agent does not use the v1 documents get/put path. Share link provided.",
       "expected_behavior": [
         "The agent creates the document before writing the field — it does not attempt a single create that both defines the workbook field and references it, because the workbook model does not exist until create runs",
-        "The agent retrieves the document's workbook model from the top-level modelId of omni documents get",
+        "The agent obtains the workbook model ID from the draft's workbookModelId via omni documents list-drafts (not the v1 documents get command)",
         "The 'Max Sale Price' measure is added to the workbook model via omni models yaml-create with mode 'extension' — not to the shared model, and not in combined mode",
         "The tile is added via the draft flow (v2-patch-draft then v2-publish-draft) with no modelId in the tile query — the agent relies on the server anchoring the tile to the draft's workbook model instead of stamping model IDs",
         "The running total is implemented as a table calculation (calculations[] using OMNI_RUNNING_TOTAL) with its calc_name included in query.fields — not as a new model field",
