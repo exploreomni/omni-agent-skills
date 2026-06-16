@@ -59,7 +59,10 @@
         "The YAML file name ends in .view as required by the workbook model API, and the YAML body contains the view contents with no views: wrapper",
         "The agent does not modify the shared model for this dashboard-specific field"
       ],
-      "expected_skill": "omni-content-builder"
+      "expected_skill": "omni-content-builder",
+      "depends_on": [
+        "omni-model-builder"
+      ]
     },
     {
       "id": "5",
@@ -118,7 +121,10 @@
         "Before publishing, the agent reads the draft back and confirms the tile persisted with a renderer that matches its chartType (e.g. a table tile uses visType 'omni-table', not 'basic')",
         "The agent provides a dashboard URL in the format {OMNI_BASE_URL}/dashboards/{identifier}"
       ],
-      "expected_skill": "omni-content-builder"
+      "expected_skill": "omni-content-builder",
+      "depends_on": [
+        "omni-model-builder"
+      ]
     },
     {
       "id": "9",
@@ -132,7 +138,10 @@
         "The agent reads the draft back, confirms the calculation persisted, and publishes with v2-publish-draft",
         "The agent does not modify the shared model"
       ],
-      "expected_skill": "omni-content-builder"
+      "expected_skill": "omni-content-builder",
+      "depends_on": [
+        "omni-query"
+      ]
     },
     {
       "id": "10",
@@ -150,7 +159,11 @@
         "Any draft link uses the draft's own identifier in the format {OMNI_BASE_URL}/dashboards/{draftIdentifier}",
         "The agent tells the user the result is a branch-bound draft that publishes only when the branch is merged (and the draft published in the UI) — it does not present it as a finished, live dashboard"
       ],
-      "expected_skill": "omni-content-builder"
+      "expected_skill": "omni-content-builder",
+      "depends_on": [
+        "omni-model-builder",
+        "omni-query"
+      ]
     }
   ]
 }

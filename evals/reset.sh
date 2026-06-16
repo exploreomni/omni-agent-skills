@@ -8,6 +8,8 @@
 #   - omni-admin eval 1: deletes the `newanalyst@company.com` test user
 #   - omni-content-builder eval 2: recreates the Sales Performance dashboard
 #     and updates EVAL_DASHBOARD_TILES in eval-env.local.json
+#   - omni-content-builder evals 4 & 9: recreates the Order Analysis dashboard
+#     (v2-create / advanced layout) and updates EVAL_DASHBOARD_WORKBOOK
 #   - omni-content-explorer eval 3: removes `finance` label from EVAL_DASHBOARD_LABEL
 #   - omni-model-builder eval 1: removes `eval_completed_revenue` if it was
 #     accidentally merged into `public/order_items.view`
@@ -52,6 +54,7 @@ get() { jq -r --arg k "$1" '.[$k] // ""' "$CONFIG"; }
 MODEL_ID=$(get EVAL_MODEL_ID)
 DASHBOARD_LABEL=$(get EVAL_DASHBOARD_LABEL)
 DASHBOARD_TILES=$(get EVAL_DASHBOARD_TILES)
+DASHBOARD_WORKBOOK=$(get EVAL_DASHBOARD_WORKBOOK)
 TEST_USER="newanalyst@company.com"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -147,6 +150,49 @@ else
       fi
     else
       echo "  (failed to create Sales Performance dashboard — skipping)"
+      echo "$CREATE_OUTPUT" | sed 's/^/    /'
+    fi
+  fi
+fi
+echo ""
+
+# ── 2b. Recreate Order Analysis dashboard ────────────────────────────────────
+# EVAL_DASHBOARD_WORKBOOK is mutated by content-builder evals 4 (workbook-model
+# field) and 9 (running total), so it must be reset clean each run. It is created
+# via v2-create (advanced layout) — a v1 `documents create` empty doc is classic
+# layout, which every v2 endpoint rejects (422), making those cases unpassable.
+
+echo "2b. Recreating Order Analysis dashboard for EVAL_DASHBOARD_WORKBOOK"
+if [[ "$CONFIG" != "$LOCAL_CONFIG" ]]; then
+  echo "  (eval-env.local.json is missing — cannot update local dashboard identifier)"
+elif [[ -z "$MODEL_ID" || "$MODEL_ID" == "replace-with-shared-model-id" ]]; then
+  echo "  (EVAL_MODEL_ID not configured — skipping)"
+else
+  if $DRY_RUN; then
+    echo "  omni documents v2-create $MODEL_ID \"Order Analysis\""
+    echo "  jq update EVAL_DASHBOARD_WORKBOOK in $CONFIG"
+    if [[ -n "$DASHBOARD_WORKBOOK" && "$DASHBOARD_WORKBOOK" != "replace-with-dashboard-identifier" ]]; then
+      echo "  omni documents delete $DASHBOARD_WORKBOOK"
+    fi
+  else
+    if CREATE_OUTPUT=$(omni documents v2-create "$MODEL_ID" "Order Analysis" -o json 2>&1); then
+      if ! NEW_DASHBOARD_WORKBOOK=$(jq -r '.workbook.identifier // .identifier // ""' <<< "$CREATE_OUTPUT" 2>/dev/null); then
+        echo "  (created document but Omni returned non-JSON output — skipping config update)"
+        echo "$CREATE_OUTPUT" | sed 's/^/    /'
+      elif [[ -z "$NEW_DASHBOARD_WORKBOOK" || "$NEW_DASHBOARD_WORKBOOK" == "null" ]]; then
+        echo "  (created document but could not parse identifier — skipping config update)"
+        echo "$CREATE_OUTPUT" | sed 's/^/    /'
+      else
+        TMP_CONFIG=$(mktemp "${CONFIG}.tmp.XXXXXX")
+        jq --arg id "$NEW_DASHBOARD_WORKBOOK" '.EVAL_DASHBOARD_WORKBOOK = $id' "$CONFIG" > "$TMP_CONFIG"
+        mv "$TMP_CONFIG" "$CONFIG"
+        echo "  updated EVAL_DASHBOARD_WORKBOOK: $NEW_DASHBOARD_WORKBOOK"
+        if [[ -n "$DASHBOARD_WORKBOOK" && "$DASHBOARD_WORKBOOK" != "replace-with-dashboard-identifier" && "$DASHBOARD_WORKBOOK" != "$NEW_DASHBOARD_WORKBOOK" ]]; then
+          run "omni documents delete $DASHBOARD_WORKBOOK"
+        fi
+      fi
+    else
+      echo "  (failed to create Order Analysis dashboard — skipping)"
       echo "$CREATE_OUTPUT" | sed 's/^/    /'
     fi
   fi
