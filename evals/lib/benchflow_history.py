@@ -222,6 +222,7 @@ def mode_rows(record: SummaryRecord, mode: str, summary: dict[str, Any]) -> list
         "branch": combined.get("branch"),
         "git_sha": combined.get("git_sha") or git_sha_at(run_started_at),
         "version": combined.get("version") or workspace_version(run_dir, skill_name),
+        "omni_cli_version": combined.get("omni_cli_version"),
         "environment": combined.get("environment") or env_local_url(),
         "job_dir": rel_job_dir(combined, run_dir),
     }
@@ -269,6 +270,7 @@ def lift_rows(record: SummaryRecord) -> list[dict[str, Any]]:
         "branch": combined.get("branch"),
         "git_sha": combined.get("git_sha") or git_sha_at(run_started_at),
         "version": combined.get("version") or workspace_version(run_dir, skill_name),
+        "omni_cli_version": combined.get("omni_cli_version"),
         "environment": combined.get("environment") or env_local_url(),
         "job_dir": rel_job_dir(combined, run_dir),
     }
@@ -326,6 +328,7 @@ def main() -> None:
         "branch",
         "git_sha",
         "version",
+        "omni_cli_version",
         "environment",
         "passed",
         "score",

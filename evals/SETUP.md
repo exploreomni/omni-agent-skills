@@ -198,8 +198,10 @@ omni documents create --body "$(jq -n --arg m "$MODEL_ID" '{
   ]
 }')" | jq '{name: "Sales Performance → EVAL_DASHBOARD_TILES", identifier: .workbook.identifier}'
 
-# Order Analysis — empty (content-builder eval 4: workbook model)
-omni documents create --body "$(jq -n --arg m "$MODEL_ID" '{modelId: $m, name: "Order Analysis"}')" \
+# Order Analysis — empty (content-builder evals 4 & 9: workbook model + running total)
+# MUST be v2-create (advanced layout); a v1 `documents create` empty doc is classic
+# layout, which every v2 endpoint rejects (422). reset.sh recreates this each run.
+omni documents v2-create "$MODEL_ID" "Order Analysis" \
   | jq '{name: "Order Analysis → EVAL_DASHBOARD_WORKBOOK", identifier: .workbook.identifier}'
 
 # Executive Summary — empty (admin eval 2: set group permissions)
