@@ -52,8 +52,7 @@ Eval files use BenchFlow's skill-eval schema:
         "The agent calls omni documents get-queries",
         "The agent reports fields, filters, and sorts"
       ],
-      "expected_skill": "omni-query",
-      "files": ["evals/files/cases.jsonl"]
+      "expected_skill": "omni-query"
     }
   ]
 }
@@ -62,8 +61,9 @@ Eval files use BenchFlow's skill-eval schema:
 `{{EVAL_*}}` placeholders are resolved from `evals/eval-env.local.json` at run
 time so committed eval cases stay instance-neutral.
 
-`files` is optional. Declared files are copied into the generated BenchFlow task
-at `/app/evals/<filename>` for agents to read.
+The local runner also supports a repo-only `files` key on source cases. It is
+stripped before BenchFlow schema validation, then the declared files are copied
+into the generated task at `/app/evals/<filename>` for agents to read.
 
 ## Local Configuration
 

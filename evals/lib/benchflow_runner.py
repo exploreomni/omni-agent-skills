@@ -748,6 +748,7 @@ async def run_mode(
     max_retries: int,
     total_cases: int,
     status_interval_sec: int,
+    skill_mode: str = "no-skill",
 ) -> dict[str, Any]:
     try:
         from benchflow.evaluation import Evaluation, EvaluationConfig, RetryConfig
@@ -765,6 +766,7 @@ async def run_mode(
             concurrency=concurrency,
             retry=RetryConfig(max_retries=max_retries),
             agent_env=agent_env,
+            skill_mode=skill_mode,
         ),
     )
     started_at = datetime.now()
@@ -857,6 +859,7 @@ async def run_skill(skill: str, args: argparse.Namespace) -> dict[str, Any]:
         max_retries=args.max_retries,
         total_cases=len(dataset.cases),
         status_interval_sec=STATUS_INTERVAL_SEC,
+        skill_mode="with-skill",
     )
     print(
         "  with_skill: "
