@@ -287,8 +287,12 @@ def materialize_skill(
         raise ValueError(f"No eval cases selected for {skill}")
 
     converted_cases = []
+    files_by_case: dict[str, list[str]] = {}
     for case in cases:
         converted = dict(case)
+        declared_files = converted.pop("files", [])
+        if declared_files:
+            files_by_case[str(converted.get("id"))] = [str(path) for path in declared_files]
         question = substitute_vars(str(converted.get("question", "")), eval_env)
         if omni_env_hint:
             question = f"{OMNI_ENV_HINT}\n\n{question}"
@@ -305,6 +309,7 @@ def materialize_skill(
 
     data["cases"] = converted_cases
     (output_dir / "evals" / "evals.json").write_text(json.dumps(data, indent=2) + "\n")
+    (output_dir / "evals" / ".case-files.json").write_text(json.dumps(files_by_case, indent=2) + "\n")
     eval_files_dir = output_dir / "evals" / "eval-files"
     eval_files_dir.mkdir(parents=True, exist_ok=True)
     write_default_dockerfile(output_dir)
@@ -312,11 +317,14 @@ def materialize_skill(
 
 
 def declared_files_by_case(skill_dir: Path) -> dict[str, list[str]]:
-    data = load_json(skill_dir / "evals" / "evals.json")
-    return {
-        str(case.get("id")): [str(path) for path in case.get("files", [])]
-        for case in data.get("cases", [])
-    }
+    sidecar = skill_dir / "evals" / ".case-files.json"
+    if sidecar.exists():
+        data = load_json(sidecar)
+        return {
+            str(case_id): [str(path) for path in paths]
+            for case_id, paths in data.items()
+        }
+    return {}
 
 
 def stage_case_files(skill_dir: Path, tasks_dir: Path, files_by_case: dict[str, list[str]]) -> None:
@@ -462,6 +470,22 @@ def read_trajectory() -> str:
             continue
         if test_needle in text:
             test_path.write_text(text.replace(test_needle, test_replacement))
+
+
+def git_info() -> dict[str, str | None]:
+    def run_git(args: list[str]) -> str | None:
+        try:
+            result = subprocess.run(
+                ["git", *args], capture_output=True, text=True, cwd=ROOT, timeout=5
+            )
+            value = result.stdout.strip()
+            return value if result.returncode == 0 and value else None
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+    return {
+        "branch": run_git(["rev-parse", "--abbrev-ref", "HEAD"]),
+        "git_sha": run_git(["rev-parse", "HEAD"]),
+    }
 
 
 def omni_agent_env() -> dict[str, str]:
@@ -724,6 +748,7 @@ async def run_mode(
     max_retries: int,
     total_cases: int,
     status_interval_sec: int,
+    skill_mode: str = "no-skill",
 ) -> dict[str, Any]:
     try:
         from benchflow.evaluation import Evaluation, EvaluationConfig, RetryConfig
@@ -741,6 +766,7 @@ async def run_mode(
             concurrency=concurrency,
             retry=RetryConfig(max_retries=max_retries),
             agent_env=agent_env,
+            skill_mode=skill_mode,
         ),
     )
     started_at = datetime.now()
@@ -833,6 +859,7 @@ async def run_skill(skill: str, args: argparse.Namespace) -> dict[str, Any]:
         max_retries=args.max_retries,
         total_cases=len(dataset.cases),
         status_interval_sec=STATUS_INTERVAL_SEC,
+        skill_mode="with-skill",
     )
     print(
         "  with_skill: "
@@ -863,12 +890,18 @@ async def run_skill(skill: str, args: argparse.Namespace) -> dict[str, Any]:
             f"tokens={baseline_summary.get('total_tokens', 0)}"
         )
 
+    git = git_info()
+    evals_data = load_json(SKILLS_DIR / skill / "evals" / "evals.json")
     combined = {
         "run_id": args.run_id,
         "skill_name": skill,
         "agent": args.agent,
         "model": args.model,
         "sandbox": args.sandbox,
+        "branch": git["branch"],
+        "git_sha": git["git_sha"],
+        "version": str(evals_data.get("version", "")) or None,
+        "environment": agent_env.get("OMNI_BASE_URL") or None,
         "cases": [case.id for case in dataset.cases],
         "job_dir": str(root),
         "with_skill": with_summary,

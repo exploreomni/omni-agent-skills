@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import argparse
 import csv
+import functools
 import json
+import subprocess
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -13,12 +15,18 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_JOBS_DIR = ROOT / "evals" / "workspaces" / "benchflow"
-TOKEN_PENALTY_FREE_PER_CASE = 1_000_000
-TOKEN_PENALTY_STEP = 250_000
-MAX_TOKEN_PENALTY_PCT = 20.0
-TIMEOUT_PENALTY_PCT = 5.0
-MAX_TIMEOUT_PENALTY_PCT = 20.0
+EVALS_DIR = ROOT / "evals"
+DEFAULT_JOBS_DIR = EVALS_DIR / "workspaces" / "benchflow"
+CASE_NAME_MAX_LEN = 80
+
+
+def rel_job_dir(combined: dict[str, Any], run_dir: Path) -> str:
+    """Return job_dir relative to the repo root so history stays portable."""
+    raw = combined.get("job_dir") or str(run_dir)
+    try:
+        return str(Path(raw).resolve().relative_to(ROOT))
+    except ValueError:
+        return raw
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -28,14 +36,58 @@ def load_json(path: Path) -> dict[str, Any]:
         return {}
 
 
-def parse_score(value: Any) -> float | None:
-    if value is None:
+@functools.lru_cache(maxsize=None)
+def env_local_url() -> str | None:
+    env_local = EVALS_DIR / ".env.local"
+    if not env_local.exists():
         return None
-    text = str(value).strip().rstrip("%")
+    for raw in env_local.read_text().splitlines():
+        line = raw.strip()
+        if line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if key.strip() == "OMNI_BASE_URL":
+            return value.strip().strip('"').strip("'")
+    return None
+
+
+_git_sha_cache: dict[str, str | None] = {}
+
+
+def git_sha_at(timestamp_str: str) -> str | None:
+    if timestamp_str in _git_sha_cache:
+        return _git_sha_cache[timestamp_str]
     try:
-        return float(text)
-    except ValueError:
-        return None
+        result = subprocess.run(
+            ["git", "log", "--format=%H", f"--before={timestamp_str}", "-1"],
+            capture_output=True, text=True, cwd=ROOT, timeout=5,
+        )
+        sha = result.stdout.strip()
+        value = sha if result.returncode == 0 and sha else None
+    except (OSError, subprocess.TimeoutExpired):
+        value = None
+    _git_sha_cache[timestamp_str] = value
+    return value
+
+
+def workspace_version(run_dir: Path, skill_name: str) -> str | None:
+    evals_path = run_dir / "_generated" / skill_name / "evals" / "evals.json"
+    data = load_json(evals_path)
+    v = data.get("version")
+    return str(v) if v is not None else None
+
+
+@functools.lru_cache(maxsize=None)
+def case_names_for_skill(skill_name: str) -> dict[str, str]:
+    """Return {case_id: truncated question} from the skill's source evals.json."""
+    evals_path = ROOT / "skills" / skill_name / "evals" / "evals.json"
+    data = load_json(evals_path)
+    names: dict[str, str] = {}
+    for case in data.get("cases", []):
+        case_id = str(case.get("id", ""))
+        question = str(case.get("question", "")).strip()
+        names[case_id] = question[:CASE_NAME_MAX_LEN]
+    return names
 
 
 def parse_run_started_at(run_dir: Path) -> str:
@@ -66,7 +118,8 @@ def reward_value(result: dict[str, Any]) -> float:
     return float(value) if isinstance(value, (int, float)) else 0.0
 
 
-def result_stats(job_dir: Path, mode: str) -> dict[str, Any]:
+def per_case_results(job_dir: Path, mode: str) -> dict[str, dict[str, Any]]:
+    """Return {case_id: per-case metrics} from result.json files."""
     mode_dir = "with-skill" if mode == "with_skill" else mode
     results_dir = job_dir / "jobs" / mode_dir
     best_by_task: dict[str, dict[str, Any]] = {}
@@ -77,51 +130,25 @@ def result_stats(job_dir: Path, mode: str) -> dict[str, Any]:
         if previous is None or reward_value(result) > reward_value(previous):
             best_by_task[task_name] = result
 
-    results = list(best_by_task.values())
-    if not results:
-        return {}
-
-    durations = [value for result in results if (value := parse_duration_sec(result)) is not None]
-    total_tool_calls = sum(int(result.get("n_tool_calls") or 0) for result in results)
-    total_prompts = sum(int(result.get("n_prompts") or 0) for result in results)
-    timeout_count = sum(
-        1
-        for result in results
-        if "wall-clock budget" in str(result.get("error") or "")
-    )
-    case_count = len(results)
-
-    return {
-        "total_tool_calls": total_tool_calls,
-        "avg_tool_calls": round(total_tool_calls / case_count, 4),
-        "total_prompts": total_prompts,
-        "avg_prompts": round(total_prompts / case_count, 4),
-        "avg_case_duration_sec": round(sum(durations) / len(durations), 4) if durations else None,
-        "timeout_count": timeout_count,
-    }
-
-
-def per_case(value: Any, total: Any) -> float | None:
-    if not isinstance(value, (int, float)) or not isinstance(total, int) or total <= 0:
-        return None
-    return round(value / total, 4)
-
-
-def efficiency_penalty_pct(total_tokens: Any, total: Any, timeout_count: Any) -> float:
-    penalty = 0.0
-    tokens_per_case = per_case(total_tokens, total)
-    if tokens_per_case and tokens_per_case > TOKEN_PENALTY_FREE_PER_CASE:
-        overage = tokens_per_case - TOKEN_PENALTY_FREE_PER_CASE
-        penalty += min(MAX_TOKEN_PENALTY_PCT, overage / TOKEN_PENALTY_STEP)
-    if isinstance(timeout_count, int) and timeout_count > 0:
-        penalty += min(MAX_TIMEOUT_PENALTY_PCT, timeout_count * TIMEOUT_PENALTY_PCT)
-    return round(penalty, 4)
-
-
-def adjusted_score_pct(score_pct: Any, penalty_pct: float) -> float | None:
-    if not isinstance(score_pct, (int, float)):
-        return None
-    return round(max(0.0, score_pct - penalty_pct), 4)
+    out: dict[str, dict[str, Any]] = {}
+    for case_id, result in best_by_task.items():
+        reward = (result.get("rewards") or {}).get("reward")
+        ar = result.get("agent_result") or {}
+        error = str(result.get("error") or "")
+        out[case_id] = {
+            "passed": bool(reward is not None and float(reward) >= 1.0),
+            "score": float(reward) if reward is not None else None,
+            "errored": bool(error),
+            "timeout": "wall-clock budget" in error,
+            "tool_calls": result.get("n_tool_calls"),
+            "duration_sec": parse_duration_sec(result),
+            "input_tokens": ar.get("n_input_tokens"),
+            "output_tokens": ar.get("n_output_tokens"),
+            "cache_read_tokens": ar.get("n_cache_read_tokens"),
+            "cache_creation_tokens": ar.get("n_cache_creation_tokens"),
+            "total_tokens": ar.get("total_tokens"),
+        }
+    return out
 
 
 @dataclass
@@ -177,77 +204,100 @@ def load_summary_records(jobs_dir: Path) -> list[SummaryRecord]:
     return records
 
 
-def mode_row(record: SummaryRecord, mode: str, summary: dict[str, Any]) -> dict[str, Any]:
-    summary_path = record.path
+def mode_rows(record: SummaryRecord, mode: str, summary: dict[str, Any]) -> list[dict[str, Any]]:
+    run_dir = record.path.parent
     combined = record.combined
-    run_dir = summary_path.parent
-    total = summary.get("total")
-    passed = summary.get("passed")
-    total_tokens = summary.get("total_tokens")
-    stats = result_stats(run_dir, mode)
-    score_pct = parse_score(summary.get("score"))
-    penalty_pct = efficiency_penalty_pct(total_tokens, total, stats.get("timeout_count"))
-    return {
+    skill_name = combined.get("skill_name", run_dir.parent.name)
+    run_started_at = parse_run_started_at(run_dir)
+    names = case_names_for_skill(skill_name)
+    results = per_case_results(run_dir, mode)
+    shared = {
         "run_id": record.run_id,
-        "run_started_at": parse_run_started_at(run_dir),
-        "skill_name": combined.get("skill_name", run_dir.parent.name),
+        "run_started_at": run_started_at,
+        "skill_name": skill_name,
         "mode": mode,
         "agent": summary.get("agent", combined.get("agent")),
         "model": summary.get("model", combined.get("model")),
         "sandbox": summary.get("environment", combined.get("sandbox")),
-        "cases": ",".join(str(c) for c in combined.get("cases", [])),
-        "total": summary.get("total"),
-        "passed": summary.get("passed"),
-        "failed": summary.get("failed"),
-        "errored": summary.get("errored"),
-        "verifier_errored": summary.get("verifier_errored"),
-        "score": summary.get("score"),
-        "score_pct": score_pct,
-        "efficiency_adjusted_score_pct": adjusted_score_pct(score_pct, penalty_pct),
-        "efficiency_penalty_pct": penalty_pct,
-        "elapsed_sec": summary.get("elapsed_sec"),
-        "total_tool_calls": stats.get("total_tool_calls"),
-        "avg_tool_calls": stats.get("avg_tool_calls"),
-        "total_prompts": stats.get("total_prompts"),
-        "avg_prompts": stats.get("avg_prompts"),
-        "avg_case_duration_sec": stats.get("avg_case_duration_sec"),
-        "timeout_count": stats.get("timeout_count"),
-        "total_input_tokens": summary.get("total_input_tokens"),
-        "total_output_tokens": summary.get("total_output_tokens"),
-        "total_cache_read_tokens": summary.get("total_cache_read_tokens"),
-        "total_cache_creation_tokens": summary.get("total_cache_creation_tokens"),
-        "total_tokens": summary.get("total_tokens"),
-        "tokens_per_case": per_case(total_tokens, total),
-        "tokens_per_pass": per_case(total_tokens, passed),
-        "total_cost_usd": summary.get("total_cost_usd"),
-        "job_dir": combined.get("job_dir", str(run_dir)),
+        "branch": combined.get("branch"),
+        "git_sha": combined.get("git_sha") or git_sha_at(run_started_at),
+        "version": combined.get("version") or workspace_version(run_dir, skill_name),
+        "environment": combined.get("environment") or env_local_url(),
+        "job_dir": rel_job_dir(combined, run_dir),
     }
+    rows = []
+    for case_id in combined.get("cases", []):
+        case_id_str = str(case_id)
+        r = results.get(case_id_str, {})
+        rows.append({
+            **shared,
+            "case_id": case_id_str,
+            "case_name": names.get(case_id_str, ""),
+            "passed": r.get("passed"),
+            "score": r.get("score"),
+            "errored": r.get("errored"),
+            "timeout": r.get("timeout"),
+            "tool_calls": r.get("tool_calls"),
+            "duration_sec": r.get("duration_sec"),
+            "input_tokens": r.get("input_tokens"),
+            "output_tokens": r.get("output_tokens"),
+            "cache_read_tokens": r.get("cache_read_tokens"),
+            "cache_creation_tokens": r.get("cache_creation_tokens"),
+            "total_tokens": r.get("total_tokens"),
+        })
+    return rows
+
+
+def lift_rows(record: SummaryRecord) -> list[dict[str, Any]]:
+    run_dir = record.path.parent
+    combined = record.combined
+    if not isinstance(combined.get("with_skill"), dict) or not isinstance(combined.get("baseline"), dict):
+        return []
+    skill_name = combined.get("skill_name", run_dir.parent.name)
+    run_started_at = parse_run_started_at(run_dir)
+    names = case_names_for_skill(skill_name)
+    with_results = per_case_results(run_dir, "with_skill")
+    base_results = per_case_results(run_dir, "baseline")
+    shared = {
+        "run_id": record.run_id,
+        "run_started_at": run_started_at,
+        "skill_name": skill_name,
+        "mode": "lift",
+        "agent": combined.get("agent"),
+        "model": combined.get("model"),
+        "sandbox": combined.get("sandbox"),
+        "branch": combined.get("branch"),
+        "git_sha": combined.get("git_sha") or git_sha_at(run_started_at),
+        "version": combined.get("version") or workspace_version(run_dir, skill_name),
+        "environment": combined.get("environment") or env_local_url(),
+        "job_dir": rel_job_dir(combined, run_dir),
+    }
+    rows = []
+    for case_id in combined.get("cases", []):
+        case_id_str = str(case_id)
+        ws = with_results.get(case_id_str, {})
+        bs = base_results.get(case_id_str, {})
+        ws_score = ws.get("score")
+        bs_score = bs.get("score")
+        lift = round(ws_score - bs_score, 4) if ws_score is not None and bs_score is not None else None
+        rows.append({
+            **shared,
+            "case_id": case_id_str,
+            "case_name": names.get(case_id_str, ""),
+            "score": lift,
+        })
+    return rows
 
 
 def collect_rows(jobs_dir: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for record in load_summary_records(jobs_dir):
-        summary_path = record.path
         combined = record.combined
         for mode, key in (("with_skill", "with_skill"), ("baseline", "baseline")):
             summary = combined.get(key)
             if isinstance(summary, dict):
-                rows.append(mode_row(record, mode, summary))
-        if isinstance(combined.get("lift_score_points"), (int, float)):
-            rows.append(
-                {
-                    "run_id": record.run_id,
-                    "run_started_at": parse_run_started_at(summary_path.parent),
-                    "skill_name": combined.get("skill_name", summary_path.parent.parent.name),
-                    "mode": "lift",
-                    "agent": combined.get("agent"),
-                    "model": combined.get("model"),
-                    "sandbox": combined.get("sandbox"),
-                    "cases": ",".join(str(c) for c in combined.get("cases", [])),
-                    "score_pct": combined.get("lift_score_points"),
-                    "job_dir": combined.get("job_dir", str(summary_path.parent)),
-                }
-            )
+                rows.extend(mode_rows(record, mode, summary))
+        rows.extend(lift_rows(record))
     return rows
 
 
@@ -267,35 +317,27 @@ def main() -> None:
         "run_id",
         "run_started_at",
         "skill_name",
+        "case_id",
+        "case_name",
         "mode",
         "agent",
         "model",
         "sandbox",
-        "cases",
-        "total",
+        "branch",
+        "git_sha",
+        "version",
+        "environment",
         "passed",
-        "failed",
-        "errored",
-        "verifier_errored",
         "score",
-        "score_pct",
-        "efficiency_adjusted_score_pct",
-        "efficiency_penalty_pct",
-        "elapsed_sec",
-        "total_tool_calls",
-        "avg_tool_calls",
-        "total_prompts",
-        "avg_prompts",
-        "avg_case_duration_sec",
-        "timeout_count",
-        "total_input_tokens",
-        "total_output_tokens",
-        "total_cache_read_tokens",
-        "total_cache_creation_tokens",
+        "errored",
+        "timeout",
+        "tool_calls",
+        "duration_sec",
+        "input_tokens",
+        "output_tokens",
+        "cache_read_tokens",
+        "cache_creation_tokens",
         "total_tokens",
-        "tokens_per_case",
-        "tokens_per_pass",
-        "total_cost_usd",
         "job_dir",
     ]
     writer = csv.DictWriter(__import__("sys").stdout, fieldnames=fieldnames, extrasaction="ignore")
