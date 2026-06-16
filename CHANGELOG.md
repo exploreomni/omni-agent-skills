@@ -6,6 +6,14 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.4.1] - 2026-06-16
+
+### omni-analytics
+
+**Changed**
+- `omni-content-builder` `references/documents-v2.md`: document the `--body` object-vs-string footgun — `queryPresentations`/`controls`/`settings` must be **nested objects, not stringified JSON** (the `400 … expected object, received string` error), with a worked body example and an error-map row; add an inline callout distinguishing `v2-patch-draft` (opens a draft) from `v2-patch-draft-by-identifier` (pure apply on an existing draft).
+- `omni-content-builder` `references/branch-bound-drafts.md`: name the running-total table-calculation AST shape (`Omni.OMNI_FX_SUM(Omni.OMNI_OFFSET_MULTI(...))`, `sql_expression` not a workbook-style `{name, formula}`) and note the full operator catalog lives in the `omni-query` skill.
+
 ## [1.4.0] - 2026-06-12
 
 ### omni-analytics

@@ -92,4 +92,6 @@ When the draft is also branch-bound, its workbook model extends the branch — o
 
 ## Table calculations ride along
 
-Running totals, moving averages, etc. work on these tiles unchanged — they compute on the result set, independent of branch/model wiring. Put the calc in `query.calculations[]` and list its `calc_name` in `query.fields` and `visConfig.fields`. See the calculation shape in the `omni-query` skill.
+Running totals, moving averages, etc. work on these tiles unchanged — they compute on the result set, independent of branch/model wiring. Put the calc in `query.calculations[]` and list its `calc_name` in `query.fields` and `visConfig.fields`.
+
+A calc entry is `{ "calc_name": "<name>", "sql_expression": <AST> }`, where the AST is a nested `{ "type": "call", "operator": "Omni.<FN>", "operands": [...] }` tree — **not** a workbook-style `{name, formula}` string. A running total of `order_items.count`, for example, wraps the field in `Omni.OMNI_FX_SUM(Omni.OMNI_OFFSET_MULTI(...))`. The full operator catalog and AST shapes are owned by the **`omni-query`** skill — consult it for anything beyond a simple running total. 
