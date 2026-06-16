@@ -17,6 +17,8 @@ The `omni documents v2-*` commands are the **only** surface for creating, readin
 - There is **no one-shot patch** — every edit is patch-draft → verify → publish-draft.
 - Patch responses return `{identifier, name, description, draftIdentifier}` — capture `draftIdentifier` for `v2-get-draft`, `v2-patch-draft-by-identifier`, and the draft URL.
 
+> **Which patch command:** use **`v2-patch-draft`** to *open* a draft (the first patch — it creates the draft and applies your changes); use **`v2-patch-draft-by-identifier`** for *every subsequent* patch to that same draft (pure apply, no new draft). Calling `v2-patch-draft` again creates *another* draft; passing a draft identifier to `v2-patch-draft` 404s.
+
 ## Envelope
 
 ```jsonc
@@ -36,6 +38,24 @@ The `omni documents v2-*` commands are the **only** surface for creating, readin
   "settings": { /* document settings */ }
 }
 ```
+
+### Pass the body as one JSON object — never stringify the slices
+
+`--body` takes a **single JSON object**. `queryPresentations`, `controls`, and `settings` are **nested objects**, not JSON strings. Stringifying any slice yields `400 … expected object, received string`.
+
+```bash
+# CORRECT — slices are nested objects
+omni documents v2-create <SHARED_MODEL_ID> "My Dashboard" --body '{
+  "queryPresentations": { "data": { "1": { /* tile: query + viz */ } }, "order": ["1"] },
+  "controls": { "data": {}, "order": [] },
+  "settings": {}
+}'
+
+# WRONG — a slice passed as a stringified JSON (→ 400 "expected object, received string")
+#   --body '{"queryPresentations":"{\"data\":{...}}"}'
+```
+
+For anything non-trivial, write the body to a file and pass `--body "$(cat body.json)"` — inline shell-escaping of nested JSON is the usual cause of this error.
 
 ### Patch is a diff
 
@@ -150,6 +170,7 @@ To bind a draft to a model branch, put `branchId` **in the `v2-patch-draft` body
 | 404 "Document draft does not exist" on `v2-publish-draft` | No **main** draft — also returned when only a **branch** draft exists (`v2-publish-draft` only sees the main draft; branch drafts publish via the branch merge) | Create a main draft first, or merge the branch |
 | 422 "This document uses the classic dashboard layout, which the documents API does not support. Upgrade the dashboard to the advanced layout before editing it through the API." | Classic-layout dashboard — returned by **every** v2 endpoint | No API fallback — ask the user to upgrade the layout in the Omni UI, then retry |
 | 400 "Unrecognized key: …" | Unknown top-level envelope key (e.g. v1 keys like `filterConfig`) | Use the v2 slice names |
+| 400 "queryPresentations/controls/settings: expected object, received string" | A slice was passed as stringified JSON inside `--body` | Send one JSON object with nested objects; don't stringify slices (above) |
 | 400 with per-field query errors | Tile query missing required collection fields | Send the full set (above) |
 | 404 not-found | Nonexistent document — also what `v2-patch-draft` returns if you pass a **draft** identifier (use `v2-patch-draft-by-identifier` for drafts) | Check which identifier you're holding |
 
