@@ -5,12 +5,14 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
 import json
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -234,26 +236,114 @@ def allocate_concurrency(skills: list[str], case_counts: dict[str, int], budget:
     return {skill: max(1, allocations[skill]) for skill in skills}
 
 
+# Per-rollout tool-call budget on **Omni API calls**, whatever the vector. The agent
+# loop is driven by benchflow via ACP, so we can't cap turns there — but the expensive,
+# flailing actions are Omni API hits (e.g. 19x v2-create churn, and raw `curl` fallback
+# to the API when stuck). A shared counter (`omni-tool-budget`) nudges a wrap-up at the
+# soft threshold (the agent reads it as command output) and blocks past the hard cap.
+# Both `omni` and `curl`-to-the-Omni-host feed the same counter. Override per run with
+# OMNI_TOOL_BUDGET_SOFT / OMNI_TOOL_BUDGET_HARD.
+_TOOL_BUDGET_HELPER = """#!/usr/bin/env bash
+# Shared Omni-API-call counter. Warns at soft threshold; exits 1 past hard cap so the
+# calling wrapper blocks the call. Arg 1: vector label (omni|curl).
+f="${OMNI_TOOL_BUDGET_FILE:-/tmp/.omni_calls}"
+s="${OMNI_TOOL_BUDGET_SOFT:-38}"
+h="${OMNI_TOOL_BUDGET_HARD:-50}"
+n=$(( $(cat "$f" 2>/dev/null || echo 0) + 1 ))
+echo "$n" > "$f"
+if [ "$n" -gt "$h" ]; then
+  echo "TOOL BUDGET EXCEEDED ($n/$h Omni API calls via ${1:-tool}): stop; report your current result and the blocker. Further Omni API calls are blocked." >&2
+  exit 1
+fi
+if [ "$n" -ge "$s" ]; then
+  echo "TOOL BUDGET WARNING ($n/$h Omni API calls used): wrap up now — finalize your result or report the blocker; avoid further trial-and-error." >&2
+fi
+exit 0
+"""
+
+_OMNI_WRAPPER = """#!/usr/bin/env bash
+omni-tool-budget omni || exit 1
+exec "@OMNI_REAL@" "$@"
+"""
+
+# curl is also the agent's API-bypass route. Count only curl invocations whose args
+# reference the Omni host (derived from OMNI_BASE_URL); everything else passes through.
+_CURL_WRAPPER = """#!/usr/bin/env bash
+host="${OMNI_BASE_URL#*://}"; host="${host%%/*}"
+if [ -n "$host" ]; then
+  for a in "$@"; do
+    case "$a" in
+      *"$host"*) omni-tool-budget curl || exit 1; break;;
+    esac
+  done
+fi
+exec "@CURL_REAL@" "$@"
+"""
+
+
+def _install_wrapper_lines(binary: str, wrapper: str, placeholder: str) -> list[str]:
+    """Dockerfile lines that swap `binary` for a budget wrapper, fail-safe."""
+    b64 = base64.b64encode(wrapper.encode()).decode()
+    return [
+        f'RUN BIN="$(command -v {binary} || true)" \\',
+        '  && if [ -n "$BIN" ] && mv "$BIN" "$BIN.real"; then \\',
+        f'       echo "{b64}" | base64 -d \\',
+        f'         | sed "s#{placeholder}#$BIN.real#g" > "$BIN" \\',
+        '       && chmod +x "$BIN"; \\',
+        f'     else echo "WARN: {binary} not found; tool-budget wrapper not installed"; fi',
+    ]
+
+
+_omni_cli_version_cache: list[str | None] = []
+
+
+def latest_omni_cli_version() -> str | None:
+    """Latest omni CLI release tag — what the eval container's install.sh resolves
+    at build time (we deliberately don't pin). Recorded per run for provenance.
+    Best-effort: None on failure. Caveat: a cached container image may carry an
+    older version than this 'latest at run start' value."""
+    if _omni_cli_version_cache:
+        return _omni_cli_version_cache[0]
+    value: str | None = None
+    try:
+        req = urllib.request.Request(
+            "https://api.github.com/repos/exploreomni/cli/releases/latest",
+            headers={"Accept": "application/vnd.github+json", "User-Agent": "omni-evals"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            tag = json.loads(resp.read().decode()).get("tag_name")
+        value = str(tag) if tag else None
+    except Exception:
+        value = None
+    _omni_cli_version_cache.append(value)
+    return value
+
+
 def write_default_dockerfile(skill_dir: Path) -> None:
     dockerfile = skill_dir / "evals" / "Dockerfile"
     if dockerfile.exists():
         return
-    dockerfile.write_text(
-        "\n".join(
-            [
-                "FROM python:3.12-slim",
-                "ENV DEBIAN_FRONTEND=noninteractive",
-                "RUN apt-get update \\",
-                "  && apt-get install -y --no-install-recommends bash ca-certificates curl jq \\",
-                "  && rm -rf /var/lib/apt/lists/*",
-                "RUN curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | sh",
-                "RUN pip install -q anthropic openai google-genai",
-                "COPY eval-files/ /app/evals/",
-                "WORKDIR /app",
-                "",
-            ]
-        )
-    )
+    helper_b64 = base64.b64encode(_TOOL_BUDGET_HELPER.encode()).decode()
+    lines = [
+        "FROM python:3.12-slim",
+        "ENV DEBIAN_FRONTEND=noninteractive",
+        "RUN apt-get update \\",
+        "  && apt-get install -y --no-install-recommends bash ca-certificates curl jq \\",
+        "  && rm -rf /var/lib/apt/lists/*",
+        "RUN curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | sh",
+        # Record the installed omni version in the build log (unpinned = latest).
+        "RUN omni --version || true",
+        # Shared Omni-API-call budget counter, then wrap both vectors (omni + curl).
+        f'RUN echo "{helper_b64}" | base64 -d > /usr/local/bin/omni-tool-budget '
+        "&& chmod +x /usr/local/bin/omni-tool-budget",
+        *_install_wrapper_lines("omni", _OMNI_WRAPPER, "@OMNI_REAL@"),
+        *_install_wrapper_lines("curl", _CURL_WRAPPER, "@CURL_REAL@"),
+        "RUN pip install -q anthropic openai google-genai",
+        "COPY eval-files/ /app/evals/",
+        "WORKDIR /app",
+        "",
+    ]
+    dockerfile.write_text("\n".join(lines))
 
 
 def materialize_skill(
@@ -289,6 +379,9 @@ def materialize_skill(
     converted_cases = []
     for case in cases:
         converted = dict(case)
+        # `depends_on` is our extension, read from the source skill before this
+        # point; strip it so benchflow's strict evals.json schema doesn't reject it.
+        converted.pop("depends_on", None)
         question = substitute_vars(str(converted.get("question", "")), eval_env)
         if omni_env_hint:
             question = f"{OMNI_ENV_HINT}\n\n{question}"
@@ -334,19 +427,67 @@ def stage_case_files(skill_dir: Path, tasks_dir: Path, files_by_case: dict[str, 
             shutil.copy2(src, target_dir / src.name)
 
 
+def dependency_skills_by_case(skill_dir: Path) -> dict[str, list[str]]:
+    """Per-case `depends_on` sibling skills, merged with a top-level default.
+
+    A skill can declare in evals.json that some cases need *other* skills mounted
+    alongside it (e.g. omni-content-builder cases that author a table calc owned
+    by omni-query). Without this, cross-skill references in SKILL.md dangle in a
+    single-skill sandbox. Returns {case_id: [skill_name, ...]} de-duplicated.
+    """
+    data = load_json(skill_dir / "evals" / "evals.json")
+    default = [str(s) for s in data.get("depends_on", [])]
+    by_case: dict[str, list[str]] = {}
+    for case in data.get("cases", []):
+        deps = list(dict.fromkeys(default + [str(s) for s in case.get("depends_on", [])]))
+        by_case[str(case.get("id"))] = deps
+    return by_case
+
+
+def stage_dependency_skills(tasks_dir: Path, deps_by_case: dict[str, list[str]]) -> None:
+    """Mount each case's declared dependency skills (SKILL.md + references, not
+    their own evals/) into its task environment. The task Dockerfile's
+    `COPY skills/ <mount>` then exposes every skill dir under environment/skills/
+    to the agent, so cross-skill references resolve. With-skill arm only.
+    """
+    for task_dir in tasks_dir.iterdir():
+        if not task_dir.is_dir():
+            continue
+        for dep in deps_by_case.get(task_dir.name, []):
+            src = SKILLS_DIR / dep
+            if not (src / "SKILL.md").is_file():
+                raise FileNotFoundError(
+                    f"depends_on skill {dep!r} not found at {src} (case {task_dir.name})"
+                )
+            dst = task_dir / "environment" / "skills" / dep
+            if dst.exists():
+                shutil.rmtree(dst)
+            shutil.copytree(
+                src,
+                dst,
+                ignore=shutil.ignore_patterns("evals", "__pycache__", ".git", ".DS_Store"),
+            )
+
+
 def expose_judge_reasoning(tasks_dir: Path) -> None:
     """Patch generated judges to preserve reasoning and score full rollouts."""
+    # Generated judge writes its per-item result to VERIFIER_DIR/judge_result.json,
+    # which is NOT harvested back to the host. Echo it to stdout (captured in the
+    # harvested test-stdout.txt) so the per-criterion reasoning is recoverable.
     needle = (
-        '        Path("/tests/judge_result.json").write_text(json.dumps(result, indent=2))\n'
+        '        (VERIFIER_DIR / "judge_result.json").write_text(json.dumps(result, indent=2))\n'
         "        return max(0.0, min(1.0, score))"
     )
     replacement = (
-        '        Path("/tests/judge_result.json").write_text(json.dumps(result, indent=2))\n'
-        '        Path("/logs/verifier/judge_result.json").write_text(json.dumps(result, indent=2))\n'
+        '        (VERIFIER_DIR / "judge_result.json").write_text(json.dumps(result, indent=2))\n'
         '        print("Judge result: " + json.dumps(result, indent=2))\n'
         "        return max(0.0, min(1.0, score))"
     )
-    for judge_path in tasks_dir.glob("*/tests/judge.py"):
+    # Generated judges live under <case>/verifier/judge.py (older layouts used
+    # tests/). Patch whichever exists — a wrong glob here silently leaves the
+    # judge head-truncating at 50k and dropping its reasoning.
+    judge_paths = [*tasks_dir.glob("*/verifier/judge.py"), *tasks_dir.glob("*/tests/judge.py")]
+    for judge_path in judge_paths:
         text = judge_path.read_text()
         if "Judge result:" not in text and needle in text:
             judge_path.write_text(text.replace(needle, replacement))
@@ -812,6 +953,7 @@ async def run_skill(skill: str, args: argparse.Namespace) -> dict[str, Any]:
     files_by_case = declared_files_by_case(generated)
     generate_tasks(dataset, tasks_root / "with-skill", with_skill=True)
     stage_case_files(generated, tasks_root / "with-skill", files_by_case)
+    stage_dependency_skills(tasks_root / "with-skill", dependency_skills_by_case(SKILLS_DIR / skill))
     expose_judge_reasoning(tasks_root / "with-skill")
     if not args.no_baseline:
         generate_tasks(dataset, tasks_root / "baseline", with_skill=False)
@@ -871,6 +1013,9 @@ async def run_skill(skill: str, args: argparse.Namespace) -> dict[str, Any]:
         "sandbox": args.sandbox,
         "cases": [case.id for case in dataset.cases],
         "job_dir": str(root),
+        # Container omni is unpinned (install.sh fetches latest); record the tag
+        # that resolves at run start for provenance. See latest_omni_cli_version().
+        "omni_cli_version": latest_omni_cli_version(),
         "with_skill": with_summary,
         "baseline": baseline_summary,
     }
@@ -937,7 +1082,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--jobs-dir", default=str(EVALS_DIR / "workspaces" / "benchflow"))
     parser.add_argument("--case", action="append", default=[], help="Run only this case id; repeatable")
     parser.add_argument("--agent-env", action="append", default=[], help="Extra KEY=VALUE passed to the agent")
-    parser.add_argument("--skill-nudge", default=os.environ.get("BENCHFLOW_SKILL_NUDGE", "name"))
+    parser.add_argument("--skill-nudge", default=os.environ.get("BENCHFLOW_SKILL_NUDGE", "full"))
     parser.add_argument("--timeout-sec", type=int, default=int(os.environ.get("EVAL_TIMEOUT_SEC", "1200")))
     parser.add_argument("--max-retries", type=int, default=int(os.environ.get("EVAL_MAX_RETRIES", "1")))
     parser.add_argument("--run-id", default=os.environ.get("EVAL_RUN_ID"), help="Stable id shared by all skill runs in this invocation")
