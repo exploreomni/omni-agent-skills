@@ -1,350 +1,228 @@
 ---
 name: omni-ai-eval
-description: Evaluate Omni AI query generation accuracy by running test prompts through the Omni CLI, comparing generated query JSON against expected results, and scoring accuracy. Use this skill whenever someone wants to evaluate Omni AI, benchmark Blobby, run regression tests, compare AI output across branches or configurations, test prompt variations, measure AI quality, run A/B tests on model changes, assess impact of context changes, or any variant of "run evals", "test Blobby", "benchmark query generation", "compare AI results", "regression test", "how accurate is the AI", or "measure the impact of my changes".
+description: Evaluate Omni AI accuracy using Omni's built-in eval system — define a prompt set, run a judged eval against a model (or branch), and read the accuracy-judge verdicts. Use this skill whenever someone wants to evaluate Omni AI, benchmark Blobby, run regression tests, compare AI output across branches or model-context changes, measure AI quality, run A/B tests on model changes, assess the impact of an ai_context or modeling change, or any variant of "run evals", "test Blobby", "benchmark query generation", "compare AI results", "regression test", "how accurate is the AI", or "measure the impact of my changes".
 ---
 
-# Omni Eval
+# Omni AI Eval
 
-Run evals against Omni's AI query generation APIs — submit test prompts, capture the generated query JSON, compare it against expected results, and score accuracy across dimensions.
+Omni ships a first-class eval system (the **AI Hub** → **Prompt sets** and **Eval runs**). This skill drives it through the Omni CLI: define a reusable **prompt set**, start a judged **eval run** against a model or branch, and read per-prompt verdicts from Omni's built-in **accuracy judge**.
 
-> **Tip**: Use `omni-ai-optimizer` to improve scores after identifying failures, and `omni-model-explorer` to discover available topics and fields for building eval cases.
+Prefer this native system over building your own harness. The judge scores each answer *semantically* against the full agent conversation — it does not require golden query JSON, and it evaluates the whole agentic workflow (topic selection, queries, results, and the final written answer), not just generated query structure.
+
+> **Tip**: Use `omni-ai-optimizer` to improve scores after finding failures, `omni-model-builder` to apply context changes on a branch before A/B testing, and `omni-model-explorer` to discover topics and fields when writing prompts.
 
 ## Prerequisites
 
 ```bash
-# Verify the Omni CLI is installed — if not, ask the user to install it
+# Verify the Omni CLI is installed — if not, ask the user to install it.
 # See: https://github.com/exploreomni/cli#readme
 command -v omni >/dev/null || echo "ERROR: Omni CLI is not installed."
+
+# Verify the CLI has the eval commands. If this errors with "unknown command",
+# the binary is stale — ask the user to update it (the ai-eval group is generated
+# from the bundled API spec).
+omni ai-eval --help >/dev/null 2>&1 || echo "ERROR: 'omni ai-eval' missing — update the Omni CLI."
 ```
 
 ```bash
-# Show available profiles and select the appropriate one
+# Show available profiles and select the right one — running against the wrong
+# instance silently evaluates the wrong model.
 omni config show
-# If multiple profiles exist, ask the user which to use, then switch:
+# If multiple profiles exist, ask the user which to use:
 omni config use <profile-name>
 ```
 
-You also need a **model ID** and an **eval set** — a file of test cases with prompts and expected query structures. See the [Eval Design Guide](https://docs.omni.co/ai/eval-design-guide) for best practices on building eval sets.
+You also need the **model ID** of a shared model to evaluate. Evals require at least **Querier** access on that model, and at least one topic optimized for AI. See the [Evals guide](https://docs.omni.co/ai/evals) for concepts and prompt-set best practices.
 
-## Discovering Commands
+## How it works
 
-```bash
-omni ai --help    # AI operations (generate-query, jobs, pick-topic)
-```
+| Concept | What it is |
+|---------|-----------|
+| **Prompt set** | A reusable, named list of up to **25** natural-language prompts, scoped to one model. Each prompt may carry an optional `expectation` — a reference answer the judge scores against. Lives server-side; create one per topic, per release, or for regression coverage. |
+| **Eval run** | Executes a prompt set against a model branch (or `main`). Each prompt runs as a full async agentic AI job (the same engine as production Blobby), then the accuracy judge scores the result. |
+| **Accuracy judge** | A fixed judge model that reads the evaluated AI's full conversation and returns a **pass/fail** verdict per prompt, plus confidence and a rationale. It targets high-impact analysis errors (hallucinations, date/time filtering, row-limit handling, mental math, period-over-period mistakes, wrong topic). It does **not** grade wording or formatting. |
 
-> **Tip**: Use `-o json` to force structured output for programmatic parsing, or `-o human` for readable tables. The default is `auto` (human in a TTY, JSON when piped).
+All commands accept `-o json` (or `--compact`) to force structured output for parsing, and `--profile <name>` / `--branch-id` style global flags. Run `omni ai-eval <command> --help` for the full flag list.
 
-## Eval Input Format
-
-Each eval case pairs a natural language prompt with the expected query structure. JSONL (one JSON object per line) works well for bulk runs:
-
-```jsonl
-{"id": "rev-by-month", "prompt": "Show me revenue by month", "modelId": "your-model-id", "expected": {"topic": "order_items", "fields": ["order_items.created_at[month]", "order_items.total_revenue"], "filters": {}, "sorts": [{"column_name": "order_items.created_at[month]", "sort_descending": false}]}, "tags": ["time-series"]}
-{"id": "top-customers", "prompt": "Top 10 customers by spend", "modelId": "your-model-id", "expected": {"topic": "order_items", "fields": ["users.name", "order_items.total_revenue"], "filters": {}, "sorts": [{"column_name": "order_items.total_revenue", "sort_descending": true}]}, "tags": ["top-n"]}
-```
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `id` | Yes | Unique identifier for the eval case |
-| `prompt` | Yes | Natural language question to send to AI |
-| `modelId` | Yes | Target model UUID |
-| `expected` | Yes | Object with `topic`, `fields`, `filters`, `sorts` |
-| `branchId` | No | Branch to test against |
-| `currentTopicName` | No | Constrain to a specific topic |
-| `tags` | No | Array of tags for filtering/grouping results |
-
-> **Note**: JSONL is shown here, but any structured format works — CSV, JSON arrays, YAML — as long as you can iterate over cases and extract these fields.
-
-## Running Evals: Fast Path (Generate Query API)
-
-The synchronous generate-query endpoint is the fastest way to eval query generation. Pass `--run-query false` to get only the generated query JSON without executing it against the database.
-
-### Single Eval Call
+## Step 1 — Build a prompt set
 
 ```bash
-omni ai generate-query your-model-id "Show me revenue by month" --run-query false
+omni ai-eval prompt-sets-create --compact --body '{
+  "model_id": "your-model-id",
+  "name": "Orders regression",
+  "slug": "orders-regression",
+  "description": "Core revenue + orders coverage",
+  "prompts": [
+    { "prompt_text": "Show me revenue by month" },
+    { "prompt_text": "What are the top 5 products by revenue?",
+      "expectation": "The top product by revenue should be Aniseed Syrup." },
+    { "prompt_text": "How many orders were placed last week?" }
+  ]
+}'
 ```
 
-### Response Structure
+The response includes the created `prompt_set.id` (a UUID) — capture it for the run.
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| `model_id` | Yes | Shared model UUID the set is bound to |
+| `name` | Yes | ≤ 255 chars |
+| `slug` | Yes | Unique per `model_id`; must match `^[a-z][a-z0-9-]*$` |
+| `description` | No | ≤ 1024 chars |
+| `prompts[]` | No | ≤ 25; each needs `prompt_text` (≤ 8000 chars), optional `expectation` (≤ 16000 chars) |
+
+**Find or update an existing set** instead of recreating:
+
+```bash
+omni ai-eval prompt-sets-list --model-ids your-model-id --compact   # discover sets + ids
+omni ai-eval prompt-sets-get <promptSetId> --compact                # full set with prompts
+```
+
+`prompt-sets-update` replaces the **entire** `prompts` list: omitted prompts are deleted, entries with no `id` are created, entries with a matching `id` are updated in place. To add one prompt, send the full desired list (existing prompts carry their `id`).
+
+```bash
+omni ai-eval prompt-sets-update <promptSetId> --compact --body '{
+  "prompts": [
+    { "id": "<existing-prompt-id>", "prompt_text": "Show me revenue by month" },
+    { "prompt_text": "Revenue by month, last 12 months only" }
+  ]
+}'
+```
+
+### Writing good prompts and expectations
+
+- **Mirror real user questions** — pull from the AI usage analytics dashboard rather than inventing phrasing that echoes field names.
+- **Favor breadth over depth** — one prompt across many topics yields more signal than ten on one topic.
+- **Add a regression prompt** whenever an answer turns out wrong, so the same failure is caught next time.
+- **Set an `expectation`** only when a prompt has a known answer worth pinning: a value or ranking ("top product should be Aniseed Syrup"), a direction ("revenue should be up YoY"), or a required breakdown. The judge treats a *material* divergence (wrong numbers, wrong direction, missing required result) as a failure but ignores wording/formatting differences. With no expectation, the judge decides whether the answer is correct on its own terms. The expectation is shown only to the judge — the evaluated AI never sees it.
+
+## Step 2 — Run an eval
+
+```bash
+# Against main:
+omni ai-eval runs-create --compact --body '{
+  "prompt_set_id": "<promptSetId>",
+  "description": "Baseline on main"
+}'
+
+# Against a branch (measures a model-context change before promotion):
+omni ai-eval runs-create --compact --body '{
+  "prompt_set_id": "<promptSetId>",
+  "description": "After adding ai_context to order_items",
+  "run_config": { "branch_id": "<branchId>" }
+}'
+```
+
+The response returns `run.id` and `job_count` (one agentic job per prompt). Omit `run_config.branch_id` to run against the live shared model.
+
+> **Concurrency cap**: at most **2 eval runs in flight at once**. A `429` means the per-user active-run cap is reached — wait for an in-flight run to finish or cancel one. A `503` means eval is paused for the org. Check `runs-list` before launching.
+
+### Poll for completion
+
+```bash
+omni ai-eval runs-get <runId> --compact
+```
+
+Poll with backoff (e.g. 5s, 10s, 20s) until the run's `status` is terminal — `COMPLETE` or `CANCELLED`. Track progress with each result's `agentic_job.state` (`QUEUED` → `EXECUTING` → `COMPLETE`/`FAILED`). Don't hammer the endpoint.
+
+## Step 3 — Read results
+
+`runs-get` returns `results[]`, one row per prompt:
 
 ```json
 {
-  "query": {
-    "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
-    "table": "order_items",
-    "filters": {},
-    "sorts": [{"column_name": "order_items.created_at[month]", "sort_descending": false}],
-    "limit": 500
-  },
-  "topic": "order_items",
-  "error": null
-}
-```
-
-### Request Parameters
-
-| Arg/Flag | Required | Description |
-|----------|----------|-------------|
-| `<model-id>` | Yes | UUID of the Omni model (positional arg) |
-| `<prompt>` | Yes | Natural language question (positional arg) |
-| `--run-query` | No | Set `false` to skip query execution (faster, default `true`) |
-| `--branch-id` | No | Branch UUID for branch-specific testing |
-| `--current-topic-name` | No | Constrain topic selection to a specific topic |
-
-### Batch Loop (bash)
-
-```bash
-while IFS= read -r line; do
-  id=$(echo "$line" | jq -r '.id')
-  prompt=$(echo "$line" | jq -r '.prompt')
-  model_id=$(echo "$line" | jq -r '.modelId')
-  branch_id=$(echo "$line" | jq -r '.branchId // empty')
-
-  branch_flag=""
-  if [ -n "$branch_id" ]; then
-    branch_flag="--branch-id $branch_id"
-  fi
-
-  result=$(omni ai generate-query "$model_id" "$prompt" --run-query false $branch_flag --compact)
-
-  echo "{\"id\": \"$id\", \"generated\": $result}" >> eval_results.jsonl
-done < eval_cases.jsonl
-```
-
-## Quick Evals Without Expected JSON
-
-When the user asks for a quick eval and only provides prompts, still score the generated queries against the prompt intent. Do not reduce the eval to "valid query/no error" unless the user explicitly asks for a smoke test.
-
-For each prompt:
-
-1. Run `omni ai generate-query` with `--run-query false`.
-2. Infer the expected query shape from the prompt: topic, fields, filters, sorts, and limit where relevant.
-3. Compare the generated query to that inferred expectation across those dimensions.
-4. Report per-case dimension results and a numeric pass rate.
-
-Call out that the scoring is inferred rather than a strict golden-file comparison, but still provide the dimension-level assessment. For example, "Top 10 customers by spend" should be checked for a customer field, spend/revenue measure, descending spend sort, and limit 10. Include enough command detail in your notes or final answer to make clear that query execution was skipped, either by showing `--run-query false` or by explicitly stating that only generated query JSON was requested.
-
-## Running Evals: Agentic Path (AI Jobs API)
-
-Use the async AI Jobs API when you want to test the full agentic workflow — multi-step analysis, tool use, and topic selection as Blobby would actually behave in production.
-
-### Submit a Job
-
-```bash
-omni ai job-submit your-model-id "Show me revenue by month"
-```
-
-Response:
-
-```json
-{
-  "jobId": "job-uuid",
-  "conversationId": "conv-uuid",
-  "omniChatUrl": "https://yourorg.omniapp.co/chat/..."
-}
-```
-
-### Poll for Completion
-
-```bash
-omni ai job-status <jobId>
-```
-
-Status progression: `QUEUED` → `EXECUTING` → `COMPLETE` (or `FAILED`). Poll with backoff (e.g., 2s, 4s, 8s) until the `state` is terminal.
-
-### Get Result
-
-```bash
-omni ai job-result <jobId>
-```
-
-The result contains an `actions` array. Look for actions with `type: "generate_query"` to extract the query JSON:
-
-```json
-{
-  "actions": [
-    {
-      "type": "generate_query",
-      "message": "Querying revenue by month...",
-      "result": {
-        "queryName": "Revenue by Month",
-        "query": { "fields": [...], "table": "...", "filters": {...} },
-        "status": "success",
-        "totalRowCount": 12
+  "run": {
+    "status": "COMPLETE",
+    "branch_id": null,
+    "results": [
+      {
+        "prompt": "What are the top 5 products by revenue?",
+        "score": 1,
+        "error_reason": null,
+        "cost": 0.0021,
+        "scoring_cost": 0.0004,
+        "timing_ms": 4321,
+        "agentic_job": { "state": "COMPLETE", "conversation_id": "conv-uuid", "id": "job-uuid" }
       }
-    }
-  ],
-  "topic": "order_items",
-  "resultSummary": "Here are the monthly revenue figures..."
+    ]
+  }
 }
 ```
 
-### When to Use Which Path
+| Field | Meaning |
+|-------|---------|
+| `score` | Judge verdict for the prompt — pass = `1`, fail = `0` |
+| `error_reason` | Set when the underlying agentic job failed |
+| `cost` / `scoring_cost` | LLM cost (USD) for the answer vs. for judging it |
+| `timing_ms` | Wall-clock duration of the job |
+| `agentic_job.conversation_id` | Open this chat to read the judge's full verdict, confidence, and rationale |
 
-| Criterion | Generate Query (Fast) | AI Jobs (Agentic) |
-|-----------|----------------------|-------------------|
-| Speed | Synchronous, fast | Async, slower |
-| Volume | High-volume runs | Lower volume |
-| Scope | Query generation only | Full agent workflow |
-| Use case | Field/filter accuracy | End-to-end behavior |
-| Multi-step | Single query | May generate multiple queries |
+**Overall accuracy = the pass rate** (mean of `score` across results). Report it with the per-prompt breakdown, and for any failure, point to the `conversation_id` so the user can read *why* the judge failed it — that rationale is where the actionable signal lives.
 
-## Testing Topic Selection
+```
+Eval run "Baseline on main" — 9/12 passed (75.0%)
+  ✗ "Revenue by quarter"        — judge: summed a row-limited result as a total
+  ✗ "Top products this year"    — judge: date filter used calendar instead of fiscal year
+  ✗ "Churn rate by segment"     — agentic job FAILED (error_reason)
+  (open each conversation_id for the full rationale)
+```
 
-Eval topic selection independently with the pick-topic endpoint:
+## A/B comparison: branch vs main
+
+The core workflow for measuring whether a model change helps. Run the **same prompt set** twice — once on `main`, once on the branch — then compare.
+
+1. Create or identify the branch with the change (use `omni-model-builder` to apply `ai_context`, fields, joins, `ai_settings`, etc. on a branch).
+2. `runs-create` with no `run_config` → baseline run on main.
+3. `runs-create` with `run_config.branch_id` → branch run.
+4. Poll both to `COMPLETE`, then diff per-prompt verdicts.
+
+```
+A/B: main vs branch/new-context  (prompt set: orders-regression)
+                    main      branch     Δ
+Accuracy:           75.0%     91.7%     +16.7%
+Prompt credits:     0.024     0.026     +0.002
+
+Regressions (passed on main, failed on branch):
+  - rev-by-quarter
+Improvements (failed on main, passed on branch):
+  - top-products-this-year
+  - churn-rate-by-segment
+```
+
+> **Always check for regressions, not just net improvement.** A higher overall pass rate can still hide a prompt that newly broke — an `ai_context` change that helps most prompts may conflict with one. Call out any prompt that passed on main but fails on the branch.
+
+Notes for an auditable comparison:
+- Both runs must use the **same prompt set** so they evaluate identical prompts (the AI Hub comparison view enforces this too).
+- Record the full `branch_id` used and confirm the branch run's `run.branch_id` matches it — don't claim the branch was exercised without that.
+- Expectations are snapshotted per run, so editing a prompt's `expectation` later won't change how earlier runs were scored.
+
+## Managing prompt sets and runs
 
 ```bash
-omni ai pick-topic your-model-id "How many users signed up last month?"
+omni ai-eval runs-list --prompt-set-id <promptSetId> --compact   # runs for a set, newest first
+omni ai-eval runs-cancel <runId>                                 # cancel an in-flight run (also archives it)
+omni ai-eval runs-archive <runId>                                # archive a finished run
+omni ai-eval runs-unarchive <runId>                              # restore an archived run
+
+omni ai-eval prompt-sets-archive <promptSetId>                   # archive a set (cancels its in-flight jobs)
+omni ai-eval prompt-sets-unarchive <promptSetId>                 # restore an archived set
 ```
 
-Response:
+Archiving is a soft delete — sets and runs are preserved and can be restored. Cancelling a run marks it `CANCELLED` and archives it; use `runs-unarchive` to surface it in the default list again. Use `--archived true` on the `*-list` commands to see archived items.
 
-```json
-{
-  "topicId": "users"
-}
-```
+## Gotchas
 
-This lets you score topic selection accuracy as a separate dimension — useful when topic selection is a known weak point.
+- **Right profile, right instance** — the eval runs against whatever model lives on the active profile's instance. Confirm the profile before creating sets or runs.
+- **Judge is binary and fixed** — a pass means the answer avoided the high-impact analysis errors, not that it's the single best possible answer. The judge model isn't configurable per run.
+- **Failed job ≠ failed judgment** — a result with `error_reason` set means the agentic job itself failed (it never produced an answer to score); treat that separately from a judge `score` of `0`.
+- **Snapshotting** — to keep runs reproducible, capture the model state alongside results: `omni models yaml-get <modelId> --compact` and `omni models validate <modelId>`. Branch runs already pin the change to a branch.
 
-## Scoring: Structural Query Comparison
+## Docs reference
 
-Compare the generated query JSON against the expected query across four dimensions. Score each dimension independently; do not collapse the result to a single pass/fail before checking topic and fields.
+- [Evals (concepts + judge)](https://docs.omni.co/ai/evals) · [AI Eval API](https://docs.omni.co/api/ai-eval/list-eval-prompt-sets) · [Create AI job API](https://docs.omni.co/api/ai/create-ai-job) · [Optimizing models for AI](https://docs.omni.co/modeling/develop/ai-optimization)
 
-| Dimension | Comparison Method | Scoring |
-|-----------|------------------|---------|
-| `topic` | Exact string match | pass/fail |
-| `fields` | Set comparison (order-independent) | pass/fail + similarity score |
-| `filters` | Key-value match (key present + value match) | pass/fail per filter key |
-| `sorts` | Ordered array comparison | pass/fail |
+## Related skills
 
-### Example Comparison Logic (TypeScript)
-
-```typescript
-function scoreEval(expected: any, generated: any) {
-  // Topic: exact match
-  const topicPass = generated.topic === expected.topic;
-
-  // Fields: set comparison (order-independent)
-  const expectedFields = new Set(expected.fields);
-  const generatedFields = new Set(generated.query.fields);
-  const missing = [...expectedFields].filter(f => !generatedFields.has(f));
-  const extra = [...generatedFields].filter(f => !expectedFields.has(f));
-  const fieldsPass = missing.length === 0 && extra.length === 0;
-
-  // Filters: key-value match
-  const expectedFilters = expected.filters || {};
-  const generatedFilters = generated.query.filters || {};
-  const missingKeys = Object.keys(expectedFilters).filter(k => !(k in generatedFilters));
-  const wrongValues = Object.keys(expectedFilters)
-    .filter(k => k in generatedFilters && generatedFilters[k] !== expectedFilters[k]);
-  const filtersPass = missingKeys.length === 0 && wrongValues.length === 0;
-
-  // Sorts: ordered comparison
-  const sortsPass = JSON.stringify(expected.sorts || []) ===
-    JSON.stringify(generated.query.sorts || []);
-
-  return {
-    topic: topicPass,
-    fields: { pass: fieldsPass, missing, extra },
-    filters: { pass: filtersPass, missingKeys, wrongValues },
-    sorts: sortsPass,
-    allPass: topicPass && fieldsPass && filtersPass && sortsPass,
-  };
-}
-```
-
-### Aggregate Scoring
-
-Compute pass rates across all eval cases:
-
-```
-Eval Results: 47/50 passed (94.0%)
-  Topic:   49/50 (98.0%)
-  Fields:  47/50 (94.0%)
-  Filters: 48/50 (96.0%)
-  Sorts:   50/50 (100.0%)
-```
-
-Per-dimension rates help pinpoint where accuracy is weakest — if topic accuracy is high but filter accuracy is low, focus `ai_context` improvements on filter-related guidance.
-
-## A/B Comparison
-
-Run the same eval suite with one variable changed to measure impact. This is the core workflow for understanding whether a change improves or degrades AI accuracy.
-
-### Common Variables to Compare
-
-- **Model branches** — pass different `--branch-id` values to test context changes on a branch before merging
-- **Topic scope** — `--current-topic-name "orders"` vs omitted (auto-select)
-- **Model context changes** — `ai_context`, `sample_queries`, field descriptions (apply via `omni-model-builder` on a branch, then eval against that branch)
-- **Prompt wording** — same expected query, different prompt text
-- **AI configuration** — model type, thinking level, or other AI parameters
-
-### Workflow
-
-1. Run eval suite with configuration A → save as `results_a.jsonl`
-2. Run eval suite with configuration B → save as `results_b.jsonl`
-3. Score both result sets against the same expected query shape or inferred prompt-intent checklist
-4. Compare side-by-side, checking for regressions
-
-For model branch comparisons, use the exact branch UUID supplied by the user with `--branch-id`. Run each prompt once without `--branch-id` for main and once with `--branch-id <branch-id>` for the branch. Do not treat a branch as better only because it adds extra filters, fill fields, or different result rows; mark it better only when its generated query passes more of the same scoring dimensions than main. If both outputs satisfy the inferred or golden criteria, call it a tie even when the query JSON differs.
-
-When reporting a branch comparison, include enough evidence to audit that the branch path was actually exercised:
-
-- Show the full branch UUID in the comparison, not only a shortened prefix.
-- Record that the branch run used `--branch-id <branch-id>` for every prompt.
-- If the generate-query response still reports the shared/base `query.modelId`, do not use that alone as proof that the branch was skipped; instead rely on the command/flag used and call out the ambiguity if needed.
-- Never claim "byte-for-byte identical" unless you compared the complete generated JSON after confirming the branch flag was present on the branch calls.
-
-### Example Comparison Output
-
-```
-A/B Comparison: main vs branch/new-context
-                      A (main)    B (new-context)    Delta
-Overall pass rate:    88.0%       94.0%              +6.0%
-Topic accuracy:       96.0%       98.0%              +2.0%
-Field accuracy:       90.0%       94.0%              +4.0%
-Filter accuracy:      88.0%       96.0%              +8.0%
-
-Regressions (passed in A, failed in B):
-  - rev-by-quarter: fields missing order_items.total_revenue
-
-Improvements (failed in A, passed in B):
-  - customer-count: topic now correctly selects users
-  - top-products: filters now include status=complete
-```
-
-> **Important**: Always check for regressions, not just overall improvement. A net improvement that breaks previously-correct cases may indicate an `ai_context` conflict.
-
-## Snapshotting Model State
-
-Before running evals, snapshot the model definition so results are reproducible:
-
-```bash
-# Save model YAML
-omni models yaml-get <modelId> --compact > model_snapshot_$(date +%Y%m%d).json
-
-# Validate model integrity
-omni models validate <modelId>
-```
-
-Version your eval set alongside model snapshots so you can trace which model state produced which scores.
-
-## Known Issues & Gotchas
-
-- **Filter comparison can be complex** — Omni supports rich filter expressions (`"last 7 days"`, `"between 10 and 100"`, `"not null"`). The structural comparison above uses exact string match on filter values. If the AI produces semantically equivalent but syntactically different expressions, you may see false failures. Consider normalizing common patterns or using a Jaccard threshold.
-- **AI Jobs are async** — poll with exponential backoff. Don't hammer the status endpoint.
-- **Rate limiting** — for high-volume eval runs, add a small delay between calls or batch requests.
-- **`limit` field may vary** — the AI may choose different limits than expected. Consider excluding `limit` from strict comparison if it's not critical to your eval.
-- **`table` vs `topic`** — the generate-query response returns `topic` as a top-level field and `table` inside the query object. These usually match but aren't always identical. Compare against the top-level `topic`.
-
-## Docs Reference
-
-- [AI API](https://docs.omni.co/api/ai.md) · [Query API](https://docs.omni.co/api/queries.md) · [Models API](https://docs.omni.co/api/models.md) · [Optimizing Models for AI](https://docs.omni.co/ai/optimize-models.md)
-
-## Related Skills
-
-- **omni-query** — run golden queries to validate expected results
-- **omni-model-explorer** — discover topics and fields for building eval cases
-- **omni-ai-optimizer** — improve AI accuracy based on eval findings
-- **omni-model-builder** — apply context changes on branches before A/B testing
+- **omni-ai-optimizer** — improve AI accuracy based on eval findings (`ai_context`, `sample_queries`, field metadata)
+- **omni-model-builder** — apply context changes on a branch before A/B testing
+- **omni-model-explorer** — discover topics and fields when writing prompts
