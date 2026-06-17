@@ -6,6 +6,18 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.4.2] - 2026-06-17
+
+### omni-analytics
+
+**Added**
+- `omni-query` documents the **raw-SQL query pathway**: a new *Running Raw SQL (`userEditedSQL`)* section (minimal body with `fields: []`; `rewriteSql: false` for verbatim execution and `dbtMode: true` for Jinja; the SQL-querying permission gate, which fails as `FORBIDDEN` returned as HTTP 200 in the job body, not a 4xx; the 50,000-row cap with a +1 truncation sentinel; warehouse-dialect/fully-qualified-name requirement), plus a *Request-level options* table (`resultType`, `cache`, `userId`, `branchId`, `planOnly`, `formatResults`, `timezone`).
+- `omni-admin` adds an **Access Boost** subsection: the role values (`NO_ACCESS`/`VIEWER`/`EDITOR`/`MANAGER`), the org-capability prerequisite (`allowsDocumentAccessBoost` / `allowsMemberToProvisionAccessBoost` — an instance setting, not a CLI op), both per-document levers (`documents add-permits`/`update-permits` with `accessBoost`, and `documents update-permission-settings` with `organizationAccessBoost`), and the **dashboard-only** scope (it does not extend to the underlying workbook's non-topic/SQL tabs).
+- `omni-content-builder` adds a **Raw-SQL tiles** recipe in `references/queryPresentations.md` with the end-to-end path (author the `userEditedSQL` tile → publish → Access Boost) and a proactive directive: when a tile is non-topic/raw-SQL, ask whether the audience includes Restricted Queriers/Viewers and counsel Access Boost. Supports SQL-first dashboard migrations (e.g. from Mode) where a governed topic may not yet exist.
+
+**Changed**
+- `omni-query` corrects the `table` parameter from required to **Conditional** (a semantic query needs it only when neither `join_paths_from_topic_name` nor `userEditedSQL` is set; the API requires just `modelId` + `fields`), reframes the Fallback note so bare-view and raw-SQL read as one **non-topic** family (topic-scoped access filters / `always_where` apply to neither; raw SQL additionally bypasses object-level access grants), lists `resultType` `csv`/`xlsx`/`json`, and fixes the job-result "strip `userEditedSQL`" rationale (it removes a non-topic query that bypasses topic-scoped controls — not "row-level access controls").
+
 ## [1.4.1] - 2026-06-16
 
 ### omni-analytics
