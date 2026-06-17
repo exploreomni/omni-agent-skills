@@ -106,7 +106,7 @@ The allowed tile keys — anything else is a 400:
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `name` | Yes | Tile/tab title |
-| `type` | Recommended | `"query"` for standard query tiles |
+| `type` | **Yes** | Tile kind — omitting it 400s. `"query"` for standard semantic tiles; **`"sql"` for a raw-SQL (`userEditedSQL`) tile**. Full enum: `query`, `sql`, `blank`, `csv`, `dataset`, `spreadsheet`, `dbt`, `query-view`, `linked`, `app`. |
 | `topicName` | Recommended | Topic name for the query — set this whenever querying from a topic. Ensures correct join context in the dashboard. |
 | `prefersChart` | Yes (charts) | **Must be `true` to render a chart.** Without it, Omni always shows the results table regardless of any other vis settings. |
 | `automaticVis` | Recommended | Set `false` when authoring an explicit vis config (and always for markdown tiles). Seed-tile caveat: tile `"1"` on create can come back `true` — re-patch if it matters. |
@@ -160,17 +160,26 @@ There is no `query.visConfig` in v2 — the v1 `{ "chartType": … }` hint is no
 
 ### Raw-SQL tiles
 
-To build a tile from raw SQL instead of semantic fields, set `userEditedSQL` to the SQL string. `fields` may be empty (`[]`) and `table` is ignored — the SQL is authoritative. Optionally add `"rewriteSql": false` to run it verbatim or `"dbtMode": true` for Jinja/dbt templating (see **`omni-query`** → *Running Raw SQL* for behavior, the permission gate, and the row cap).
+To build a tile from raw SQL instead of semantic fields, set the presentation-level **`type: "sql"`** (required — a raw-SQL tile authored as `type: "query"` is mis-typed) and put the SQL in the query's `userEditedSQL`. `fields` may be empty (`[]`) and `table` is ignored — the SQL is authoritative. Optionally add `"rewriteSql": false` to run it verbatim or `"dbtMode": true` for Jinja/dbt templating (see **`omni-query`** → *Running Raw SQL* for behavior, the permission gate, and the row cap). As with any tile, give it a real `visConfig` (e.g. a table) or it renders as "Item missing".
 
 ```jsonc
-"query": {
-  "fields": [],
-  "userEditedSQL": "select status, count(*) as orders from ECOMM.ORDER_ITEMS group by 1",
-  "table": "", "limit": 1000,
-  "sorts": [], "filters": {}, "calculations": [],
-  "column_totals": {}, "row_totals": {}, "fill_fields": [], "pivots": []
+"<tileKey>": {
+  "name": "Ad-hoc SQL",
+  "type": "sql",
+  "prefersChart": false,
+  "automaticVis": false,
+  "visConfig": { "chartType": "table", "fields": ["<result.col>"], "version": 0, "visConfig": { "visType": "omni-table", "config": {} } },
+  "query": {
+    "fields": [],
+    "userEditedSQL": "select status, count(*) as orders from ECOMM.ORDER_ITEMS group by 1",
+    "table": "", "limit": 1000,
+    "sorts": [], "filters": {}, "calculations": [],
+    "column_totals": {}, "row_totals": {}, "fill_fields": [], "pivots": []
+  }
 }
 ```
+
+The raw SQL's output columns resolve to `view.col` field ids (e.g. `ecomm__order_items.status`) — run the query once via `omni query run` to read the exact ids for `visConfig.fields`.
 
 A raw-SQL tile is a **non-topic tile** — it's invisible to Viewer / Restricted Querier roles unless the document has **Access Boost** (dashboard-only; see "Access matters" in the skill body). **End-to-end path** for surfacing a raw-SQL tile to restricted roles (caller needs Manager on the document + the org Access-Boost capability):
 1. Author/patch the tile with `userEditedSQL` and publish the draft (`v2-publish-draft`).
