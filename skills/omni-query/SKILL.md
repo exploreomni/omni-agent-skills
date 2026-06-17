@@ -266,11 +266,13 @@ These keys sit at the **top level** of the body, beside `query`, not inside it:
 
 Default response: base64-encoded Apache Arrow table. Arrow results are binary — you cannot parse individual row data from the raw response. To verify a query returned data, check `summary.row_count` in the response.
 
-For human-readable results, request a different `resultType` (`csv`, `xlsx`, or `json`):
+To read the results yourself (to validate or spot-check), request **`resultType: "csv"`** or **`"json"`** — both come back as text you can parse directly:
 
 ```json
 { "query": { ... }, "resultType": "csv" }
 ```
+
+`resultType: "xlsx"` is also valid, but it returns a **binary** `.xlsx` file (zip-based) — like the default Arrow blob, you can't read it inline without a spreadsheet app or a library. Use it only to **deliver a file** to a person, not to inspect results. For agent-side reading, stick to `csv`/`json`.
 
 ### Result Validation
 
