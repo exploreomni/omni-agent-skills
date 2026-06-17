@@ -12,7 +12,7 @@
       "ground_truth": "User created with correct email, displayName, and active: true. If the user already exists from a prior run, a follow-up lookup confirms the existing user has the exact requested email, displayName, and active state.",
       "expected_behavior": [
         "The agent includes the full SCIM schema ('urn:ietf:params:scim:schemas:core:2.0:User') in the create request body",
-        "After creating the user, or after receiving a conflict because the user already exists, the agent runs a verification step \u2014 either omni scim users-list with a filter or a get call \u2014 to confirm the user exists",
+        "After creating the user, or after receiving a conflict because the user already exists, the agent runs a verification step — either omni scim users-list with a filter or a get call — to confirm the user exists",
         "The agent reports the user's ID or confirms active: true and the requested displayName from the verification response rather than assuming success from the create response alone"
       ],
       "expected_skill": "omni-admin"
@@ -48,18 +48,6 @@
         "The agent first looks up the user by email using omni scim users-list with a filter before attempting to set the attribute",
         "The SCIM update uses the Omni user attribute path format: urn:omni:params:1.0:UserAttribute:region",
         "The agent verifies the attribute was set after the update"
-      ],
-      "expected_skill": "omni-admin"
-    },
-    {
-      "id": "5",
-      "question": "The user {{EVAL_EXISTING_USER}} needs to view the dashboard with identifier '{{EVAL_DASHBOARD_PERMISSIONS}}', but it contains non-topic content that Viewer / Restricted Querier roles can't see by default. Grant them access-boosted view access.",
-      "ground_truth": "Because Access Boost loosens access controls, the agent first states what boosting will expose and confirms intent, then grants it at the narrowest scope — omni documents add-permits on {{EVAL_DASHBOARD_PERMISSIONS}} with accessBoost: true and role VIEWER for {{EVAL_EXISTING_USER}} (userIds), not org-wide organizationAccessBoost. It notes the org prerequisite (allowsDocumentAccessBoost) and that Access Boost is dashboard-only (the workbook's SQL/non-topic tabs stay hidden), and verifies via the access list.",
-      "expected_behavior": [
-        "The agent states the implication (boosting exposes the non-topic content to the user, bypassing topic-scoped governance) and confirms intent before applying it — it does not boost reflexively",
-        "The agent grants at the narrowest scope: omni documents add-permits (or update-permits) on {{EVAL_DASHBOARD_PERMISSIONS}} with accessBoost: true and role VIEWER for {{EVAL_EXISTING_USER}}, NOT org-wide organizationAccessBoost",
-        "The agent notes the org capability prerequisite (allowsDocumentAccessBoost) must be enabled, and that Access Boost is dashboard-only (does not expose the underlying workbook/SQL tabs)",
-        "The agent verifies the grant (e.g. omni documents access-list on {{EVAL_DASHBOARD_PERMISSIONS}})"
       ],
       "expected_skill": "omni-admin"
     }

@@ -308,9 +308,6 @@ These items require either the Omni admin UI or your IdP's SCIM integration:
 - Enable embed and configure your embed domain
 - Create an embed user with a known `externalId` — this goes into `EVAL_EMBED_USER`
 
-**Access Boost** (org settings):
-- Enable the org Access Boost capability (`allowsDocumentAccessBoost`) — used by admin eval 5. Without it, an `accessBoost: true` permit is silently cleared on write, so the eval can't actually grant boosted access.
-
 ## 8. Verify
 
 Smoke-test the model is working before running evals:
@@ -334,7 +331,6 @@ Some evals write state. Reset before re-running:
 |---|---|---|
 | omni-admin eval 1 | Creates `newanalyst@company.com` user | Delete via SCIM or admin UI |
 | omni-admin eval 3 | Creates a schedule on `EVAL_DASHBOARD_SCHEDULE` | Delete via admin UI or `omni schedules delete` |
-| omni-admin eval 5 | Grants `EVAL_EXISTING_USER` an access-boosted view permit on `EVAL_DASHBOARD_PERMISSIONS` | `omni documents revoke-permits <EVAL_DASHBOARD_PERMISSIONS> --body '{"userIds":["<user id>"]}'` (or remove via the document's Share UI) |
 | omni-content-builder eval 2 | Adds a tile to `EVAL_DASHBOARD_TILES` | `./evals/reset.sh` recreates Sales Performance and updates `eval-env.local.json` |
 | omni-content-builder eval 11 | Creates its own throwaway dashboard (raw-SQL tile) via `v2-create` | `omni documents delete <identifier>` (the created document) |
 | omni-content-builder eval 10 | Creates its own throwaway model branch (with an `eval_branch_avg_price` measure) and a branch-bound draft on it | Branch-cleanup command below removes it and its draft — the branch name does not start with `eval-`, so the filter catches it. Leaves `EVAL_BRANCH_ID`/`eval-comparison-branch` untouched. |

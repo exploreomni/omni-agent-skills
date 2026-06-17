@@ -23,7 +23,7 @@ The versions documented here should match the published plugin versions in the a
 - `omni-content-builder` `references/queryPresentations.md`: corrected the tile `type` field from "Recommended" to **Required** (omitting it 400s), and clarified that dashboard query tiles — **including raw-SQL tiles** — use **`type: "query"`** (a raw-SQL tile is a `query` tile with `userEditedSQL`; `type: "sql"` is a separate content-item kind that renders as "Unknown content item type" on a dashboard, and the `containers` slot child `type` must match). Rewrote the *Raw-SQL tiles* recipe accordingly, including the two render requirements proven by building a live tile and reading it back: a real `visConfig` **and** `query.fields` populated with the SQL's result column ids (not `[]`); `join_paths_from_topic_name` must be `""` not `null`. Added a *Known Issues* note that a tile with a null `visConfig` renders as "Item missing" (a vis-config gap, not a `containers` gap).
 
 **Evals**
-- `omni-query`: topic-first reproduction of handed-over SQL (no `userEditedSQL`), explicit-verbatim raw SQL (`rewriteSql: false`), and the unbounded-raw-SQL 50k row cap. `omni-content-builder`: SQL-first migration tile + proactive Access Boost prompt. `omni-admin`: Access Boost a raw-SQL dashboard for a Restricted Querier (dashboard-only, org prerequisite).
+- `omni-query`: topic-first reproduction of handed-over SQL (no `userEditedSQL`), explicit-verbatim raw SQL (`rewriteSql: false`), and the unbounded-raw-SQL 50k row cap. `omni-content-builder`: SQL-first migration tile (self-contained `v2-create`) + proactive Access Boost prompt.
 
 ## [1.4.1] - 2026-06-16
 
