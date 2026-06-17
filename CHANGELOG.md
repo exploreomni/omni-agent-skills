@@ -17,6 +17,10 @@ The versions documented here should match the published plugin versions in the a
 
 **Changed**
 - `omni-query` corrects the `table` parameter from required to **Conditional** (a semantic query needs it only when neither `join_paths_from_topic_name` nor `userEditedSQL` is set; the API requires just `modelId` + `fields`), reframes the Fallback note so bare-view and raw-SQL read as one **non-topic** family (topic-scoped access filters / `always_where` apply to neither; raw SQL additionally bypasses object-level access grants), lists `resultType` `csv`/`xlsx`/`json`, and fixes the job-result "strip `userEditedSQL`" rationale (it removes a non-topic query that bypasses topic-scoped controls — not "row-level access controls").
+- `omni-query` sets a **topic-first reflex for SQL input**: when handed SQL, reproduce its intent through a topic when a suitable one exists (using `omni-model-explorer` / `omni ai pick-topic` / `generate-query --run-query=false`); fall back to raw `userEditedSQL` only when no topic fits or the user asks to run it as-is — not text-to-SQL passthrough and not force-fitting a topic. Added as a *Safe Defaults* directive and the lead-in to *Running Raw SQL*.
+
+**Evals**
+- `omni-query`: topic-first reproduction of handed-over SQL (no `userEditedSQL`), explicit-verbatim raw SQL (`rewriteSql: false`), and the unbounded-raw-SQL 50k row cap. `omni-content-builder`: SQL-first migration tile + proactive Access Boost prompt. `omni-admin`: Access Boost a raw-SQL dashboard for a Restricted Querier (dashboard-only, org prerequisite).
 
 ## [1.4.1] - 2026-06-16
 

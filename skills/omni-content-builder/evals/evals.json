@@ -164,6 +164,21 @@
         "omni-model-builder",
         "omni-query"
       ]
+    },
+    {
+      "id": "11",
+      "question": "We're migrating a SQL-first dashboard (from Mode) and the metric isn't modeled into any topic yet. Add a tile to the dashboard that runs the raw SQL, and make sure our Viewer-role stakeholders can actually see it.",
+      "ground_truth": "The agent authors a raw-SQL tile (a queryPresentation query with userEditedSQL and fields: []) via the draft flow, and — because the tile is non-topic — proactively raises that it is invisible to Viewer/Restricted Querier roles, asks about the audience, and counsels Access Boost on the document (deferring the boost commands to omni-admin and noting it is dashboard-only).",
+      "expected_behavior": [
+        "The agent builds the tile with a userEditedSQL query in the queryPresentation via the draft flow (v2-patch-draft then publish), not a topic query",
+        "The agent recognizes the tile is non-topic and flags that Viewer/Restricted Querier roles cannot see it by default",
+        "The agent asks whether the audience includes restricted roles and recommends Access Boost on the document",
+        "The agent points to omni-admin for the Access Boost commands rather than inventing them, and notes Access Boost is dashboard-only"
+      ],
+      "expected_skill": "omni-content-builder",
+      "depends_on": [
+        "omni-admin"
+      ]
     }
   ]
 }

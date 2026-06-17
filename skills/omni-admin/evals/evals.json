@@ -50,6 +50,18 @@
         "The agent verifies the attribute was set after the update"
       ],
       "expected_skill": "omni-admin"
+    },
+    {
+      "id": "5",
+      "question": "A Restricted Querier reports they can't see the 'Ad-hoc SQL KPIs' dashboard, which has raw-SQL tiles. Give that user access to view it.",
+      "ground_truth": "The agent enables Access Boost for the user on the document via omni documents add-permits with accessBoost: true and a VIEWER role, notes the org-level prerequisite (allowsDocumentAccessBoost) and that Access Boost is dashboard-only (the workbook's SQL tabs stay hidden), and verifies via the access list.",
+      "expected_behavior": [
+        "The agent uses omni documents add-permits (or update-permits) with accessBoost: true and role VIEWER for the user",
+        "The agent notes the org capability prerequisite (allowsDocumentAccessBoost) must be enabled for Access Boost to take effect",
+        "The agent states Access Boost is dashboard-only and does not expose the underlying workbook/SQL tabs",
+        "The agent verifies the grant (e.g. omni documents access-list)"
+      ],
+      "expected_skill": "omni-admin"
     }
   ]
 }
