@@ -180,6 +180,35 @@ omni documents add-permits <documentId> --body '{
 }'
 ```
 
+`role` is one of `NO_ACCESS`, `VIEWER`, `EDITOR`, `MANAGER`.
+
+### Access Boost
+
+**Access Boost** lets Viewer / Restricted Querier roles view a dashboard built on **non-topic content** — a raw-SQL (`userEditedSQL`) tile or a bare base-view query — which those roles otherwise can't see. (Model **access grants** still apply unless the grant sets `access_boostable: true`.)
+
+**Dashboard-only:** Access Boost lifts the restriction on the **dashboard** view of those tiles. It does **not** extend to the underlying **workbook** — a restricted role still can't open the workbook's non-topic or SQL tabs (or see the query behind the tile) regardless of Access Boost.
+
+**Prerequisite (org capability, not in the CLI):** the org must have `allowsDocumentAccessBoost` enabled (and `allowsMemberToProvisionAccessBoost` for non-admins to grant it). This is an instance/admin setting — if it's off, the document-level flags below are silently cleared. It's a gate; it does **not** itself turn Access Boost on anywhere.
+
+Two activation levers, both **scoped to a single document**:
+
+```bash
+# Boost specific users/groups on this document (add-permits / update-permits)
+omni documents add-permits <documentId> --body '{
+  "userGroupIds": ["group-uuid"],
+  "role": "VIEWER",
+  "accessBoost": true
+}'
+
+# Boost the "everyone in the org" principal on this document
+omni documents update-permission-settings <documentId> --body '{
+  "organizationAccessBoost": true,
+  "organizationRole": "VIEWER"
+}'
+```
+
+`update-permission-settings` (PUT) also carries the document's other toggles — `canDownload`, `canDrill`, `canSchedule`, `canUpload`, `canUseDashboardAi`, `canUseTimezoneOverride`, `canViewWorkbook`, `requirePullRequestToPublish`. Note `organizationAccessBoost` boosts the org-default principal on **this** document only — it is not an org-wide switch.
+
 ## Folder Permissions
 
 ```bash

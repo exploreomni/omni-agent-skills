@@ -152,11 +152,30 @@ The `query` object follows the [Query API](https://docs.omni.co/api/queries.md) 
 | `row_totals` | Yes | `{}` fine |
 | `fill_fields` | Yes | `[]` fine |
 | `pivots` | Yes | Array of field names to pivot on — a color/stack dimension (e.g. for a stacked chart) **must** be pivoted. `[]` fine |
-| `userEditedSQL` | Yes | `""` fine |
+| `userEditedSQL` | Yes | `""` for a normal semantic tile. Set to a SQL string to make this a **raw-SQL tile** (see below). |
 
 There is no `query.visConfig` in v2 — the v1 `{ "chartType": … }` hint is not part of the schema and does nothing. The tile is driven entirely by the presentation-level `visConfig` envelope.
 
 > **Querying a topic — base view + join path.** Set `table` to the topic's **base view**, pass `join_paths_from_topic_name: <topic>`, and set `topicName` on the parent queryPresentation. Joined-view fields (e.g. `users.state` on an `order_items` topic) resolve through the topic's join map — keep `table` at the base view, not the joined view. For the full mechanics, the omit-it failure mode, and verifying with `omni models get-topic` (`base_view_name`/`join_via_map`), see **`omni-query`**'s *Build queries on a topic*. (For *choosing* which topic, or when to extend/create one, see `omni-query` and `omni-model-builder`.)
+
+### Raw-SQL tiles
+
+To build a tile from raw SQL instead of semantic fields, set `userEditedSQL` to the SQL string. `fields` may be empty (`[]`) and `table` is ignored — the SQL is authoritative. Optionally add `"rewriteSql": false` to run it verbatim or `"dbtMode": true` for Jinja/dbt templating (see **`omni-query`** → *Running Raw SQL* for behavior, the permission gate, and the row cap).
+
+```jsonc
+"query": {
+  "fields": [],
+  "userEditedSQL": "select status, count(*) as orders from ECOMM.ORDER_ITEMS group by 1",
+  "table": "", "limit": 1000,
+  "sorts": [], "filters": {}, "calculations": [],
+  "column_totals": {}, "row_totals": {}, "fill_fields": [], "pivots": []
+}
+```
+
+A raw-SQL tile is a **non-topic tile** — it's invisible to Viewer / Restricted Querier roles unless the document has **Access Boost** (dashboard-only; see "Access matters" in the skill body). **End-to-end path** for surfacing a raw-SQL tile to restricted roles (caller needs Manager on the document + the org Access-Boost capability):
+1. Author/patch the tile with `userEditedSQL` and publish the draft (`v2-publish-draft`).
+2. Verify the tile renders (`omni documents get-queries` → `omni query run`).
+3. Access-Boost the document — **`omni-admin`** → *Document Permissions* (`add-permits` with `accessBoost: true` for specific users/groups, or `update-permission-settings` with `organizationAccessBoost: true` for everyone in the org).
 
 ## chartType values (summary)
 
