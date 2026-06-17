@@ -185,13 +185,13 @@
     },
     {
       "id": "16",
-      "question": "Our analyst sent this SQL: SELECT DATE_TRUNC('month', created_at) AS month, SUM(sale_price) AS revenue FROM ECOMM.ORDER_ITEMS GROUP BY 1 ORDER BY 1. Get me these numbers from Omni.",
-      "ground_truth": "The agent recognizes a topic can express monthly revenue, maps the SQL's intent to semantic fields (a month timeframe dimension + a revenue measure) on the appropriate topic, and runs that query. It does NOT run the SQL verbatim via userEditedSQL.",
+      "question": "Our analyst sent this SQL: SELECT DATE_TRUNC('month', created_at) AS month, COUNT(*) AS orders FROM ECOMM.ORDER_ITEMS GROUP BY 1 ORDER BY 1. Get me these numbers from Omni.",
+      "ground_truth": "The agent recognizes a topic can express orders-per-month, maps the SQL's intent to existing semantic fields (a created_at month timeframe dimension + the count measure) on the appropriate topic, and runs that semantic query. It does NOT run the SQL verbatim via userEditedSQL. If a requested aggregate had no matching measure on the topic, the topic-first outcome is to propose adding the measure (model-builder) rather than hand-write raw SQL.",
       "expected_behavior": [
-        "The agent interprets the SQL's intent (monthly grain, summed revenue) rather than passing it through verbatim",
-        "The agent checks for a suitable topic/fields (e.g. via omni-model-explorer, omni ai pick-topic, or omni ai generate-query --run-query=false)",
-        "The agent runs a semantic query on the topic with a created_at[month] dimension and a revenue measure, not userEditedSQL",
-        "The agent only falls back to raw SQL if no topic can express it, and says so explicitly"
+        "The agent interprets the SQL's intent (monthly grain, order count) rather than passing it through verbatim",
+        "The agent checks for a suitable topic/fields (e.g. via omni-model-explorer, omni ai pick-topic, or omni ai generate-query --run-query=false), and validates that the fields it uses actually exist",
+        "The agent runs a semantic query on the topic with a created_at[month] dimension and the count measure, not userEditedSQL",
+        "If the topic lacked a matching measure, the agent proposes adding it (model-builder) or notes the gap, rather than silently hand-writing raw SQL"
       ],
       "expected_skill": "omni-query"
     },
