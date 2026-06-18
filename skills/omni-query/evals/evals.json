@@ -182,6 +182,41 @@
         "The calc carries format: '0.0%' for percent display"
       ],
       "expected_skill": "omni-query"
+    },
+    {
+      "id": "16",
+      "question": "Our analyst sent this SQL: SELECT DATE_TRUNC('month', created_at) AS month, COUNT(*) AS orders FROM ECOMM.ORDER_ITEMS GROUP BY 1 ORDER BY 1. Get me these numbers from Omni.",
+      "ground_truth": "The agent recognizes a topic can express orders-per-month, maps the SQL's intent to existing semantic fields (a created_at month timeframe dimension + the count measure) on the appropriate topic, and runs that semantic query. It does NOT run the SQL verbatim via userEditedSQL. If a requested aggregate had no matching measure on the topic, the topic-first outcome is to propose adding the measure (model-builder) rather than hand-write raw SQL.",
+      "expected_behavior": [
+        "The agent interprets the SQL's intent (monthly grain, order count) rather than passing it through verbatim",
+        "The agent checks for a suitable topic/fields (e.g. via omni-model-explorer, omni ai pick-topic, or omni ai generate-query --run-query=false), and validates that the fields it uses actually exist",
+        "The agent runs a semantic query on the topic with a created_at[month] dimension and the count measure, not userEditedSQL",
+        "If the topic lacked a matching measure, the agent proposes adding it (model-builder) or notes the gap, rather than silently hand-writing raw SQL"
+      ],
+      "expected_skill": "omni-query"
+    },
+    {
+      "id": "17",
+      "question": "Run this exact SQL against the Public Example model and return the result, executed verbatim (do not rewrite it): select status, count(*) as orders from ECOMM.ORDER_ITEMS group by 1",
+      "ground_truth": "Because the user explicitly asked to run the SQL as-is, the agent runs it via omni query run with userEditedSQL, fields: [], and rewriteSql: false, and reports the result. It does not route through omni ai generate-query/job-submit or map the SQL onto semantic fields.",
+      "expected_behavior": [
+        "The agent honors the explicit verbatim request and uses omni query run with userEditedSQL (not generate-query, job-submit, or a topic reproduction)",
+        "The body includes fields: [] (present but empty) and does not require a table",
+        "The agent sets rewriteSql: false to run the SQL verbatim",
+        "The agent reports the returned rows (e.g. via summary / display_sql or resultType csv)"
+      ],
+      "expected_skill": "omni-query"
+    },
+    {
+      "id": "18",
+      "question": "Use raw SQL to return every row of ECOMM.ORDER_ITEMS (a large table). How many rows will you actually get back, and how should the query be bounded?",
+      "ground_truth": "The agent explains an unbounded userEditedSQL query is capped at 50,000 rows (the response returns 50,001, the cap plus a truncation sentinel) and that the envelope limit does not bind for raw SQL, so a LIMIT must go in the SQL itself or the query should aggregate. It does not claim the full table is returned.",
+      "expected_behavior": [
+        "The agent states the ~50,000-row cap (50,001 with the sentinel) for unbounded raw SQL",
+        "The agent notes the envelope limit does not apply to userEditedSQL — LIMIT must be in the SQL string",
+        "The agent does not claim an unbounded raw query returns the entire table"
+      ],
+      "expected_skill": "omni-query"
     }
   ]
 }

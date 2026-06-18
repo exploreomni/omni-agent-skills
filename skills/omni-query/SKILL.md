@@ -38,6 +38,7 @@ omni ai --help                 # AI-powered query generation
 
 ## Known Issues & Safe Defaults
 
+- **When handed SQL, default to reproducing its intent on a topic** — read what the SQL does (grain, measures, filters, joins), then check whether a topic can express it (`omni-model-explorer`; `omni ai pick-topic` / `omni ai generate-query --run-query=false`). Reach for raw `userEditedSQL` only when no topic fits, or when the user explicitly asks to run their SQL as-is. See *Running Raw SQL*. Don't passthrough SQL by reflex (you're not a text-to-SQL generator), and don't force-fit a topic that doesn't match.
 - When the user asks for a **calculated column**, **table calculation**, **running total**, **moving average**, **percent change**, **row total**, **tier label**, **VLOOKUP**, **SUMIF**, or **date difference**, satisfy it with a `calculations[]` table calc selected in `query.fields`. Do not substitute an existing model field, `userEditedSQL`, client-side math, or a narrative-only explanation unless the user explicitly asks for that alternative.
 - For table-calc prompts, keep the final answer auditable: include a compact query JSON excerpt showing `query.fields`, `calculations[]`, relevant `pivots[]`/`limit`, and the validation result. Long CSV output can bury the important query shape; show a few result rows and the reusable query shape.
 - Do not paraphrase `sql_expression` in the final answer with placeholders such as `{ "OMNI_OFFSET_MULTI over": "field" }` or prose like "computed via `OMNI_RUNNING_TOTAL`." If you include reusable query JSON, copy the actual executed `calculations[]` object with operators and operands intact, or explicitly say you are omitting the full JSON for brevity.
@@ -56,7 +57,7 @@ Prefer building every query **on a topic**, not a bare base view. Topics carry t
 2. **The field is on a join-reachable view but the topic doesn't expose it / lacks the join** → propose *extending* the topic (add the relationship/join), then build it via `omni-model-builder`.
 3. **Fundamentally different subject, constraints, or audience** → propose a *new* topic (see the "new topic vs extend" criteria in `omni-model-builder`). Prompt the requestor first, and build it on a branch.
 
-**Fallback:** a query can run on a bare base view with no topic — it traverses joins via the global `relationships` file — but in a dashboard that tile is **invisible to restricted queriers/viewers**. Use only when no topic fits *and* the audience isn't restricted.
+**Fallback — non-topic query pathways.** Two pathways run *outside* any topic: a **bare base view** (`table:` + the global `relationships` file for joins) and **raw SQL** (`userEditedSQL`, see "Running Raw SQL"). Both share the same caveat: topic-scoped controls — **access filters** (row-level) and **always_where** — are not applied, and in a dashboard the tile is **invisible to Viewer / Restricted Querier roles by default** (handling a restricted audience is a content-permission concern — see **`omni-content-builder`**). The two pathways differ on **object-level access grants**: a bare-view query still enforces them, but raw SQL bypasses them too (it's the most permissive pathway). Prefer a topic when one fits; reach for a non-topic pathway only when nothing else expresses the query.
 
 When the conclusion is "build or modify a topic," hand off to **`omni-model-builder`** to do it right.
 
@@ -84,7 +85,7 @@ omni query run --body '{
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `modelId` | Yes | UUID of the Omni model |
-| `table` | Yes | Base view name (the `FROM` clause) |
+| `table` | Conditional | Base view (the `FROM`). Required for a semantic query **unless** `join_paths_from_topic_name` is set (base view comes from the topic) or `userEditedSQL` is used (table ignored). |
 | `fields` | Yes | Array of `view.field_name` references |
 | `join_paths_from_topic_name` | Recommended | Topic for join resolution |
 | `limit` | No | Row limit (default 1000, max 50000, `null` for unlimited) |
@@ -224,15 +225,56 @@ At execution, calcs compile into an outer `SELECT` wrapping the base aggregation
 
 For arithmetic, conditionals, chained calcs, the full operator catalog (`Omni.*` and `SqlStdOperatorTable.*`), AST node types, validation rules, and the recommended round-trip strategy for unfamiliar calcs, see [references/table-calculations.md](references/table-calculations.md).
 
+## Running Raw SQL (`userEditedSQL`)
+
+> **Given SQL? Reproduce it through a topic first.** When a user hands you SQL, your default is to express its *intent* through the semantic layer — not to run it verbatim. Read what the SQL does (grain, measures, filters, joins), then check whether a topic can express it: inspect topics/fields (`omni-model-explorer`) or let the model map it (`omni ai pick-topic`, `omni ai generate-query --run-query=false`). If a suitable topic exists, build the query on it — it's governed, visible to restricted roles, and reusable. Use raw `userEditedSQL` only when **no topic can express it** (a SQL-first migration before the metric is modeled, warehouse-specific SQL, or a genuinely one-off ad-hoc read), or when the user explicitly asks to run their SQL as-is. If a faithful reproduction would need a field or topic that doesn't exist but *should*, propose modeling it (`omni-model-builder`) instead of defaulting to raw SQL. The goal is a real attempt to use the model — **not** text-to-SQL passthrough, and **not** force-fitting a topic that doesn't match.
+>
+> **Reading `generate-query` output:** when the topic lacks a measure the metric needs, `generate-query` returns a **`${}`-templated `userEditedSQL`** (e.g. `SUM(${view.sale_price}) AS sale_price_sum FROM ${Topic}`) and lists its SQL-output aliases (like `sale_price_sum`) in `fields`. Those aliases are **not model fields** — don't strip the SQL and try to run them semantically (they won't resolve). And the `${Topic}` token resolves **only inside `generate-query`'s own execution** — the templated query is **not** directly runnable via `query run` or persistable as a dashboard tile (verified: it errors with `No such view "Order Items"`). So don't reuse it as-is; treat it as a **signal that the topic is missing a measure** and add that measure (`omni-model-builder`) so the metric becomes a clean semantic field.
+
+`userEditedSQL` is a **non-topic query pathway** — the same family as a bare-view query (see "Fallback — non-topic query pathways"). It's an escape hatch for SQL the semantic layer can't express; prefer a topic or semantic fields when they fit.
+
+```bash
+omni query run --body '{
+  "query": {
+    "modelId": "<model-id>",
+    "fields": [],
+    "userEditedSQL": "select count(*) as cnt from ECOMM.ORDER_ITEMS"
+  }
+}'
+```
+
+- **`fields` must be present** (an array; may be empty `[]`); `table` is not needed. The SQL is authoritative — populated `fields`/`table` are ignored when `userEditedSQL` is set.
+- Runs against the model's **connection** — write warehouse-dialect SQL with fully-qualified names, not field references.
+- **`"rewriteSql": false`** runs your SQL verbatim (the default parses and re-emits it — re-quoting identifiers, aliasing projections into the `view.field` namespace). **`"dbtMode": true`** allows Jinja/dbt templating. (Both are camelCase; the `query` object is permissive, so a misspelled/snake_case key is silently dropped.)
+- **Permission-gated:** the querier's role must permit manually-written SQL. Without it the job fails — `error_type: "FORBIDDEN"`, *"queries based on manually written SQL are restricted"* — returned as **HTTP 200 with the error in the job body**, not a 4xx.
+- **Access behavior:** raw SQL bypasses **all** model controls — object-level **access grants**, row-level **access filters**, and **always_where** — and is invisible to Viewer/Restricted Querier roles in a dashboard. It's the most permissive pathway; use only for ad-hoc reads by privileged users, and **strip it from any reused/dashboard query** (see "Using Job Results in a Dashboard").
+- **Row cap:** an unbounded raw query is capped at **50,000 rows** (the response returns 50,001 — the cap plus one truncation sentinel). The envelope `limit` is **not** applied to raw SQL; put `LIMIT` in the SQL itself to bound results.
+
+## Request-level options (outside `query`)
+
+These keys sit at the **top level** of the body, beside `query`, not inside it:
+
+| Option | Description |
+|--------|-------------|
+| `resultType` | Output format: `csv`, `xlsx`, or `json`. Omit for the default base64 Arrow response. |
+| `cache` | Cache policy: `Standard`, `SkipRequery`, `SkipCache`. |
+| `userId` | Run as another user (org-scoped API keys); also the `--userid` flag. |
+| `branchId` | Run against a model **branch** (validate draft model changes on live data). Must be a branch of the same shared model. |
+| `planOnly` | Return the execution plan **without running** the query (validate/debug at no warehouse cost). Cannot combine with `resultType`. |
+| `formatResults` | On exports, emit **formatted** values (e.g. `$1,234.56`) vs. raw. Requires `resultType`; ignored for Arrow. |
+| `timezone` | Per-request timezone override (IANA id). Requires the connection setting `allowsUserSpecificTimezones` **and** the org setting `allowsDocumentCanUseTimezoneOverride`; silently no-ops if either is off. |
+
 ## Handling and Validating Results
 
 Default response: base64-encoded Apache Arrow table. Arrow results are binary — you cannot parse individual row data from the raw response. To verify a query returned data, check `summary.row_count` in the response.
 
-For human-readable results, request CSV instead:
+To read the results yourself (to validate or spot-check), request **`resultType: "csv"`** or **`"json"`** — both come back as text you can parse directly:
 
 ```json
 { "query": { ... }, "resultType": "csv" }
 ```
+
+`resultType: "xlsx"` is also valid, but it returns a **binary** `.xlsx` file (zip-based) — like the default Arrow blob, you can't read it inline without a spreadsheet app or a library. Use it only to **deliver a file** to a person, not to inspect results. For agent-side reading, stick to `csv`/`json`.
 
 ### Result Validation
 
@@ -393,7 +435,7 @@ Additional job commands:
 
 The query object inside a job result is **not directly usable** as a dashboard `queryPresentation` — it requires a transformation. Key rules:
 
-- **Always strip `userEditedSQL`** — keeping it silently bypasses `always_where_sql`, `always_where_filters`, and row-level access controls. The `${Order Items}` topic-name token it contains also fails outside the job execution context.
+- **Always strip `userEditedSQL`** — it makes the tile a non-topic query, so it bypasses **all** model controls (object-level access grants, row-level access filters, and `always_where`) and is invisible to restricted roles in a dashboard. The `${Order Items}` topic-name token it contains also fails outside the job execution context.
 - **When `calculations[]` is non-empty**, stripping `userEditedSQL` is sufficient — the structured calc renders correctly.
 - **When `calculations[]` is empty**, Blobby authored the calc as inline SQL. The parsed AST is available in `csvResultFields` (at `result` level, not inside `result["query"]`) and can be reconstructed as a proper `calculations[]` entry. Fields whose top-level expr operator is an aggregate (`SUM`, `COUNT`, etc.) cannot be reconstructed as table calcs — add them to the model as filtered measures instead.
 

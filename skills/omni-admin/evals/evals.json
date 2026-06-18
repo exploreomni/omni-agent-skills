@@ -12,7 +12,7 @@
       "ground_truth": "User created with correct email, displayName, and active: true. If the user already exists from a prior run, a follow-up lookup confirms the existing user has the exact requested email, displayName, and active state.",
       "expected_behavior": [
         "The agent includes the full SCIM schema ('urn:ietf:params:scim:schemas:core:2.0:User') in the create request body",
-        "After creating the user, or after receiving a conflict because the user already exists, the agent runs a verification step \u2014 either omni scim users-list with a filter or a get call \u2014 to confirm the user exists",
+        "After creating the user, or after receiving a conflict because the user already exists, the agent runs a verification step — either omni scim users-list with a filter or a get call — to confirm the user exists",
         "The agent reports the user's ID or confirms active: true and the requested displayName from the verification response rather than assuming success from the create response alone"
       ],
       "expected_skill": "omni-admin"

@@ -106,7 +106,7 @@ The allowed tile keys — anything else is a 400:
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `name` | Yes | Tile/tab title |
-| `type` | Recommended | `"query"` for standard query tiles |
+| `type` | **Yes** | Tile kind — omitting it 400s. Dashboard query tiles — **including raw-SQL tiles** — use **`"query"`**; a raw-SQL tile is a `query` tile with `userEditedSQL` set (do **not** use `"sql"` — that is a separate content-item kind, not a dashboard query tile; the renderer reports "Unknown content item type"). Other enum values (`blank`, `csv`, `dataset`, `spreadsheet`, `sql`, `dbt`, `query-view`, `linked`, `app`) are non-query content items. The `containers` slot's child `type` must match — for query tiles it is always `"query"`. |
 | `topicName` | Recommended | Topic name for the query — set this whenever querying from a topic. Ensures correct join context in the dashboard. |
 | `prefersChart` | Yes (charts) | **Must be `true` to render a chart.** Without it, Omni always shows the results table regardless of any other vis settings. |
 | `automaticVis` | Recommended | Set `false` when authoring an explicit vis config (and always for markdown tiles). Seed-tile caveat: tile `"1"` on create can come back `true` — re-patch if it matters. |
@@ -152,11 +152,43 @@ The `query` object follows the [Query API](https://docs.omni.co/api/queries.md) 
 | `row_totals` | Yes | `{}` fine |
 | `fill_fields` | Yes | `[]` fine |
 | `pivots` | Yes | Array of field names to pivot on — a color/stack dimension (e.g. for a stacked chart) **must** be pivoted. `[]` fine |
-| `userEditedSQL` | Yes | `""` fine |
+| `userEditedSQL` | Yes | `""` for a normal semantic tile. Set to a SQL string to make this a **raw-SQL tile** (see below). |
 
 There is no `query.visConfig` in v2 — the v1 `{ "chartType": … }` hint is not part of the schema and does nothing. The tile is driven entirely by the presentation-level `visConfig` envelope.
 
 > **Querying a topic — base view + join path.** Set `table` to the topic's **base view**, pass `join_paths_from_topic_name: <topic>`, and set `topicName` on the parent queryPresentation. Joined-view fields (e.g. `users.state` on an `order_items` topic) resolve through the topic's join map — keep `table` at the base view, not the joined view. For the full mechanics, the omit-it failure mode, and verifying with `omni models get-topic` (`base_view_name`/`join_via_map`), see **`omni-query`**'s *Build queries on a topic*. (For *choosing* which topic, or when to extend/create one, see `omni-query` and `omni-model-builder`.)
+
+### Raw-SQL tiles
+
+A raw-SQL tile is a regular **`type: "query"` tile with `userEditedSQL` set** — *not* a `type: "sql"` content item (that is a different kind and renders as "Unknown content item type" on a dashboard). Put the SQL in `userEditedSQL`; `table` is ignored (the SQL is authoritative). Optionally add `"rewriteSql": false` to run it verbatim or `"dbtMode": true` for Jinja/dbt templating (see **`omni-query`** → *Running Raw SQL* for behavior, the permission gate, and the row cap).
+
+**Two render requirements** (verified by building a tile and reading it back) — without either, the tile shows "Item missing":
+- a real `visConfig` (e.g. the `omni-table` table shape), and
+- **`query.fields` populated with the SQL's result column ids** (matching `visConfig.fields`). For a raw-SQL tile this is *not* `[]` — the table needs the columns to display, even though `userEditedSQL` drives the data. Run the SQL once via `omni query run` to read the exact ids (they resolve to `view.col`, e.g. `ecomm__order_items.status`).
+
+```jsonc
+"<tileKey>": {
+  "name": "Ad-hoc SQL",
+  "type": "query",
+  "prefersChart": false,
+  "automaticVis": false,
+  "visConfig": { "chartType": "table", "fields": ["ecomm__order_items.status", "ecomm__order_items.orders"], "version": 0, "visConfig": { "visType": "omni-table", "config": {} } },
+  "query": {
+    "fields": ["ecomm__order_items.status", "ecomm__order_items.orders"],
+    "userEditedSQL": "select status, count(*) as orders from ECOMM.ORDER_ITEMS group by 1",
+    "table": "", "limit": 1000, "join_paths_from_topic_name": "",
+    "sorts": [], "filters": {}, "calculations": [],
+    "column_totals": {}, "row_totals": {}, "fill_fields": [], "pivots": []
+  }
+}
+```
+
+(`join_paths_from_topic_name: ""` — an empty string, never `null`; a `null` 400s on patch.) The tile reads back with `type: "query"`, `isSql: false`, and `userEditedSQL` set — so the **access-warning signal is `userEditedSQL` being populated**, not the tile `type`.
+
+A raw-SQL tile is a **non-topic tile** — it's invisible to Viewer / Restricted Querier roles unless the document has **Access Boost** (dashboard-only; see "Access matters" in the skill body). **End-to-end path** for surfacing a raw-SQL tile to restricted roles (caller needs Manager on the document + the org Access-Boost capability):
+1. Author/patch the tile with `userEditedSQL` and publish the draft (`v2-publish-draft`).
+2. Verify the tile renders (`omni documents get-queries` → `omni query run`).
+3. Access-Boost the document — **`omni-admin`** → *Document Permissions* (`add-permits` with `accessBoost: true` for specific users/groups, or `update-permission-settings` with `organizationAccessBoost: true` for everyone in the org).
 
 ## chartType values (summary)
 
