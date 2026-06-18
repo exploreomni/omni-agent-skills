@@ -154,7 +154,7 @@ Poll with backoff (e.g. 5s, 10s, 20s) until the run's `status` is terminal — `
 | `score` | Judge verdict for the prompt — pass = `1`, fail = `0` |
 | `error_reason` | Set when the underlying agentic job failed |
 | `cost` / `scoring_cost` | LLM cost (USD) for the answer vs. for judging it |
-| `timing_ms` | Wall-clock duration of the job |
+| `timing_ms` | Total **AI time** in ms — all LLM processing and tool calls (matches the "AI time" column in the UI), not wall-clock duration |
 | `agentic_job.conversation_id` | Open this chat to read the judge's full verdict, confidence, and rationale |
 
 **Overall accuracy = the pass rate** (mean of `score` across results). Report it with the per-prompt breakdown, and for any failure, point to the `conversation_id` so the user can read *why* the judge failed it — that rationale is where the actionable signal lives.
