@@ -18,6 +18,25 @@ In the [v2 documents API](documents-v2.md), `controls.data` holds dashboard filt
 
 > **Both filters and interactive controls scope per-tile.** `{"<tileKey>": false}` excludes a tile from either a **filter** (it stays all-time) or an interactive **`FIELD_SELECTION`** switcher (it stops rewriting that tile); `"<tileKey>": "<fieldName>"` remaps it.
 
+### Wiring a filter across tiles that use different date fields
+
+A date filter's `config.fieldName` (e.g. `order_items.created_at`) is the **default** applied to every tile. When tiles come from topics with **different date fields** — `order_items.created_at`, `sessions.session_start`, `users.created_at` — the default only matches some of them. Use `map` to remap each tile to *its own* date field:
+
+```jsonc
+"map": {
+  "12": "ecomm__sessions.session_start",   // a sessions-based tile
+  "15": "ecomm__users.created_at",          // a users/acquisition tile
+  "20": false                               // a current-state snapshot — leave unfiltered
+}
+```
+
+Two rules:
+
+- **A new tile inherits the control's *default* field.** If that field isn't in the new tile's topic, the filter can still be satisfied by **forcing a join through the global `relationships`** (a field reachable via a join the *topic* never declared) — which can **fan out and inflate counts** (e.g. a sessions tile dragging in `order_items`, so "viewed > sessions"). Always wire a new tile to its real date field (or `false`) — don't rely on the default.
+- **Relative-date filters shouldn't apply to current-state *snapshot* tiles** (inventory on hand, units in stock). Filtering "units in stock" by `created_at` turns a current snapshot into a creation-cohort and distorts it — exclude those tiles with `false`.
+
+A `map` value can only be a field name or `false` — there's no per-tile *override* of the relative window itself.
+
 ## Config shapes
 
 The full control catalog (`type` values from the `CONTROL_TYPE` enum):
@@ -276,17 +295,19 @@ A **control** lives once in `controls.data[id]` — it owns the config **and the
 
 ## Mustache control tokens (in markdown/text tiles)
 
-A markdown tile can react to a control's current selection:
+A markdown tile can react to a **control's** current selection. These tokens are for the **interactive controls** in this file (`FIELD_SELECTION` field/timeframe switchers, `FIELD_PICKER`, `TOP_N`, `PARENT`, `MULTI_FIELD_FILTER`, `DYNAMIC_FILTER`) — **not** for plain filters:
 
 | Token | Resolves to |
 |---|---|
 | `{{controls.<id>.summary}}` | the selected option's **friendly label** (e.g. `"Total Revenue"`) |
-| `{{controls.<id>.value}}` | the raw selected **field name** |
+| `{{controls.<id>.value}}` | `FIELD_SELECTION` → field name · `TOP_N` → number · `FIELD_PICKER` → array · `PARENT` → value |
 | `{{controls.<id>.label}}` | the control's **title** |
+
+> **⚠️ A filter is NOT a control.** A `date`/`string`/`number`/`boolean` **filter** never appears in the `controls` namespace — `{{controls.<filterId>.…}}` renders **empty**. Reference a filter under **`filters`**, keyed by **`view.field`** (not by control id): `{{filters.ecomm__order_items.created_at.summary}}` for the friendly window text, `.value` for the raw value. In a markdown-viz tile, `filters` resolves against that tile's **own** `query.filters`, so the same token reflects each tile's own (per-tile) filter/control. The full filter-vs-control decision, the keying rule, every namespace (`filters`/`controls`/`result`/`metadata`/`queries`/`inspect`), and worked scenarios are in **[mustache.md](mustache.md)**.
 
 > **Namespace gotcha.** `{{controls.<id>}}` resolves only against **dashboard controls** (`controls.data`). A control embedded in a tile's `query.controls[]` is invisible to the template (every token returns empty) **and** renders in the HIDDEN CONTROLS tray. Drive markdown from a dashboard control, not a tile-embedded one.
 
-This is the basis of the dynamic-caption and metric-switch patterns documented in [visConfig.md](visConfig.md).
+This is the basis of the dynamic-caption and metric-switch patterns documented in [visConfig.md](visConfig.md) and [mustache.md](mustache.md).
 
 ## See also
 

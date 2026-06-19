@@ -44,6 +44,7 @@ omni ai --help                 # AI-powered query generation
 - Do not paraphrase `sql_expression` in the final answer with placeholders such as `{ "OMNI_OFFSET_MULTI over": "field" }` or prose like "computed via `OMNI_RUNNING_TOTAL`." If you include reusable query JSON, copy the actual executed `calculations[]` object with operators and operands intact, or explicitly say you are omitting the full JSON for brevity.
 - Do not call a table-calc task complete until your final answer names the calc column and shows that same `calc_name` in both `query.fields` and `calculations[]`. This applies even for simple built-in operators like `OMNI_RUNNING_TOTAL`.
 - If a calc query succeeds but the calc column is blank, treat it as a failed calc until proven otherwise. Re-check operand order, `for_calc`, date truncation, `outside_pivot`, and whether the `calc_name` appears in `query.fields`.
+- **Don't swallow calc errors while authoring or validating.** Keep `swallow_errors: false` (the default) so a bad calc fails loudly with the real message. With `swallow_errors: true`, the column silently shows `#ERROR!` and the query still returns `COMPLETE` — easy to misread as data, a blank calc, or an engine bug. If you see `#ERROR!`, re-run with `swallow_errors: false` to surface the cause (often a referenced field missing from `query.fields`). When re-running a calc query you pulled from a document, dashboard tile, or `omni ai` job, run it **verbatim** — dropping a field the calc references manufactures an error that isn't the calc's fault. Reserve `swallow_errors: true` for a finalized tile that needs per-cell resilience, and validate it with `false` first. See `references/table-calculations.md` §5.11 & §6.5.
 - Prefer the documented Omni calc operators over lower-level raw SQL/window ASTs when a template exists. For example, use `Omni.OMNI_RUNNING_TOTAL`, `Omni.OMNI_PERCENT_CHANGE_FROM_PREVIOUS`, and `Omni.OMNI_FX_AVERAGE(Omni.OMNI_OFFSET_MULTI(...))` for moving averages instead of hand-authored `window_call`/`LAG` when the prompt asks for a table calculation.
 
 ## Build queries on a topic
@@ -155,6 +156,28 @@ with the typed date-filter object shape instead of dropping the filter:
 
 **Pivoted queries reject `limit: null`** — pass an explicit numeric limit (e.g., `5000`). Unlimited is only allowed when `pivots[]` is empty.
 
+### Transpose measures into rows (`transposed_measures`)
+
+Folds several **measures** from one wide row into **long form** — one row per measure — so the measures become a category you can chart against (e.g. a funnel, or a "measures on the axis" bar). `transposed_measures` is an **array of the measure field names** to fold (the same names you put in `fields`), **not a boolean** — passing `true` is silently rejected (`z.array(z.string())`), yielding an empty result.
+
+```json
+{
+  "query": {
+    "table": "order_items",
+    "fields": ["order_items.units_sold", "order_items.shipped_items", "order_items.delivered_items"],
+    "transposed_measures": ["order_items.units_sold", "order_items.shipped_items", "order_items.delivered_items"],
+    "join_paths_from_topic_name": "order_items"
+  }
+}
+```
+
+The result gains three synthetic columns at the first transposed measure's position:
+- **`measure_name`** — the measure's field name; **renders as the measure's friendly label** in a viz (e.g. "Units Sold").
+- **`measure_order`** — `0, 1, 2, …` in the order listed (the stage order).
+- **`measure_value`** — that measure's value for the row.
+
+This is the supported way to build a **funnel from multiple measures** (Omni's funnel needs a stage *dimension* + one measure, not N measures): chart `measure_name` as the stage and `measure_value` as the value. See `omni-content-builder` → *Config Object: Funnel*.
+
 ### Table Calculations
 
 Post-query computed columns (running totals, % of total, ratios, conditionals). Authored as AST objects in `calculations[]`. The query API requires the parsed AST — it does **not** accept the workbook-frontend `{name, formula}` shape.
@@ -194,7 +217,7 @@ calc shape, not just the result table. Show `fields: [..., "<calc_name>"]` and
 "operands": [{ "field_name": "...", "for_calc": true }] } }]` so the user can
 reuse or audit the query.
 
-Use `omni query run` with a hand-authored or copied AST when the user explicitly asks for a calculated column/table calculation. Do not route simple table-calc prompts through `omni ai job-submit`; agentic jobs can fall back to `userEditedSQL`, omit calc metadata, or leave a generated query pending. Reserve `job-submit` for requests that explicitly ask for the async agentic workflow or for broad multi-step analysis.
+Use `omni query run` with a hand-authored or copied AST when you already know the calc shape. **To *generate* anything non-trivial — table calculations, period-over-period, multi-step analysis — prefer the agentic path (`omni ai job-submit`):** it authors calcs that `generate-query` silently drops (e.g. month-over-month % change). To get a *reusable* AST out of an agentic job, lift the structured query / `calculations` from the job's **`actions[].generate_query`** result (not the `resultSummary`, and not a `userEditedSQL`/SQL fallback), then run it through `omni query run` to validate. Reserve `generate-query` for simple deterministic single queries, and for shape-only drafting where query execution isn't permitted.
 
 Query tasks are read-only unless the user explicitly asks to change the model.
 If a field appears missing, inspect topics/dashboard queries and use the right
@@ -447,13 +470,11 @@ For the complete transformation algorithm, discriminator logic, field-ref inject
 |----------|----------|
 | `omni query run` | You know exactly which fields, filters, and sorts you need |
 | `omni query run` with `calculations[]` | Explicit table-calculation requests where you know or can copy the AST shape |
-| `omni ai generate-query --run-query=false` | Getting a query AST shape to inspect or hand-edit before running |
+| `omni ai generate-query --run-query=false` | Drafting a **simple** query AST to inspect/hand-edit; **or shape-only when query execution isn't permitted** (the fallback when you can't run an agentic job) |
 | `omni ai generate-query --run-query=true` | Simple dimension/measure queries where you want a synchronous response |
-| `omni ai job-submit` | Requests that explicitly ask for the async agentic workflow, or broad multi-step questions where Blobby should plan and execute analysis |
+| `omni ai job-submit` | **Anything non-trivial** — multi-step analysis, **or generating a table calc / reusable query AST**. Lift the structured query/`calculations` from `actions[].generate_query`, then validate with `query run` |
 
-For explicit table-calculation work, prefer `omni query run` with `calculations[]`. If you need help discovering an unfamiliar AST shape, use `omni ai generate-query --run-query=false` to draft the query, then inspect and copy the structured `calculations[]` into a direct `query run`. Treat `job-submit` results as analysis output, not as the safest source for reusable calc JSON: job results may include `userEditedSQL`, pending generated queries, or SQL fallbacks that do not satisfy a request for a real table calc.
-
-`generate-query --run-query=false` remains useful when you want to inspect or hand-edit the query structure before executing — see eval #6.
+If you already know the calc AST, run it directly with `omni query run` + `calculations[]`. To **generate** a non-trivial calc, prefer the **agentic** path (`job-submit`) — it produces calcs that `generate-query` drops (verified: month-over-month % change). **When a table calculation is the desired or known-correct shape, say so in the prompt** (e.g. append "… *as a table calculation*", or name the calc semantics like "running total" / "% of total" / "moving average") — this steers the job to emit a real calc in `actions[].generate_query` rather than a `userEditedSQL`/SQL fallback. Pull the reusable AST from that `actions[].generate_query` result — *not* the `resultSummary`, and *not* a `userEditedSQL`/SQL fallback — then validate it with `query run` (calcs need their referenced fields in `fields`). `generate-query --run-query=false` is for drafting a **simple** AST to inspect/hand-edit, and is the shape-only fallback where query execution isn't permitted.
 
 ## Multi-Step Analysis Pattern
 

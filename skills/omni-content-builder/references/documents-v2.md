@@ -66,6 +66,8 @@ For anything non-trivial, write the body to a file and pass `--body "$(cat body.
 - `containers` is a **full replacement** of the layout tree (send the whole tree, with your edit applied).
 - A `queryPresentations` patch is capped at **48 entries**.
 
+> **Send only the tiles you changed — not the whole document echoed back.** Beyond the flat-config round-trip drop, re-sending the *entire* `queryPresentations.data` (all tiles read from `v2-get`) can hard-`400` with `"queryPresentations: Invalid input: expected string, received undefined"` if **any** existing tile doesn't round-trip cleanly (e.g. a legacy/scratch tile whose read shape isn't write-valid). The misleading part: the error names the top-level slice, not the offending tile. Because patch merges by key, the fix is to send **only the new/edited tiles** in `data` (plus the full `order` and full `containers`) — untouched tiles are preserved and never re-validated. Verified live adding tiles to an existing dashboard.
+
 ### The server anchors tiles to the workbook model
 
 On create, the server mints a per-document **workbook** model extending the shared `modelId` you pass. Tile queries carry **no `modelId`** — reads never expose one, and a `modelId` or `model_extension_id` you send in a tile query is **silently rewritten** to the workbook model (verified live), so omit them. When you need the workbook model id (to write model YAML), read it from the draft's `workbookModelId` via `documents list-drafts` — and it **rotates**: each draft clones the workbook model (extensions carried along), and publishing swaps the document to the clone, so the id changes after **every** publish. Never cache it; read it fresh from `list-drafts` each time.

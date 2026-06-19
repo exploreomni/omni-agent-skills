@@ -22,7 +22,7 @@ Complete reference for a tile's visualization config — the v2 `visConfig` enve
 - [Common Mistakes](#common-mistakes)
 - [Safe Defaults](#safe-defaults)
 
-> **Important**: The visualization config schema is not fully documented in Omni's public API docs. The structures below are derived from Omni's visualization type definitions and confirmed by reading dashboards back via `omni documents v2-get`. For uncommon chart types, **always verify** by building a reference chart in the UI and reading it back before relying on these examples.
+> **Important**: The visualization config schema is not fully documented in Omni's public API docs. The cartesian structures below (axis, color, series, mark) are derived from Omni's visualization parser schema and cross-checked by reading dashboards back via `omni documents v2-get`. For uncommon chart types (funnel, sankey, map, boxplot, single-record), **always verify** by building a reference chart in the UI and reading it back before relying on these examples.
 
 ## Where the visualization config lives
 
@@ -49,7 +49,7 @@ A chart tile is driven by **one queryPresentation-level field**: the `visConfig`
 
 Set `prefersChart: true` to default the tile to chart (vs. table) view, and `automaticVis: false` so the renderer uses your explicit spec instead of deriving one. (On create, the server seed tile can flip tile `"1"`'s `automaticVis` back to `true` — read back and re-patch if it matters.)
 
-> **Read-back is flat — writes must be nested.** `v2-get` returns the inner vis config **flat**: the spec keys spread beside `visType`, with no `config` key. A patch that sends that flat shape back **silently keeps only `visType`** and drops the rest (verified live: flat-sent `markdownConfig`/`alignment` dropped; `config`-nested persisted). This is the most damaging *silent* failure in the v2 API — misplaced presentation-level keys 400 loudly. Never round-trip a GET tile unchanged; re-nest the inner spec under `config` first.
+> **Read-back is flat — writes must be nested.** `v2-get` returns the inner vis config **flat**: the spec keys spread beside `visType`, with no `config` key. A patch that sends that flat shape back **silently keeps only `visType`** and drops the rest (flat-sent `markdownConfig`/`alignment` dropped; `config`-nested persisted). Misplaced *presentation*-level keys, by contrast, 400 loudly. Never round-trip a GET tile unchanged; re-nest the inner spec under `config` first. **This covers *any* write sourced from a GET payload — restoring/reverting/duplicating/moving a tile by copying it out of a snapshot and patching it back is also a round-trip** (the flat config gets dropped → "No chart available"). Verify the reverted tile — don't assume a restore is safe.
 
 **Failure modes:**
 
@@ -146,11 +146,35 @@ Line, column, bar, area, scatter, and combo charts use the cartesian config (`co
 
 ### Axis fields (`x` / `y`)
 
+There are **two distinct uses** of `x`/`y` in a cartesian config, and the axis-styling object lives at different depths in each:
+
+- The **independent (dimension) axis** carries the field mapping *and* its styling: `{ "field": {...}, "axis": { …styling… } }`. For a vertical chart that's `x`; for a horizontal bar it's `y`.
+- The **dependent (value) axis** carries **only styling** (no field — measures live in `series`): `{ "axis": { …styling… }, … }`. For a vertical chart that's `y`; for a horizontal bar it's `x`.
+
 ```json
-"x": { "field": { "name": "order_items.created_at[month]" } }
+"x": { "field": { "name": "order_items.created_at[month]" } },
+"y": { "axis": { "domain": { "zero": false }, "title": { "value": "Revenue ($)" } } }
 ```
 
-Optional axis properties: `label`, `showLabel`, `showGridLines`, `tickFormat`, `scale` (e.g. `{ "type": "log" }`), `domain` (`[min, max]`).
+> **The styling object is always nested one level down, under `axis`.** Putting `domain`/`title`/`scale` directly on `x`/`y` (e.g. `y.domain`, `y.min`) is **silently ignored** — the #1 axis-config mistake. The correct path is `<axisName>.axis.<prop>`.
+
+#### `axis` styling properties (all optional)
+
+| Property | Shape | Notes |
+|----------|-------|-------|
+| `domain` | `{ "min": num, "max": num, "zero": bool }` | **Object, not an array.** Zoom/range the value axis. `min`/`max` are **raw data values** — for a percentage field use decimals (`0.6` = 60%); for currency use raw numbers (`1000000` = $1M). |
+| `title` | `{ "value": "string", "format": {…} }` | Axis title text. **Set `"value": ""` to remove** a title (e.g. drop a redundant dimension-axis title so long category labels get room to wrap instead of truncating). |
+| `scale` | `{ "type": "linear" \| "log" \| "pow" \| "sqrt" \| "symlog" }` | `log` takes optional `base`; `pow` takes `exponent`; `symlog` takes `constant`. **`scale` is distinct from `domain`** — don't put min/max here. |
+| `label` | `{ "format": { "angle": num, "format": "string", "fontSize": num, … } }` | Tick-label rotation and number/date format. (Not `tickFormat`.) |
+| `grid` | `{ "enabled": bool, "line": { "color", "dash": [n], "opacity", "width" } }` | Gridline visibility/style. |
+| `showLabels` / `showTicks` / `showAxisLine` | `bool` | Toggle tick labels, tick marks, the axis line. (Not `showLabel`/`showGridLines`.) |
+| `tickCount` | `num` \| `{ "interval": "month", "step": 1 }` | Tick density. |
+| `sort` | `{ "field": "string", "order": "ascending" \| "descending" }` | Category-axis sort. |
+| `referenceLine` | `{ "enabled": true, "value": num, "label": "string", "line": { "color", "dash": [4,4] } }` | **Native target/threshold/goal line** — see [Reference lines](#reference-lines-trend-lines-moving-averages). |
+
+**"Unpin from Zero"** (the UI checkbox) = `<valueAxis>.axis.domain.zero: false`. Omni pins value axes to zero by default, so a near-constant series (e.g. gross margin ~52–54%) looks dead flat until you set this. For a **horizontal bar** the value axis is `x`, so zoom it with `x.axis.domain` (e.g. `{ "min": 0.50, "max": 0.65, "zero": false }`).
+
+> **For BAR charts, `zero: false` alone does nothing — a bar is anchored at 0 by nature.** To zoom a clustered bar chart (all bars nearly the same length, e.g. sell-through 88–95%), set an **explicit `domain.{min,max}`**; `zero:false` only matters for line/area/point. **Caveat:** a hard-coded `domain` can make bars *vanish* if the underlying values later move outside `[min,max]` — when the data changes (or a filter changes the values), re-fit the domain, or the bars render off-canvas.
 
 ### color object — controls stacking and series color
 
@@ -159,10 +183,24 @@ Optional axis properties: `label`, `showLabel`, `showGridLines`, `tickFormat`, `
 | `{}` | Single series, auto color |
 | `{ "_stack": "group", "field": { "name": "..." } }` | Grouped (side-by-side) — `chartType` `*Grouped` |
 | `{ "_stack": "stack", "field": { "name": "..." } }` | Stacked — `chartType` `*Stacked` |
-| `{ "_stack": "normalize", "field": { "name": "..." } }` | 100% stacked — `chartType` `*StackedPercentage` |
+| `{ "_stack": "stack_percentage", "field": { "name": "..." } }` | 100% stacked — `chartType` `*StackedPercentage` |
 | `{ "field": { "name": "..." } }` | Color by dimension (no stacking) — e.g. multi-series line/scatter |
 
+> **`_stack` enum is `group` / `stack` / `stack_percentage` / `overlay`.** 100% stacking is **`stack_percentage`**, *not* `"normalize"`.
+
 The `color.field` is the dimension that splits the series; it must also be in `query.pivots` for stacked/grouped charts.
+
+**Custom colors on the `color` object** (all optional; omit to use Omni's curated defaults):
+
+| Property | Shape | Notes |
+|----------|-------|-------|
+| `values` | `{ "<dimValue>": "#hex", … }` | **Pin specific dimension values to specific colors** (e.g. `{ "Complete": "#1FAE7E", "Cancelled": "#E5484D" }`). |
+| `else` | `"#hex"` | Fallback color for values not in `values`. |
+| `range` | `["#hex", …]` | Custom palette array. **Only applies when `_scheme: "custom"`.** |
+| `_scheme` | `"string"` | Named palette, or `"custom"` to use `range`. |
+| `reverse` | `bool` | Reverse the palette direction. |
+| `stackSort` | `{ "by": "label" \| "size" \| "sum", "order": "ascending" \| "descending" }` | Order of stacked segments. |
+| `ignoreModeledColors` | `bool` | Ignore colors defined on the model field. |
 
 ### series array
 
@@ -172,7 +210,78 @@ The `color.field` is the dimension that splits the series; it must also be in `q
 ]
 ```
 
-Per-entry properties: `field.name`, `yAxis` (`"y"`/`"y2"`) or `xAxis` (`"x"`/`"x2"`), `label`, `color` (hex override), `mark` (per-series mark for combo charts), `dataLabel`.
+Per-entry properties:
+
+| Property | Shape | Notes |
+|----------|-------|-------|
+| `field` | `{ "name": "view.field" }` | The measure to plot. |
+| `yAxis` / `xAxis` | `"y"` \| `"y2"` / `"x"` \| `"x2"` | Primary vs secondary axis. Use `y2`/`x2` for a series on a different scale/unit (combo charts). |
+| `mark` | `{ "type": "...", "_mark_color": "#hex", "line": {…} }` | Per-series mark (combo charts) **and per-series solid color** — see below. |
+| `dataLabel` | `{ "enabled": true, "position": "...", "minValue": num, "useSparseLabelAlgorithm": bool }` | Value labels on points. |
+| `title` | `{ "value": "string" }` | **Series legend/tooltip label.** This is the legend label, **not `series[].label`** — there is no `label` property on a series; the renderer reads `series[].title.value`, falling back to the measure's field label when unset. So a series with only `label` silently shows the field label in the legend. |
+| `regression` | `{ "enabled": true, "method": "..." }` | Native trend line — see below. |
+| `movingAverage` | `{ "enabled": true, "window": {…} }` | Native moving average — see below. |
+| `totals` | `{ "enabled": true, … }` | Stacked-total labels (`simpleTotals`). |
+
+> **Per-series solid color is `series[].mark._mark_color` (a hex string), not `series[].color`.** `series[].color` exists but is a per-*layer* dimension-encoding slot that is **ignored on the standard render path** — setting a hex there does nothing. To force one solid color on a series, set `mark._mark_color` and add `manual: true` (the `manual` flag marks the color as user-set so the auto-styler won't overwrite it on the next render).
+>
+> ```json
+> "series": [{ "field": { "name": "order_items.total_revenue" }, "yAxis": "y",
+>              "mark": { "type": "bar", "_mark_color": "#1FAE7E" }, "manual": true }]
+> ```
+>
+> For coloring by a **dimension value** instead (e.g. status → color), use `config.color.values` (above), not a per-series color.
+
+### Reference lines, trend lines, moving averages
+
+These are **native cartesian features** — reach for them before modeling extra fields or building separate tiles.
+
+- **Reference line** (target / threshold / goal) — on the **value axis's** `axis` object:
+  ```json
+  "y": { "axis": { "referenceLine": { "enabled": true, "value": 100000,
+                    "label": "Target", "line": { "color": "#888", "dash": [4, 4] } } } }
+  ```
+- **Regression / trend line** — per series. `method`: `"linear"`, `"log"`, `"exp"`, `"pow"`, `"quad"`, `"poly"`:
+  ```json
+  "series": [{ "field": { "name": "order_items.total_revenue" }, "yAxis": "y",
+               "regression": { "enabled": true, "method": "linear" } }]
+  ```
+- **Moving average** — per series. `window.type`: `"lagging"` or `"center"`:
+  ```json
+  "series": [{ "field": { "name": "order_items.total_revenue" }, "yAxis": "y",
+               "movingAverage": { "enabled": true, "window": { "period": 7, "type": "lagging" } } }]
+  ```
+
+### Dashed / styled lines (e.g. a dotted projection or forecast overlay)
+
+A line/area series mark takes a `line` style object — `dash` makes it dotted. This is the clean way to render a **projection/forecast overlay** as a second, visually-distinct series on the same chart (rather than a separate tile): plot the actual measure as a solid line and the projected measure as a dashed one.
+
+```json
+"series": [
+  { "field": { "name": "order_items.total_revenue" },     "yAxis": "y",
+    "mark": { "type": "line", "line": { "width": 2 } } },
+  { "field": { "name": "order_items.projected_revenue" }, "yAxis": "y",
+    "mark": { "type": "line", "_mark_color": "#888",
+              "line": { "dash": [5, 4], "point": false } } }
+]
+```
+
+`line` properties: `dash` (`[on, off]` px), `color`, `width`, `opacity`, `interpolate` (e.g. `"monotone"`, `"step"`), `point` (show/hide markers).
+
+**Projection as a ghost *column* (not a line).** The same run-rate calc works on a `barLine`/`column` chart: add the projected measure as a **second bar series** that **overlays** the actual at the same x (both from baseline 0; the ghost peeks above the shorter actual). Draw order = series-array order, so list the projected bar **first** (behind) and the solid actual **second** (front); give the ghost a translucent fill (e.g. 8-digit hex `"#94A3B8A6"` slate to match the gray "projected" convention) so only its run-rate *cap* shows above the actual partial bar.
+- **Two same-mark bar series default to STACK — you must force overlay.** `behaviors.stackMultiMark:false` is *not* enough: when an axis has ≥2 series of the same stackable mark (bar/area) and no explicit stack, the compiler returns `STACK` (verified in `get-effective-axis-stack.ts`), so the ghost stacks *on top of* the actual (gray top = actual + projected) instead of overlapping. Set **`config.color._stack: "overlay"`** (enum: `group`/`stack`/`stack_percentage`/`overlay`) — the compiler returns that explicit value before falling through to the same-mark STACK default, and `OVERLAY` skips the stacking-field encodings so both bars draw from zero. Tell-tale of the bug: the dependent axis auto-scales to ~`actual+projected` instead of ~`projected`.
+- **Watch the anchor branch.** A run-rate projection table-calc (the `OMNI_OFFSET_MULTI`/`OMNI_FX_ROW`/`COUNT_A` "is-this-the-last-row" pattern) is typically non-null on the **last *two*** rows: the current month gets the projected value, and the **second-to-last** gets its *actual* value as an anchor — necessary so a projection **line** visibly connects from the last complete point. For a **column** overlay that anchor paints an unwanted ghost cap on the prior month. Strip it: the calc's outer `CASE` has the shape `CASE(isLastRow, projection, CASE(isSecondToLast, actual, null))` — replace `operand[2]` (the inner anchor `CASE`) with a `null` literal so only the current month projects.
+- A run-rate projection needs a date-extent measure (`max(timestamp)` cast through the session timezone, like `last_order_date`/`last_session_date`) **on the topic's own base view** — it can't reach a `max-date` measure on a view the topic doesn't join. The calc references it via `allow_refs_to_unselected_fields:true`, so it need not be a selected field.
+
+### Small multiples (faceting)
+
+Split one chart into per-category panels with `config.facet`:
+
+```json
+"facet": { "column": { "field": { "name": "products.category" } }, "wrap": true, "wrapColumns": 3 }
+```
+
+Use `column` and/or `row`; `wrap: true` + `wrapColumns` controls trellis wrapping. Scales/axes default to shared.
 
 ## Config Object: KPI
 
@@ -196,8 +305,15 @@ Each `markdownConfig` entry: `{ id, type, config, lastModified? }` where `type` 
 | `theta` | Yes | The measure field that sizes each slice (`{ "field": { "name": "..." } }`) |
 | `color` | Recommended | The dimension that defines the slices (`{ "field": { "name": "..." } }`) |
 | `pastry` | No | `"pie"` (default) or `"donut"` |
-| `innerRadiusPercent` | No | `0`–`100`, donut hole size |
+| `innerRadiusPercent` | No | `0`–`100`, donut hole size = ring thinness. `66` ≈ thin ring, `~40` chunky, `0` = solid pie. |
+| `outerRadiusPercent` | No | `0`–`100`. **Defaults to 90 — but auto-shrinks to `90 × 0.7 ≈ 63` whenever `dataLabel.enabled`** (reserves label room). If labels are on and the donut looks small, set this explicitly (e.g. `80`). |
+| `dataLabel` | No | `{ enabled: true, field: { name } }`. `field` sets **what the slice label shows** — point it at the `color` dimension to label slices by category; omit `field` and it shows the `theta` value. |
+| `dataLabelPercentage` | No | `{ enabled: true, decimals: 1 }` — **appends the auto share** → `"Category (23.4%)"`. Separator is hardcoded parentheses (no dash). `percent` = ECharts' share of the `theta` total. |
+| `dataLabelPosition` | No | `"inside"` / `"outside"` — a **top-level polar key**, not `dataLabel.position`. |
 | `tooltip` | No | Fields for hover |
+
+> **No legend sizing.** The pie config exposes no legend-size control — the only legend option is `color.legendPosition` (position, incl. `NONE`). A larger/custom legend requires a markdown tile.
+> **"Category — xx.y%" labels (Looker `label_type: labPer`):** `dataLabel: { enabled: true, field: { name: "<the color dim>" } }` + `dataLabelPercentage: { enabled: true, decimals: 1 }`; keep `theta` as the raw count. The label renders the `dataLabel.field` value with the share appended in parentheses — `"Category (23.4%)"` — when `dataLabelPercentage.enabled`. (Verify by building it once in the UI and reading it back with `omni documents v2-get`.)
 
 ## Config Object: Heatmap
 
@@ -219,6 +335,8 @@ Each `markdownConfig` entry: `{ id, type, config, lastModified? }` where `type` 
 
 `chartType: "funnel"`, `visType: "funnel"`, **no `configType`**.
 
+> **"No `configType`" ≠ "no `config` wrapper."** Funnel and sankey still write their inner spec **nested under `config`**: `visConfig.visConfig = { visType: "funnel", config: { value, color, orient, … } }`. They merely omit the `configType` discriminator *inside* `config` (that field only exists for the `"basic"` renderer). Authoring the inner spec **flat** (`{ visType, value, color, … }` with no `config`) silently drops everything but `visType` → the tile renders **"No chart available."** Same drop as the GET round-trip trap, but it also bites fresh funnel/sankey authoring.
+
 | Field | Required | Description |
 |-------|----------|-------------|
 | `value` | Yes | The measure field (segment size), `{field:{name}}` |
@@ -229,6 +347,8 @@ Each `markdownConfig` entry: `{ id, type, config, lastModified? }` where `type` 
 | `dataLabel`, `tooltip` | No | Labels / hover |
 
 > In a wide, short dashboard tile a funnel can collapse to an unreadable sliver. Set `orient: "vertical"`, `funnelAlign: "center"`, `sort: "descending"`, and `dataLabel: { "enabled": true, "position": "inside" }` so it draws a clean funnel regardless of tile aspect.
+
+> **Funnel from multiple measures (stage = a measure, not a dimension).** The funnel needs a stage *dimension* + one measure, so a wide query of N separate measures (e.g. `units_sold`, `shipped_items`, `delivered_items`) won't funnel directly. Reshape it to long form with the query's **`transposed_measures`** (an array of those measure names — see `omni-query` → *Transpose measures into rows*): the result gains synthetic `measure_name` (renders as each measure's friendly label) + `measure_value` columns. Then set the funnel `color: { field: { name: "measure_name" } }` and `value: { field: { name: "measure_value" } }` with `sort: "descending"`. Verified: `units_sold → shipped_items → delivered_items` renders a clean descending funnel.
 
 ## Config Object: Sankey
 
@@ -249,6 +369,8 @@ Each `markdownConfig` entry: `{ id, type, config, lastModified? }` where `type` 
 | `center`, `zoom` | Recommended | Viewport (e.g. `[-98.35, 39.5]` / `3` for the US). Without it the map fits to data and may zoom into a single locality. |
 
 > Map specs are best captured by building one in the UI and reading it back (`omni documents v2-get`, re-nesting the flat inner spec under `config`).
+
+> **Point maps auto-fit to the data's bounding box.** Set `center`/`zoom` to frame a region, but the map won't zoom *tighter* than the extent of your points — e.g. a US map of distribution centers spanning LA↔NY caps at a coast-to-coast frame; pushing `zoom` higher clips the edge points rather than enlarging the country. Tune `zoom` to taste (≈3.6–3.8 for the contiguous US) and accept that the data spread sets the floor.
 
 ---
 
@@ -562,20 +684,25 @@ Optional field on `queryPresentation` controlling result display independent of 
 
 ### Table display & conditional formatting
 
-- **Fill the tile**: set `resultConfig.tableType: "stretch"` — the default `"spreadsheet"` hugs the left and leaves whitespace.
-- **Conditional formatting** lives in `resultConfig.conditionalFormatters` (an array):
+**Table display + conditional formatting live in the omni-table's INNER config** (`visConfig.visConfig.config` on write — NOT `resultConfig`). Verify by building a conditionally-formatted table in the UI (or via Blobby) and reading it back with `omni documents v2-get` — the formatters come back under the inner `config`, and a config placed in `resultConfig` is silently ignored. The inner config carries: `tableType` (`"stretch"` fills the tile; default `"spreadsheet"` hugs left), `rowBanding` (`{enabled, bandSize}`), `hideIndexColumn`, `columnFormats` (`{ "<view.field>": { align: "left"|"right" } }`), and **`conditionalFormatters`**:
 
 ```jsonc
+// visConfig.visConfig = { visType: "omni-table", config: {
+//   tableType: "stretch", rowBanding: { enabled: true, bandSize: 1 }, hideIndexColumn: true,
+//   columnFormats: { "view.field": { "align": "right" } },
 "conditionalFormatters": [
-  { "id": "…", "type": "scale",  "selection": { "type": "field", "field": "…" },
-    "format": { "range": ["#f00","#ff0","#0f0"], "domain": { "min": 0, "mid": 50, "max": 100 } } },
-  { "id": "…", "type": "single", "selection": { "type": "field", "field": "…" },
-    "rule":   { "type": "greater-than", "value": 1000, "valueType": "number" },
-    "format": { "backgroundColor": "#fee", "color": "#900", "fontWeight": "bold" } }
-]
+  { "id": "rate_scale", "type": "scale",
+    "selection": { "type": "field", "field": "view.rate", "target": "view.rate" },
+    "format": { "domain": { "min": 0.94, "mid": 0.96, "max": 0.98 }, "range": ["#d73027","#ffffbf","#1a9850"] } },
+  // reversed scale = reverse the `range`. Scale formatters take NO backgroundColor (source strips it).
+  { "id": "days_high", "type": "single",
+    "selection": { "type": "field", "field": "view.avg_days", "target": "view.avg_days" },
+    "rule":   { "type": "greater-than", "value": 5, "valueType": "number" },   // also less-than; valueType number|date|text
+    "format": { "backgroundColor": "#ffeeee", "color": "#990000", "fontWeight": "bold", "fontStyle": "italic" } }
+] }
 ```
 
-`selection.type` may be `field`, `row`, or `cellRange`. **To keep conditional formatting from being dropped**, set the tile to `visType: "omni-table"` with `automaticVis: false` (otherwise a later write can regenerate a default table config and discard your formatters). The omni-table viz also needs `prefersChart: true` to apply `resultConfig`.
+`selection.type` may be `field`, `row`, or `cellRange`; **`selection` carries both `field` AND `target`** (same value for a field selection). **`automaticVis: true` is fine** — conditional formatting renders as long as the formatters are in this inner `config`, not `resultConfig` (where they're silently ignored). On write, nest the whole spec under `config` (GET flattens it).
 
 ## aiConfig
 
@@ -601,6 +728,10 @@ Enables AI-generated descriptions/subtitles on tiles:
 | `prefersChart` is `false` or missing | Always shows table | Set `prefersChart: true` |
 | `_dependentAxis` mismatched | Axes inverted / column vs bar wrong | `"y"` for vertical (column/line/area), `"x"` for horizontal bars |
 | `series[].yAxis` vs `xAxis` wrong | Measures don't render | `yAxis: "y"` for vertical, `xAxis: "x"` for horizontal |
+| `domain`/`title`/`scale` set directly on `x`/`y` (e.g. `y.domain`, `y.min`) | **Silently ignored** — axis won't zoom, title won't change | Nest under `axis`: `y.axis.domain.{min,max,zero}`, `y.axis.title.value`. `domain` is an **object** `{min,max,zero}`, not `[min,max]`; min/max are **raw** values (`0.6` = 60%) |
+| `_stack: "normalize"` for 100% stacked | Invalid enum | Use `_stack: "stack_percentage"` (enum: `group`/`stack`/`stack_percentage`/`overlay`) |
+| `series[].color: "#hex"` for a solid series color | No effect (ignored per-layer slot) | Use `series[].mark._mark_color` + `manual: true`; for color-by-value use `config.color.values` |
+| `series[].label` to rename a legend entry | No effect — legend keeps the field label | Set `series[].title.value` (the legend reads `title.value`, falling back to the field label) |
 | Stack dimension not pivoted | Single un-split series | Add the `color.field` dimension to `query.pivots` |
 | Missing measure in query | Empty tile, no error | Every query must include at least one measure |
 | `regionMap` not shading | "No chart available" / blank map | Use `visType: "map"`, `regionType: "us-states"`/`"countries"`, a `sourceProperty` matching your field's values (`"NAME"`/`"CODE"`/iso codes), and `center`/`zoom` |
@@ -617,6 +748,20 @@ Enables AI-generated descriptions/subtitles on tiles:
   - **`{{controls.<id>.summary}}`** injects a dashboard control's current selection (its friendly label) into the body — the basis of dynamic captions and the metric-switch pattern below. Only **dashboard** controls resolve here, not tile-embedded `query.controls`. See [controls.md](controls.md).
 - **AI summary** (`chartType: "omni-ai-summary-markdown"`, `visType: "omni-ai-summary-markdown"`): `config: { ai_context: "...", showWarning: true }` (snake_case `ai_context`, **not** `aiContext`; no `markdown`/`version`). Requires a query — the AI summarizes its results.
 
+> **Recipe source for advanced markdown vizzes — [docs.omni.co/showcase](https://docs.omni.co/showcase).** Working CSS/mustache for things no native chart type gives you: **symmetric funnel** (clip-path trapezoids + step-conversion labels — more informative than the built-in echarts funnel), **conditional-color KPI** (CASE calc → class name → `<style>`), **table with tiny inline bars**, **gauges/thermometer**, **dumbbell plot**, **waffle/square-fill** charts. For a "stages as rows" viz (funnel, tiny-bar table) shape the query with `transposed_measures` (see `omni-query`) so stages become `measure_value` rows, or compute step ratios as their own measures and read them via `result._first`.
+
+> **Data-driven funnel (proportional widths, no table calc).** Segment widths track the data, so the taper *is* the conversion:
+> 1. **Wide query, one row** — the stage measures as columns (`units_sold`, `shipped_items`, …); NO `transposed_measures`, NO `calculations`. (Transposing or using calcs breaks the token reads — see `mustache.md`.)
+> 2. **One full-width div per stage**, stacked in a `height:100%` flex column with `flex:1` segments (fills the tile).
+> 3. **Shape each segment with `clip-path` whose coordinates are CSS `calc()` over raw measure tokens** — top width = this stage ÷ max, bottom width = next stage ÷ max, so consecutive segments meet on one continuous diagonal:
+>    `clip-path: polygon(calc(50% - {{result._first.v.stageN.raw}} / {{result._first.v.max.raw}} * 50%) 0, calc(50% + …) 0, calc(50% + {{…stageN1.raw}} / {{…max.raw}} * 50%) 100%, calc(50% - …) 100%)`
+>    `max` = the first/largest measure. Subtraction works too (terminal "Not Returned" = `( {{…delivered.raw}} - {{…returned.raw}} )`). Last stage: bottom = top (flat) for a clean base.
+> 4. **Labels/values** = `{{result._first.v.stageN.value_static}}` (these resolve; calcs don't).
+> The **conversion-% *text* between stages is NOT feasible** (it needs a calc → empty) — but the proportional widths already encode it. Make the terminal the **success** case, not a drop-out.
+> 5. **Terminal stage = a real measure, never CSS subtraction.** For "kept/net" terminals (e.g. "Not Returned"), add a model measure (`count` filtered `is_delivered:true` + `is_returned:false`) and read it like any field — a CSS `calc(delivered - returned)` can go **negative** when events lag the period (returns from earlier deliveries) and "negative not-returned" is nonsense. A filtered count is always ≥ 0.
+> 6. **White-gap + delta-colored arrow between stages.** Between segments put a small white `.gap` div holding a down-arrow (`&#8595;`, ~26px bold). Color it by the step's retention with **`hsl(clamp(…))` over raw tokens** — no calc field: `color: hsl(clamp(0, ( {{…next.raw}} / {{…this.raw}} - 0.5 ) / 0.5 * 120, 120), 75%, 42%)` maps retention 50%→100% across red→green (stretch the floor to taste; funnels retain a lot, so a 0-floor leaves everything green). `hsl(clamp(calc…))` evaluates in the markdown renderer.
+> **Discover the context with `{{inspect}}`** as the **bare** markdown body (not wrapped — see `mustache.md`).
+
 ### Sizing markdown tiles (heights) — they clip easily
 
 Markdown/text tiles clip far more readily than chart tiles. What actually governs it:
@@ -626,6 +771,16 @@ Markdown/text tiles clip far more readily than chart tiles. What actually govern
 - **Keep the markdown tight.** A `<style>` block followed by **blank lines** renders as empty paragraphs at the *top* of the tile, pushing the visible content down so it looks bottom-anchored or clipped. Put `<style>` and the content on adjacent lines with no blank lines between blocks.
 - **Vertical-center only when there's room.** `<div style="height:100%; display:flex; align-items:center; justify-content:center">` centers cleanly — but only once the tile clears chrome + content. At minimal heights it still clips; there, use natural top-flow with small padding instead.
 - **When a tile clips, add height, not padding.** The content area is simply smaller than what's rendering; +2–3 h-units fixes it where padding tweaks won't.
+
+### Responsive KPI headline numbers — scale font to the *card*, not the viewport
+
+A markdown KPI with a fixed `font-size:40px` headline number **clips horizontally** when the tile narrows (long currency like `$187,727.51` overflows and is cut off; the value just *disappears* off the right edge — no ellipsis, no error). Fix it with a **CSS container query** so the number scales to its own card width:
+
+- Wrap the card body in a container: `<div style="container-type:inline-size;height:100%">…</div>`.
+- Size the number in `cqw` (1cqw = 1% of the container's width) with a `clamp()` floor/cap: `font-size:clamp(16px,15cqw,40px);…;white-space:nowrap`. `15cqw` ≈ 25px in a ~165px six-across card (fits a 10-char value), grows to the 40px cap on wide/full-width cards, and shrinks gracefully when cards reflow.
+- **Omni's markdown renderer supports container queries** — inline `container-type` and the `cqw` unit both pass the sanitizer and render. (`<style>` blocks work too, per the sanitizer note above.) Prefer `cqw` over `vw`: `vw` tracks the *viewport*, so when cards reflow to full-width at narrow widths the number turns tiny in a wide card; `cqw` tracks the card and stays correctly sized at every breakpoint.
+- Anchor the edit on `font-weight:800` — in these KPI cards only the headline number is weight 800 (labels are 700), so it uniquely identifies the value line across all the size variants (36/38/40px, colored or class-driven).
+- **This is a markdown-tile edit, so it is subject to the round-trip trap above** — re-author the inner spec as `visConfig.visConfig = { visType:"omni-markdown", config:{ version:1, markdown:"…" } }`. Sending the GET's *flat* `{version,markdown,visType}` back silently drops `markdown` and the tile renders blank — a blank tile here is the flat shape, not the `cqw`.
 
 ### A markdown KPI card that follows a metric picker
 

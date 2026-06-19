@@ -39,6 +39,9 @@ omni query run --body '{
 
 Do this for **every** query you plan to include as a tile. A dashboard with 5 tiles needs 5 validated queries.
 
+> **`generate-query --run-query false` is NOT this step.** It only confirms Blobby can *propose* a query with those field names — it never executes the query **you authored**, so it cannot catch a mangled measure/calc (e.g. a measure stored as `sql: /` from an unquoted `${a}/${b}`, or a bare-`${}`-omitted field ref). Only `query run` executes your query and surfaces the warehouse compile error (`unexpected '/'`, `no such column`, …). Don't conflate "shape-checked" with "executed."
+> **When the instance forbids live queries** (customer-prod no-query policies), you can't run Step 2. Substitute: (a) **read back the stored YAML** of any measure/dim whose `sql` contains `${}` — confirm the refs survived (`models validate` does **not** catch `${}` mangling); (b) `models validate`; (c) prototype the exact pattern on a query-allowed sandbox and port; (d) ask the owner to run one query. On a *query-allowed* sandbox, there is no excuse — run it.
+
 **Then check the tile-query shape**: before a query goes into a patch body, confirm it carries the full required collection-field set — `table`, `fields`, `limit`, `join_paths_from_topic_name`, plus `sorts[]`, `filters{}`, `calculations[]`, `column_totals{}`, `row_totals{}`, `fill_fields[]`, `pivots[]`, `userEditedSQL` (empty values are fine) — and **no `modelId`**. Missing collection fields are a 400 with per-field errors.
 
 ## Step 3: Validate Viz Spec Consistency

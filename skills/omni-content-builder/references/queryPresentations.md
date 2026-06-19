@@ -147,7 +147,7 @@ The `query` object follows the [Query API](https://docs.omni.co/api/queries.md) 
 | `join_paths_from_topic_name` | Yes | The topic name — resolves joins from the topic's base view so joined-view fields work. Set alongside `topicName` on the parent queryPresentation. |
 | `sorts` | Yes | Array of `{ "column_name": "...", "sort_descending": bool }` — `[]` fine |
 | `filters` | Yes | Object of `{ "field_name": "expression" }` — supports `"last 90 days"`, `"this quarter"`, `">100"`, etc. — `{}` fine |
-| `calculations` | Yes | `[]` fine |
+| `calculations` | Yes | `[]` fine. Each entry = `{ calc_name, sql_expression (an operator AST), known_type:"NUMBER", swallow_errors:true, outside_pivot:false, allow_refs_to_unselected_fields:false, format? }`. **Don't hand-write the `sql_expression` AST — harvest it** (see note below). |
 | `column_totals` | Yes | `{}` fine |
 | `row_totals` | Yes | `{}` fine |
 | `fill_fields` | Yes | `[]` fine |
@@ -155,6 +155,12 @@ The `query` object follows the [Query API](https://docs.omni.co/api/queries.md) 
 | `userEditedSQL` | Yes | `""` for a normal semantic tile. Set to a SQL string to make this a **raw-SQL tile** (see below). |
 
 There is no `query.visConfig` in v2 — the v1 `{ "chartType": … }` hint is not part of the schema and does nothing. The tile is driven entirely by the presentation-level `visConfig` envelope.
+
+> **Authoring `calculations` — harvest the AST, don't hand-write it.** A calc's `sql_expression` is a nested operator tree (`{type:"call", operator, operands:[…]}`) and is error-prone to build by hand. Instead ask Blobby for the calc shape-only and lift its `calculations` verbatim: `omni ai generate-query <model> "<measure> by month with each month as a percent of the previous month as a table calculation" --run-query false`. Then swap the `field_name` operands for your fields (e.g. the transposed `measure_value`). Useful building blocks (operators: `Omni.OMNI_FX_SAFE_DIVIDE`/`_SUM`/`_MAX`, `Omni.OMNI_OFFSET_MULTI`, `SqlStdOperatorTable.MINUS`/`MULTIPLY`):
+> - **Window over the whole partition** (running/total/max): `OMNI_OFFSET_MULTI(field, -536870911, 0, 1073741823, 1)` wrapped in `OMNI_FX_SUM` (= column total) or `OMNI_FX_MAX` (= column max). Percent-of-total = `SAFE_DIVIDE(field, SUM(offset_all))`; percent-of-max = `SAFE_DIVIDE(field, MAX(offset_all))`.
+> - **Previous row**: `OMNI_OFFSET_MULTI(field, -1, 0, 1, 1)` (wrap in `SUM` to deref). **Next row**: `OMNI_OFFSET_MULTI(field, 1, 0, 1, 1)`. Percent-change-from-prev = `MINUS(SAFE_DIVIDE(field, SUM(offset_prev)), 1)`.
+> - **Keep calcs to fractions; do `× 100` / `+` / `−` in CSS `calc()`** when driving a markdown viz — the AST arithmetic operators (`MULTIPLY`/`PLUS`) proved unreliable over transposed measures (a `× 100` silently no-op'd). See `mustache.md` → calc tokens.
+> - A calc only appears in the **result** if its `calc_name` is also in `query.fields` (being in `calculations` alone computes it but doesn't select it). This matters for table/cartesian tiles. **In a *markdown-viz* tile, table-calc tokens proved unreliable** (empty when calc is calculations-only; tile blanked when the calc was added to `fields`) — for data-driven markdown, drive geometry from raw **measure** tokens + CSS `calc()` instead. See `mustache.md` → data-driven markdown viz.
 
 > **Querying a topic — base view + join path.** Set `table` to the topic's **base view**, pass `join_paths_from_topic_name: <topic>`, and set `topicName` on the parent queryPresentation. Joined-view fields (e.g. `users.state` on an `order_items` topic) resolve through the topic's join map — keep `table` at the base view, not the joined view. For the full mechanics, the omit-it failure mode, and verifying with `omni models get-topic` (`base_view_name`/`join_via_map`), see **`omni-query`**'s *Build queries on a topic*. (For *choosing* which topic, or when to extend/create one, see `omni-query` and `omni-model-builder`.)
 
@@ -238,6 +244,21 @@ These apply when copying tiles from an existing document (for both creating new 
 - **Do not save known-broken query-level filters** — if `omni query run` rejects a tile query filter with a server-side parsing error, validate the unfiltered base query once. Do not save the broken filter into the tile; either use a verified dashboard-level control or leave the dashboard unchanged and report the blocker.
 - **Bound server-side failures** — if a patch fails with a validation error, stop after one corrected retry; discard the draft and report rather than looping filter rewrites.
 - **Check readback for a stripped spec** — after writing, read the tile back (`v2-get` / `v2-get-draft`) and confirm its (flat) inner `visConfig` contains more than just `visType`, and `visConfig.chartType` is set. If only `visType` survived, the write sent the flat shape — re-nest under `config` and retry.
+
+## Period-over-period (current vs previous) in a tile
+
+To show current-vs-previous columns (e.g. a comparison grid, or a "% change" KPI), the query uses **`period_over_period_computations`** + a pivot on the synthetic **`omni_period_pivot`** field (add `"omni_period_pivot"` to `fields` and to `pivots`). Every measure in the query then splits into *Current Period* / *Previous Period* columns. Sorts that target a pivoted measure carry a `pivot_value_map` (e.g. `{"omni_period_pivot":"Current Period"}`).
+
+```jsonc
+"period_over_period_computations": [
+  { "date_filter_field_name":"view.created_at", "time_unit_name":"MONTH","time_unit":"MONTH","periods_ago":0,"is_dynamic_previous_period":false,"is_ignored":true },
+  { "date_filter_field_name":"view.created_at", "time_unit_name":"MONTH","time_unit":"MONTH","periods_ago":1,"is_dynamic_previous_period":false,"is_ignored":false }
+]
+```
+
+> **PoP pivot tiles render fine — a blank/"No Results" pivot table is almost always (a) wrong render config or (b) an empty period filter, NOT a limitation.** Verified live: a period-pivot table (`omni_period_pivot` + `period_over_period_computations`) renders Current/Previous columns + a `% Change` calc correctly when the tile is **`visType:"omni-table"`, `automaticVis:true`, `prefersChart:true`** AND the date filter lands on a period that actually has data. A blank or "No Results" almost always means the filtered period is empty (check with `query run` first) — not a render bug. The `% Change` column is a calc with **`outside_pivot:true`** whose operands carry **`pivot_value_map:{omni_period_pivot:"Current Period"|"Previous Period"}`** (e.g. `SAFE_DIVIDE(MINUS(oc@Current, oc@Previous), oc@Previous)`). Note the pivot splits **every** measure into Current/Previous.
+> **`v2-patch` is stricter than `generate-query` here.** Harvesting the PoP shape from `omni ai generate-query` gives an *ignored* (current-period) entry that omits `time_unit_name`/`time_unit`/`periods_ago` — patching that **400s** (`expected string/number, received undefined`). On write, give **every** entry (ignored one included) all of `time_unit_name`, `time_unit`, and `periods_ago` (use `periods_ago: 0` for the current/ignored entry). Verified live.
+> The pivot splits **all** measures, not a chosen few — if you only want a couple of measures compared, that's still the mechanism (hide the rest), unlike Looker where each `_previous_period` is its own measure.
 
 ## Chart Type Examples
 

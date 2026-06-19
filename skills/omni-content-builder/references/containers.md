@@ -45,6 +45,7 @@ Each placed tile is a `stack` carrying a `gridPosition` and a `metadata.attached
 ```
 
 - `style: "tile"` gives the tile its card chrome (it adds padding/margin — account for it if you also set flex `gap`).
+- **Stack-level `padding` = the tile's outer white frame.** The `stack` itself accepts a top-level `padding` (same discrete scale as content items — see §"Content-item `padding`"). It defaults to the `style: "tile"` chrome; setting **`"padding": 0` on the stack** collapses that frame so the tile renders **edge-to-edge / borderless** — the right way to make a full-bleed gradient banner or KPI strip. This is distinct from the content-item `padding` on the *children*. It is also **the** way to drop a tile's white border: the bi-app `hideBorder` tile-setting is **not** part of the v2 documents schema (a `settings.hideBorder` patch is silently stripped on write), so zeroing the stack `padding` is the only programmatic path. Apply it per-stack — don't blanket every tile unless you actually want the whole dashboard frameless.
 - The `{ "as": "metadata", "format": "name" }` child is the tile **title**. It renders the raw `queryPresentation.name` — **it is not mustache-templated** (a token there prints literally). Drop this child if you want a dynamic caption (e.g. from a markdown body) to stand alone.
 - The `{ "as": "chart" }` child renders the visualization.
 

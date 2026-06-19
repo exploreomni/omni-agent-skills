@@ -63,3 +63,39 @@ dimensions:
   lifetime_value:
     format: currency_2
 ```
+
+## Mapping / lookup view (CLI stand-in for an Omni Input Table)
+
+To rebuild a **hardcoded key→label lookup** — e.g. a Looker `calculation_type: group_by` dynamic dimension that remaps `region_name` → a rep name, or any mapping that lives only in a dashboard (not in the database) — model it as **data joined on the key**, not a `CASE`. The maintainable ideal is an **Omni Input Table** (a writable table created/edited in the Omni UI — there is **no CLI command** for input tables under `connections`/`models`/`documents`). The **CLI-buildable equivalent** is a hardcoded `VALUES`/`UNION ALL` **query view** joined on the key:
+
+```yaml
+# region_rep_map.query.view  — Reference this view as region_rep_map
+sql: |
+  SELECT 'East' AS "region_name", 'Mike Parker'        AS "employee_name"
+  UNION ALL SELECT 'West',          'Alexandra Peterson'
+  UNION ALL SELECT 'Great Lakes',   'Jennifer Trevino'
+  -- ...one row per source value; repeat the label across rows for many-to-one (Looker's comma filter)
+
+dimensions:
+  region_name: {}
+  employee_name: {}
+
+custom_compound_primary_key_sql: [ '"region_name"' ]   # single-col PK is fine
+```
+
+Then join it on the key (topic-scoped relationship):
+
+```yaml
+relationships:
+  - join_from_view: <territory/base view>
+    join_to_view: region_rep_map
+    join_type: always_left
+    relationship_type: many_to_one
+    on_sql: ${<territory/base view>.region_name} = ${region_rep_map.region_name}
+```
+
+`employee_name` is now a real **dimension** — group, filter, and query by it like any field. Notes:
+- **Quote the SELECT aliases** (`AS "region_name"`) on Snowflake/BigQuery/Databricks or they uppercase and the join key won't match.
+- `always_left` → unmatched keys render as `∅`/null. Add an `'Other'` catch-all (a final `UNION ALL SELECT <unmatched>, 'Other'` is impractical for open domains — instead `COALESCE(${map.label}, 'Other')` in a derived dim, or accept nulls) to mirror Looker's `group_by` fallback.
+- Verified end-to-end: validates clean, grouped query runs COMPLETE, mapped labels flow into results.
+- Prefer a true **UI Input Table** when the mapping changes over time (reps reassigned) — it's editable in-app; the query view requires a YAML edit to change.
