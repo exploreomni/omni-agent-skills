@@ -207,7 +207,7 @@ Minimum-viable calc:
 The five quick-template operators (each takes one `field` operand with `for_calc: true`):
 `Omni.OMNI_PERCENT_OF_TOTAL`, `Omni.OMNI_PERCENT_OF_PREVIOUS`, `Omni.OMNI_PERCENT_CHANGE_FROM_PREVIOUS`, `Omni.OMNI_RUNNING_TOTAL`, `Omni.OMNI_RANK`.
 
-Use `omni query run` with a hand-authored or copied AST when you already know the calc shape. **To *generate* anything non-trivial — table calculations, period-over-period, multi-step analysis — prefer the agentic path (`omni ai job-submit`):** it authors calcs that `generate-query` silently drops (e.g. month-over-month % change). To get a *reusable* AST out of an agentic job, lift the structured query / `calculations` from the job's **`actions[].generate_query`** result (not the `resultSummary`, and not a `userEditedSQL`/SQL fallback), then run it through `omni query run` to validate. Reserve `generate-query` for simple deterministic single queries, and for shape-only drafting where query execution isn't permitted.
+Use `omni query run` with a hand-authored or copied AST when you already know the calc shape. **To *generate* anything non-trivial — table calculations, period-over-period, multi-step analysis — prefer the agentic path (`omni ai job-submit`):** it authors calcs that `generate-query` silently drops (e.g. month-over-month % change). To get a *reusable* AST out of an agentic job, lift the structured query / `calculations` from the job's **`actions[].generate_query`** result (not the `resultSummary`, and not a `userEditedSQL`/SQL fallback), then **re-run *your assembled* query** with `swallow_errors:false` and **diff the values against the job's `csvResult`**. The job already executed the calc, so the re-run isn't re-proving the math — it's checking your *reshape* (a dropped/renamed field is the kind of translation failure that "it ran and returned rows" would miss; see [table-calculations.md](references/table-calculations.md) §6). Reserve `generate-query` for simple deterministic single queries, and for shape-only drafting where query execution isn't permitted.
 
 Query tasks are read-only unless the user explicitly asks to change the model. If a field appears missing, inspect topics/dashboard queries and use the right model/topic/branch or report the missing-field blocker — don't create branches, add measures, or edit YAML just to make a query work. (And don't satisfy a calc request with client-side math or an existing model field like `users.tier_label` — build and validate the table calc; see *Known Issues*.)
 
@@ -223,11 +223,9 @@ Quick recipes for common calc requests:
 - **VLOOKUP-style in-result lookup**: first attempt `Omni.OMNI_FX_VLOOKUP` with four operands: lookup value, key field, full-column `OMNI_OFFSET_MULTI` over the key field, and a 1-based column number into `query.fields` starting at the key column. Use literal nodes for static lookup values and column numbers. Validate the query. If a static string lookup like `"Complete"` fails with `No referenced query with id Complete found in query`, report that this Omni deployment is treating the string as a query reference, stop retrying VLOOKUP variants, and use the `OMNI_FX_SUM_IF` broadcast pattern when the user needs a single status revenue repeated on every row. Do not replace this with `userEditedSQL`.
 - **Date difference**: use `Omni.OMNI_FX_DATEDIF` in AST order `(unit_literal, start_date, end_date)`, with the unit literal `"DAY"` and date-truncated operands such as `created_at[date]` and `shipped_at[date]`. Do not substitute a native model field unless the user asked for that existing field rather than a calculated column. A bare timestamp operand can produce blank values under `swallow_errors`; select `[date]` timeframes or cast to DATE. Filter out or separately explain null shipped dates so the validated diff column contains populated integer values.
 
-For exact JSON AST examples, use [references/table-calculations.md](references/table-calculations.md), especially the sections on running totals, moving averages, conditional labels, pivot row totals, DATEDIF, SUM_IF, and VLOOKUP. Keep `SKILL.md` as the workflow guardrail and the reference file as the source of detailed shapes.
+For exact JSON AST examples — running totals, moving averages, conditional labels, pivot row totals, DATEDIF, SUM_IF, VLOOKUP, plus the full operator catalog (`Omni.*` and `SqlStdOperatorTable.*`), AST node types, validation rules, and the round-trip strategy for unfamiliar calcs — see [references/table-calculations.md](references/table-calculations.md). Keep `SKILL.md` as the workflow guardrail and the reference file as the source of detailed shapes.
 
 At execution, calcs compile into an outer `SELECT` wrapping the base aggregation; window-style operators emit `... OVER (...)` there, so the shared data model never needs window functions to support them. In pivoted queries, template operators auto-partition by the pivot column for per-segment series; set `outside_pivot: true` and wrap an aggregator around `OMNI_PIVOT_OFFSET` for a row-summary that sweeps across pivot columns.
-
-For arithmetic, conditionals, chained calcs, the full operator catalog (`Omni.*` and `SqlStdOperatorTable.*`), AST node types, validation rules, and the recommended round-trip strategy for unfamiliar calcs, see [references/table-calculations.md](references/table-calculations.md).
 
 ## Running Raw SQL (`userEditedSQL`)
 
@@ -420,12 +418,14 @@ For the full Blobby experience — multi-step analysis, tool use, and topic sele
 omni ai job-submit your-model-id "Analyze revenue trends and identify our fastest growing product category"
 # → returns { "jobId": "job-uuid", "conversationId": "conv-uuid" }
 
-# 2. Poll for completion (QUEUED → EXECUTING → COMPLETE)
+# 2. Poll the `state` field (NOT `status` — reading `.status` is empty every time)
 omni ai job-status <jobId>
 
 # 3. Get the result
 omni ai job-result <jobId>
 ```
+
+> **Job-status shape.** Poll **`state`** — `omni ai job-status` has **no `status` field**. States: `QUEUED` → `EXECUTING` → `DELIVERING` → terminal **`COMPLETE`** / `FAILED` / `CANCELLED`. Note it's `COMPLETE`, **not** `COMPLETED` — the model-refresh (`completed`) and `models jobs-get-status` (`COMPLETED`) flows spell it differently, so a poll loop reused across job types needs a **tolerant terminal check**: read the field as `state ?? status`, lowercase it, treat `startswith("complete")` as done and `{failed, cancelled, error}` as failed. The answer text is **`resultSummary`**; structured output is under **`actions[]`** (`type: "generate_query"` → `result.query`).
 
 The result contains an `actions` array with each step the AI took — look for actions with `type: "generate_query"` to extract the generated queries. The response also includes `resultSummary` with the AI's narrative interpretation.
 
