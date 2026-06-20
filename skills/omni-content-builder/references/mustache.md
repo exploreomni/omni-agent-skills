@@ -98,8 +98,8 @@ The key is `<view>.<field>` in a **viz** tile and the control **`id`** in a **te
 Rows are nested by `[pivot…].view.field`, each leaf carrying:
 | Token | Resolves to |
 |---|---|
-| `.value_static` | **formatted display string** (use this for text — `"4.77"`, `"$793,533.63"`) |
-| `.value` | a clickable drill element (renders interactive, not plain text) |
+| `.value_static` | **formatted, no interactivity** — the display string (use this for text — `"4.77"`, `"$793,533.63"`) |
+| `.value` | **formatted *and* interactive** — a drillable element (renders a component, not a string) |
 | `.value_url_encoded` | URL‑encoded formatted value |
 | `.raw` | unformatted raw value |
 
@@ -190,7 +190,7 @@ The URL param targets the filter by its **control id** (`f--<filterId>`; an inte
 - **Wrong key form for the tile kind:** in a **viz** tile a filter is keyed by `view.field`, so `{{filters.<controlId>.…}}` is empty; in a **dashboard text** tile it's keyed by control `id`, so `{{filters.<view>.<field>.…}}` is empty. Match the key to the context (or run `{{inspect}}` to read the live keys).
 - **KPI tile text isn't mustache:** a `chartType:"kpi"` tile's `markdownConfig` text/number sections do **not** run mustache. For a dynamic caption use a **markdown viz tile** instead.
 - **Blank markdown tile:** set **both** `automaticVis:false` and `prefersChart:false`, or the renderer auto‑derives a chart and the tile is white (tell‑tale: `{{result…}}` resolves when tested but the tile is blank).
-- **`.value` vs `.value_static` in `result`:** `.value` is an interactive drill element (renders a component); use **`.value_static`** for plain text.
+- **`.value` / `.value_static` / `.raw` in `result`:** `.value` is **formatted *and* interactive** (a drillable element — renders a component, not a string); **`.value_static`** is **formatted, no interactivity** (the display string — use this for caption text); **`.raw`** is the **unformatted underlying value** (use it for arithmetic / CSS `calc()`).
 - **Discovery:** when a token is empty and you're not sure why, put `{{inspect}}` in the body and read the dumped keys.
 
 ## See also
