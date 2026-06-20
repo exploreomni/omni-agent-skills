@@ -72,7 +72,9 @@ Controls are keyed by **`id`** in **both** contexts; `PERIOD_OVER_PERIOD` is in 
 
 ## Token reference by namespace
 
-### `{{filters.<view>.<field>.X}}`
+### `{{filters.…}}`
+The key is `<view>.<field>` in a **viz** tile and the control **`id`** in a **text** tile (see the keying gotcha); the leaf tokens below are identical either way.
+
 | Token | Resolves to |
 |---|---|
 | `.summary` | **friendly text** — `"in the past 4 months"`, `"is California"`, `"= 5"`, `"is any value"` |
@@ -120,7 +122,9 @@ Dumps the entire resolved context as a `<pre>` block. The fastest way to discove
 
 ## Scenarios
 
-### A. Dynamic KPI caption that tracks a per‑tile date control
+Each scenario notes its **tile kind**, because the `filters` keying differs (see the keying gotcha): a markdown **viz** tile (has a `query`; `filters` keyed by `view.field`; has `result`) vs. a dashboard **text** tile (an `inline-text` content-item, no query; `filters` keyed by control `id`; has `queries`, no `result`). Controls are keyed by `id` in both.
+
+### A. Dynamic KPI caption that tracks a per‑tile date control — *markdown viz tile*
 A "big number + live window" card. Use a **markdown viz tile** (not a KPI tile): its query supplies the number, its own `query.filters` supplies the window. One in‑tile date filter scoped to this tile drives both.
 
 ```jsonc
@@ -142,21 +146,22 @@ A "big number + live window" card. Use a **markdown viz tile** (not a KPI tile):
 - Window caption: **`{{filters.ecomm__order_items.created_at.summary}}`** (by field — the per‑tile date control's filter lands here). `{{controls.<id>…}}` would be empty.
 - **Don't** bake the window into the tile `name`/title — the title child is **not** mustache‑templated (see [containers.md](containers.md)), so a static "Last 3 Months" can't track an adjustable control and will drift.
 
-### B. Dashboard header that reflects the global filters
-A standalone **text tile** summarizing the active dashboard filters:
+### B. Dashboard header that reflects the global filters — *dashboard text tile*
+A standalone **text tile** (an `inline-text` content-item, no query — see [containers.md](containers.md)). Here `filters` is keyed by **control `id`**, so reference each filter by its control id — **not** `view.field`:
 ```
-### Sales — {{filters.users.state.summary}}, {{filters.order_items.status.summary}}
+### Sales — {{filters.state_filter.summary}}, {{filters.status_filter.summary}}
 Viewed by {{metadata.userAttributes.omni_user_email.element}} · refreshed {{metadata.lastRanAt}}
 ```
+> Build the **same** header as a *markdown viz tile* (with a query) instead, and `filters` keys by `view.field` (`{{filters.ecomm__users.state.summary}}`) and you also get `result`. The text tile is simpler for a pure caption — `queries` namespace, no `result`.
 
-### C. Caption that follows a metric/field *switcher*
-This is the one case where `controls.*` is correct — a `FIELD_SELECTION` control:
+### C. Caption that follows a metric/field *switcher* — *either tile kind*
+The one case where `controls.*` is correct — a `FIELD_SELECTION` control, keyed by `id` in both contexts:
 ```
 **{{controls.kpi_metric.summary}}**
 ```
 Pair with the CSS metric‑switch pattern in [markdown-tiles.md](markdown-tiles.md) to reveal the matching value span.
 
-### D. Exact filter boundary *dates* (not the friendly summary)
+### D. Exact filter boundary *dates* (not the friendly summary) — *markdown viz tile*
 Viz mustache has no absolute start/end‑date token (`.summary` is friendly text, `.value` is the relative expression). To show real boundary dates, expose them as **model dimensions** via templated‑filter tokens, then read with `result`:
 ```yaml
 # on the filtered view
@@ -165,22 +170,22 @@ period_end:   { sql: 'DATE({{ filters.ecomm__order_items.created_at.range_end }}
 ```
 Tile query selects `period_start`/`period_end`; body reads `{{result._first.ecomm__order_items.period_start.value_static}}`. (`range_start`/`range_end` are model‑SQL templated‑filter tokens — **not** available in viz mustache.)
 
-### E. Show a value from the result set (single number, last row, total)
+### E. Show a value from the result set (single number, last row, total) — *markdown viz tile* (needs `result`)
 ```
 Latest month: {{result._last.order_items.created_at.value_static}} →
 {{result._last.order_items.total_revenue.value_static}}
 (of {{result._rows}} months; YTD {{result._totals._first.order_items.total_revenue.value_static}})
 ```
 
-### F. Build a filter‑aware deep link
+### F. Build a filter‑aware deep link — *viz tile* (`view.field`); in a text tile reference the filter by its control id
 ```
 [Open filtered](https://app/dash?c--state={{filters.users.state.value_url_encoded}})
 ```
 
 ## Pitfalls
 
-- **Wrong namespace (the classic):** a date filter is **not** a control. `{{controls.<dateFilterId>.summary}}` and `.value` both render **empty**. Use `{{filters.<view>.<field>.summary}}`.
-- **Wrong key form:** referencing a control‑applied filter by id (`{{filters.date_2.summary}}`) is empty; it's keyed by field (`{{filters.ecomm__order_items.created_at.summary}}`).
+- **Wrong namespace (the classic):** a date filter is **not** an interactive control. `{{controls.<dateFilterId>.summary}}` and `.value` render **empty** in both tile kinds. Use the `filters` namespace (keyed by `view.field` in a viz tile, by control `id` in a text tile).
+- **Wrong key form for the tile kind:** in a **viz** tile a filter is keyed by `view.field`, so `{{filters.<controlId>.…}}` is empty; in a **dashboard text** tile it's keyed by control `id`, so `{{filters.<view>.<field>.…}}` is empty. Match the key to the context (or run `{{inspect}}` to read the live keys).
 - **KPI tile text isn't mustache:** a `chartType:"kpi"` tile's `markdownConfig` text/number sections do **not** run mustache. For a dynamic caption use a **markdown viz tile** instead.
 - **Blank markdown tile:** set **both** `automaticVis:false` and `prefersChart:false`, or the renderer auto‑derives a chart and the tile is white (tell‑tale: `{{result…}}` resolves when tested but the tile is blank).
 - **Tile-embedded controls don't resolve:** `{{controls.<id>}}` reads **dashboard** controls (`controls.data`). A control embedded in `query.controls[]` is invisible to the template and lands in the HIDDEN CONTROLS tray.
