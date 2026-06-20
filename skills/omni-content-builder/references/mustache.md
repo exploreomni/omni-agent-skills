@@ -20,15 +20,20 @@ Interpolation uses the standard Mustache templating library with HTML‑escaping
 
 ## Two contexts — *where* decides what you get
 
-The available namespaces differ by **tile kind**:
+The available namespaces **and how `filters` is keyed** differ by **tile kind** (all verified live):
 
-| Tile kind | Namespaces |
-|---|---|
-| **Markdown *visualization* tile** (`chartType:"markdown"`, has its own `query`) | `result`, `filters` (**this tile's** `query.filters`), `controls`, `metadata`, `fields`, `inspect` |
-| **Dashboard *text* tile** (standalone inline text, no query) | `filters` (**dashboard** filters), `controls`, `queries` (all tiles' presentations), `metadata`, `inspect` — **no `result`** |
-| KPI / chart / table / pivot tiles | **not** mustache‑templated. Only viz **axis labels** have limited support. To show a dynamic number *and* a dynamic caption, use a **markdown viz tile**, not a KPI tile. |
+| Tile kind | `filters` source → **keyed by** | Namespaces |
+|---|---|---|
+| **Markdown *visualization* tile** (`chartType:"markdown"`, has a `query`) | this tile's **`query.filters`** → **`view.field`** (same-field collapsed to OR) | `result`, `fields`, `filters`, `controls`, `metadata`, `inspect` |
+| **Dashboard *text* tile** (an `inline-text` content-item, **no query**) | the **raw dashboard filter controls** → control **`id`** (same-field kept separate) | `filters`, `controls`, `queries` (all tiles' presentations), `metadata`, `inspect` — **no `result`** |
+| **Viz axis labels / field display** (chart/axis title strings) | `query.filters` → **`view.field`** | `fields`, `filters`, `controls` — **no `result`, no `queries`** |
+| KPI / chart / table / pivot **tile bodies** | — | **not** mustache‑templated (only their axis labels are, per the row above). For a dynamic number *and* caption, use a **markdown viz tile**, not a KPI tile. |
 
-The crucial consequence: in a **markdown viz tile**, `filters` resolves against **that tile's own `query.filters`** — so the same token (e.g. `{{filters.ecomm__order_items.created_at.summary}}`) renders **per‑tile**, reflecting whatever filter/control applies to *that* card. This is what makes one token work identically across many KPI cards that each have their own date control.
+Two consequences worth internalizing:
+- In a **markdown viz tile**, `filters` resolves against **that tile's own `query.filters`** keyed by `view.field` — so `{{filters.ecomm__order_items.created_at.summary}}` renders **per‑tile**, which is what makes one token work across many cards that each have their own date control.
+- In a **dashboard text tile**, `filters` is the **raw dashboard controls keyed by `id`** — so you reference `{{filters.my_date_filter.summary}}`, you can address **two filters on the same field separately**, and there's a `queries` namespace but **no `result`**. (See the keying gotcha below.)
+
+**Authoring a text tile:** it's **not** a `queryPresentation` — it's a content-item in the `containers` tree: a tile `stack` whose child is `{ "type": "inline-text", "content": "<markdown/mustache>", "preset": "tile-align", "instanceKey": "…" }` (no `query`, no `attachedQueryKey`). A no-query markdown *queryPresentation* renders "This chart is empty" — see [containers.md](containers.md).
 
 KPI tile text components (`markdownConfig` of type `"number"`/`"text"`) are markdown‑enabled but **do not** run mustache — see [Pitfalls](#pitfalls).
 
@@ -43,17 +48,27 @@ KPI tile text components (`markdownConfig` of type `"number"`/`"text"`) are mark
 Both kinds live in `controls.data`; the `config.type` only decides which **namespace** exposes them to mustache:
 - **Filter-type** — `date`, `string`, `number`, `boolean`, `null`, `by_query`, `user_attribute`, `composite`. → **`{{filters.<view>.<field>.…}}`**
 - **Interactive-control-type** — `FIELD_SELECTION` (field **and** timeframe switchers), `FIELD_PICKER`, `TOP_N`, `PARENT`, `MULTI_FIELD_FILTER`, `DYNAMIC_FILTER`. → **`{{controls.<id>.…}}`**
-- `PERIOD_OVER_PERIOD` (the "Compare to" control) is **visible in the filter bar but unreachable from mustache.** Even though it renders as a control, it never appears in the `controls` template context — *every* `{{controls.<pop_id>.…}}` form (`.summary`, `.value`, `.label`, even `.json`) comes back empty, and it isn't under `filters` either. There is no token for the comparison period; the prior-period columns come from the tile query's `period_over_period_computations` instead (see [queryPresentations.md](queryPresentations.md)). Confirm with `{{inspect}}` — there is no `pop` key under `controls`.
+- `PERIOD_OVER_PERIOD` (the "Compare to" control) is **visible in the filter bar but unreachable from mustache.** Even though it renders as a control, it never appears in the `controls` template context **in either tile context** (viz *or* text) — *every* `{{controls.<pop_id>.…}}` form (`.summary`, `.value`, `.label`, even `.json`) comes back empty, and it isn't under `filters` either. There is no token for the comparison period; the prior-period columns come from the tile query's `period_over_period_computations` instead (see [queryPresentations.md](queryPresentations.md)). Confirm with `{{inspect}}` — there is no `pop` key under `controls`.
 
-> "Filter" vs "control" here is about the **mustache namespace, not ontology** — both kinds are entries in the same `controls.data` slice and both render as filter-bar widgets. A `type:"date"` filter is still routed to **`filters`** (keyed by `view.field`), while an interactive control is routed to **`controls`** (keyed by id). So reference a date filter under `filters`, not `controls` — even though it *is* a control entry in the document.
+> "Filter" vs "control" here is about the **mustache namespace, not ontology** — both kinds are entries in the same `controls.data` slice and both render as filter-bar widgets. A `type:"date"` filter is still routed to **`filters`** (keyed by `view.field` in a viz tile, by control `id` in a text tile — see the keying gotcha below), while an interactive control is routed to **`controls`** (keyed by id). So reference a date filter under `filters`, not `controls` — even though it *is* a control entry in the document.
 
-## The keying gotcha (`view.field` vs `id`)
+## The keying gotcha — filter keying **flips by tile kind**
 
-In the `filters` namespace, a dashboard filter is keyed by **`view.field`**, **not by its control id** — `{{filters.ecomm__order_items.created_at.summary}}` resolves, while `{{filters.<controlId>.…}}` **and** `{{controls.<controlId>.…}}` both come back **empty**. A filter's control id never reaches either the `filters` or the `controls` context, so there is no id-based way to address a filter (verified live).
+**How a filter is keyed in the `filters` namespace depends on the tile kind**, because each kind feeds a *different* filter object to the template (all verified live):
 
-**Rule of thumb: reference filters by `view.field`, reference controls by `id`.** When unsure, drop `{{inspect}}` into the body to dump the live context and read the exact keys.
+- **Markdown viz tile** (has a `query`): `filters` = the tile's **`query.filters`** — the filters as *applied to the query* (after same-field consolidation). Keyed by **`view.field`**, and multiple filters on one field are **merged into one composite-OR** at that key (`.summary` = the combined window, `.value` empty). `{{filters.<controlId>.…}}` is empty here.
+- **Dashboard text tile** (`inline-text`, no query): `filters` = the **raw dashboard filter controls**. Keyed by control **`id`**, and same-field filters stay **separate** — each with its own `.summary` *and* `.value`. `{{filters.<view>.<field>.…}}` is empty here.
 
-> **Two filters on one field aren't separately addressable (current behavior, not a bug).** When more than one filter targets the same field, they're merged into a single composite-OR at that one `view.field` key. `{{filters.<view>.<field>.summary}}` then reads the *combined* window — e.g. `"in the past 12 months or in the past 6 months"` — and `.value` returns **empty** (a composite has no single raw value). Because there's no per-filter id key, neither filter can be templated on its own.
+So the *same* dashboard date filter is addressed two different ways depending on where the token lives:
+
+| | Markdown **viz** tile | Dashboard **text** tile |
+|---|---|---|
+| reference a filter | `{{filters.ecomm__order_items.created_at.summary}}` (by `view.field`) | `{{filters.my_date_filter.summary}}` (by control **id**) |
+| two filters on one field | one OR composite at the field key, `.value` empty | two separate id keys, each its own `.summary` + `.value` |
+
+Controls are keyed by **`id`** in **both** contexts; `PERIOD_OVER_PERIOD` is in **neither** (above). This is current behavior, not a bug — the viz tile reads the consolidated `query.filters`, the text tile reads the unconsolidated dashboard controls.
+
+**Rule of thumb:** viz tile → filters by **`view.field`**; text tile → filters by control **`id`**; controls by `id` everywhere. When unsure, drop `{{inspect}}` into the body and read the exact keys for *that* tile.
 
 ## Token reference by namespace
 

@@ -49,6 +49,23 @@ Each placed tile is a `stack` carrying a `gridPosition` and a `metadata.attached
 - The `{ "as": "metadata", "format": "name" }` child is the tile **title**. It renders the raw `queryPresentation.name` — **it is not mustache-templated** (a token there prints literally). Drop this child if you want a dynamic caption (e.g. from a markdown body) to stand alone.
 - The `{ "as": "chart" }` child renders the visualization.
 
+### Text tile (`inline-text`) — markdown/mustache with **no query**
+
+A **dashboard text tile** is **not** a `queryPresentation` — it's a content-item authored **only in `containers`**: a tile `stack` whose single child is an `inline-text` item carrying the markdown inline. There is no `attachedQueryKey` and no `as:"chart"`/`as:"metadata"` child.
+
+```jsonc
+{ "containerType": "stack", "style": "tile", "name": "Header",
+  "gridPosition": { "x": 0, "y": 0, "w": 24, "h": 6 },
+  "instanceKey": "ts-header",
+  "children": [
+    { "type": "inline-text", "content": "### Sales — {{filters.users.state.summary}}", "preset": "tile-align", "instanceKey": "ti-header" }
+  ] }
+```
+
+- The mustache body lives in **`content`** (markdown, HTML-escaping off — `<div>`/`<style>` work like a markdown viz tile).
+- Because it has **no query**, it gets the **dashboard mustache context**: `filters` keyed by control **`id`** (not `view.field`), a `queries` namespace, **no `result`**. See the context table in [mustache.md](mustache.md).
+- **Don't** try to make a text tile as a no-query *markdown queryPresentation* (`type:"blank"`, or `type:"query"` with the query omitted) — it renders **"This chart is empty."** Markdown `queryPresentation` tiles require a query; the no-query text tile is this `inline-text` content-item instead.
+
 ## Grouping tiles into a movable band
 
 To make several tiles move together as one unit, wrap them in a named `stack` that has a single `gridPosition`, and give the **child** tile stacks **no** `gridPosition` (let them flex with `fillSpace`):
