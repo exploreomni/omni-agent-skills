@@ -2,7 +2,7 @@
 
 How dashboard text/markdown tiles interpolate `{{...}}` tokens — the namespaces, the **filter‑vs‑control** distinction, the per‑namespace token tables, and worked scenarios. Behaviors here are verified against live dashboards; the authoritative token list is Omni's public [Mustache reference](https://docs.omni.co/visualize-present/mustache-reference).
 
-> **Why this matters:** the most common mistake is reaching for `{{controls.<id>.…}}` to show a **filter's** value. A date/string/number/boolean *filter* is **not** a control and never appears in the `controls` namespace — it lives under `filters`, keyed by **`view.field`**. Using the wrong namespace fails **silently** (the token renders empty), so it looks like a rendering bug.
+> **Why this matters:** the most common mistake is reaching for `{{controls.<id>.…}}` to show a **filter's** value. A date/string/number/boolean *filter* lives under the **`filters`** namespace, not `controls` — it's configured as a control but isn't addressable in that namespace. And its `filters` key depends on the **tile kind**: `view.field` in a markdown **viz** tile, the control **`id`** in a dashboard **text** tile (see the keying gotcha). Using the wrong namespace *or* the wrong key form for the tile fails **silently** (the token renders empty), so it looks like a rendering bug.
 
 ## Table of Contents
 
