@@ -190,7 +190,6 @@ The URL param targets the filter by its **control id** (`f--<filterId>`; an inte
 - **Wrong key form for the tile kind:** in a **viz** tile a filter is keyed by `view.field`, so `{{filters.<controlId>.…}}` is empty; in a **dashboard text** tile it's keyed by control `id`, so `{{filters.<view>.<field>.…}}` is empty. Match the key to the context (or run `{{inspect}}` to read the live keys).
 - **KPI tile text isn't mustache:** a `chartType:"kpi"` tile's `markdownConfig` text/number sections do **not** run mustache. For a dynamic caption use a **markdown viz tile** instead.
 - **Blank markdown tile:** set **both** `automaticVis:false` and `prefersChart:false`, or the renderer auto‑derives a chart and the tile is white (tell‑tale: `{{result…}}` resolves when tested but the tile is blank).
-- **Tile-embedded controls don't resolve:** `{{controls.<id>}}` reads **dashboard** controls (`controls.data`). A control embedded in `query.controls[]` is invisible to the template and lands in the HIDDEN CONTROLS tray.
 - **`.value` vs `.value_static` in `result`:** `.value` is an interactive drill element (renders a component); use **`.value_static`** for plain text.
 - **Discovery:** when a token is empty and you're not sure why, put `{{inspect}}` in the body and read the dumped keys.
 
