@@ -154,7 +154,7 @@ This is the one case where `controls.*` is correct — a `FIELD_SELECTION` contr
 ```
 **{{controls.kpi_metric.summary}}**
 ```
-Pair with the CSS metric‑switch pattern in [visConfig.md](visConfig.md) to reveal the matching value span.
+Pair with the CSS metric‑switch pattern in [markdown-tiles.md](markdown-tiles.md) to reveal the matching value span.
 
 ### D. Exact filter boundary *dates* (not the friendly summary)
 Viz mustache has no absolute start/end‑date token (`.summary` is friendly text, `.value` is the relative expression). To show real boundary dates, expose them as **model dimensions** via templated‑filter tokens, then read with `result`:
@@ -189,7 +189,8 @@ Latest month: {{result._last.order_items.created_at.value_static}} →
 
 ## See also
 - [Omni Mustache reference](https://docs.omni.co/visualize-present/mustache-reference) — the authoritative public token list
-- [visConfig.md](visConfig.md) — markdown tiles, the metric‑switch CSS pattern, the blank‑tile trap
+- [visConfig.md](visConfig.md) — the markdown config shape + the blank‑tile trap
+- [markdown-tiles.md](markdown-tiles.md) — markdown-tile recipes (metric‑switch, responsive fonts, funnel, sizing)
 - [controls.md](controls.md) — control/filter config shapes and per‑tile `map` scoping
 - [containers.md](containers.md) — placing controls (filter bar / in‑tile); the non‑templated title child
 - [queryPresentations.md](queryPresentations.md) — tile query/visConfig structure

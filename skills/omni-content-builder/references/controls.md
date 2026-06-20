@@ -101,7 +101,7 @@ Binds to tiles whose query uses that timeframed field.
 }
 ```
 
-> `config.field` is **both** the default selected option **and** the field the control swaps. They cannot be decoupled — you cannot point the swap at a throwaway field while keeping a real default. To keep a switcher from rewriting other tiles that share its field, **scope it with `map`** (set those tiles to `false`); the markdown metric-switch pattern in [visConfig.md](visConfig.md) is the alternative when you want a card to follow `.summary` with no field-swap at all.
+> `config.field` is **both** the default selected option **and** the field the control swaps. They cannot be decoupled — you cannot point the swap at a throwaway field while keeping a real default. To keep a switcher from rewriting other tiles that share its field, **scope it with `map`** (set those tiles to `false`); the markdown metric-switch pattern in [markdown-tiles.md](markdown-tiles.md) is the alternative when you want a card to follow `.summary` with no field-swap at all.
 
 ### Field picker (FIELD_PICKER — adds fields)
 
@@ -272,7 +272,7 @@ A **`MULTI_FIELD_SELECTION`** control sets several child `FIELD_SELECTION` contr
 
 - `selectionMap` is `{ "<childControlId>": { "<parentValue>": "<childFieldValue>" } }` — picking a parent option pushes the mapped value into each child.
 - Place **only the parent** in a container; set each child's **`config.hidden: true`** so the children stay invisible.
-- The hidden children feed markdown tiles via `{{controls.<childId>.summary}}` (see [visConfig.md](visConfig.md)), so one parent click re-labels a whole row of KPI cards. The cards follow `.summary` (no field-swap needed); if a child's `config.field` is a real measure other tiles share, scope it with all-`false` child `map`s so it can't bleed into them.
+- The hidden children feed markdown tiles via `{{controls.<childId>.summary}}` (see [markdown-tiles.md](markdown-tiles.md)), so one parent click re-labels a whole row of KPI cards. The cards follow `.summary` (no field-swap needed); if a child's `config.field` is a real measure other tiles share, scope it with all-`false` child `map`s so it can't bleed into them.
 
 ### A parent's Mapping tab is moot
 
@@ -309,10 +309,10 @@ A markdown tile can react to a **control's** current selection. These tokens are
 
 > **Namespace gotcha.** `{{controls.<id>}}` resolves only against **dashboard controls** (`controls.data`). A control embedded in a tile's `query.controls[]` is invisible to the template (every token returns empty) **and** renders in the HIDDEN CONTROLS tray. Drive markdown from a dashboard control, not a tile-embedded one.
 
-This is the basis of the dynamic-caption and metric-switch patterns documented in [visConfig.md](visConfig.md) and [mustache.md](mustache.md).
+This is the basis of the dynamic-caption and metric-switch patterns documented in [markdown-tiles.md](markdown-tiles.md) and [mustache.md](mustache.md).
 
 ## See also
 
 - [documents-v2.md](documents-v2.md) — the v2 envelope
 - [containers.md](containers.md) — making controls visible (filter bar / in-tile)
-- [visConfig.md](visConfig.md) — markdown tiles that follow a control
+- [markdown-tiles.md](markdown-tiles.md) — markdown tiles that follow a control

@@ -182,5 +182,6 @@ Discarding: v1 `omni documents discard-draft <publishedIdentifier>` discards the
 
 - [containers.md](containers.md) — the layout tree (grid, tile stacks, groups, control placement)
 - [controls.md](controls.md) — filters and interactive controls
-- [visConfig.md](visConfig.md) — per-tile visualization config, incl. the markdown metric-switch pattern
+- [visConfig.md](visConfig.md) — per-tile visualization config
+- [markdown-tiles.md](markdown-tiles.md) — markdown-tile recipes (sizing, responsive fonts, metric-switch, funnel)
 - [branch-bound-drafts.md](branch-bound-drafts.md) — drafts bound to a model branch

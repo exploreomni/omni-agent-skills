@@ -422,7 +422,7 @@ omni dashboards download-status <dashboardId> <jobId>
 ## Docs Reference
 
 - [Documents API](https://docs.omni.co/api/documents.md) · [Dashboard Downloads](https://docs.omni.co/api/dashboard-downloads.md) · [Query API](https://docs.omni.co/api/queries.md) · [Schedules API](https://docs.omni.co/api/schedules.md) · [Visualization Types](https://docs.omni.co/visualize-present/visualizations.md)
-- **Skill references**: [documents-v2.md](references/documents-v2.md) · [containers.md](references/containers.md) · [controls.md](references/controls.md) · [queryPresentations.md](references/queryPresentations.md) · [visConfig.md](references/visConfig.md) · [mustache.md](references/mustache.md) · [updating-dashboards.md](references/updating-dashboards.md) · [branch-bound-drafts.md](references/branch-bound-drafts.md) · [validation-and-testing.md](references/validation-and-testing.md)
+- **Skill references**: [documents-v2.md](references/documents-v2.md) · [containers.md](references/containers.md) · [controls.md](references/controls.md) · [queryPresentations.md](references/queryPresentations.md) · [visConfig.md](references/visConfig.md) · [markdown-tiles.md](references/markdown-tiles.md) · [mustache.md](references/mustache.md) · [updating-dashboards.md](references/updating-dashboards.md) · [branch-bound-drafts.md](references/branch-bound-drafts.md) · [validation-and-testing.md](references/validation-and-testing.md)
 
 ## Related Skills
 
