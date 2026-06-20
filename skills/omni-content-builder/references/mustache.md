@@ -42,7 +42,7 @@ KPI tile text components (`markdownConfig` of type `"number"`/`"text"`) are mark
 
 - **Filter** — `date`, `string`, `number`, `boolean`, `null`, `by_query`, `user_attribute`, `composite`. → **`{{filters.<view>.<field>.…}}`**
 - **Control** — the interactive widgets only: `FIELD_SELECTION` (field **and** timeframe switchers), `FIELD_PICKER`, `TOP_N`, `PARENT`, `MULTI_FIELD_FILTER`, `DYNAMIC_FILTER`. → **`{{controls.<id>.…}}`**
-- `PERIOD_OVER_PERIOD` is **not** a displayed control → it is **absent** from the `controls` namespace.
+- `PERIOD_OVER_PERIOD` (the "Compare to" control) is **visible in the filter bar but unreachable from mustache.** Even though it renders as a control, it never appears in the `controls` template context — *every* `{{controls.<pop_id>.…}}` form (`.summary`, `.value`, `.label`, even `.json`) comes back empty, and it isn't under `filters` either. There is no token for the comparison period; the prior-period columns come from the tile query's `period_over_period_computations` instead (see [queryPresentations.md](queryPresentations.md)). Confirm with `{{inspect}}` — there is no `pop` key under `controls`.
 
 > A date range "filter" is never a "control." If you built it as a `type:"date"` filter (the normal dashboard date filter / in‑tile date filter), reference it under **`filters`**, not `controls`.
 
