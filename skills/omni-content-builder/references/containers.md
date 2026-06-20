@@ -45,8 +45,26 @@ Each placed tile is a `stack` carrying a `gridPosition` and a `metadata.attached
 ```
 
 - `style: "tile"` gives the tile its card chrome (it adds padding/margin — account for it if you also set flex `gap`).
+- **Stack-level `padding` = the tile's outer white frame.** The `stack` itself accepts a top-level `padding` (same discrete scale as content items — see §"Content-item `padding`"). It defaults to the `style: "tile"` chrome; setting **`"padding": 0` on the stack** collapses that frame so the tile renders **edge-to-edge / borderless** — the right way to make a full-bleed gradient banner or KPI strip. This is distinct from the content-item `padding` on the *children*. It is also **the** way to drop a tile's white border: the bi-app `hideBorder` tile-setting is **not** part of the v2 documents schema (a `settings.hideBorder` patch is silently stripped on write), so zeroing the stack `padding` is the only programmatic path. Apply it per-stack — don't blanket every tile unless you actually want the whole dashboard frameless.
 - The `{ "as": "metadata", "format": "name" }` child is the tile **title**. It renders the raw `queryPresentation.name` — **it is not mustache-templated** (a token there prints literally). Drop this child if you want a dynamic caption (e.g. from a markdown body) to stand alone.
 - The `{ "as": "chart" }` child renders the visualization.
+
+### Text tile (`inline-text`) — markdown/mustache with **no query**
+
+A **dashboard text tile** is **not** a `queryPresentation` — it's a content-item authored **only in `containers`**: a tile `stack` whose single child is an `inline-text` item carrying the markdown inline. There is no `attachedQueryKey` and no `as:"chart"`/`as:"metadata"` child.
+
+```jsonc
+{ "containerType": "stack", "style": "tile", "name": "Header",
+  "gridPosition": { "x": 0, "y": 0, "w": 24, "h": 6 },
+  "instanceKey": "ts-header",
+  "children": [
+    { "type": "inline-text", "content": "### Sales — {{filters.users.state.summary}}", "preset": "tile-align", "instanceKey": "ti-header" }
+  ] }
+```
+
+- The mustache body lives in **`content`** (markdown, HTML-escaping off — `<div>`/`<style>` work like a markdown viz tile).
+- Because it has **no query**, it gets the **dashboard mustache context**: `filters` keyed by control **`id`** (not `view.field`), a `queries` namespace, **no `result`**. See the context table in [mustache.md](mustache.md).
+- **Don't** try to make a text tile as a no-query *markdown queryPresentation* (`type:"blank"`, or `type:"query"` with the query omitted) — it renders **"This chart is empty."** Markdown `queryPresentation` tiles require a query; the no-query text tile is this `inline-text` content-item instead.
 
 ## Grouping tiles into a movable band
 
@@ -119,7 +137,7 @@ Options & appearance:
 - `appearance.as`: `"tabs"` (`variant: underline | bordered`), `"buttons"` (`segment | toggle | pills`), `"list"`, or `"dropdown"`.
 - To customise, supply `options: [{ "label": "…", "value": "<page instanceKey>", "id": "…" }]`. An option may instead link an external `uri` (with `target`), and `includeControls: true` carries the current filters/controls into the link. A custom `label` can embed `{{page.<instanceKey>.name}}` so it tracks page renames.
 
-> **Verified** on a live draft: a second `page` is accepted in the top-level array; the switcher's tabs auto-populate from page names; a tile on page 2's grid renders only there. Placing the switcher at a page grid root yields the full-width divider below the Filter Bar; the renderer rewrites it to `w:24` + `preset: "tile-align"`. Because `containers` is a **full replacement**, send the whole array with edits applied; `queryPresentations` stays a diff (add the tile under `data`, include its key in `order`).
+> A second `page` is accepted in the top-level array; the switcher's tabs auto-populate from page names; a tile on page 2's grid renders only there. Placing the switcher at a page grid root yields the full-width divider below the Filter Bar; the renderer rewrites it to `w:24` + `preset: "tile-align"`. Because `containers` is a **full replacement**, send the whole array with edits applied; `queryPresentations` stays a diff (add the tile under `data`, include its key in `order`).
 
 ## The Filter Bar
 
@@ -156,7 +174,7 @@ To place a switcher inside a specific tile (e.g. a per-KPI metric picker), add t
 
 To **hide** an in-tile switcher (e.g. once a [parent control](controls.md#parent-controls-one-control-drives-many) drives it and you only want the parent visible), remove its content-item from the tile stack **and** set `config.hidden: true` on the control — a control left unplaced but un-hidden gets auto-placed back into the filter bar. The hidden control still feeds the card via `{{controls.<id>.summary}}`. See [controls.md](controls.md#hiding-a-control).
 
-> **`PERIOD_OVER_PERIOD` cannot go in-tile** — a PoP control content-item in a tile stack renders as "Item missing." Place it in the filter bar instead; the tile's comparison columns come from the query's `period_over_period_computations`, not the control's placement.
+> **`PERIOD_OVER_PERIOD` is auto-placed — don't author a content-item for it.** A PoP content-item in a tile stack renders as "Item missing," and so does a **manual filter-bar child**: Omni already auto-renders the "Compare to" widget next to the date filter in the control's `filterId`, so a hand-placed copy duplicates it → "Item missing." Just add the control to `controls.data`/`order` (no `containers` entry); the tile's comparison columns come from the query's `period_over_period_computations`. See [controls.md](controls.md).
 
 ## Content-item `padding` (and the switcher-alignment trick)
 

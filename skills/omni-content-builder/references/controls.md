@@ -9,6 +9,17 @@ In the [v2 documents API](documents-v2.md), `controls.data` holds dashboard filt
 }
 ```
 
+## Contents
+
+- [`map` — per-tile scoping](#map--per-tile-scoping) — exclude/include tiles, field overrides
+- [Config shapes](#config-shapes) — filter and interactive-control config by type
+- [More filter config shapes](#more-filter-config-shapes)
+- [Hiding a control](#hiding-a-control) — `config.hidden`
+- [Parent controls (one control drives many)](#parent-controls-one-control-drives-many)
+- [Control vs. content-item — and syncing a filter across pages](#control-vs-content-item--and-syncing-a-filter-across-pages)
+- [Mustache control tokens (in markdown/text tiles)](#mustache-control-tokens-in-markdowntext-tiles)
+- [See also](#see-also)
+
 ## `map` — per-tile scoping
 
 `map` overrides which tiles a control affects, keyed by tile key:
@@ -17,6 +28,27 @@ In the [v2 documents API](documents-v2.md), `controls.data` holds dashboard filt
 - **Omit or empty `map` ⇒ the control applies to every tile by its `config.fieldName`.**
 
 > **Both filters and interactive controls scope per-tile.** `{"<tileKey>": false}` excludes a tile from either a **filter** (it stays all-time) or an interactive **`FIELD_SELECTION`** switcher (it stops rewriting that tile); `"<tileKey>": "<fieldName>"` remaps it.
+
+### Wiring a filter across tiles that use different date fields
+
+A date filter's `config.fieldName` (e.g. `order_items.created_at`) is the **default** applied to every tile. When tiles come from topics with **different date fields** — `order_items.created_at`, `sessions.session_start`, `users.created_at` — the default only matches some of them. Use `map` to remap each tile to *its own* date field:
+
+```jsonc
+"map": {
+  "12": "ecomm__sessions.session_start",   // a sessions-based tile
+  "15": "ecomm__users.created_at",          // a users/acquisition tile
+  "20": false                               // a current-state snapshot — leave unfiltered
+}
+```
+
+Two rules:
+
+- **A new tile inherits the control's *default* field.** If that field isn't in the new tile's topic, the filter can still be satisfied by **forcing a join through the global `relationships`** (a field reachable via a join the *topic* never declared) — which can **fan out and inflate counts** (e.g. a sessions tile dragging in `order_items`, so "viewed > sessions"). Always wire a new tile to its real date field (or `false`) — don't rely on the default.
+- **Relative-date filters shouldn't apply to current-state *snapshot* tiles** (inventory on hand, units in stock). Filtering "units in stock" by `created_at` turns a current snapshot into a creation-cohort and distorts it — exclude those tiles with `false`.
+
+A `map` value can only be a field name or `false` — there's no per-tile *override* of the relative window itself.
+
+> **Two filter controls on the same field of the same tile = OR, not AND.** If two (or more) filters map to the same field on a tile, they're merged into a single composite **OR** before the query runs — a *union* of the windows (e.g. `created_at` in "past 12 months" **OR** "past 6 months" → effectively past 12 months), never an intersection. You **cannot AND two filters on one field** this way, so you can't bound a range by stacking, say, a `>=` and a `<=` date control on one field — author a **single range/`between` filter** instead. (This OR-merge is the *query* behavior. In mustache it's context-dependent: a **viz tile** sees only the merged composite at the `view.field` key with `.value` empty, but a **dashboard text tile** sees the two filters **separately, keyed by control id**, each with its own `.value` — see [mustache.md](mustache.md).)
 
 ## Config shapes
 
@@ -80,7 +112,7 @@ Binds to tiles whose query uses that timeframed field.
 }
 ```
 
-> `config.field` is **both** the default selected option **and** the field the control swaps. They cannot be decoupled — you cannot point the swap at a throwaway field while keeping a real default. To keep a switcher from rewriting other tiles that share its field, **scope it with `map`** (set those tiles to `false`); the markdown metric-switch pattern in [visConfig.md](visConfig.md) is the alternative when you want a card to follow `.summary` with no field-swap at all.
+> `config.field` is **both** the default selected option **and** the field the control swaps. They cannot be decoupled — you cannot point the swap at a throwaway field while keeping a real default. To keep a switcher from rewriting other tiles that share its field, **scope it with `map`** (set those tiles to `false`); the markdown metric-switch pattern in [markdown-tiles.md](markdown-tiles.md) is the alternative when you want a card to follow `.summary` with no field-swap at all.
 
 ### Field picker (FIELD_PICKER — adds fields)
 
@@ -128,7 +160,7 @@ Binds to tiles whose query uses that timeframed field.
 }
 ```
 
-> Dashboard-only; adds prior-period comparison columns. **Cannot be placed in-tile** (renders "Item missing") — place it in the **filter bar**. The comparison columns come from the tile query's `period_over_period_computations` + a date filter, independent of the control (the control only changes the offset). This control has **no `label`/`hidden`**. Tile-query scaffolding:
+> Dashboard-only; adds prior-period comparison columns. **Add it to `controls.data` (+ `order`) only — do _not_ author a PoP child in the `containers` filter bar.** Omni **auto-renders** the "Compare to" widget next to the date filter named in **`filterId`**; a manually-placed PoP filter-bar child duplicates it and the extra copy renders as **"Item missing"** (and it still can't go **in-tile** — same "Item missing"). Point `filterId` at an existing **date-filter control**. The comparison comes from the **tile query's** `period_over_period_computations` + a date filter (the control only changes the offset) — to make the table follow the dashboard date control, **map that date filter onto the tile** (`map["<tileKey>"]: "<view.field>"`) instead of hardcoding a competing window in `query.filters`. **No `label`/`hidden`.** **Casing differs by layer:** the control config is **camelCase** (`timeUnitName`/`periodsAgo`/`filterFieldName`/`filterId`); the tile query is **snake_case** (`time_unit_name`/`periods_ago`/`date_filter_field_name`). Tile-query scaffolding:
 > ```jsonc
 > "query": {
 >   "filters": { "ecomm__order_items.created_at": { "type":"date","kind":"TIME_FOR_INTERVAL_DURATION","ui_type":"PAST","left_side":"6 months ago","right_side":"6 months" } },
@@ -251,7 +283,7 @@ A **`MULTI_FIELD_SELECTION`** control sets several child `FIELD_SELECTION` contr
 
 - `selectionMap` is `{ "<childControlId>": { "<parentValue>": "<childFieldValue>" } }` — picking a parent option pushes the mapped value into each child.
 - Place **only the parent** in a container; set each child's **`config.hidden: true`** so the children stay invisible.
-- The hidden children feed markdown tiles via `{{controls.<childId>.summary}}` (see [visConfig.md](visConfig.md)), so one parent click re-labels a whole row of KPI cards. The cards follow `.summary` (no field-swap needed); if a child's `config.field` is a real measure other tiles share, scope it with all-`false` child `map`s so it can't bleed into them.
+- The hidden children feed markdown tiles via `{{controls.<childId>.summary}}` (see [markdown-tiles.md](markdown-tiles.md)), so one parent click re-labels a whole row of KPI cards. The cards follow `.summary` (no field-swap needed); if a child's `config.field` is a real measure other tiles share, scope it with all-`false` child `map`s so it can't bleed into them.
 
 ### A parent's Mapping tab is moot
 
@@ -276,20 +308,22 @@ A **control** lives once in `controls.data[id]` — it owns the config **and the
 
 ## Mustache control tokens (in markdown/text tiles)
 
-A markdown tile can react to a control's current selection:
+A markdown tile can react to a **control's** current selection. These tokens are for the **interactive controls** in this file (`FIELD_SELECTION` field/timeframe switchers, `FIELD_PICKER`, `TOP_N`, `PARENT`, `MULTI_FIELD_FILTER`, `DYNAMIC_FILTER`) — **not** for plain filters:
 
 | Token | Resolves to |
 |---|---|
 | `{{controls.<id>.summary}}` | the selected option's **friendly label** (e.g. `"Total Revenue"`) |
-| `{{controls.<id>.value}}` | the raw selected **field name** |
+| `{{controls.<id>.value}}` | `FIELD_SELECTION` → field name · `TOP_N` → number · `FIELD_PICKER` → array · `PARENT` → value |
 | `{{controls.<id>.label}}` | the control's **title** |
+
+> **⚠️ Filters and controls share one slice but split across two mustache namespaces.** A `date`/`string`/`number`/`boolean` **filter** lives in `controls.data` like every control, but it is **not** exposed in the `controls` template namespace — `{{controls.<filterId>.…}}` renders **empty**. Reference a filter under **`filters`**, keyed by **`view.field`** (not by control id): `{{filters.ecomm__order_items.created_at.summary}}` for the friendly window text, `.value` for the raw value. In a markdown-viz tile, `filters` resolves against that tile's **own** `query.filters`, so the same token reflects each tile's own (per-tile) filter/control. The full filter-vs-control decision, the keying rule, every namespace (`filters`/`controls`/`result`/`metadata`/`queries`/`inspect`), and worked scenarios are in **[mustache.md](mustache.md)**.
 
 > **Namespace gotcha.** `{{controls.<id>}}` resolves only against **dashboard controls** (`controls.data`). A control embedded in a tile's `query.controls[]` is invisible to the template (every token returns empty) **and** renders in the HIDDEN CONTROLS tray. Drive markdown from a dashboard control, not a tile-embedded one.
 
-This is the basis of the dynamic-caption and metric-switch patterns documented in [visConfig.md](visConfig.md).
+This is the basis of the dynamic-caption and metric-switch patterns documented in [markdown-tiles.md](markdown-tiles.md) and [mustache.md](mustache.md).
 
 ## See also
 
 - [documents-v2.md](documents-v2.md) — the v2 envelope
 - [containers.md](containers.md) — making controls visible (filter bar / in-tile)
-- [visConfig.md](visConfig.md) — markdown tiles that follow a control
+- [markdown-tiles.md](markdown-tiles.md) — markdown tiles that follow a control

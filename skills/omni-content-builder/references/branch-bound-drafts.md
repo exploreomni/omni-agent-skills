@@ -54,7 +54,7 @@ The draft's workbook model extends the **branch** model, so branch-only fields r
 
 ## Publishing: branch drafts can't be CLI-published
 
-- `omni documents v2-publish-draft <identifier>` only sees the **main** draft. When only a branch-bound draft exists, it returns **404 "Document draft does not exist"** (verified live).
+- `omni documents v2-publish-draft <identifier>` only sees the **main** draft. When only a branch-bound draft exists, it returns **404 "Document draft does not exist"**.
 - A branch-bound draft goes live by **merging the model branch** (so the field lands in the shared model) and publishing the draft — that merge + publish close-out happens in the Omni UI. The CLI builds and verifies the draft; it cannot finish the job.
 - `omni documents discard-draft <identifier>` likewise targets the **main** draft and 404s when only a branch draft exists. Deleting the model branch does **not** auto-discard the branch draft (verified). The CLI has no verified way to discard a branch-bound draft — abandon it in the UI.
 
@@ -86,7 +86,7 @@ omni documents v2-patch-draft-by-identifier <identifier> <draftIdentifier> --bod
 
 When the draft is also branch-bound, its workbook model extends the branch — one model resolves branch-only fields **and** workbook fields together, even in the same tile.
 
-**Workbook-model rotation:** every draft → publish cycle **mints a new workbook model id**. Extensions written to a draft's workbook model are carried into the published doc and later drafts (verified: an extension measure resolved post-publish), but a given draft's model is a different id — never cache one. Read it fresh from `list-drafts` (the draft's `workbookModelId`) each time.
+**Workbook-model rotation:** every draft → publish cycle **mints a new workbook model id**. Extensions written to a draft's workbook model are carried into the published doc and later drafts, but a given draft's model is a different id — never cache one across a publish. Read it fresh from `list-drafts` (the draft's `workbookModelId`) each time. **Within a single *unpublished* draft the id is stable, though**: repeated `v2-patch-draft-by-identifier` edits keep the same `workbookModelId`, and re-invoking `v2-patch-draft` reuses the open draft rather than minting a second clone — so the write-field-then-patch-tile sequence above is safe. Rotation happens **only at the publish boundary**.
 
 > These recipes wire the field into the right model; the tile still needs a valid `visConfig` to render. A query that runs cleanly via `query run` can still show "No chart available" if the viz spec is off. See [validation-and-testing.md](validation-and-testing.md).
 
