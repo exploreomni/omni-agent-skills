@@ -97,5 +97,5 @@ relationships:
 `employee_name` is now a real **dimension** — group, filter, and query by it like any field. Notes:
 - **Quote the SELECT aliases** (`AS "region_name"`) on Snowflake/BigQuery/Databricks or they uppercase and the join key won't match.
 - `always_left` → unmatched keys render as `∅`/null. Add an `'Other'` catch-all (a final `UNION ALL SELECT <unmatched>, 'Other'` is impractical for open domains — instead `COALESCE(${map.label}, 'Other')` in a derived dim, or accept nulls) to mirror Looker's `group_by` fallback.
-- Verified end-to-end: validates clean, grouped query runs COMPLETE, mapped labels flow into results.
+- Validates clean; the grouped query runs COMPLETE and mapped labels flow into results.
 - Prefer a true **UI Input Table** when the mapping changes over time (reps reassigned) — it's editable in-app; the query view requires a YAML edit to change.

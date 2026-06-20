@@ -137,7 +137,7 @@ Options & appearance:
 - `appearance.as`: `"tabs"` (`variant: underline | bordered`), `"buttons"` (`segment | toggle | pills`), `"list"`, or `"dropdown"`.
 - To customise, supply `options: [{ "label": "…", "value": "<page instanceKey>", "id": "…" }]`. An option may instead link an external `uri` (with `target`), and `includeControls: true` carries the current filters/controls into the link. A custom `label` can embed `{{page.<instanceKey>.name}}` so it tracks page renames.
 
-> **Verified** on a live draft: a second `page` is accepted in the top-level array; the switcher's tabs auto-populate from page names; a tile on page 2's grid renders only there. Placing the switcher at a page grid root yields the full-width divider below the Filter Bar; the renderer rewrites it to `w:24` + `preset: "tile-align"`. Because `containers` is a **full replacement**, send the whole array with edits applied; `queryPresentations` stays a diff (add the tile under `data`, include its key in `order`).
+> A second `page` is accepted in the top-level array; the switcher's tabs auto-populate from page names; a tile on page 2's grid renders only there. Placing the switcher at a page grid root yields the full-width divider below the Filter Bar; the renderer rewrites it to `w:24` + `preset: "tile-align"`. Because `containers` is a **full replacement**, send the whole array with edits applied; `queryPresentations` stays a diff (add the tile under `data`, include its key in `order`).
 
 ## The Filter Bar
 

@@ -85,7 +85,7 @@ All go in a `v2-patch-draft` (or `…-by-identifier`) body, alongside a `summary
 }
 ```
 
-**Delete a tile** — set its key to `null`, remove it from `order`, remove its stack from `containers` (verified live: `"2": null` deleted the tile; untouched tiles intact):
+**Delete a tile** — set its key to `null`, remove it from `order`, remove its stack from `containers`:
 
 ```json
 {
@@ -113,7 +113,7 @@ omni documents v2-patch-draft <identifier> --name "New Name" --summary "rename"
 
 When `--body` is present, the CLI **silently ignores every shorthand flag** (`--name`, `--summary`, `--branch-id`, …) — verified in the CLI source (the body short-circuits before flag assembly) and live. With `--body`, put everything in the JSON. Flags-only (no `--body`) works for metadata edits.
 
-## Errors (all verified live)
+## Errors
 
 | Status | Trigger | Notes |
 |---|---|---|

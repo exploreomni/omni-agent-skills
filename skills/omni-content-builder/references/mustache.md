@@ -20,7 +20,7 @@ Interpolation uses the standard Mustache templating library with HTML‑escaping
 
 ## Two contexts — *where* decides what you get
 
-The available namespaces **and how `filters` is keyed** differ by **tile kind** (all verified live):
+The available namespaces **and how `filters` is keyed** differ by **tile kind**:
 
 | Tile kind | `filters` source → **keyed by** | Namespaces |
 |---|---|---|
@@ -54,7 +54,7 @@ Both kinds live in `controls.data`; the `config.type` only decides which **names
 
 ## The keying gotcha — filter keying **flips by tile kind**
 
-**How a filter is keyed in the `filters` namespace depends on the tile kind**, because each kind feeds a *different* filter object to the template (all verified live):
+**How a filter is keyed in the `filters` namespace depends on the tile kind**, because each kind feeds a *different* filter object to the template:
 
 - **Markdown viz tile** (has a `query`): `filters` = the tile's **`query.filters`** — the filters as *applied to the query* (after same-field consolidation). Keyed by **`view.field`**, and multiple filters on one field are **merged into one composite-OR** at that key (`.summary` = the combined window, `.value` empty). `{{filters.<controlId>.…}}` is empty here.
 - **Dashboard text tile** (`inline-text`, no query): `filters` = the **raw dashboard filter controls**. Keyed by control **`id`**, and same-field filters stay **separate** — each with its own `.summary` *and* `.value`. `{{filters.<view>.<field>.…}}` is empty here.

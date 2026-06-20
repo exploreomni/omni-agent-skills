@@ -41,7 +41,7 @@ Every chart queryPresentation requires: `name`, `prefersChart: true`, a `visConf
 
 - **`order` replaces wholesale** — whenever you send it, send the complete array.
 - **A single patch can touch at most 48 `data` entries** — batch larger rewrites into multiple patches on the same draft.
-- **Tile `"1"` on create merges over a server seed tile** — some seed properties can win over what you sent (verified live: `automaticVis: false` came back `true` on tile `"1"` while tile `"2"` kept `false`). Read the document back and re-patch tile `"1"` if its exact fields matter.
+- **Tile `"1"` on create merges over a server seed tile** — some seed properties can win over what you sent (`automaticVis: false` came back `true` on tile `"1"` while tile `"2"` kept `false`). Read the document back and re-patch tile `"1"` if its exact fields matter.
 - **A multi-tile `v2-create` auto-lays-out only tile `"1"`** — author the full `containers` tree for the rest.
 
 ## Where the visualization config lives (read this first)
@@ -63,14 +63,14 @@ This is the single most common source of "my chart renders as a table / loses it
 - `chartType` and `fields` sit at the **outer** `visConfig` level. They are **no longer top-level presentation keys** — the v1 top-level `chartType`/`fields`/`config` are unknown keys and 400.
 - The renderer (`visType`) and the rendering spec live in the **inner** `visConfig` — and on write the spec **must be nested under `config`**.
 
-> **Write vs. read asymmetry — the one remaining silent failure.** `v2-get` returns the inner vis config **flat**: the spec keys spread beside `visType`, with no `config` key. A patch that sends that flat shape back **silently keeps only `visType`** and drops everything else (verified live: flat-sent `markdownConfig`/`alignment` dropped; `config`-nested persisted). Always re-author the inner spec nested under `config` before writing.
+> **Write vs. read asymmetry — the one remaining silent failure.** `v2-get` returns the inner vis config **flat**: the spec keys spread beside `visType`, with no `config` key. A patch that sends that flat shape back **silently keeps only `visType`** and drops everything else (flat-sent `markdownConfig`/`alignment` dropped; `config`-nested persisted). Always re-author the inner spec nested under `config` before writing.
 
 Everything else now fails **loudly** — tile bodies are strict (`additionalProperties: false`), so unknown or misplaced top-level keys return a clean 400:
 
 | What you send | What happens |
 |---|---|
 | Top-level `chartType`, `fields`, or `config` on the presentation (v1 shape) | **400** "Unrecognized key" |
-| `modelId` / `model_extension_id` inside `query` | **Silently rewritten** — the server re-anchors the tile to the document's workbook model (verified live: a sent shared-model id read back as the workbook model). Omit them. |
+| `modelId` / `model_extension_id` inside `query` | **Silently rewritten** — the server re-anchors the tile to the document's workbook model (a sent shared-model id reads back as the workbook model). Omit them. |
 | `query` missing any required collection field | **400** listing each missing field |
 | Inner vis spec sent **flat** (no `config` key) | **Silently dropped** — only `visType` persists |
 
@@ -168,7 +168,7 @@ There is no `query.visConfig` in v2 — the v1 `{ "chartType": … }` hint is no
 
 A raw-SQL tile is a regular **`type: "query"` tile with `userEditedSQL` set** — *not* a `type: "sql"` content item (that is a different kind and renders as "Unknown content item type" on a dashboard). Put the SQL in `userEditedSQL`; `table` is ignored (the SQL is authoritative). Optionally add `"rewriteSql": false` to run it verbatim or `"dbtMode": true` for Jinja/dbt templating (see **`omni-query`** → *Running Raw SQL* for behavior, the permission gate, and the row cap).
 
-**Two render requirements** (verified by building a tile and reading it back) — without either, the tile shows "Item missing":
+**Two render requirements** — without either, the tile shows "Item missing":
 - a real `visConfig` (e.g. the `omni-table` table shape), and
 - **`query.fields` populated with the SQL's result column ids** (matching `visConfig.fields`). For a raw-SQL tile this is *not* `[]` — the table needs the columns to display, even though `userEditedSQL` drives the data. Run the SQL once via `omni query run` to read the exact ids (they resolve to `view.col`, e.g. `ecomm__order_items.status`).
 
@@ -256,8 +256,8 @@ To show current-vs-previous columns (e.g. a comparison grid, or a "% change" KPI
 ]
 ```
 
-> **PoP pivot tiles render fine — a blank/"No Results" pivot table is almost always (a) wrong render config or (b) an empty period filter, NOT a limitation.** Verified live: a period-pivot table (`omni_period_pivot` + `period_over_period_computations`) renders Current/Previous columns + a `% Change` calc correctly when the tile is **`visType:"omni-table"`, `automaticVis:true`, `prefersChart:true`** AND the date filter lands on a period that actually has data. A blank or "No Results" almost always means the filtered period is empty (check with `query run` first) — not a render bug. The `% Change` column is a calc with **`outside_pivot:true`** whose operands carry **`pivot_value_map:{omni_period_pivot:"Current Period"|"Previous Period"}`** (e.g. `SAFE_DIVIDE(MINUS(oc@Current, oc@Previous), oc@Previous)`). Note the pivot splits **every** measure into Current/Previous.
-> **`v2-patch` is stricter than `generate-query` here.** Harvesting the PoP shape from `omni ai generate-query` gives an *ignored* (current-period) entry that omits `time_unit_name`/`time_unit`/`periods_ago` — patching that **400s** (`expected string/number, received undefined`). On write, give **every** entry (ignored one included) all of `time_unit_name`, `time_unit`, and `periods_ago` (use `periods_ago: 0` for the current/ignored entry). Verified live.
+> **PoP pivot tiles render fine — a blank/"No Results" pivot table is almost always (a) wrong render config or (b) an empty period filter, NOT a limitation.** A period-pivot table (`omni_period_pivot` + `period_over_period_computations`) renders Current/Previous columns + a `% Change` calc correctly when the tile is **`visType:"omni-table"`, `automaticVis:true`, `prefersChart:true`** AND the date filter lands on a period that actually has data. A blank or "No Results" almost always means the filtered period is empty (check with `query run` first) — not a render bug. The `% Change` column is a calc with **`outside_pivot:true`** whose operands carry **`pivot_value_map:{omni_period_pivot:"Current Period"|"Previous Period"}`** (e.g. `SAFE_DIVIDE(MINUS(oc@Current, oc@Previous), oc@Previous)`). Note the pivot splits **every** measure into Current/Previous.
+> **`v2-patch` is stricter than `generate-query` here.** Harvesting the PoP shape from `omni ai generate-query` gives an *ignored* (current-period) entry that omits `time_unit_name`/`time_unit`/`periods_ago` — patching that **400s** (`expected string/number, received undefined`). On write, give **every** entry (ignored one included) all of `time_unit_name`, `time_unit`, and `periods_ago` (use `periods_ago: 0` for the current/ignored entry).
 > The pivot splits **all** measures, not a chosen few — if you only want a couple of measures compared, that's still the mechanism (hide the rest), unlike Looker where each `_previous_period` is its own measure.
 
 ## Chart Type Examples
