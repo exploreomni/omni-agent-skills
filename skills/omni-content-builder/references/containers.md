@@ -157,7 +157,7 @@ To place a switcher inside a specific tile (e.g. a per-KPI metric picker), add t
 
 To **hide** an in-tile switcher (e.g. once a [parent control](controls.md#parent-controls-one-control-drives-many) drives it and you only want the parent visible), remove its content-item from the tile stack **and** set `config.hidden: true` on the control — a control left unplaced but un-hidden gets auto-placed back into the filter bar. The hidden control still feeds the card via `{{controls.<id>.summary}}`. See [controls.md](controls.md#hiding-a-control).
 
-> **`PERIOD_OVER_PERIOD` cannot go in-tile** — a PoP control content-item in a tile stack renders as "Item missing." Place it in the filter bar instead; the tile's comparison columns come from the query's `period_over_period_computations`, not the control's placement.
+> **`PERIOD_OVER_PERIOD` is auto-placed — don't author a content-item for it.** A PoP content-item in a tile stack renders as "Item missing," and so does a **manual filter-bar child**: Omni already auto-renders the "Compare to" widget next to the date filter in the control's `filterId`, so a hand-placed copy duplicates it → "Item missing." Just add the control to `controls.data`/`order` (no `containers` entry); the tile's comparison columns come from the query's `period_over_period_computations`. See [controls.md](controls.md).
 
 ## Content-item `padding` (and the switcher-alignment trick)
 

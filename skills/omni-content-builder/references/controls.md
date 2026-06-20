@@ -147,7 +147,7 @@ Binds to tiles whose query uses that timeframed field.
 }
 ```
 
-> Dashboard-only; adds prior-period comparison columns. **Cannot be placed in-tile** (renders "Item missing") — place it in the **filter bar**. The comparison columns come from the tile query's `period_over_period_computations` + a date filter, independent of the control (the control only changes the offset). This control has **no `label`/`hidden`**. Tile-query scaffolding:
+> Dashboard-only; adds prior-period comparison columns. **Add it to `controls.data` (+ `order`) only — do _not_ author a PoP child in the `containers` filter bar.** Omni **auto-renders** the "Compare to" widget next to the date filter named in **`filterId`**; a manually-placed PoP filter-bar child duplicates it and the extra copy renders as **"Item missing"** (and it still can't go **in-tile** — same "Item missing"). Point `filterId` at an existing **date-filter control**. The comparison comes from the **tile query's** `period_over_period_computations` + a date filter (the control only changes the offset) — to make the table follow the dashboard date control, **map that date filter onto the tile** (`map["<tileKey>"]: "<view.field>"`) instead of hardcoding a competing window in `query.filters`. **No `label`/`hidden`.** **Casing differs by layer:** the control config is **camelCase** (`timeUnitName`/`periodsAgo`/`filterFieldName`/`filterId`); the tile query is **snake_case** (`time_unit_name`/`periods_ago`/`date_filter_field_name`). Tile-query scaffolding:
 > ```jsonc
 > "query": {
 >   "filters": { "ecomm__order_items.created_at": { "type":"date","kind":"TIME_FOR_INTERVAL_DURATION","ui_type":"PAST","left_side":"6 months ago","right_side":"6 months" } },

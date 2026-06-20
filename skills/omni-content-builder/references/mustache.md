@@ -49,12 +49,11 @@ Both kinds live in `controls.data`; the `config.type` only decides which **names
 
 ## The keying gotcha (`view.field` vs `id`)
 
-Within the `filters` namespace, each entry of the tile's `query.filters` is keyed one of two ways:
-
-- A filter applied **by a control**, or any field‑scoped filter whose id equals its field name, is keyed by **`view.field`** → `{{filters.ecomm__order_items.created_at.summary}}`.
-- Only a document filter whose **`id` differs from its `fieldName`** is keyed by id → `{{filters.<id>.…}}`.
+In the `filters` namespace, a dashboard filter is keyed by **`view.field`**, **not by its control id** — `{{filters.ecomm__order_items.created_at.summary}}` resolves, while `{{filters.<controlId>.…}}` **and** `{{controls.<controlId>.…}}` both come back **empty**. A filter's control id never reaches either the `filters` or the `controls` context, so there is no id-based way to address a filter (verified live).
 
 **Rule of thumb: reference filters by `view.field`, reference controls by `id`.** When unsure, drop `{{inspect}}` into the body to dump the live context and read the exact keys.
+
+> **Two filters on one field aren't separately addressable (current behavior, not a bug).** When more than one filter targets the same field, they're merged into a single composite-OR at that one `view.field` key. `{{filters.<view>.<field>.summary}}` then reads the *combined* window — e.g. `"in the past 12 months or in the past 6 months"` — and `.value` returns **empty** (a composite has no single raw value). Because there's no per-filter id key, neither filter can be templated on its own.
 
 ## Token reference by namespace
 
