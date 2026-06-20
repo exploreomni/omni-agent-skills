@@ -37,6 +37,8 @@ Two rules:
 
 A `map` value can only be a field name or `false` — there's no per-tile *override* of the relative window itself.
 
+> **Two filter controls on the same field of the same tile = OR, not AND.** If two (or more) filters map to the same field on a tile, they're merged into a single composite **OR** before the query runs — a *union* of the windows (e.g. `created_at` in "past 12 months" **OR** "past 6 months" → effectively past 12 months), never an intersection. You **cannot AND two filters on one field** this way, so you can't bound a range by stacking, say, a `>=` and a `<=` date control on one field — author a **single range/`between` filter** instead. (Downstream, mustache sees only the merged composite at the `view.field` key, and `.value` goes empty — see [mustache.md](mustache.md).)
+
 ## Config shapes
 
 The full control catalog (`type` values from the `CONTROL_TYPE` enum):
