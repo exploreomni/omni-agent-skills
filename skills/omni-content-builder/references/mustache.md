@@ -177,9 +177,16 @@ Latest month: {{result._last.order_items.created_at.value_static}} →
 (of {{result._rows}} months; YTD {{result._totals._first.order_items.total_revenue.value_static}})
 ```
 
-### F. Build a filter‑aware deep link — *viz tile* (`view.field`); in a text tile reference the filter by its control id
+### F. Build a filter‑aware deep link — *mind the tile context*
+Two independent pieces, each with its own keying:
+- **URL param** targets the thing by its **control id**: a filter is `f--<filterId>`, an interactive control is `c--<controlId>`.
+- **Value token** keys by the *tile kind* — `view.field` in a viz tile, control `id` in a text tile — with `.value_url_encoded` (URL-safe), not `.value`.
+
 ```
-[Open filtered](https://app/dash?c--state={{filters.users.state.value_url_encoded}})
+// viz tile — value token keyed by view.field; URL param still the filter's id:
+[Open](…/dashboards/<id>?f--state_filter={{filters.ecomm__users.state.value_url_encoded}})
+// text tile — param and token both use the control id:
+[Open](…/dashboards/<id>?f--state_filter={{filters.state_filter.value_url_encoded}})
 ```
 
 ## Pitfalls
