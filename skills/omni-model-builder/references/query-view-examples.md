@@ -74,7 +74,7 @@ sql: |
   SELECT 'East' AS "region_name", 'Mike Parker'        AS "employee_name"
   UNION ALL SELECT 'West',          'Alexandra Peterson'
   UNION ALL SELECT 'Great Lakes',   'Jennifer Trevino'
-  -- ...one row per source value; repeat the label across rows for many-to-one (Looker's comma filter)
+  -- ...one row per source value; repeat the label across rows for many-to-one (several keys → one label)
 
 dimensions:
   region_name: {}
@@ -96,6 +96,6 @@ relationships:
 
 `employee_name` is now a real **dimension** — group, filter, and query by it like any field. Notes:
 - **Quote the SELECT aliases** (`AS "region_name"`) on Snowflake/BigQuery/Databricks or they uppercase and the join key won't match.
-- `always_left` → unmatched keys render as `∅`/null. Add an `'Other'` catch-all (a final `UNION ALL SELECT <unmatched>, 'Other'` is impractical for open domains — instead `COALESCE(${map.label}, 'Other')` in a derived dim, or accept nulls) to mirror Looker's `group_by` fallback.
+- `always_left` → unmatched keys render as `∅`/null. Add an `'Other'` catch-all (a final `UNION ALL SELECT <unmatched>, 'Other'` is impractical for open domains — instead `COALESCE(${map.label}, 'Other')` in a derived dim, or accept nulls) to give unmatched keys a catch-all `'Other'` bucket.
 - Validates clean; the grouped query runs COMPLETE and mapped labels flow into results.
 - Prefer a true **UI Input Table** when the mapping changes over time (reps reassigned) — it's editable in-app; the query view requires a YAML edit to change.

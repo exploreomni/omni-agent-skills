@@ -313,7 +313,7 @@ Each `markdownConfig` entry: `{ id, type, config, lastModified? }` where `type` 
 | `tooltip` | No | Fields for hover |
 
 > **No legend sizing.** The pie config exposes no legend-size control — the only legend option is `color.legendPosition` (position, incl. `NONE`). A larger/custom legend requires a markdown tile.
-> **"Category — xx.y%" labels (Looker `label_type: labPer`):** `dataLabel: { enabled: true, field: { name: "<the color dim>" } }` + `dataLabelPercentage: { enabled: true, decimals: 1 }`; keep `theta` as the raw count. The label renders the `dataLabel.field` value with the share appended in parentheses — `"Category (23.4%)"` — when `dataLabelPercentage.enabled`. (Verify by building it once in the UI and reading it back with `omni documents v2-get`.)
+> **"Category — xx.y%" slice labels (value + share):** `dataLabel: { enabled: true, field: { name: "<the color dim>" } }` + `dataLabelPercentage: { enabled: true, decimals: 1 }`; keep `theta` as the raw count. The label renders the `dataLabel.field` value with the share appended in parentheses — `"Category (23.4%)"` — when `dataLabelPercentage.enabled`. (Verify by building it once in the UI and reading it back with `omni documents v2-get`.)
 
 ## Config Object: Heatmap
 
