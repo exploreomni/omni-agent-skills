@@ -1,6 +1,6 @@
 ---
 name: omni-query
-description: Run queries against Omni Analytics' semantic layer using the Omni CLI, interpret results, and chain queries for multi-step analysis. Use this skill whenever someone wants to query data through Omni, run a report, get metrics, pull numbers, analyze data, ask "how many", "what's the trend", "show me the data", retrieve dashboard query results, or perform any data retrieval through Omni's query engine. Also use when someone wants to programmatically extract data from an existing Omni dashboard or workbook.
+description: Run queries against Omni Analytics' semantic layer using the Omni CLI, interpret results, and chain queries for multi-step analysis. Use this skill whenever someone wants to query data through Omni, run a report, get metrics, pull numbers, analyze data, ask "how many" / "what's the trend" / "show me the data", retrieve dashboard query results, or extract data from an existing dashboard or workbook. Also use for table calculations and computed columns (running totals, percent-of-total, month-over-month / period-over-period change, moving averages, rankings), open-ended multi-step analysis via agentic AI jobs, and running raw SQL through the semantic layer — even when the user doesn't say "query" (e.g. "add a running total column", "what's our MoM growth", "analyze revenue trends"). For building or editing a dashboard or chart use omni-content-builder; for adding a field or measure to the model use omni-model-builder — this skill retrieves and computes over data.
 ---
 
 # Omni Query

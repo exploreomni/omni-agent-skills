@@ -9,6 +9,17 @@ In the [v2 documents API](documents-v2.md), `controls.data` holds dashboard filt
 }
 ```
 
+## Contents
+
+- [`map` — per-tile scoping](#map--per-tile-scoping) — exclude/include tiles, field overrides
+- [Config shapes](#config-shapes) — filter and interactive-control config by type
+- [More filter config shapes](#more-filter-config-shapes)
+- [Hiding a control](#hiding-a-control) — `config.hidden`
+- [Parent controls (one control drives many)](#parent-controls-one-control-drives-many)
+- [Control vs. content-item — and syncing a filter across pages](#control-vs-content-item--and-syncing-a-filter-across-pages)
+- [Mustache control tokens (in markdown/text tiles)](#mustache-control-tokens-in-markdowntext-tiles)
+- [See also](#see-also)
+
 ## `map` — per-tile scoping
 
 `map` overrides which tiles a control affects, keyed by tile key:

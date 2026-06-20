@@ -2,6 +2,15 @@
 
 Complete reference for authoring the `calculations[]` array in an Omni query spec. Table calculations are post-query computed columns (running totals, % of total, ratios, conditionals) evaluated on the result set after the SQL runs.
 
+## Contents
+
+1. [Wire shape](#1-wire-shape) — the `calc_name` + `sql_expression` object shape
+2. [The AST: `SerializedSqlExpr`](#2-the-ast-serializedsqlexpr) — node types (`call`, `field`, literals)
+3. [Operator namespaces](#3-operator-namespaces) — `Omni.*` and `SqlStdOperatorTable.*`
+4. [Canonical examples](#4-canonical-examples) — ratio, % of total, running total, chained, CASE, moving average, IFS/concat, pivot totals, DATEDIF, SUM_IF, VLOOKUP
+5. [Validation rules and gotchas](#5-validation-rules-and-gotchas) — `calc_name` in `fields`, `swallow_errors`, pivot/limit
+6. [Authoring strategy](#6-authoring-strategy) — template → compose → harvest-from-agentic-job order
+
 ## 1. Wire shape
 
 The query API accepts **one** shape per calculation: an object with `calc_name` + a parsed AST in `sql_expression`. The workbook-frontend `{name, formula}` style is NOT accepted by the query API — it exists only in YAML / UI input layers and is translated to the AST before the query runs.
