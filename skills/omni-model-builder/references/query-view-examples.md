@@ -66,7 +66,7 @@ dimensions:
 
 ## Mapping / lookup view (CLI stand-in for an Omni Input Table)
 
-To rebuild a **hardcoded key→label lookup** — e.g. a Looker `calculation_type: group_by` dynamic dimension that remaps `region_name` → a rep name, or any mapping that lives only in a dashboard (not in the database) — model it as **data joined on the key**, not a `CASE`. The maintainable ideal is an **Omni Input Table** (a writable table created/edited in the Omni UI — there is **no CLI command** for input tables under `connections`/`models`/`documents`). The **CLI-buildable equivalent** is a hardcoded `VALUES`/`UNION ALL` **query view** joined on the key:
+To rebuild a **hardcoded key→label lookup** — e.g. a dashboard-defined dimension that remaps `region_name` → a rep name (the kind of grouping/alias built in a BI tool's UI rather than the database), or any mapping that lives only in a dashboard (not in the database) — model it as **data joined on the key**, not a `CASE`. The maintainable ideal is an **Omni Input Table** (a writable table created/edited in the Omni UI — there is **no CLI command** for input tables under `connections`/`models`/`documents`). The **CLI-buildable equivalent** is a hardcoded `VALUES`/`UNION ALL` **query view** joined on the key:
 
 ```yaml
 # region_rep_map.query.view  — Reference this view as region_rep_map
