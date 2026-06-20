@@ -177,17 +177,12 @@ Latest month: {{result._last.order_items.created_at.value_static}} →
 (of {{result._rows}} months; YTD {{result._totals._first.order_items.total_revenue.value_static}})
 ```
 
-### F. Build a filter‑aware deep link — *mind the tile context*
-Two independent pieces, each with its own keying:
-- **URL param** targets the thing by its **control id**: a filter is `f--<filterId>`, an interactive control is `c--<controlId>`.
-- **Value token** keys by the *tile kind* — `view.field` in a viz tile, control `id` in a text tile — with `.value_url_encoded` (URL-safe), not `.value`.
-
+### F. Build a filter‑aware deep link — *use a dashboard text tile*
+The URL param targets the filter by its **control id** (`f--<filterId>`; an interactive control is `c--<controlId>`); the value comes from a `.value_url_encoded` token. Build it in a **text tile**, where filters are id-keyed and each is addressable separately:
 ```
-// viz tile — value token keyed by view.field; URL param still the filter's id:
-[Open](…/dashboards/<id>?f--state_filter={{filters.ecomm__users.state.value_url_encoded}})
-// text tile — param and token both use the control id:
 [Open](…/dashboards/<id>?f--state_filter={{filters.state_filter.value_url_encoded}})
 ```
+> **Don't build this in a viz tile.** There the value token keys by `view.field`, and if **two filters target the same field** they collapse to one composite-OR whose `.value`/`.value_url_encoded` is **empty** — the link's value silently drops. The text tile keeps each filter separate (its own `.value`), so the link stays correct, and the URL param id matches the token id.
 
 ## Pitfalls
 
