@@ -119,3 +119,4 @@ omni models yaml-create <modelId> --body '{
 - Wrong `relationship_type` causes fanout errors
 - Forgetting `join_paths_from_topic_name` in queries leads to "no join path" errors
 - YAML indentation errors — use 2 spaces, no tabs
+- Renaming a field/view/topic does **not** update saved dashboards or workbooks — propagate the references with the content validator (see `omni-model-builder`)

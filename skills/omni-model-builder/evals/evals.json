@@ -55,6 +55,18 @@
         "The agent reports validation warnings separately and does not claim they were caused by the deleted column unless validation or content-validator output identifies the missing table or column"
       ],
       "expected_skill": "omni-model-builder"
+    },
+    {
+      "id": "5",
+      "question": "I renamed the field order_items.sale_price to order_items.unit_price in the model. Update every dashboard and workbook that still references the old name.",
+      "ground_truth": "Work happens on a branch. The agent runs content-validator-get to find content referencing the old field (blast radius) before changing anything, then runs content-validator-replace with find_or_replace_type FIELD, find order_items.sale_price, replacement order_items.unit_price, scoped with branch_id so the rewrites become drafts. It reports the replaced-document counts and asks for confirmation before merging; it does not run a non-branch (direct-to-published) replace without explicit confirmation, since that has no undo.",
+      "expected_behavior": [
+        "The agent runs omni models content-validator-get to identify which documents reference the old field before replacing, and reports the blast radius",
+        "The agent runs omni models content-validator-replace with find_or_replace_type FIELD and view.field dotted notation in both find (order_items.sale_price) and replacement (order_items.unit_price)",
+        "The replace is scoped to a branch via branch_id rather than rewriting published content directly; if the agent proposes a non-branch replace it first warns there is no undo and asks for confirmation",
+        "The agent reports which documents were rewritten (replace counts) and asks for confirmation before merging the branch to production"
+      ],
+      "expected_skill": "omni-model-builder"
     }
   ]
 }

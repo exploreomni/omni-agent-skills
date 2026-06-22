@@ -59,9 +59,16 @@ The **schema layer** is auto-generated from your database. When your database sc
 
 See `references/schema-refresh.md` for when to trigger, what it does and its side effects, the deleted/renamed-column impact-check workflow, and connection/credential error handling.
 
+## Propagating Renames Across Content (Content Validator)
+
+Renaming or removing a view, field, or topic does **not** update the dashboards and workbooks that reference it — saved queries keep the old name and break. Use the content validator to detect the blast radius (`omni models content-validator-get`) and then bulk-rewrite references to the new name (`omni models content-validator-replace`). Always detect first, scope the replace to a **branch** so it's reversible, and confirm before any direct-to-published (non-branch) replace, which has no undo.
+
+See `references/content-validator.md` for the detect-then-propagate workflow, the verified `get` flags and `replace` `--body` schema, filter scoping (`folder_paths` / `labels` / `creator_id` / `only_in_workbook_id`), and the safety model.
+
 ## Known Issues & Safe Defaults
 
 - **Do not merge without explicit confirmation** — after branch validation and query testing, stop and ask the user before `omni models merge-branch`, even when the model is not git-connected. Treat requests like "add a field" or "create a view" as requests to prepare validated branch changes, not as permission to ship to production.
+- **Renames don't auto-propagate to saved content, and a non-branch replace has no undo** — after renaming a field/view/topic, dependent dashboards and workbooks still reference the old name. Propagate with the content validator (above), scoped to a branch. A `content-validator-replace` without a `branch_id` rewrites published content directly and cannot be rolled back in-product — confirm before running one.
 - **Keep eval-created files on branches until confirmed** — if you create fields/views for validation, report the branch name/id, validation status, and test query result. Only merge after the user explicitly says to merge, ship, publish, or promote.
 
 ## Discovering Commands
@@ -467,6 +474,6 @@ If the model doesn't reflect the database (missing columns/tables, wrong types, 
 
 ## Related Skills
 
-- **omni-model-explorer** — understand the model before modifying
+- **omni-model-explorer** — understand the model before modifying; also runs `content-validator-get` for impact analysis
 - **omni-ai-optimizer** — add AI context after building topics
 - **omni-query** — test new fields

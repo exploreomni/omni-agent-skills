@@ -6,6 +6,19 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.5.0] - 2026-06-22
+
+### omni-analytics
+
+_Summary: teach the modeler the **write half** of the content validator — propagating a rename across saved content — to complement the detect half already in `omni-model-explorer`._
+
+**Added**
+- `omni-model-builder` documents **propagating renames across content** with the content validator: a new *Propagating Renames Across Content* section in `SKILL.md` and a `references/content-validator.md` covering both operations — `omni models content-validator-get` (detect blast radius; flags `--content-filter-mode`, `--find`/`--find-type`, `--folder-paths`, `--labels`, `--include-personal-folders`, `--branch-id`) and `omni models content-validator-replace` (find-and-replace via JSON `--body`: required `find`/`replacement`/`find_or_replace_type`, optional `branch_id`/`creator_id`/`folder_paths`/`labels`/`only_in_workbook_id`), with the detect-first + branch-scoping safety model and a worked field-rename example. Adds a model-builder eval case for the rename-propagation flow.
+- `omni-modeler` agent gains a **Propagate Renames** workflow step (between Test and Ship) that routes rename/removal impact through `omni-model-builder`'s content validator workflow on the branch before shipping.
+
+**Changed**
+- `omni-model-builder` **Known Issues & Safe Defaults** now warns that renames don't auto-propagate to saved content and that a non-branch `content-validator-replace` has no undo. `omni-yaml-conventions` rule adds the matching pitfall. (Also syncs the `.claude-plugin/marketplace.json` omni-analytics version, which had drifted to 1.4.1.)
+
 ## [1.4.2] - 2026-06-19
 
 ### omni-analytics

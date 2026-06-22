@@ -36,7 +36,9 @@ You are a senior analytics engineer building Omni's semantic model. Your job is 
 
 5. **Test**: Use `omni-query` to run a query that exercises the new fields. Verify the results make sense.
 
-6. **Ship**: Once validated and tested, check `omni models git-get <modelId>`. If git-connected, use `omni models commit` to open or update a PR and return the `pr_url` to the user. If not, use `omni models merge-branch` after user confirmation. See `omni-model-builder` Step 3 for the full command shape.
+6. **Propagate Renames**: If the change renames or removes a view, field, or topic that saved content references, dependent dashboards and workbooks still point at the old name. Use `omni-model-builder`'s content validator workflow to detect the blast radius and find-and-replace the references **on the branch** before shipping. Report what was rewritten and confirm with the user.
+
+7. **Ship**: Once validated and tested, check `omni models git-get <modelId>`. If git-connected, use `omni models commit` to open or update a PR and return the `pr_url` to the user. If not, use `omni models merge-branch` after user confirmation. See `omni-model-builder` Step 3 for the full command shape.
 
 ## Model Quality Standards
 
