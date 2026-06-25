@@ -87,7 +87,13 @@ The response `model.id` is your `branchId` — a UUID you'll pass to all subsequ
 omni models list --include activeBranches
 ```
 
-> **Git-connected models**: If your model is connected to a git repo, prefer pushing branch changes through a pull request (Step 3 below) rather than merging directly. Choose one workflow and stick to it — either edit via the Omni branch API (then `git pull` to sync local files), or edit local files and push via git. Mixing both leads to conflicts.
+> **Git-connected models**: The repo is a *projection* of Omni's model for governance (pull requests, review, audit trail) — not the source of truth, and not a surface to author against. Omni's model state is authoritative, so model YAML hand-edited in the repo is validated only after you push, re-serialized to Omni's canonical form, and overwritten on the next regeneration. Author **through the Omni APIs on a branch** (via the Omni CLI, as below), then use `omni models commit` (Step 3 below) to sync the branch to git as a pull request and **review/merge in your git provider** — don't hand-edit model YAML in the repo and push directly.
+
+> **⚠️ Never hand-edit model YAML in git for a git-connected shared model.** It can look correct in git for a while, but Omni regenerates the default branch from its own authoritative model state and **deletes git-only model files** that state doesn't contain — an observed customer incident, where model files committed only to git silently disappeared on Omni's next sync. All view / topic / relationship YAML must originate in Omni: edit on a branch → `omni models commit` → PR.
+>
+> **Model content vs. repo governance** — the split that makes this safe:
+> - **Omni model content** (view / topic / relationship YAML): author on an Omni branch → `omni models commit` → PR. Never commit it directly in git — Omni will regenerate over it.
+> - **Repo-governance / non-model files** (a root `omni/OWNERS.yaml`, CODEOWNERS, CI config, docs, scripts): not Omni model content, so direct git commits are fine — Omni's regeneration leaves them untouched.
 
 ### Step 1: Write YAML to a Branch
 
@@ -151,11 +157,23 @@ Surface the returned `pr_url` to the user. The reviewer merges the PR in your gi
 omni models merge-branch <modelId> <branchName>
 ```
 
-After merging, run one final validation against the production model to confirm the merge didn't introduce conflicts:
+#### After the merge — verify net-new topics and views (both paths)
+
+After the merge, Omni regenerates the default branch from its own (authoritative) model state — re-serializing to canonical form, and adding a normalization commit only when the merged git content *differs* from that state. Content authored through the Omni APIs is already canonical, so a clean merge often adds **no extra commit** — don't go hunting for one; verify by resolution instead. (A non-git merge promotes the branch into the shared model.) Either way — and **especially for net-new topics or views** — confirm the files resolve against the **production** model (no `--branchid`):
 
 ```bash
+# 1. Files resolve in production — the new view appears / the new topic resolves
+omni models get-views <modelId>                 # new view is listed
+omni models get-topic <modelId> <topicName>     # new topic resolves (base_view_name + join_via_map present)
+
+# 2. Production model validates — no blocking errors (any is_warning:false is blocking)
 omni models validate <modelId>
+
+# 3. Run at least one semantic query against the new topic/view
+omni query run --body '{"query":{"modelId":"<modelId>","table":"<base_view>","fields":["<base_view>.<field>"],"limit":10,"join_paths_from_topic_name":"<topicName>"}}'
 ```
+
+In the query response, confirm `summary.missing_fields` is `[]` (and `summary.invalid_calculations` is empty — note it comes back as `{}`, not `[]`). A non-empty `missing_fields` means a field didn't resolve — the signature of a model file dropped or renamed during the merge. If anything is missing, re-author it through Omni; never patch it back by hand in git.
 
 ## YAML File Types
 

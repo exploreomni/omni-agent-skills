@@ -6,6 +6,12 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.4.3] - 2026-06-25
+
+### omni-analytics
+
+- `omni-model-builder` — hardened the **git-connected models** guidance: author model content through the Omni APIs (CLI) on a branch → `omni models commit` → PR → review/merge in your git provider (the repo is a governance projection, Omni's model state authoritative, never hand-edit model YAML in git); adds the model-content vs. repo-governance boundary and a post-merge verification recipe for net-new topics/views (validated live end-to-end on a git-connected model).
+
 ## [1.4.2] - 2026-06-19
 
 ### omni-analytics
