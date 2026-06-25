@@ -55,14 +55,20 @@ omni documents v2-get --help >/dev/null 2>&1 || echo "ERROR: CLI is too old for 
 omni config show
 # If multiple profiles exist, ask the user which to use, then switch:
 omni config use <profile-name>
+
+# Confirm the active profile is authenticated and inspect your permissions:
+omni whoami whoami
 ```
+
+> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the **`omni-api-conventions`** rule for profile setup (`omni config init --auth oauth`) and discovering request-body shapes with `--schema`.
 
 ## Discovering Commands
 
 ```bash
-omni documents --help           # Document operations (v2-* + lifecycle)
-omni dashboards --help          # Dashboard downloads
-omni models yaml-create --help  # Writing model YAML
+omni documents --help              # Document operations (v2-* + lifecycle)
+omni dashboards --help             # Dashboard downloads
+omni models yaml-create --help     # Writing model YAML
+omni documents v2-create --schema  # Body schema + example (add --depth 1 for an overview, --field PATH to drill in)
 ```
 
 > **Tip**: Use `-o json` to force structured output for programmatic parsing, or `-o human` for readable tables. The default is `auto` (human in a TTY, JSON when piped). `--compact` strips indentation for piping.

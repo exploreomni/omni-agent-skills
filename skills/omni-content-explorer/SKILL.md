@@ -20,7 +20,12 @@ command -v omni >/dev/null || echo "ERROR: Omni CLI is not installed."
 omni config show
 # If multiple profiles exist, ask the user which to use, then switch:
 omni config use <profile-name>
+
+# Confirm the active profile is authenticated and inspect your permissions:
+omni whoami whoami
 ```
+
+> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the **`omni-api-conventions`** rule for profile setup (`omni config init --auth oauth`) and discovering request-body shapes with `--schema`.
 
 ## Discovering Commands
 

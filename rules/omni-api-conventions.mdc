@@ -17,18 +17,22 @@ curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | s
 
 Pre-built binaries for macOS (amd64/arm64), Linux (amd64/arm64), and Windows (amd64) are available on the [GitHub Releases page](https://github.com/exploreomni/cli/releases).
 
+> OAuth login (`omni config login`), the `whoami` command, and the `--schema` body-discovery flag require **omni CLI ≥ 1.0.7**. Check with `omni --version`; if a command errors with "unknown command", the binary is too old — ask the user to update it.
+
 ## Authentication
 
-The Omni CLI resolves credentials in this order (highest wins):
+A profile authenticates with either an **API key** or **OAuth** (browser login). The CLI resolves the token in this order (highest wins):
 
 1. `--token` flag on the command
 2. `OMNI_API_TOKEN` environment variable
-3. Profile's `apiKey` from config file (set via `omni config init`)
+3. The active profile's stored credential — an `apiKey`, or an **OAuth** access token (auto-refreshed; re-login is only needed once the refresh token is gone)
 
 Two API key types exist:
 
 - **Organization API Key** — created in Settings > API Keys by an org admin. Required for SCIM user management, connection management, and most admin endpoints.
 - **Personal Access Token** — created in User Profile > Manage Account > Generate Token. Scoped to the user's permissions. Sufficient for querying, model exploration, and content browsing.
+
+OAuth logs in as the user, so an OAuth profile carries that user's own permissions (like a Personal Access Token).
 
 ### Setup
 
@@ -39,12 +43,55 @@ omni config show
 omni config use <profile-name>
 ```
 
-If no profiles exist, run `omni config init` to create one interactively.
+If no profile exists, create one with `omni config init`:
+
+```bash
+# Non-interactive OAuth (opens a browser to log in):
+omni config init --name <profile> --endpoint https://<org>.omniapp.co --auth oauth
+
+# API key (the key is read from a hidden prompt, never passed as a flag):
+omni config init --name <profile> --endpoint https://<org>.omniapp.co --auth api-key
+```
+
+> The API key is **never** accepted as a command-line flag — that would leak the secret into shell history and process listings. `omni config init` always reads it from a hidden prompt; there is no `--api-key` flag.
 
 Base URL and token are resolved in this order (highest wins):
 1. `--base-url` / `--token` flags on the command
 2. `OMNI_BASE_URL` / `OMNI_API_TOKEN` environment variables
-3. Active profile's `apiEndpoint` / `apiKey`
+3. Active profile's `apiEndpoint` / `apiKey` (or OAuth token)
+
+### Authenticating from an agent session
+
+`omni config login [profile]` runs an **OAuth 2.1 authorization-code flow with PKCE**: it starts a localhost callback server, opens the user's browser to the Omni authorization page, and **blocks for up to ~2 minutes** waiting for the redirect. `omni config init --auth oauth` does the same as part of profile creation. Tokens are stored in the profile and refresh automatically.
+
+A headless agent **cannot** complete this flow itself — it can't click through the browser consent, and the call blocks. Handle missing auth like this:
+
+1. **Detect it.** `omni whoami whoami` (or any call) failing with **401** or **403 `Invalid bearer token`** means the active profile isn't authenticated (see the preflight table below).
+2. **Default — hand off to the user.** Ask them to authenticate, then continue. In a Claude Code session the `!` prefix runs the command in-session so its output lands in the conversation:
+   ```bash
+   ! omni config login <profile>
+   ```
+   Do **not** run `config login` autonomously by default — it blocks on a browser consent the agent can't complete, and in a headless/CI session there is no browser, so it times out after ~2 minutes.
+3. **Exception — local interactive machine.** When you're certain the session is on the user's own machine with a browser, the agent *may* run `omni config login <profile>` directly (it opens the user's browser); the user still completes the consent. Never do this in headless/CI.
+
+### Preflight: verify CLI capability, auth, and permissions (`whoami`)
+
+`omni whoami whoami` doubles as the capability gate and the auth check — run it first and branch on the outcome:
+
+```bash
+omni whoami whoami                       # current identity, API-key scope, org role, per-model roles
+omni whoami whoami --modelid <id1,id2>   # scope rolesByModel to specific models
+```
+
+| Outcome | Meaning | Action |
+|---|---|---|
+| exit ≠ 0, stderr `unknown command "whoami"` | CLI predates 1.0.7 — no `whoami`, OAuth login, or `--schema` | Ask the user to update the CLI (see Installation above) |
+| exit ≠ 0, error `HTTP 401` or `403 "Invalid bearer token"` | The credential is missing, expired, or rejected | Hand off to OAuth login (see *Authenticating from an agent session* above) |
+| exit 0, identity JSON | Authenticated and capable | Proceed — read `role` / `rolesByModel` to decide whether an action is permitted *before* attempting it |
+
+Both failure modes exit non-zero, so **branch on the message, not just the exit code**. A `403` whose message is a *permissions* error (not `Invalid bearer token`) means you're authenticated but lack access — that's not an auth-handoff case. `whoami` is **self-scoped and available to non-admins**, so this works for any profile.
+
+**Prefer this capability probe over comparing `omni --version`.** Custom and dev builds (e.g. `local-prs-…`) and `install.sh`-from-`main` binaries carry the features without a release version, so a strict semver gate would reject a perfectly capable CLI. The same idiom guards other version-sensitive features — e.g. `omni documents v2-get --help >/dev/null 2>&1 || echo "CLI too old for the v2 documents API"`.
 
 ## Command Pattern
 
@@ -67,6 +114,27 @@ omni agent-help                    # Agent-oriented guide with common workflows
 omni --help                        # List all command groups
 omni <group> --help                # List operations in a group
 omni <group> <operation> --help    # Show flags and positional args
+```
+
+### Discovering request body shapes
+
+Any command that takes a request body accepts `--schema`. It prints the body's resolved JSON schema (field types, descriptions, enums, formats, required fields) **plus a filled-in example**, then exits — no API call, no token required. Use it instead of guessing the JSON for `--body`.
+
+```bash
+omni query run --schema                    # schema + example for the query body
+omni ai generate-query --schema --compact  # compact, good for piping to jq
+```
+
+The output is `{ method, path, required, body: <JSON schema>, example: <filled body> }`. `--help` tells you *that* a body is required; `--schema` tells you its *shape*.
+
+Two companion flags keep large schemas manageable (e.g. `documents v2-create`):
+
+- `--depth N` caps nesting (default 8); `--depth 1` is a top-level overview.
+- `--field PATH` drills into a dotted path, auto-descending arrays and maps.
+
+```bash
+omni documents v2-create --schema --depth 1                        # top-level keys only
+omni documents v2-create --schema --field queryPresentations.data  # just the tiles map
 ```
 
 ## Output

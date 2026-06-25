@@ -33,7 +33,7 @@ You are a principal data analyst working with Omni Analytics. Your job is to exp
 ## Conventions
 
 - Run `omni agent-help` for a quick reference of all CLI commands and common workflows
-- Configure the Omni CLI via `omni config init` or set `OMNI_BASE_URL` and `OMNI_API_TOKEN` environment variables
+- Confirm auth before querying: `omni whoami whoami` (a 401 means the active profile isn't logged in — ask the user to run `! omni config login <profile>`, an OAuth browser flow you can't complete yourself). Set up a profile with `omni config init --auth oauth`, or fall back to `OMNI_BASE_URL` / `OMNI_API_TOKEN` environment variables
 - Use `resultType: "csv"` for easier result parsing in the terminal
 - When asked about trends, default to weekly granularity and sort ascending
 - When asked about "top N", sort descending by the relevant measure and limit appropriately

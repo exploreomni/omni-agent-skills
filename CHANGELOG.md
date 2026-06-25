@@ -6,6 +6,26 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.5.0] - 2026-06-25
+
+### omni-analytics
+
+_Summary: align the CLI guidance with three upstream CLI changes — OAuth browser login, a `--schema` flag for discovering request-body shapes, and a `whoami` identity/permission check — and, centrally, document how to authenticate from an agent session._
+
+**Added**
+- **`omni-api-conventions` rule** gains an **"Authenticating from an agent session"** section: `omni config login` / `omni config init --auth oauth` run an OAuth 2.1 + PKCE browser flow that opens a localhost callback and **blocks ~2 minutes**, which a headless agent can't complete. The default is to **hand off** to the user (`! omni config login <profile>`); the agent may run it directly only on a local interactive machine, never in headless/CI. Tokens auto-refresh. Plus a **"Discovering request body shapes"** section for the `--schema` flag (prints a body command's resolved JSON schema + a filled example, no token, no API call; plus the `--depth` and `--field` companions for navigating large schemas like `documents v2-create`) and a **`whoami`** preflight that triages CLI capability, auth, and permissions in one call (`unknown command` → CLI predates 1.0.7, update it; `401`/`403 Invalid bearer token` → OAuth hand-off; identity JSON → proceed) — capability-based detection rather than a brittle `--version` semver gate, plus a minimum-version note (omni ≥ 1.0.7) in the Installation section.
+- **All 9 skill prerequisites** now run `omni whoami whoami` to confirm the active profile is authenticated, and carry a compact auth note (API key vs OAuth; hand off on 401; pointer to the rule for `--schema` and `omni config init --auth oauth`).
+- **`--schema` discovery examples** in the body-authoring skills (`omni-query`, `omni-content-builder`, `omni-model-builder`, `omni-admin`, `omni-ai-eval`) — pull a command's body schema instead of guessing the JSON for `--body`.
+- **Agents** `omni-analyst` and `omni-admin-agent` now begin with a `whoami` auth/permission preflight and the OAuth hand-off path.
+
+**Changed**
+- `omni config init` setup guidance reflects upstream: profiles are created with `--name`/`--endpoint`/`--auth`, and the **API key is read from a hidden prompt — never an `--api-key` flag** (which would leak the secret into shell history and process listings).
+
+### omni-integrations
+
+**Added**
+- The Databricks and Snowflake integration skills' prerequisites gained the same `omni whoami whoami` auth check and OAuth hand-off note.
+
 ## [1.4.3] - 2026-06-25
 
 ### omni-analytics
