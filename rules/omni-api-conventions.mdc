@@ -17,7 +17,7 @@ curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | s
 
 Pre-built binaries for macOS (amd64/arm64), Linux (amd64/arm64), and Windows (amd64) are available on the [GitHub Releases page](https://github.com/exploreomni/cli/releases).
 
-> OAuth login (`omni config login`), the `whoami` command, and the `--schema` body-discovery flag require **omni CLI ≥ 1.0.7**. Check with `omni --version`; if a command errors with "unknown command", the binary is too old — ask the user to update it.
+> OAuth login (`omni config login`), the `whoami` command, and the `--schema` body-discovery flag require **omni CLI ≥ 1.0.7**. Don't gate on `omni --version` — custom/dev builds (e.g. `local-prs-…`) and `install.sh`-from-`main` binaries carry the features without a release version, so a semver check would reject a capable CLI. Instead probe capability: if a command errors with "unknown command", the binary is too old — ask the user to update it. (See the `whoami` preflight below.)
 
 ## Authentication
 
@@ -120,12 +120,14 @@ omni <group> <operation> --help    # Show flags and positional args
 
 Any command that takes a request body accepts `--schema`. It prints the body's resolved JSON schema (field types, descriptions, enums, formats, required fields) **plus a filled-in example**, then exits — no API call, no token required. Use it instead of guessing the JSON for `--body`.
 
+`--schema` is the **source of truth** for field-level body detail. Where a skill or reference doc hardcodes a `--body` shape, treat it as a worked example or a carrier for behavioral gotchas (merge semantics, stringify errors, ignored flags) — not an exhaustive field list. When the doc and `--schema` disagree on which fields exist or are required, `--schema` wins.
+
 ```bash
 omni query run --schema                    # schema + example for the query body
 omni ai generate-query --schema --compact  # compact, good for piping to jq
 ```
 
-The output is `{ method, path, required, body: <JSON schema>, example: <filled body> }`. `--help` tells you *that* a body is required; `--schema` tells you its *shape*.
+The output is `{ method, path, body: <JSON schema>, example: <filled body> }`, plus a top-level `required` array when the body has required fields (omitted when it has none). `--help` tells you *that* a body is required; `--schema` tells you its *shape*.
 
 Two companion flags keep large schemas manageable (e.g. `documents v2-create`):
 

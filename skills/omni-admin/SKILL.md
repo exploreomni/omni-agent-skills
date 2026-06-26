@@ -69,6 +69,8 @@ omni connections connection-environments-list
 
 ## User Management (SCIM 2.0)
 
+> The `--body` blocks below are worked examples. For the authoritative field list (types, required, enums), run the command with `--schema` — e.g. `omni scim users-create --schema` — rather than relying on these shapes to be exhaustive.
+
 ```bash
 # List users
 omni scim users-list

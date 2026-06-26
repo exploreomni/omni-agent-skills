@@ -20,6 +20,8 @@ _Summary: align the CLI guidance with three upstream CLI changes — OAuth brows
 
 **Changed**
 - `omni config init` setup guidance reflects upstream: profiles are created with `--name`/`--endpoint`/`--auth`, and the **API key is read from a hidden prompt — never an `--api-key` flag** (which would leak the secret into shell history and process listings).
+- `omni-api-conventions` Installation note no longer tells readers to gate on `omni --version` (which would falsely reject custom/dev/`install.sh`-from-`main` builds that carry the features without a release version) — it now points at the same capability probe as the `whoami` preflight, resolving an internal contradiction in the doc.
+- `--schema` is now stated as the **source of truth** for request-body field detail; the hardcoded `--body` shapes in `omni-admin` and `documents-v2.md` are framed as worked examples / gotcha carriers that defer to `--schema` for the exhaustive field list. Also corrected the documented `--schema` output shape (the top-level `required` array is present only when the body has required fields).
 
 ### omni-integrations
 
