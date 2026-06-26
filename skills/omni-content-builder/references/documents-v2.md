@@ -21,6 +21,8 @@ The `omni documents v2-*` commands are the **only** surface for creating, readin
 
 ## Envelope
 
+The annotated shapes below exist for the **gotchas** — the field-level detail (every key, its type, which are required) is authoritative from the CLI itself: `omni documents v2-create --schema` (`--depth 1` for a top-level overview, `--field queryPresentations.data` to drill into a tile). When this doc and `--schema` disagree on a field, `--schema` wins; the prose here is for the behaviors `--schema` can't express.
+
 ```jsonc
 {
   "modelId": "<SHARED model id>",          // create-only; server mints a per-doc workbook model

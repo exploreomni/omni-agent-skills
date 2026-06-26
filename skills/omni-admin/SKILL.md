@@ -22,7 +22,12 @@ command -v omni >/dev/null || echo "ERROR: Omni CLI is not installed."
 omni config show
 # If multiple profiles exist, ask the user which to use, then switch:
 omni config use <profile-name>
+
+# Confirm the active profile is authenticated and inspect your permissions:
+omni whoami whoami
 ```
+
+> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the **`omni-api-conventions`** rule for profile setup (`omni config init --auth oauth`) and discovering request-body shapes with `--schema`.
 
 If no CLI profile exists but the environment provides credentials, pass them explicitly:
 
@@ -38,6 +43,7 @@ omni schedules --help        # Schedule operations
 omni connections --help      # Connection management
 omni documents --help        # Document permissions
 omni folders --help          # Folder permissions
+omni scim users-create --schema   # Print any body command's JSON schema + filled example (no token)
 ```
 
 > **Tip**: Use `-o json` to force structured output for programmatic parsing, or `-o human` for readable tables. The default is `auto` (human in a TTY, JSON when piped).
@@ -62,6 +68,8 @@ omni connections connection-environments-list
 ```
 
 ## User Management (SCIM 2.0)
+
+> The `--body` blocks below are worked examples. For the authoritative field list (types, required, enums), run the command with `--schema` — e.g. `omni scim users-create --schema` — rather than relying on these shapes to be exhaustive.
 
 ```bash
 # List users
