@@ -27,7 +27,7 @@ omni config use <profile-name>
 omni whoami whoami
 ```
 
-> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the **`omni-api-conventions`** rule for profile setup (`omni config init --auth oauth`) and discovering request-body shapes with `--schema`.
+> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering request-body shapes with `--schema`.
 
 You need **Modeler** or **Connection Admin** permissions. Add `-o json` to any command to force structured output for parsing (default `auto` is human in a TTY, JSON when piped).
 
@@ -58,6 +58,8 @@ omni connections list
 
 Use dialect-appropriate functions in your SQL (e.g. `SAFE_DIVIDE` for BigQuery, `NULLIF(a/b)` for Postgres/Snowflake).
 
+> **Creating a *new* SHARED model (rare).** Most work is on an existing model — but if you do create one with `omni models create`, the body is `{ modelKind: "SHARED", connectionId }` (no `baseModelId`; it inherits the connection's schema views + assumed relationships — run `omni models create --schema` for the full field list). **Footgun: create takes `modelName`, update takes `name`.** Passing `name` on create is silently ignored and the model is named from the connection — then you'd have to `omni models update <id> --body '{"name":"…"}'` to fix it. Pass **`modelName`** on create and skip the rename.
+
 ## Schema Refresh: Syncing with Database Changes
 
 The **schema layer** is auto-generated from your database. When your database schema changes (new/deleted/renamed columns, type changes), refresh it to stay in sync: `omni models refresh <modelId>` (add `--branch-id <branchId>` to scope to a branch; requires **Connection Admin**).
@@ -66,8 +68,20 @@ See `references/schema-refresh.md` for when to trigger, what it does and its sid
 
 ## Known Issues & Safe Defaults
 
-- **Do not merge without explicit confirmation** — after branch validation and query testing, stop and ask the user before `omni models merge-branch`, even when the model is not git-connected. Treat requests like "add a field" or "create a view" as requests to prepare validated branch changes, not as permission to ship to production.
-- **Keep eval-created files on branches until confirmed** — if you create fields/views for validation, report the branch name/id, validation status, and test query result. Only merge after the user explicitly says to merge, ship, publish, or promote.
+> ## 🛑 HARD STOP: never merge/promote a branch on your own initiative
+>
+> **`omni models merge-branch` (and any merge / promote / ship to the shared model) is a SEPARATE, USER-INITIATED step. Do not run it unless the user has told you — *in this conversation* — to merge, ship, publish, promote, or "make it live."** Preparing a branch (create → write YAML → validate → test) is the *whole* job for a "build / add / model this" request; shipping it is a distinct decision the user owns.
+>
+> **None of these count as merge permission — do not let them talk you past this gate:**
+> - "the change is additive / small / low-risk / can't break anything"
+> - "the spec (or ticket, or doc) says to model it and publish"
+> - "the user gave a broad 'build the whole thing' directive"
+> - "it's required for the deliverable to work" / "the dashboard won't resolve until I merge"
+> - "it's just a playground / sandbox / non-git model"
+>
+> When the field/view is needed for downstream content but not yet merged, the correct move is a **branch-bound draft** (`omni-content-builder` → *branch-bound drafts*), **not** a merge. When a merge is genuinely needed, **stop and ask** ("Ready for me to merge `<branch>` into the shared model?") and wait for an explicit yes. If a harness/permission layer blocks the merge, that is the guardrail working — surface it and ask; do not look for another path around it.
+
+- **Keep eval-created files on branches until confirmed** — when you create fields/views for validation, report the branch name/id, validation status, and test-query result; merging is governed by the HARD STOP above.
 
 ## Discovering Commands
 
@@ -79,7 +93,7 @@ omni models yaml-create --schema  # Print the body's JSON schema + a filled exam
 
 ## Safe Development Workflow
 
-Always work in a branch. Never write directly to production.
+> **Always work in a branch — never write directly to production — and first check you *can* branch.** Branching requires full-model access. Run `omni whoami whoami --modelid <modelId>`: `QUERY_FULL_MODEL` present → you can create a branch (and `UPDATE` present → you can merge/promote it, else open a PR / request a merge); absent → you can't branch — a one-off field belongs in the document's workbook model instead (`omni-content-builder` → *Updating a Dashboard's Model*). Full permission→capability map: **`omni-admin` → Model Roles & Caller Access**.
 
 ### Step 0: Create a Branch
 
@@ -93,9 +107,7 @@ The response `model.id` is your `branchId` — a UUID you'll pass to all subsequ
 omni models list --include activeBranches
 ```
 
-> **Git-connected models**: The repo is a *projection* of Omni's model for governance (pull requests, review, audit trail) — not the source of truth, and not a surface to author against. Omni's model state is authoritative, so model YAML hand-edited in the repo is validated only after you push, re-serialized to Omni's canonical form, and overwritten on the next regeneration. Author **through the Omni APIs on a branch** (via the Omni CLI, as below), then use `omni models commit` (Step 3 below) to sync the branch to git as a pull request and **review/merge in your git provider** — don't hand-edit model YAML in the repo and push directly.
-
-> **⚠️ Never hand-edit model YAML in git for a git-connected shared model.** It can look correct in git for a while, but Omni regenerates the default branch from its own authoritative model state and **deletes git-only model files** that state doesn't contain — an observed customer incident, where model files committed only to git silently disappeared on Omni's next sync. All view / topic / relationship YAML must originate in Omni: edit on a branch → `omni models commit` → PR.
+> **⚠️ Git-connected models — never hand-edit model YAML in git.** The repo is a *projection* of Omni's model for governance (PRs, review, audit) — not the source of truth and not a surface to author against. Omni regenerates the default branch from its own authoritative state and **deletes git-only model files** that state doesn't contain — an observed customer incident where files committed only to git silently vanished on the next sync. So author **through the Omni APIs on a branch** → `omni models commit` (Step 3) → **review/merge in your git provider**; never push hand-edited model YAML directly.
 >
 > **Model content vs. repo governance** — the split that makes this safe:
 > - **Omni model content** (view / topic / relationship YAML): author on an Omni branch → `omni models commit` → PR. Never commit it directly in git — Omni will regenerate over it.
@@ -115,28 +127,29 @@ omni models yaml-create <modelId> --body '{
 
 > **Note**: The `branchId` parameter must be a UUID from the server (Step 0). Passing a string name instead will return `400 Bad Request: Unrecognized key: "branchName"`.
 
-> **⚠️ Editing an existing file? `fileName` is its exact path, not a regex (unlike on read).** Reuse the full-path key from your `yaml-get` response verbatim, including any folder prefix — e.g. `MARTS/fct_ai_events.view`, not `fct_ai_events.view`. A non-matching `fileName` doesn't error: Omni **silently creates a new file at that path** and returns `success: true`, so shortening the key produces a duplicate view at the repo root.
-
-> **Edits are whole-file writes — read-modify-write.** `yaml-create` **replaces** a file's authored content; it does not merge field-by-field. To change or add one field on an existing view, `yaml-get` the file first, edit it, and write the **complete** file back — otherwise the other authored fields are dropped. (Schema base columns are unaffected — they live in the schema layer, not the authored file.)
-
-> **Inspect a branch.** `yaml-get <modelId> --branchid <branchId>` **without** `--filename` enumerates the whole model — `--mode extension` returns only the files the branch **changed** (your deltas); `--mode combined` returns the **full composed** model (schema + shared + branch). Then drill into any file by its exact path.
+> **⚠️ Editing an existing file = whole-file read-modify-write at its exact path.** `yaml-create` **replaces** a file's authored content (no field-by-field merge), so `yaml-get` it first, edit, and write the **complete** file back, or the other authored fields are dropped. `fileName` is the file's **exact path** (not a regex, unlike on read) — reuse the full-path key verbatim, folder prefix included (e.g. `MARTS/fct_ai_events.view`); a non-matching name doesn't error, it **silently creates a duplicate** at that path (`success: true`). (Schema base columns live in the schema layer, so they're unaffected.) To **inspect** a branch, `yaml-get` **without** `--filename` enumerates the whole model — `--mode extension` for just the branch's changed files (your deltas), `--mode combined` for the full composed model (schema + shared + branch); then drill into any file by its exact path.
 
 ### Step 2: Validate and Test
 
 Every YAML write must be validated and tested before merging — a field can be valid YAML yet produce wrong results or broken queries.
 
 ```bash
-# 1. Validate — any issue with is_warning:false is a blocking error; fix before proceeding
+# 1. Validate — a NEW issue with is_warning:false that references your changed file is blocking; fix before proceeding
 omni models validate <modelId> --branchid <branchId>
 
-# 2. Query the fields you changed — confirm no error and summary.row_count > 0
+# 2. Query the fields you changed — confirm no error, and cache_metadata.num_rows > 0
+#    (the row count is at cache_metadata.num_rows; there is NO summary.row_count — see omni-query)
 omni query run --body '{"query":{"modelId":"<modelId>","table":"your_view","fields":["your_view.new_dimension","your_view.new_measure"],"limit":10,"join_paths_from_topic_name":"your_topic"},"branchId":"<branchId>"}'
 
 # 3. Read it back — confirm the field is present (and not duplicated at a second path)
 omni models yaml-get <modelId> --filename your_view.view --branchid <branchId>
 ```
 
+> **Triage validation errors — most aren't yours.** On a fresh/inherited model, blocking `not found` errors (missing table/view/column) usually mean a **stale schema**: run a **schema refresh** (`omni models refresh <modelId>`) first — it clears them; a `not found` that **persists after refresh** is real (connection lacks DB access, or a genuinely broken reference). For what remains, **baseline before your change** (or filter issues by `yaml_path`) and treat as blocking only the **new** errors referencing **your** changed files — report the pre-existing ones, don't chase them.
+
 Spot-check that values look right (a `sum` isn't returning a `count`; booleans read true/false), and if a field references another view include fields from both to confirm the join resolves. See `references/validation-and-testing.md` for join-path testing, natural-language validation via `omni ai job-submit`, the full results checklist, and duplicate-file recovery.
+
+> **Window-shaped result columns are table calculations, not model fields.** A running total, moving average, period-over-period / MoM %, percent-of-total, or rank is computed **per query on the result set** — author it as a table calculation (`query.calculations[]`) per **`omni-query` → `references/table-calculations.md`**, not as a measure/dimension here. Only model an in-warehouse field when the window must span rows *outside* the result set.
 
 ### Step 3: Ship the Branch
 
@@ -269,25 +282,12 @@ Use `extension` to confirm *what you changed*, and `combined` to confirm *what t
 
 See `references/modelParameters.md` for the complete list of 35+ dimension parameters, format values, and timeframes.
 
-Most common parameters:
-- `sql` — SQL expression using `${field_name}` references. Reference other fields
-  with `${field}` / `${view.field}`; a raw column auto-maps by name (no `sql:`).
-  There is no `${TABLE}` construct — `${TABLE}.column` errors with
-  `Column "__omni_scoped" not found` at validation and query time.
-- `label` — display name · `description` — help text (also used by Blobby)
-- `primary_key: true` — unique key (critical for aggregations)
-- `hidden: true` — hides from picker, still usable in SQL
-- `format` — `number_2`, `currency_2`, `percent_2`, `id`
-- `group_label` — groups fields in the picker
-- `synonyms` — alternative names for AI matching (e.g., `[client, account, buyer]`)
+Most common: `sql`, `label`, `description` (also used by Blobby), `primary_key` (unique key — critical for aggregations), `hidden` (hides from picker, still usable in SQL), `format` (`number_2`/`currency_2`/`percent_2`/`id`), `group_label`, `synonyms` (AI-matching aliases).
+Two gotchas: a raw column **auto-maps by name** (no `sql:` needed); there is **no `${TABLE}` construct** — `${TABLE}.column` errors `Column "__omni_scoped" not found` at validate/query time (reference fields via `${field}`/`${view.field}`).
 
 ### Measure Parameters
 
-See `references/modelParameters.md` for the complete list of 24+ measure parameters and all 13 aggregate types.
-
-Measure filters restrict rows before aggregation using the YAML filter condition syntax. See `references/yaml-filter-syntax.md` for the complete operator reference and measure filter examples.
-
-Prefer a measure `filters:` block for filtered aggregates instead of embedding filter logic in `sql` with `CASE WHEN` or a SQL `WHERE` clause. Keep `sql` focused on the value being aggregated:
+See `references/modelParameters.md` (24+ params, all 13 aggregate types) and `references/yaml-filter-syntax.md` (filter operators + measure-filter examples). **Prefer a measure `filters:` block** for filtered aggregates over `CASE WHEN`/`WHERE` in `sql` — keep `sql` focused on the value being aggregated:
 
 ```yaml
 measures:
@@ -409,6 +409,8 @@ joins:
 ```
 
 > **`joins` vs `relationships`:** `joins` declares which views are in the topic and their hierarchy; `relationships` defines the join conditions. A topic using only global relationships needs only `joins`. A topic with a one-off join needs both.
+>
+> **Silent footgun — both are required, and omitting `joins` passes validation.** If you add the `relationships` entry but forget the view's `joins` entry, the model still **validates clean** (no error) — but the joined view's fields are silently **not exposed** in the topic (a query/markdown referencing them comes back empty). Don't trust `validate` for this; confirm the fields are actually exposed with `get-topic` (see [validation-and-testing.md](references/validation-and-testing.md)). (Topic file shapes vary: some list views under a `joins:` map, others as top-level `<view>: {}` entries — match the existing file's form.)
 
 #### Extended Views: Joining the Same Table Multiple Ways
 

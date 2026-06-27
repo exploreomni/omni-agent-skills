@@ -23,14 +23,14 @@ These skills are not slash commands or one-off prompts you have to memorize. Onc
 - One shared source of truth for Omni workflows across major agent surfaces
 - 9 production-focused skills covering exploration, querying, modeling, content, admin, AI optimization, AI eval, and embed
 - 3 specialized agents for deeper multi-step work
-- 3 Cursor rules for API, YAML, and terminology consistency
+- 4 Cursor rules for API, YAML, terminology, and permissions consistency
 
 ## Platform Support
 
 | Platform | Install method | Notes |
 |----------|----------------|-------|
 | [Claude Code](https://claude.com/product/claude-code) | [Plugin marketplace or Git URL](#install-claude-code) | Full plugin install with 9 skills and 3 agents |
-| [Cursor](https://cursor.com) | [Git URL plugin install](#install-cursor) | Full plugin install plus 3 `.mdc` rules |
+| [Cursor](https://cursor.com) | [Git URL plugin install](#install-cursor) | Full plugin install plus 4 `.mdc` rules |
 | [OpenAI Codex](https://openai.com/codex/) | [`npx skills add`](#install-skills-sh-compatible-agents) | Uses the shared [skills.sh](https://skills.sh) install flow |
 | [GitHub Copilot](https://github.com/features/copilot) | [`npx skills add`](#install-skills-sh-compatible-agents) | Uses the shared [skills.sh](https://skills.sh) install flow |
 | [Gemini CLI](https://github.com/google-gemini/gemini-cli) | [`npx skills add`](#install-skills-sh-compatible-agents) | Uses the shared [skills.sh](https://skills.sh) install flow |
@@ -242,7 +242,7 @@ These are built for heavier workflows where explicit delegation is useful:
 | **omni-modeler** | Builds semantic models, writes YAML, and optimizes for AI |
 | **omni-admin-agent** | Manages users, permissions, schedules, and connections |
 
-### Cursor Rules (3)
+### Cursor Rules (4)
 
 These `.mdc` files are included for Cursor's rules system:
 
@@ -251,6 +251,7 @@ These `.mdc` files are included for Cursor's rules system:
 | **omni-api-conventions** | Auth headers, base URL patterns, error handling, and pagination |
 | **omni-yaml-conventions** | YAML file types, field syntax, and dimension and measure patterns |
 | **omni-terminology** | Maps business intelligence terms to Omni-specific vocabulary |
+| **omni-permissions** | Determine a caller's access via `whoami` (branch vs workbook) and assign model roles |
 
 > **Platform note**: Cursor loads the `rules/` directory automatically. Claude Code, Cortex Code, and skills.sh-compatible agents do not load these files as plugin rules, so outside Cursor they should be treated as shared reference material unless you copy them into that tool's own rule mechanism.
 

@@ -32,6 +32,9 @@ Every chart queryPresentation requires: `name`, `prefersChart: true`, a `visConf
 
 `queryPresentations.data` is a map keyed by string record keys (`"1"`, `"2"`, …); `order` is the tab order and must list every live key. Patches **merge by key** — keys you don't send are untouched.
 
+> **Record keys must be NUMERIC strings** (`"1"`, `"55"`). Non-numeric keys like `"10b"` or `"h1"` are rejected: `400 Bad Request … Invalid key in record`. Remap any mnemonic keys to numbers before sending.
+> **`order` may only reference keys already present.** When splitting a large build into batched patches, each patch's `order` must contain **only** the keys it (plus prior patches) has added — a key in `order` that isn't yet in `data` 400s with `order references unknown query presentation IDs`. Send the *complete* `order` with the final batch.
+
 | Operation | What to send |
 |---|---|
 | Add a tile | New key in `data` + the key appended to a complete `order` array (+ a `containers` stack so it renders — see [containers.md](containers.md)) |
@@ -147,12 +150,14 @@ The `query` object follows the [Query API](https://docs.omni.co/api/queries.md) 
 | `join_paths_from_topic_name` | Yes | The topic name — resolves joins from the topic's base view so joined-view fields work. Set alongside `topicName` on the parent queryPresentation. |
 | `sorts` | Yes | Array of `{ "column_name": "...", "sort_descending": bool }` — `[]` fine |
 | `filters` | Yes | Object of `{ "field_name": "expression" }` — supports `"last 90 days"`, `"this quarter"`, `">100"`, etc. — `{}` fine |
-| `calculations` | Yes | `[]` fine. Each entry = `{ calc_name, sql_expression (an operator AST), known_type:"NUMBER", swallow_errors:true, outside_pivot:false, allow_refs_to_unselected_fields:false, format? }`. **Don't hand-write the `sql_expression` AST — harvest it from an agentic job** (`omni-query` → *Table Calculations*; see below). |
+| `calculations` | Yes | `[]` fine. Each entry = `{ calc_name, sql_expression (an operator AST), known_type:"NUMBER", swallow_errors:true, outside_pivot:false, allow_refs_to_unselected_fields:false, format? }`. **Don't hand-write the `sql_expression` AST — harvest it from an agentic job** (`omni-query` → *Table Calculations*; see below). **`format` is a bare string** (`"currency_2"`, `"percent_1"`, `"#,##0"`) — *not* the measure-style `{value:…}` (that 400s). **`known_type`** is an enum — `NUMBER`/`STRING`/`TIMESTAMP`/`BOOLEAN`/`INTERVAL`/`JSON`/`ARRAY` — **there is no `DATE`** (use `TIMESTAMP` for a date ref). **Keep `allow_refs_to_unselected_fields:false`** — `true` is an AI-SQL-gen-only internal marker (calc renders but is `#ERROR`/uneditable in the workbook). If a harvested calc references a field, **select that field into the query** (and hide it) instead — see the harvest-reconciliation note in `omni-query` → *Table Calculations*. |
 | `column_totals` | Yes | `{}` fine |
 | `row_totals` | Yes | `{}` fine |
 | `fill_fields` | Yes | `[]` fine |
 | `pivots` | Yes | Array of field names to pivot on — a color/stack dimension (e.g. for a stacked chart) **must** be pivoted. `[]` fine |
 | `userEditedSQL` | Yes | `""` for a normal semantic tile. Set to a SQL string to make this a **raw-SQL tile** (see below). |
+
+> **`--schema` can't enumerate this `query` shape.** The `query`/`calculations` object sits in the **free-form** region of the documents body, so `omni documents v2-create --schema` (and `query run --schema`) render it without sub-fields — they won't list `known_type`, the `format` strings, or the calc keys. The enums above are runtime-verified and documented here precisely because `--schema` can't supply them; for where `--schema` *is* vs *isn't* authoritative, see the [`omni-api-conventions`](../../../rules/omni-api-conventions.mdc) rule.
 
 There is no `query.visConfig` in v2 — the v1 `{ "chartType": … }` hint is not part of the schema and does nothing. The tile is driven entirely by the presentation-level `visConfig` envelope.
 
@@ -227,6 +232,23 @@ omni documents v2-get <identifier>
 Returns the full envelope — `queryPresentations` (`data` keyed map + `order`), `controls`, `containers`, `settings`. Each tile includes `topicName`, the `visConfig` envelope, and the full `query` object — use this as the source of truth when recreating or templating dashboards.
 
 > **Read-back warning:** the inner vis config comes back **flat** (spec keys spread beside `visType`, no `config` key). Before reusing a tile in a create/patch body, re-nest everything except `visType` under `config`. Round-tripping the flat shape silently strips the spec.
+
+> **Make it mechanical — normalize EVERY GET-sourced tile before writing.** The flat-read / nested-write asymmetry means the most natural duplication instinct ("copy the object I just read and patch it back") is *always* wrong for v2 tiles, and it fails **silently** (the write returns success; the spec is just gone). Knowing the rule isn't enough — the reliable fixes are: **(a) duplicate from your own canonical *nested* representation, not from a `v2-get` payload**, and **(b) run any GET-sourced tile through a normalize step before the write.** Don't hand-eyeball it per tile:
+>
+> ```js
+> // Re-nest a flat (GET) inner visConfig into the write shape. Idempotent.
+> function normalizeTile(tile) {
+>   const iv = tile.visConfig?.visConfig
+>   if (iv && !iv.config) {
+>     const { visType, ...spec } = iv          // everything except visType…
+>     tile.visConfig.visConfig = { visType, config: spec }   // …goes under config
+>   }
+>   if (tile.query) { delete tile.query.modelId; delete tile.query.model_extension_id }
+>   return tile
+> }
+> ```
+>
+> Apply it to every tile you sourced from a `v2-get`/`v2-get-draft`/snapshot — including when you're **duplicating, restoring, reverting, or moving** a tile, not just editing one. (A tile built from scratch in nested form is already fine; running it through is harmless — the guard is a no-op when `config` already exists.) Then **read the written tile back and confirm the inner `visConfig` has more than just `visType`.**
 
 ## Caveats When Reusing queryPresentations
 
@@ -403,13 +425,15 @@ Add more entries to `markdownConfig` (inside `visConfig.visConfig.config`), each
 
 ### KPI config fields
 
+> **The examples above show only the `number` entry — but a KPI tile is the workhorse "card" (value + change-vs-prior arrow + sparkline + gauge), and those come from the OTHER `markdownConfig` entry types.** Don't hand-roll a markdown tile for a sparkline/comparison/gauge — the full per-type `config` shapes (`comparison` with `colorPositive`/`colorNegative`/**`swapColors`** for "lower is better", `sparkline`, `progress` for a gauge, `text`, `image`) are tabulated in **[visConfig.md](visConfig.md) → Config Object: KPI**. Build a multi-section card by listing several entries (e.g. a `sparkline` + a `number` + a `comparison`) in one `markdownConfig` array. A status-colored "lower is better" KPI (return rate, cart abandonment) is a `comparison` entry with `swapColors: true`, **not** a custom CSS tile.
+
 | Field | Required | Description |
 |-------|----------|-------------|
 | `alignment` | No | Horizontal: `"left"`, `"center"`, `"right"` |
 | `verticalAlignment` | No | Vertical: `"top"`, `"center"`, `"bottom"` |
-| `markdownConfig` | Yes | Array of KPI value entries |
+| `markdownConfig` | Yes | Array of KPI value entries — **mix types** (`number`/`comparison`/`sparkline`/`progress`/…); see [visConfig.md](visConfig.md) for each type's `config` |
 | `markdownConfig[].id` | Yes | Unique string ID for this entry |
-| `markdownConfig[].type` | Yes | `"number"` for a numeric value (other types: `comparison`, `sparkline`, `progress`, `text`, `image`) |
+| `markdownConfig[].type` | Yes | `"number"` for a numeric value (other types: `comparison`, `sparkline`, `progress`, `text`, `image` — **full shapes in [visConfig.md](visConfig.md)**) |
 | `markdownConfig[].config.field.row` | Yes | Always `"_first"` |
 | `markdownConfig[].config.field.field.name` | Yes | Fully qualified field name (e.g., `"order_items.total_revenue"`) |
 | `markdownConfig[].config.field.field.pivotMap` | Yes | Empty object `{}` unless using pivots |

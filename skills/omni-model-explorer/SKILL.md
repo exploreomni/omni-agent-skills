@@ -29,7 +29,7 @@ omni config use <profile-name>
 omni whoami whoami
 ```
 
-> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the **`omni-api-conventions`** rule for profile setup (`omni config init --auth oauth`) and discovering request-body shapes with `--schema`.
+> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering request-body shapes with `--schema`.
 
 API keys: Settings > API Keys (Organization Admin) or User Profile > Manage Account > Generate Token (Personal Access Token).
 
@@ -54,7 +54,9 @@ Explore top-down: **List models → Pick a model → List topics → Inspect a t
 omni models list
 ```
 
-Returns models with `id`, `name`, `connectionId`, and `modelKind` (SCHEMA or SHARED). Use the SHARED model — it contains the curated semantic layer.
+Returns models (under the `records` key — `{pageInfo, records:[…]}`, not the top level) with `id`, `name`, `connectionId`, and `modelKind` (SCHEMA or SHARED). Use the SHARED model — it contains the curated semantic layer.
+
+> **On a busy instance the bare call paginates (20/page) and is mostly WORKBOOK models with `name: null` — don't page through them.** Filter server-side: `omni models list --modelkind SHARED --name "<exact name>"` resolves the shared model by name in one call.
 
 To also see active branches on each model:
 

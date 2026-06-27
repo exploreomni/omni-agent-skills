@@ -181,6 +181,8 @@ Binds to tiles whose query uses that timeframed field.
 ```
 
 > ORs each entry's filter across *different* fields. `conjunction` is `"OR"` only (AND is the implicit behavior of separate filters). Each entry's `filter` is a standard filter object (same shapes as "More filter config shapes" below), stored as JSON.
+>
+> **Also lives in a tile's own `query.controls`** (tab-level, alongside `query.filters`), and a tile can carry **several** MFFs there. Each compiles to its own parenthesized OR-group, and the groups **AND** together — two MFFs → `(A OR B) AND (C OR D)`. That's the way to author **AND-of-ORs**, which the all-AND `query.filters` map can't express. (Verified in compiled SQL: `… AND ("users"."age" > 50 OR "users"."country" = 'USA') AND ("users"."state" = 'California' OR "users"."gender" = 'Female')`.)
 
 ### Dynamic filter (DYNAMIC_FILTER — viewer-added)
 
@@ -199,7 +201,7 @@ Each shape below is a `controls.data.<id>.config` body. Common optional properti
 
 - **Every filter MUST include `fieldName`** — fully qualified (e.g. `"users.state"`) — or it won't bind to any column. Date filters take **no timeframe bracket** (`order_items.created_at`, not `created_at[month]`).
 - Configs read back from UI-built dashboards also carry `topic` and `base_view` (see the date-filter example above) — include them.
-- `config.type` values include `"string"`, `"number"`, `"date"`, `"boolean"`, `"null"`, `"by_query"`, `"user_attribute"`, `"composite"`. Shapes for the common ones are below; for the rest, build the filter in the Omni UI and read it back — `omni documents v2-get <identifier>` returns a `controls` slice you can copy directly into a patch.
+- `config.type` values include `"string"`, `"number"`, `"date"`, `"boolean"`, `"null"`, `"by_query"`, `"user_attribute"`, `"composite"`. Common shapes are below; for the **filter-value shapes** of any type (incl. `composite` / `user_attribute` / `by_query` and the per-`kind` enums), see omni-query's [filter-expressions.md](../../omni-query/references/filter-expressions.md). When still unsure, build the filter in the Omni UI and read it back — `omni documents v2-get <identifier>` returns a `controls` slice you can copy directly into a patch.
 
 ### String dropdown
 

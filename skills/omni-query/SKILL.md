@@ -27,7 +27,7 @@ omni config use <profile-name>
 omni whoami whoami
 ```
 
-> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the **`omni-api-conventions`** rule for profile setup (`omni config init --auth oauth`) and discovering request-body shapes with `--schema`.
+> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering request-body shapes with `--schema`.
 
 You also need a **model ID** and knowledge of available **topics and fields**.
 
@@ -36,7 +36,7 @@ You also need a **model ID** and knowledge of available **topics and fields**.
 ```bash
 omni query --help              # List query operations
 omni query run --help          # Show flags for running a query
-omni query run --schema        # Print the body's JSON schema + a filled example (no token)
+omni query run --schema        # Body schema + example — but the query object renders free-form; for its shape use the examples below
 omni ai --help                 # AI-powered query generation
 ```
 
@@ -50,10 +50,12 @@ omni ai --help                 # AI-powered query generation
 - If a calc query succeeds but the calc column is blank, treat it as a failed calc until proven otherwise. Re-check operand order, `for_calc`, date truncation, `outside_pivot`, and whether the `calc_name` appears in `query.fields`.
 - **Don't swallow calc errors while authoring or validating.** Keep `swallow_errors: false` (the default) so a bad calc fails loudly with the real message. With `swallow_errors: true`, the column silently shows `#ERROR!` and the query still returns `COMPLETE` — easy to misread as data, a blank calc, or an engine bug. If you see `#ERROR!`, re-run with `swallow_errors: false` to surface the cause (often a referenced field missing from `query.fields`). When re-running a calc query you pulled from a document, dashboard tile, or `omni ai` job, run it **verbatim** — dropping a field the calc references manufactures an error that isn't the calc's fault. Reserve `swallow_errors: true` for a finalized tile that needs per-cell resilience, and validate it with `false` first. See `references/table-calculations.md` §5.11 & §6.5.
 - Prefer the documented Omni calc operators over lower-level raw SQL/window ASTs when a template exists. For example, use `Omni.OMNI_RUNNING_TOTAL`, `Omni.OMNI_PERCENT_CHANGE_FROM_PREVIOUS`, and `Omni.OMNI_FX_AVERAGE(Omni.OMNI_OFFSET_MULTI(...))` for moving averages instead of hand-authored `window_call`/`LAG` when the prompt asks for a table calculation.
+- **`query run` requires `modelId` INSIDE the `query` object — every time.** A standalone body is `{"query":{"modelId":"<uuid>", …}}`; omit it and the call **400s** with `query.modelId: Invalid input: expected string, received undefined`. This is the **exact opposite** of a v2 **dashboard tile** query (`omni-content-builder`), whose tile query must **never** carry `modelId` (the server anchors tiles to the document's workbook model). Don't let the tile rule bleed into standalone queries — **tiles omit `modelId`; `query run` requires it.** When running against a **branch** or a **workbook/draft model**, set `modelId` to *that* model's id (the branch model id or the draft's `workbookModelId`), not the shared model — and pass `branchId` at the top level only when the skill explicitly calls for it (a branch's own model id already resolves branch fields).
+- **To read result rows, set `resultType:"json"` (or `"csv"`) at the body's TOP LEVEL — not inside `query`.** Misplacing it inside `query` is **silently ignored**: you get the default base64-Arrow streaming envelope back (unreadable rows) and waste a round trip. See *Handling and Validating Results*.
 
 ## Build queries on a topic
 
-Prefer building every query **on a topic**, not a bare base view. Topics carry the governed joins, labels, and access — and **a query not built on a topic is not accessible to restricted queriers/viewers** (it works for you as a modeler/admin but silently fails for restricted roles). Set the query `table` to the topic's base view and pass `join_paths_from_topic_name: <topic>`.
+Prefer building every query **on a topic**, not a bare base view. Topics carry the governed joins, labels, and access — and **a query not built on a topic is not accessible to restricted queriers/viewers** (it works for you as a modeler/admin but silently fails for restricted roles). Set the query `table` to the topic's base view and pass `join_paths_from_topic_name: <topic>`. **And if *you* are a Restricted Querier** (`QUERY_TOPICS`, no `QUERY_FULL_MODEL` — check `whoami`), topic-based isn't just preferred, it's the **only** option: a bare base-view query or a raw-SQL `userEditedSQL` query needs `QUERY_FULL_MODEL`, so **every query you author and place into content must be topic-based.**
 
 **How the join map resolves joined-view fields.** `table` stays the topic's **base view**; `join_paths_from_topic_name` lets the topic's join map reach *joined*-view fields from it — e.g. to select `users.state` on an `order_items`-based topic, `table` stays `order_items` and the join comes from the topic; you do **not** set `table: users`. Omit `join_paths_from_topic_name` (or point `table` at a non-base view) and joined-view fields may fail to resolve or join wrong. Confirm the base view and every reachable join with `omni models get-topic <modelId> <topic>` — its `base_view_name` and `join_via_map` show the base view and the join path to each reachable view. (This is the canonical topic-query shape; `omni-content-builder` tiles and `omni-model-builder` validation queries use it too.)
 
@@ -89,7 +91,7 @@ omni query run --body '{
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `modelId` | Yes | UUID of the Omni model |
+| `modelId` | **Yes — inside `query`** | UUID of the Omni model (or branch/workbook model id). **Required on every standalone `query run`**; omitting it 400s. Contrast: v2 dashboard **tile** queries omit it entirely. |
 | `table` | Conditional | Base view (the `FROM`). Required for a semantic query **unless** `join_paths_from_topic_name` is set (base view comes from the topic) or `userEditedSQL` is used (table ignored). |
 | `fields` | Yes | Array of `view.field_name` references |
 | `join_paths_from_topic_name` | Recommended | Topic for join resolution |
@@ -120,31 +122,25 @@ users.created_at[year]      — Yearly
 
 ### Filters
 
-```json
-"filters": {
-  "order_items.created_at": "last 90 days",
-  "order_items.status": "complete",
-  "users.state": "California,New York"
-}
-```
-
-Expressions: `"last 90 days"`, `"this quarter"`, `"2024-01-01 to 2024-12-31"`, `"not California"`, `"null"`, `"not null"`, `">100"`, `"between 10 and 100"`, `"contains sales"`, `"starts with A"`. See [references/filter-expressions.md](references/filter-expressions.md) for the complete expression syntax reference.
-
-If a date filter string fails with an API error like `Cannot use 'in' operator
-to search for 'query_id' in last 12 months`, keep the query semantic and retry
-with the typed date-filter object shape instead of dropping the filter:
+`query.filters` is a map of **`fieldName` → a typed filter object** — the shape Omni's UI emits (verified against a live dashboard's `filterConfig` and end-to-end via `query run`):
 
 ```json
 "filters": {
-  "order_items.created_at": {
-    "type": "date",
-    "kind": "TIME_FOR_INTERVAL_DURATION",
-    "left_side": "12 months ago",
-    "right_side": "12 months",
-    "ui_type": "PAST"
-  }
+  "users.state":            { "type": "string", "kind": "EQUALS",       "values": ["California", "New York"] },
+  "products.category":      { "type": "string", "kind": "CONTAINS",      "values": ["Jeans"] },
+  "order_items.sale_price": { "type": "number", "kind": "GREATER_THAN",  "values": [100] },
+  "order_items.created_at": { "type": "date",   "kind": "BEFORE",        "values": ["2024-01-01"] },
+  "order_items.shipped_at": { "type": "date",   "kind": "TIME_FOR_INTERVAL_DURATION", "ui_type": "PAST", "left_side": "12 months ago", "right_side": "12 months" },
+  "order_items.is_shipped": { "type": "boolean", "is_negative": false }
 }
 ```
+
+- **`type`** — `string` / `number` / `date` / `boolean`. **Boolean filters use `is_negative`** (`false` = is true, `true` = is false), *not* `kind`/`values` (+ optional `treat_nulls_as_false`).
+- **`kind`** (operator, for string/number/date) — string: `EQUALS`, `CONTAINS`, `STARTS_WITH`, `ENDS_WITH`, `IS_EMPTY`, `SQL_LIKE`; number: `EQUALS`, `GREATER_THAN`, `LESS_THAN`, `BETWEEN`; date: `BEFORE`, `ON_OR_AFTER`, `BETWEEN`, `TIME_FOR_INTERVAL_DURATION`/`TIME_FOR_UNIT_DURATION` (rolling windows), `IS_ON_DAY_OF_WEEK`, … (`QUERY_OFFSET` references another query).
+- **`values`** — array of operands: a single value, a list (multi-select `EQUALS`), or `[lo, hi]` for `BETWEEN`. Date **rolling windows** use `left_side`/`right_side` + `ui_type` (e.g. `PAST`) instead of `values`.
+- **Verify the filter actually bound.** A filter object with the wrong properties for its type (e.g. `kind`/`values` on a `boolean`, which needs `is_negative`) is **silently ignored** — the query returns `COMPLETE` but the filter never reaches the SQL. Confirm via `cache:"SkipCache"` → `summary.display_sql` (the `WHERE`), or that the row count actually changes. The exact `kind`/`ui_type`/boolean enums live in `omni documents v2-create --schema` (under the filter objects); see also [references/filter-expressions.md](references/filter-expressions.md).
+
+> **Do NOT use the bare-string shorthand** (`"order_items.status": "complete"`, `"last 90 days"`, `"not null"`). The query API rejects it with `500 "Cannot use 'in' operator to search for 'query_id' in <value>"` — it misroutes the bare string to the query-reference (`field_name_in_query`) path. The typed object above is the reliable form. *(Reproduced on current Omni under both org-key and user-PAT auth.)*
 
 ### Pivots
 
@@ -186,26 +182,12 @@ This is the supported way to build a **funnel from multiple measures** (Omni's f
 
 Post-query computed columns (running totals, % of total, ratios, conditionals). Authored as AST objects in `calculations[]`. The query API requires the parsed AST — it does **not** accept the workbook-frontend `{name, formula}` shape.
 
-Minimum-viable calc:
+Minimum calc — one `calculations[]` entry (its `calc_name` must also be in `query.fields`):
 
 ```json
-{
-  "query": {
-    "fields": ["orders.month", "orders.total_revenue", "calc_pct"],
-    "calculations": [{
-      "calc_name": "calc_pct",
-      "label": "% of Total",
-      "format": "0.0%",
-      "sql_expression": {
-        "type": "call",
-        "operator": "Omni.OMNI_PERCENT_OF_TOTAL",
-        "operands": [
-          { "type": "field", "field_name": "orders.total_revenue", "for_calc": true }
-        ]
-      }
-    }]
-  }
-}
+{ "calc_name": "calc_pct", "label": "% of Total", "format": "0.0%",
+  "sql_expression": { "type": "call", "operator": "Omni.OMNI_PERCENT_OF_TOTAL",
+    "operands": [{ "type": "field", "field_name": "orders.total_revenue", "for_calc": true }] } }
 ```
 
 **The #1 gotcha:** `calc_name` must also appear in `query.fields` (and the outer `queryPresentation.fields` for dashboard tiles). A calc defined in `calculations[]` but absent from `fields` is computed but never rendered.
@@ -217,19 +199,11 @@ Use `omni query run` with a hand-authored or copied AST when you already know th
 
 Query tasks are read-only unless the user explicitly asks to change the model. If a field appears missing, inspect topics/dashboard queries and use the right model/topic/branch or report the missing-field blocker — don't create branches, add measures, or edit YAML just to make a query work. (And don't satisfy a calc request with client-side math or an existing model field like `users.tier_label` — build and validate the table calc; see *Known Issues*.)
 
-Quick recipes for common calc requests:
+Common requests → operator (exact AST + per-recipe gotchas in the reference — don't hand-improvise):
+- **% of total** → `OMNI_PERCENT_OF_TOTAL` · **running total** → `OMNI_RUNNING_TOTAL` (sort time **ascending**, don't reverse outside Omni) · **MoM % change** → `OMNI_PERCENT_CHANGE_FROM_PREVIOUS` (not `omni_period_pivot`/`LAG`) · **trailing N-avg** → `OMNI_FX_AVERAGE` over `OMNI_OFFSET_MULTI`
+- **pivot row-total** → `OMNI_FX_SUM` + `OMNI_PIVOT_OFFSET` (`outside_pivot:true`, numeric `limit`) · **tier labels** → `OMNI_FX_IFS` (not `CASE`/a model field) · **SUMIF** → `OMNI_FX_SUM_IF` · **VLOOKUP** → `OMNI_FX_VLOOKUP` (if a string lookup 400s `No referenced query…`, fall back to `OMNI_FX_SUM_IF`) · **date diff** → `OMNI_FX_DATEDIF` (`[date]` operands)
 
-- **Percent of total**: add a calc using `Omni.OMNI_PERCENT_OF_TOTAL` with one `for_calc: true` operand pointing at the selected measure field; set `format: "0.0%"`; include the calc name in `query.fields`.
-- **Running total**: add a calc using `Omni.OMNI_RUNNING_TOTAL` with one `for_calc: true` field operand. Sort the time dimension ascending before presenting values; do not sort descending and then reverse/recompute the running total outside Omni.
-- **Trailing 3-period moving average**: if you are unsure of the exact AST, harvest it from an agentic job — `omni ai job-submit <modelId> "monthly revenue with a trailing 3-month moving average as a table calculation"`, lift the `calculations` from `actions[].generate_query`, then validate with `query run` (`generate-query --run-query=false` is the simple/shape-only fallback). The expected shape is `Omni.OMNI_FX_AVERAGE` over `Omni.OMNI_OFFSET_MULTI(field, -2, 0, 3, 1)`. If the output is a raw `window_call`, rewrite it to this canonical Omni calc shape unless the user specifically asked for a custom SQL window not expressible with Omni calc operators.
-- **Month-over-month % change**: add a calc using `Omni.OMNI_PERCENT_CHANGE_FROM_PREVIOUS` with the same single `for_calc: true` revenue operand; sort the date field ascending; set `format: "0.0%"`; do not use `omni_period_pivot`, raw SQL, or a hand-authored `LAG` window when the template operator fits.
-- **Row total across pivot columns**: for a pivoted query, set a numeric `limit` and add a calc with `outside_pivot: true`, `Omni.OMNI_FX_SUM`, and `Omni.OMNI_PIVOT_OFFSET(field, 0, 0, 1, 50)` to sweep across pivot columns. Include the row-total `calc_name` in `query.fields`; a pivoted query with `limit: null` is invalid.
-- **Multi-branch tier labels**: use `Omni.OMNI_FX_IFS`, not an existing model field or `SqlStdOperatorTable.CASE`, for prompts like `High if revenue > 10000, Mid if > 1000, else Low`. `OMNI_FX_IFS` operands alternate `(condition, value)`. Represent the default branch as a final tautology such as `SqlStdOperatorTable.EQUALS(1, 1)` followed by `"Low"`. Build labels like `"High - Acme Corp"` with nested binary `Omni.OMNI_FX_AMPERSAND` calls: `(tier & " - ") & <name field>`. If the tier depends on a grouped measure, create two calcs: one for the tier and one for the concatenated label.
-- **SUMIF-style filtered total broadcast on every row**: use `Omni.OMNI_FX_SUM_IF` (underscore between `SUM` and `IF`). Both the criteria range and sum range must be full-column `Omni.OMNI_OFFSET_MULTI` calls with `(field, -536870911, 0, 1073741823, 1)`. The criterion is a string literal like `"Complete"`, not a SQL predicate.
-- **VLOOKUP-style in-result lookup**: first attempt `Omni.OMNI_FX_VLOOKUP` with four operands: lookup value, key field, full-column `OMNI_OFFSET_MULTI` over the key field, and a 1-based column number into `query.fields` starting at the key column. Use literal nodes for static lookup values and column numbers. Validate the query. If a static string lookup like `"Complete"` fails with `No referenced query with id Complete found in query`, report that this Omni deployment is treating the string as a query reference, stop retrying VLOOKUP variants, and use the `OMNI_FX_SUM_IF` broadcast pattern when the user needs a single status revenue repeated on every row. Do not replace this with `userEditedSQL`.
-- **Date difference**: use `Omni.OMNI_FX_DATEDIF` in AST order `(unit_literal, start_date, end_date)`, with the unit literal `"DAY"` and date-truncated operands such as `created_at[date]` and `shipped_at[date]`. Do not substitute a native model field unless the user asked for that existing field rather than a calculated column. A bare timestamp operand can produce blank values under `swallow_errors`; select `[date]` timeframes or cast to DATE. Filter out or separately explain null shipped dates so the validated diff column contains populated integer values.
-
-For exact JSON AST examples — running totals, moving averages, conditional labels, pivot row totals, DATEDIF, SUM_IF, VLOOKUP, plus the full operator catalog (`Omni.*` and `SqlStdOperatorTable.*`), AST node types, validation rules, and the round-trip strategy for unfamiliar calcs — see [references/table-calculations.md](references/table-calculations.md). Keep `SKILL.md` as the workflow guardrail and the reference file as the source of detailed shapes.
+For the exact JSON AST per recipe, the full operator catalog (`Omni.*` / `SqlStdOperatorTable.*`), node types, validation rules, and the unfamiliar-calc round-trip strategy, see **[references/table-calculations.md](references/table-calculations.md)** — SKILL.md is the workflow guardrail; the reference holds the detailed shapes.
 
 At execution, calcs compile into an outer `SELECT` wrapping the base aggregation; window-style operators emit `... OVER (...)` there, so the shared data model never needs window functions to support them. In pivoted queries, template operators auto-partition by the pivot column for per-segment series; set `outside_pivot: true` and wrap an aggregator around `OMNI_PIVOT_OFFSET` for a row-summary that sweeps across pivot columns.
 
@@ -260,11 +234,11 @@ omni query run --body '{
 
 ## Request-level options (outside `query`)
 
-These keys sit at the **top level** of the body, beside `query`, not inside it:
+These keys sit at the **top level** of the body, beside `query`, not inside it. **The `query` object is permissive — a key you misplace inside `query` (e.g. `resultType`, `branchId`, `cache`) is silently dropped, not rejected**, so the call "succeeds" while ignoring your option. The tell-tale for a misplaced `resultType` is getting the base64-Arrow envelope back when you asked for JSON/CSV.
 
 | Option | Description |
 |--------|-------------|
-| `resultType` | Output format: `csv`, `xlsx`, or `json`. Omit for the default base64 Arrow response. |
+| `resultType` | Output format: `csv`, `xlsx`, or `json`. **Top-level only** — inside `query` it's silently ignored and you get Arrow. Omit for the default base64 Arrow response. |
 | `cache` | Cache policy: `Standard`, `SkipRequery`, `SkipCache`. |
 | `userId` | Run as another user (org-scoped API keys); also the `--userid` flag. |
 | `branchId` | Run against a model **branch** (validate draft model changes on live data). Must be a branch of the same shared model. |
@@ -274,9 +248,11 @@ These keys sit at the **top level** of the body, beside `query`, not inside it:
 
 ## Handling and Validating Results
 
-Default response: base64-encoded Apache Arrow table. Arrow results are binary — you cannot parse individual row data from the raw response. To verify a query returned data, check `summary.row_count` in the response.
+> **`omni query run` streams NDJSON — it is NOT one JSON object.** The CLI prints **multiple JSON objects, one per line**: first a `{"jobs_submitted":{…}}` line, then one or more `{"job_id":…,"status":"COMPLETE","summary":{…}}` job lines (and, with `resultType`, the result payload). A naive `json.loads(entire_stdout)` throws `JSONDecodeError: Extra data`. **Don't write a single-object parser** — iterate lines and pick the one you need, or slurp with `jq -s` / read the **last** non-empty line. `--compact` puts each object on one tidy line.
 
-To read the results yourself (to validate or spot-check), request **`resultType: "csv"`** or **`"json"`** — both come back as text you can parse directly:
+Default response: base64-encoded Apache Arrow table. Arrow results are binary — you cannot parse individual row data from the raw response. The row count is at **`cache_metadata.num_rows`** (not `summary.row_count`). The `summary` object holds validation metadata: `invalid_calculations`, `missing_fields`, `display_sql` (the compiled SQL), `omni_sql_parse_failed`. (`--schema` won't show any of this — it describes the request body only; response shape comes from a live response. See the [`omni-api-conventions`](../../rules/omni-api-conventions.mdc) rule.)
+
+**To read rows yourself, always set `resultType: "json"` (or `"csv"`) at the body's TOP LEVEL — then stdout is a clean, directly-parseable JSON array (or CSV), with none of the Arrow/NDJSON envelope to unpack.** This is the single reliable way to spot-check values; reaching for the default Arrow path and trying to decode rows from it is the common time-waster.
 
 ```json
 { "query": { ... }, "resultType": "csv" }
@@ -292,9 +268,9 @@ Every query response should be checked before trusting the results or presenting
 - If the response contains an `error` key, the query failed. Common causes: bad field name, missing join path, malformed filter expression, permission error.
 - If the response contains `remaining_job_ids`, the query is still running — poll with `omni query wait` before checking results.
 
-**Check row count:**
-- `summary.row_count == 0` — the query returned no data. This may be valid (e.g., no data in the filter range) but is worth flagging to the user. Common causes: overly restrictive filters, wrong date range, field that doesn't match any rows.
-- `summary.row_count` equals the `limit` you set — results may be truncated. If the user needs complete data, re-run with a higher limit or `null` for unlimited.
+**Check row count** (field is `cache_metadata.num_rows`):
+- `cache_metadata.num_rows == 0` — the query returned no data. This may be valid (e.g., no data in the filter range) but is worth flagging to the user. Common causes: overly restrictive filters, wrong date range, field that doesn't match any rows.
+- `cache_metadata.num_rows` equals the `limit` you set — results may be truncated. If the user needs complete data, re-run with a higher limit or `null` for unlimited.
 
 **Spot-check data with CSV:**
 
@@ -323,15 +299,16 @@ omni query run --body '{ "query": { ... (no filters) ... }, "resultType": "csv" 
 # Compare row counts — filtered should be <= unfiltered
 ```
 
-If both queries return the same row count, the filter may not be binding (wrong field name, unsupported expression, or the known bug where boolean filters are dropped with pivots).
+If both queries return the same row count, the filter may not be binding — check the field name, and that the filter object matches its field type (a `boolean` needs `is_negative`, not `kind`/`values` — a mismatch is silently ignored). Confirm the condition appears in `summary.display_sql` (`cache:"SkipCache"`).
 
 ### Validation Checklist
 
 | Check | How | When |
 |-------|-----|------|
 | No error in response | Check for `error` key | Every query |
-| Data was returned | `summary.row_count > 0` | Every query |
-| Results not truncated | `row_count < limit` | When completeness matters |
+| Calcs/fields valid | `summary.invalid_calculations` and `summary.missing_fields` empty | Every query (esp. with calculations) |
+| Data was returned | `cache_metadata.num_rows > 0` | Every query |
+| Results not truncated | `cache_metadata.num_rows < limit` | When completeness matters |
 | Columns are correct | CSV column headers match requested fields | When building dashboards or reports |
 | Values are reasonable | Spot-check CSV output | When presenting to users |
 | Filters are applied | Compare filtered vs unfiltered row counts | When using filters |
@@ -421,15 +398,24 @@ For the full Blobby experience — multi-step analysis, tool use, and topic sele
 
 ```bash
 # 1. Submit a job
-omni ai job-submit your-model-id "Analyze revenue trends and identify our fastest growing product category"
-# → returns { "jobId": "job-uuid", "conversationId": "conv-uuid" }
+JID=$(omni ai job-submit your-model-id "Analyze revenue trends; identify our fastest growing category" -o json \
+  | python3 -c 'import json,sys;print(json.load(sys.stdin)["jobId"])')
 
-# 2. Poll the `state` field (NOT `status` — reading `.status` is empty every time)
-omni ai job-status <jobId>
+# 2. Poll with EARLY EXIT on any terminal state — break on success AND on failure
+while :; do
+  S=$(omni ai job-status "$JID" -o json | python3 -c 'import json,sys;print((json.load(sys.stdin).get("state") or "").lower())')
+  case "$S" in
+    complete*)             break ;;                       # done → go fetch the result
+    fail*|cancel*|error*)  echo "job $S"; break ;;        # terminal failure → STOP, do not keep sleeping
+    *)                     sleep 5 ;;                      # only the non-terminal branch sleeps
+  esac
+done
 
-# 3. Get the result
-omni ai job-result <jobId>
+# 3. Get the result (resultSummary = narrative; actions[] = structured output)
+omni ai job-result "$JID" -o json
 ```
+
+> **Poll loops must early-exit on every terminal state — never a fixed-count `for … sleep … done` that only breaks on success.** If the success filter is wrong (`status` vs `state`, `COMPLETE` vs `COMPLETED`) or the job errors, such a loop runs to the end. Use the `while :; … case … break` form above: sleep **only** in the default branch, break the instant the state is terminal (complete\* **or** fail/cancel/error). Read the field tolerantly (`state ?? status`, lowercased; `startswith("complete")` = done) so one loop survives the cross-job spelling differences below.
 
 > **Job-status shape.** Poll **`state`** — `omni ai job-status` has **no `status` field**. States: `QUEUED` → `EXECUTING` → `DELIVERING` → terminal **`COMPLETE`** / `FAILED` / `CANCELLED`. Note it's `COMPLETE`, **not** `COMPLETED` — the model-refresh (`completed`) and `models jobs-get-status` (`COMPLETED`) flows spell it differently, so a poll loop reused across job types needs a **tolerant terminal check**: read the field as `state ?? status`, lowercase it, treat `startswith("complete")` as done and `{failed, cancelled, error}` as failed. The answer text is **`resultSummary`**; structured output is under **`actions[]`** (`type: "generate_query"` → `result.query`).
 
@@ -482,9 +468,7 @@ For complex analysis, chain queries:
 
 ## Known Bugs
 
-- **`IS_NOT_NULL` filter generates `IS NULL`** (reported Omni bug) — workaround: invert the filter logic or use the base view to apply the filter differently.
-- **Boolean filters may be silently dropped** when a `pivots` array is present — if boolean filters aren't applying, remove the pivot and test again.
-- **Some natural-language date filter strings can hit `query_id` parser errors** — retry with the typed date filter object shape shown above before abandoning the filter.
+- **Bare-string filter expressions 500 with a `query_id` parser error.** `"filters": { "field": "complete" | "last 90 days" | "not null" }` returns `500 "Cannot use 'in' operator to search for 'query_id' in <value>"` — the API misroutes the bare string to the query-reference (`field_name_in_query`) path. **Use the typed filter object** (see *Filters* above). Reproduced for value, date, and null string forms under both org-key and user-PAT auth.
 
 ## Linking to Results
 
