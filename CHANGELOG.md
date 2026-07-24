@@ -6,6 +6,27 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.6.0] - 2026-07-24
+
+### omni-analytics
+
+_Summary: resync `omni-ai-optimizer` with the rewritten [Optimize models for Omni AI](https://docs.omni.co/modeling/develop/ai-optimization) guide — correcting two facts the skill had wrong, and adding the `ai_context` templating features (user attributes, `omni_llm`, `omni_agent`, `constants`) it had no coverage of._
+
+**Fixed**
+- **The "~550 fields" context limit was wrong** and has been removed from the skill and its eval case. Pruning is driven by character caps, not a field count: ~75K characters for a topic's field definitions, ~100K for the topic-selection summary across all topics, and 100 fields per search outside a topic. Per-field metadata cost varies several-fold, so the skill now directs the agent to judge context from the workbook inspector instead of counting fields.
+- **The synonyms pruning caveat was inverted.** The skill claimed synonyms are pruned before descriptions; they are pruned **last** — after `description`, `label`, and `sample_values` — because they carry the most weight matching user phrasing to fields. Guidance flipped accordingly: synonyms on high-value fields are a durable investment, not a fragile one.
+- **Dead docs link** — `https://docs.omni.co/ai/optimize-models.md` now 404s. The Docs Reference section was rebuilt around the current URL and expanded into per-parameter links.
+
+**Added**
+- **Context priority and pruning order**, replacing an invented "impact order" heuristic. Documents the full assembly order and the exact pruning sequence (`all_values` → `sql` → `sample_values` → `description` → `group_label` → `label` → `aggregate_type` → `data_type` → `synonyms`), plus the load-bearing consequence that **`ai_context` is never pruned** — so bloated context starves field metadata and can fail the request outright, rather than degrading gracefully.
+- **"Context is guidance, not instruction"** — model-level `ai_context` does not reliably override topic-level, instructions may be followed partially, and behavior is non-deterministic. Steers the agent away from designing around precedence guarantees that don't exist.
+- **Advanced `ai_context` templating** (model/topic/view levels only): user-attribute personalization via `{{omni_attributes.<name>}}` — including the caveat that dimension/measure `ai_context` does *not* substitute them; model-tier scoping via the `omni_llm` namespace (`smartest`/`standard`/`fastest`); agent scoping via `omni_agent` (`analyze`/`build`/`simple_summarize`); and reusable blocks via `constants` and `@{constant_name}`.
+- **Model-level context** section covering model `ai_context` (which also drives topic selection) and model-level `sample_queries`.
+- **Chain-of-thought reasoning** recipe, including that the `GenerateQuery` tool reference is required for correct behavior.
+- **Where context applies** — Workbook Agent, Dashboard Agent, AI visualization, filter generation, and the Modeling Agent, not just Omni Agent.
+- **Troubleshooting order** for wrong answers: verify topic reachability → verify the field reached the context window → only then write more `ai_context`.
+- Workbook authoring path for sample queries (**Model > Save as sample query to topic**), flagging that **Include in AI context** must be checked or the query never reaches the AI; `ai_fields: [tag:use_for_ai]` tagging pattern; the note that `all_values` is pruned first and that dbt `accepted_values` tests are ingested as `all_values` automatically.
+
 ## [1.5.0] - 2026-06-25
 
 ### omni-analytics

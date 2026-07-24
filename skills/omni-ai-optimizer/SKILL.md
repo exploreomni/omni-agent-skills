@@ -50,18 +50,43 @@ omni models yaml-create --help        # Show flags for writing YAML
 
 ## How Blobby Works
 
-Blobby generates queries by examining:
+### Context priority order
 
-1. **Topic structure** — which views and fields are joined
-2. **Field labels and descriptions** — how fields are named
-3. **`synonyms`** — alternative names for fields
-4. **`ai_context`** — explicit instructions you write
-5. **`ai_fields`** — which fields are visible to AI
-6. **`sample_queries`** — example questions with correct queries
-7. **Hidden fields** — `hidden: true` fields are excluded
-8. **`ai_chat_topics`** — which topics are included/excluded from AI chat (model-level)
+Omni assembles the context window in this order:
 
-Impact order: ai_context > ai_fields > sample_queries > synonyms > field descriptions.
+1. **Context and tuning pre-built by Omni Engineering**
+2. **`ai_context`** on the model, topics, and views
+3. **Topic `description`**
+4. **Topic `name` and `base_view`**
+5. **Prioritized field properties** — `name` (fully qualified, `view.field`) and field `ai_context`. Never pruned.
+6. **Pruned field properties** — everything else, dropped in the order below when space runs short.
+
+`hidden: true` fields are excluded entirely. `ai_chat_topics` (model-level) controls which topics Blobby can see at all.
+
+### Pruning order
+
+When a topic's metadata exceeds its allotment, Omni removes properties **lowest priority first**, clearing each one from *every* field before moving to the next:
+
+`all_values` → `sql` → `sample_values` → `description` → `group_label` → `label` → `aggregate_type` → `data_type` → `synonyms`
+
+Two consequences worth internalizing:
+
+- **`all_values` goes first**, because the AI can fetch a field's values on demand. **`synonyms` go last**, because they do the most work matching user phrasing to fields.
+- **`ai_context` is never pruned** when Omni assembles context for a specific topic — at any level (model, topic, view, field). If it still doesn't fit, Omni drops whole views from model search, and past that the **request fails with an error**. Bloated `ai_context` is not a soft cost — it can starve field metadata and break queries outright. The one exception is *topic selection*, where view-level `ai_context` is trimmed first (see the caps table below).
+
+### Context is guidance, not instruction
+
+All context is passed to the LLM together, and the LLM decides how to weight it:
+
+- **Model-level `ai_context` does not reliably override topic-level `ai_context`.** Don't design around precedence that isn't guaranteed.
+- Instructions may be followed partially or not at all, especially when complex or self-contradictory.
+- **Behavior is non-deterministic** — the same question can pull different context on different runs.
+
+Prefer few, unambiguous, non-conflicting instructions over exhaustive rulebooks. Debug what the AI actually received with the [workbook inspector](https://docs.omni.co/analyze-explore/workbook-inspector#ai-messages).
+
+### Where context applies
+
+Not just Omni Agent — also embedded chat (including topic selection and model search), Workbook Agent query/SQL generation, Dashboard Agent summaries, AI visualization and summary generation, AI filter generation, and the Modeling Agent. A context change affects all of them.
 
 ## Writing ai_context
 
@@ -139,15 +164,131 @@ ai_context: |
 
 Every token in `ai_context`, `description`, and `label` is sent to the AI on every query. Verbose values waste context window and push out other fields.
 
+Because **`ai_context` is never pruned**, it is the one property that cannot be reclaimed under pressure — a bloated `ai_context` evicts field metadata first and can ultimately fail the request. Treat it as the scarcest budget in the model, not the most generous.
+
 - Target 1-2 sentences per `ai_context` entry. Focus on disambiguation and gotchas, not general explanation.
 - Keep labels short and human-readable — avoid redundant qualification (e.g., "Order Total Revenue Amount" → "Total Revenue").
 - Rewrite long `description` values to be direct. If a description restates the field name, remove it.
 
+## Model-Level Context
+
+Model-level [`ai_context`](https://docs.omni.co/modeling/models/ai-context) carries guidance shared across every topic, and also informs **topic selection** — useful when Blobby picks the wrong topic rather than the wrong field.
+
+Use it for instance-wide conventions (currency, fiscal calendar, tone, privacy rules) and keep topic-specific mappings on the topic. Remember it does not reliably override topic-level context.
+
+There is also a model-level [`sample_queries`](https://docs.omni.co/modeling/models/sample-queries) parameter for example queries that span the model's topics.
+
+## Advanced ai_context Templating
+
+These apply to `ai_context` at the **model, topic, and view levels only**.
+
+### Personalize with user attributes
+
+`{{omni_attributes.<attribute_name>}}` is substituted with the current user's [attribute value](https://docs.omni.co/administration/users/attributes) at query time:
+
+```yaml
+ai_context: |
+  You are a sales analyst. When someone asks about their team or pipeline,
+  always filter by account.segment = {{omni_attributes.segment}}
+  and account.region = {{omni_attributes.region}}.
+```
+
+> **Caveat**: Not supported in dimension or measure `ai_context` — there the value is used verbatim, un-substituted. Field references and filter conditions are also unsupported and raise a validation warning.
+
+### Target specific model tiers with omni_llm
+
+Scope instructions to the AI model tier — `smartest`, `standard`, or `fastest` — so expensive reasoning instructions don't burden fast models. Sections use Mustache syntax: `{{# ... }}` for "when", `{{^ ... }}` for "when not".
+
+```yaml
+ai_context: |
+  This topic focuses on financial transactions.
+
+  {{# omni_llm.smartest }}
+  For complex multi-table queries, consider indirect relationships and provide rationale for join path selection.
+  {{/ omni_llm.smartest }}
+
+  {{# omni_llm.fastest }}
+  Prefer single-table queries when possible.
+  {{/ omni_llm.fastest }}
+```
+
+### Target specific agents with omni_agent
+
+Scope context to the agent that will read it, so bulky agent-specific content doesn't inflate the window for the others:
+
+- `analyze` — model search and query generation
+- `build` — topic metadata generation, learn-from-conversation
+- `simple_summarize` — tile/visualization summaries, query metadata
+
+```yaml
+ai_context: |
+  {{# omni_agent.build }}
+  Modeling conventions: Always define primary keys. Use snake_case for field names.
+  {{/ omni_agent.build }}
+
+  {{^ omni_agent.build }}
+  Keep queries focused and efficient.
+  {{/ omni_agent.build }}
+```
+
+`{{ omni_agent.name }}` interpolates the reading agent's name.
+
+### Reuse blocks with constants
+
+Define [`constants`](https://docs.omni.co/modeling/models/constants#reusable-ai-context) once and reference them with `@{constant_name}` across model, topic, view, and sample-query `ai_context` — the fix for the same tone/privacy/domain paragraph duplicated in a dozen places:
+
+```yaml
+constants:
+  tone:
+    value: "Keep responses concise and professional."
+  privacy_high:
+    value: "Never show individual customer names or emails."
+
+ai_context: |
+  @{tone} @{privacy_high}
+```
+
+### Chain-of-thought reasoning
+
+To make Blobby explain its topic and field selection, add this to the **model's** `ai_context`. The reference to `GenerateQuery` is **required** for correct behavior:
+
+```yaml
+ai_context: |
+  Before calling the 'GenerateQuery' tool, please do the following steps:
+
+  1. Explain your reasoning of how you picked the fields in detail (9-10 sentences), under the header "Reasoning for field selection"
+  2. Another 3-4 sentences on alternative queries or fields you could have chosen under the header "Alternative approaches considered"
+  3. Finally add 4 markdown links as follow up questions under the header "Follow-up questions"
+```
+
+This is verbose on every query — scope it to `{{# omni_llm.smartest }}` if you don't want it on all tiers.
+
+### Multi-language summaries
+
+```yaml
+ai_context: |
+  When generating a summary, always output the summary in both English and Spanish.
+```
+
 ## Curating Fields with ai_fields
 
-The AI context window holds ~550 fields before truncation. If a topic approaches this limit, use `ai_fields` to curate which fields are included.
+### The real limits
 
-Reduce noise for large models:
+Omni caps how much of the context window model metadata may consume. These caps — not the model's full context window — are what trigger pruning:
+
+| Cap | Value | What happens past it |
+|---|---|---|
+| A topic's field definitions | ~75K characters | Field properties are pruned in the [pruning order](#pruning-order) |
+| Topic-selection summaries (all topics) | ~100K characters | View metadata trimmed first (including view-level `ai_context`), then sample queries, then topic metadata as a last resort. Trimmed detail is recovered once a topic is selected. |
+| Searches outside a topic | 100 fields per search | The AI runs narrower repeat searches rather than pruning properties. Applies when [`query_all_views_and_fields`](https://docs.omni.co/modeling/models/parameters/ai-settings/query-all-views-and-fields) is enabled. |
+
+> **Do not optimize against a field count.** A lightly annotated field costs ~100 characters; one with a rich description, sample values, and `ai_context` costs several times that, so the number of fields that fits varies widely. Check the [workbook inspector](https://docs.omni.co/analyze-explore/workbook-inspector#ai-messages) to see the context actually delivered instead of estimating.
+
+Conversation history is budgeted separately — see [`conversation_prune_length`](https://docs.omni.co/modeling/models/parameters/ai-settings/conversation-prune-length).
+
+### Curating
+
+Curate for precision, not just for size: a smaller, well-described field set gives the AI fewer chances to pick the wrong field. Reduce noise for large models:
 
 ```yaml
 ai_fields:
@@ -167,6 +308,12 @@ ai_fields:
 
 Same operators as topic `fields`: wildcard (`*`), negation (`-`), tags (`tag:`).
 
+Tagging is the most maintainable pattern — tag the fields users actually ask about, then curate with a single selector:
+
+```yaml
+ai_fields: [tag:use_for_ai]
+```
+
 ## Controlling Topic Visibility with ai_chat_topics
 
 `ai_chat_topics` is a model-level property that controls which topics Blobby can see:
@@ -179,7 +326,11 @@ Check this first — if a topic isn't in `ai_chat_topics`, no amount of `ai_cont
 
 ## Adding sample_queries
 
-Teach Blobby by example. Build the correct query in a workbook, retrieve its structure, then add to the topic YAML:
+Teach Blobby by example. Especially effective for recurring questions and for date-filter patterns Blobby tends to get wrong.
+
+The supported authoring path is through the workbook: build a query that returns the correct answer, then **Model > Save as sample query to topic**. Check **Include in AI context** (otherwise it only shows on the topic overview and never reaches the AI), and fill in the optional **Prompt** and **AI context** fields.
+
+To write one directly in YAML instead — build the correct query in a workbook, retrieve its structure, then add it to the topic:
 
 ```yaml
 sample_queries:
@@ -278,6 +429,10 @@ dimensions:
     sample_values: [New York, Los Angeles, Chicago, Houston, Phoenix]
 ```
 
+> **Note**: `all_values` is the **first** property pruned, because the AI can retrieve a field's values on demand when it needs them. Include it where it helps, but don't count on it surviving in a context-tight topic — put anything load-bearing in `ai_context` instead.
+
+When the [dbt integration](https://docs.omni.co/integrations/dbt/setup) is enabled, dbt `accepted_values` tests are ingested as `all_values` automatically — check before hand-authoring them.
+
 ## Adding synonyms
 
 Map alternative names, abbreviations, and domain-specific terminology so Blobby matches user queries to the correct field. Works on both dimensions and measures.
@@ -298,7 +453,7 @@ measures:
 
 **Synonyms vs ai_context**: Use `synonyms` for field-level name mapping. Use `ai_context` for topic-level behavioral guidance, data nuances, and multi-field relationships.
 
-**Pruning caveat**: When the model is large and context is tight, synonyms are pruned before descriptions. Reserve synonyms for high-value fields where users commonly use alternative names.
+**Pruning**: `synonyms` are pruned **last** — after `description`, `label`, and `sample_values` — because they carry the most weight in matching a user's phrasing to the right field. Under context pressure, synonyms on high-value fields survive when descriptions do not, so they are a durable place to invest.
 
 **Avoid redundancy**: Don't add synonyms that duplicate the field's label or field name — they add no signal and waste tokens.
 
@@ -340,20 +495,28 @@ Prioritize high-impact changes. Improve wording without changing semantics.
 
 1. Inspect current state with `omni-model-explorer`
 2. Check model-level `ai_chat_topics` — ensure the right topics are visible to AI
-3. Check AI usage dashboard for real user questions
-4. Count fields — curate with `ai_fields` if approaching 550
-5. Write `ai_context` mapping business terms to fields (keep to 1-2 sentences)
+3. Check AI usage dashboard (**Analytics > AI usage**) for real user questions
+4. Curate with `ai_fields` down to the fields users actually ask about — judge by the [workbook inspector](https://docs.omni.co/analyze-explore/workbook-inspector#ai-messages), not a field count
+5. Write `ai_context` mapping business terms to fields (keep to 1-2 sentences; it is never pruned)
 6. Add `synonyms` to key dimensions and measures (skip if they duplicate the label)
 7. Improve field `description` and `label` values
 8. Add `all_values`/`sample_values` for categorical fields
 9. Add `sample_queries` for top 3-5 questions
-10. Remove duplication between `ai_context` and `description`; consolidate shared context at view level
+10. Remove duplication between `ai_context` and `description`; consolidate shared context at view level, and shared blocks into `constants`
 11. Consider `extends` for AI-specific topic variants
-12. Test iteratively — ask Blobby and refine
+12. Scope tier- or agent-specific instructions with `omni_llm` / `omni_agent` rather than paying for them on every request
+13. Test iteratively — ask Blobby, inspect the delivered context, and refine
+
+> **Troubleshooting order** when Blobby answers wrong: confirm the topic is reachable (`ai_chat_topics`) → confirm the field is in context (workbook inspector; check it wasn't pruned or excluded by `ai_fields`/`hidden`) → then add or sharpen `ai_context`. Writing more context for a field the AI never received fixes nothing.
 
 ## Docs Reference
 
-- [Optimizing Models for AI](https://docs.omni.co/ai/optimize-models.md) · [Synonyms](https://docs.omni.co/modeling/dimensions/parameters/synonyms) · [Topic Parameters](https://docs.omni.co/modeling/topics/parameters.md) · [Model YAML API](https://docs.omni.co/api/models.md) · [Omni AI Overview](https://docs.omni.co/ai.md)
+- **Primary**: [Optimize models for Omni AI](https://docs.omni.co/modeling/develop/ai-optimization)
+- `ai_context` reference: [model](https://docs.omni.co/modeling/models/ai-context) · [topic](https://docs.omni.co/modeling/topics/parameters/ai-context) · [view](https://docs.omni.co/modeling/views/parameters/ai-context)
+- Topic parameters: [`ai_fields`](https://docs.omni.co/modeling/topics/parameters/ai-fields) · [`sample_queries`](https://docs.omni.co/modeling/topics/parameters/sample-queries) · [`extends`](https://docs.omni.co/modeling/topics/parameters/extends) · [all topic parameters](https://docs.omni.co/modeling/topics/parameters.md)
+- Model parameters: [`ai_chat_topics`](https://docs.omni.co/modeling/models/ai-chat-topics) · [`constants`](https://docs.omni.co/modeling/models/constants#reusable-ai-context) · [`sample_queries`](https://docs.omni.co/modeling/models/sample-queries) · [`query_all_views_and_fields`](https://docs.omni.co/modeling/models/parameters/ai-settings/query-all-views-and-fields) · [`conversation_prune_length`](https://docs.omni.co/modeling/models/parameters/ai-settings/conversation-prune-length)
+- [Synonyms](https://docs.omni.co/modeling/dimensions/parameters/synonyms) · [User attributes](https://docs.omni.co/administration/users/attributes) · [Workbook inspector](https://docs.omni.co/analyze-explore/workbook-inspector#ai-messages)
+- [Model YAML API](https://docs.omni.co/api/models.md) · [Omni AI Overview](https://docs.omni.co/ai.md) · [AI data security](https://docs.omni.co/ai/security)
 
 ## Related Skills
 

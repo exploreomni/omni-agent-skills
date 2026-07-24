@@ -21,10 +21,10 @@
     },
     {
       "id": "2",
-      "question": "Check whether the order_items topic is near Blobby's AI-visible field limit. If it is, curate what AI can see; if it is already comfortably below the limit, explain that no ai_fields change is needed.",
-      "ground_truth": "Agent checks current AI-visible field count against the ~550-field guidance. It adds ai_fields only if needed; otherwise it reports that the topic is already below the threshold.",
+      "question": "Check whether the order_items topic is near Blobby's AI context limit. If it is, curate what AI can see; if it is already comfortably below the limit, explain that no ai_fields change is needed.",
+      "ground_truth": "Agent evaluates the topic against the real cap — roughly 75K characters of field definitions per topic — rather than a fixed field count, noting that per-field metadata cost varies. It adds ai_fields only if needed; otherwise it reports that the topic is already below the threshold.",
       "expected_behavior": [
-        "The agent mentions or checks the ~550 field limit as context for deciding whether curation is needed",
+        "The agent reasons about the ~75K character cap on a topic's field definitions (or points to the workbook inspector to see delivered context) rather than asserting a fixed maximum field count",
         "The agent inspects the current topic/model field set before changing ai_fields",
         "If curation is needed, the agent uses the ai_fields property (not hidden: true on individual fields)",
         "If curation is needed, the agent uses wildcard and negation operators (e.g., all_views.*, -tag:internal) rather than enumerating every field individually",
