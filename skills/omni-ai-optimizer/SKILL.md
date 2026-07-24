@@ -246,10 +246,6 @@ ai_context: |
   @{tone} @{privacy_high}
 ```
 
-### Chain-of-thought reasoning
-
-To make Blobby explain its topic/field selection, write the instructions into the **model's** `ai_context` and phrase them relative to the `GenerateQuery` tool ("Before calling the 'GenerateQuery' tool, ..."). That literal tool name is required — the instruction won't take effect without it. Scope it to `{{# omni_llm.smartest }}` to avoid paying for the verbosity on every tier.
-
 ## Curating Fields with ai_fields
 
 ### The real limits
