@@ -331,7 +331,7 @@ sample_queries:
 > - `column_name` → `field`, `sort_descending` → `desc`
 > - Workbook JSON includes `filters`, `pivots`, `limit`, `column_limit` which you can include in YAML (though filter syntax requires consulting the [Model YAML API docs](https://docs.omni.co/api/models.md) directly)
 
-Focus on questions users actually ask — check Analytics > AI usage in Omni.
+Focus on questions users actually ask — if you don't know which those are, ask the user rather than guessing at plausible-sounding ones.
 
 ## AI-Specific Topic Extensions
 
@@ -447,17 +447,16 @@ Prioritize high-impact changes. Improve wording without changing semantics.
 
 1. Inspect current state with `omni-model-explorer`
 2. Check model-level `ai_chat_topics` — ensure the right topics are visible to AI
-3. Check AI usage dashboard (**Analytics > AI usage**) for real user questions
-4. Curate with `ai_fields` down to the fields users actually ask about — judge by the [workbook inspector](https://docs.omni.co/analyze-explore/workbook-inspector#ai-messages), not a field count
-5. Write `ai_context` mapping business terms to fields (keep to 1-2 sentences; it is never pruned)
-6. Add `synonyms` to key dimensions and measures (skip if they duplicate the label)
-7. Improve field `description` and `label` values
-8. Add `all_values`/`sample_values` for categorical fields
-9. Add `sample_queries` for top 3-5 questions
-10. Remove duplication between `ai_context` and `description`; consolidate shared context at view level, and shared blocks into `constants`
-11. Consider `extends` for AI-specific topic variants
-12. Scope tier- or agent-specific instructions with `omni_llm` / `omni_agent` rather than paying for them on every request
-13. Test iteratively — ask Blobby, inspect the delivered context, and refine
+3. Curate with `ai_fields` down to the fields users actually ask about, rather than to a field count
+4. Write `ai_context` mapping business terms to fields (keep to 1-2 sentences; it is never pruned)
+5. Add `synonyms` to key dimensions and measures (skip if they duplicate the label)
+6. Improve field `description` and `label` values
+7. Add `all_values`/`sample_values` for categorical fields
+8. Add `sample_queries` for top 3-5 questions
+9. Remove duplication between `ai_context` and `description`; consolidate shared context at view level, and shared blocks into `constants`
+10. Consider `extends` for AI-specific topic variants
+11. Scope tier- or agent-specific instructions with `omni_llm` / `omni_agent` rather than paying for them on every request
+12. Test iteratively — ask Blobby and refine
 
 > **Troubleshooting order** when Blobby answers wrong: confirm the topic is reachable (`ai_chat_topics`) → confirm the field is in context (workbook inspector; check it wasn't pruned or excluded by `ai_fields`/`hidden`) → then add or sharpen `ai_context`. Writing more context for a field the AI never received fixes nothing.
 
