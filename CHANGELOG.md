@@ -22,10 +22,14 @@ _Summary: resync `omni-ai-optimizer` with the rewritten [Optimize models for Omn
 - **"Context is guidance, not instruction"** — model-level `ai_context` does not reliably override topic-level, instructions may be followed partially, and behavior is non-deterministic. Steers the agent away from designing around precedence guarantees that don't exist.
 - **Advanced `ai_context` templating** (model/topic/view levels only): user-attribute personalization via `{{omni_attributes.<name>}}` — including the caveat that dimension/measure `ai_context` does *not* substitute them; model-tier scoping via the `omni_llm` namespace (`smartest`/`standard`/`fastest`); agent scoping via `omni_agent` (`analyze`/`build`/`simple_summarize`); and reusable blocks via `constants` and `@{constant_name}`.
 - **Model-level context** section covering model `ai_context` (which also drives topic selection) and model-level `sample_queries`.
-- **Chain-of-thought reasoning** recipe, including that the `GenerateQuery` tool reference is required for correct behavior.
+- **Chain-of-thought reasoning** — kept to the one fact an agent can't infer: instructions must be phrased against the literal `GenerateQuery` tool name or they don't take effect.
 - **Where context applies** — Workbook Agent, Dashboard Agent, AI visualization, filter generation, and the Modeling Agent, not just Omni Agent.
 - **Troubleshooting order** for wrong answers: verify topic reachability → verify the field reached the context window → only then write more `ai_context`.
 - Workbook authoring path for sample queries (**Model > Save as sample query to topic**), flagging that **Include in AI context** must be checked or the query never reaches the AI; `ai_fields: [tag:use_for_ai]` tagging pattern; the note that `all_values` is pruned first and that dbt `accepted_values` tests are ingested as `all_values` automatically.
+
+**Changed**
+- **Redundancy pass over the whole skill**, net −45 lines despite the additions above. Synonyms guidance was stated in four places and had become self-contradictory — the new "pruned last" fact read as encouragement to add more, against the existing guardrail not to add them once topic-level `ai_context` already disambiguates. Now reconciled explicitly: durability is a reason to prefer synonyms *over* a description for genuine alternate vocabulary, never a reason to add more. Also deduplicated the "`ai_context` is never pruned" fact (stated 4×), collapsed a paragraph restating the Safe Defaults synonyms rule, dropped the redundant `sample_queries` block from the `extends` example and the predictable "before" half of the duplication example, and cut the multi-language recipe (a copy-paste English sentence carrying no non-obvious information).
+- **Fixed a contradiction in the skill's own example**: the field-description sample enumerated `status` values inside `description` while the next subsection told the agent to use `all_values` for exactly that, on the same field. The example now shows the intended division of labor — `description` for the human sentence, `all_values` for the value list, `ai_context` for the AI-only rule.
 
 ## [1.5.0] - 2026-06-25
 

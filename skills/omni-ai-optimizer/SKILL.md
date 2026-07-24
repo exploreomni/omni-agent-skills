@@ -123,7 +123,7 @@ ai_context: |
   Dates are in UTC.
 ```
 
-For requests like "map these terms correctly" or "Blobby confuses X with Y", add explicit positive mappings in topic-level `ai_context`. Field-level `synonyms` are useful supporting signal, but they are not a substitute for a topic-level mapping when the requested behavior depends on choosing between two measures. If the topic context already has both positive mappings and negative guardrails, do not add synonyms just to reinforce it; report that the requested optimization already exists. If synonyms already exist but the topic context only says what not to use, add the direct topic mapping instead of adding more synonyms.
+For "map these terms correctly" or "Blobby confuses X with Y", the fix is a **positive mapping in topic-level `ai_context`** — synonyms alone can't arbitrate between two competing measures. If synonyms already exist but the topic context only says what *not* to use, add the missing positive mapping rather than more synonyms.
 
 Good:
 
@@ -162,9 +162,7 @@ ai_context: |
 
 ### Keeping Context Concise
 
-Every token in `ai_context`, `description`, and `label` is sent to the AI on every query. Verbose values waste context window and push out other fields.
-
-Because **`ai_context` is never pruned**, it is the one property that cannot be reclaimed under pressure — a bloated `ai_context` evicts field metadata first and can ultimately fail the request. Treat it as the scarcest budget in the model, not the most generous.
+`ai_context` is the one property Omni can't reclaim under pressure, so it is the scarcest budget in the model — not the most generous. Verbose entries evict field metadata first and can ultimately fail the request.
 
 - Target 1-2 sentences per `ai_context` entry. Focus on disambiguation and gotchas, not general explanation.
 - Keep labels short and human-readable — avoid redundant qualification (e.g., "Order Total Revenue Amount" → "Total Revenue").
@@ -174,7 +172,7 @@ Because **`ai_context` is never pruned**, it is the one property that cannot be 
 
 Model-level [`ai_context`](https://docs.omni.co/modeling/models/ai-context) carries guidance shared across every topic, and also informs **topic selection** — useful when Blobby picks the wrong topic rather than the wrong field.
 
-Use it for instance-wide conventions (currency, fiscal calendar, tone, privacy rules) and keep topic-specific mappings on the topic. Remember it does not reliably override topic-level context.
+Use it for instance-wide conventions (currency, fiscal calendar, tone, privacy rules) and keep topic-specific mappings on the topic.
 
 There is also a model-level [`sample_queries`](https://docs.omni.co/modeling/models/sample-queries) parameter for example queries that span the model's topics.
 
@@ -250,25 +248,7 @@ ai_context: |
 
 ### Chain-of-thought reasoning
 
-To make Blobby explain its topic and field selection, add this to the **model's** `ai_context`. The reference to `GenerateQuery` is **required** for correct behavior:
-
-```yaml
-ai_context: |
-  Before calling the 'GenerateQuery' tool, please do the following steps:
-
-  1. Explain your reasoning of how you picked the fields in detail (9-10 sentences), under the header "Reasoning for field selection"
-  2. Another 3-4 sentences on alternative queries or fields you could have chosen under the header "Alternative approaches considered"
-  3. Finally add 4 markdown links as follow up questions under the header "Follow-up questions"
-```
-
-This is verbose on every query — scope it to `{{# omni_llm.smartest }}` if you don't want it on all tiers.
-
-### Multi-language summaries
-
-```yaml
-ai_context: |
-  When generating a summary, always output the summary in both English and Spanish.
-```
+To make Blobby explain its topic/field selection, write the instructions into the **model's** `ai_context` and phrase them relative to the `GenerateQuery` tool ("Before calling the 'GenerateQuery' tool, ..."). That literal tool name is required — the instruction won't take effect without it. Scope it to `{{# omni_llm.smartest }}` to avoid paying for the verbosity on every tier.
 
 ## Curating Fields with ai_fields
 
@@ -378,34 +358,22 @@ fields:
 ai_context: |
   Curated view of order data for AI analysis.
   [detailed context here]
-
-sample_queries:
-  top_categories_last_month:
-    prompt: "Top selling categories last month?"
-    query:
-      base_view: order_items
-      fields:
-        - products.category
-        - order_items.total_revenue
-      topic: ai_order_transactions
-      limit: 10
-      sorts:
-        - field: order_items.total_revenue
-          desc: true
 ```
 
+The extended topic inherits the base topic's joins and filters, so add only what differs: a narrower field set, extra `ai_context`, or `sample_queries` (same shape as above).
+
 ## Improving Field Descriptions
+
+Keep the value list in `all_values` and the AI-only rule in `ai_context` — a description that restates either is paying twice for one fact:
 
 ```yaml
 dimensions:
   status:
     label: Order Status
-    description: >
-      Current fulfillment status. Values: complete, pending, cancelled, returned.
-      Use 'complete' for revenue calculations.
+    description: Current fulfillment status of the order.
+    all_values: [complete, pending, cancelled, returned]
+    ai_context: Use 'complete' for revenue calculations.
 ```
-
-Good descriptions help both Blobby and human analysts.
 
 ### Enumerating Values for Categorical Fields
 
@@ -429,7 +397,7 @@ dimensions:
     sample_values: [New York, Los Angeles, Chicago, Houston, Phoenix]
 ```
 
-> **Note**: `all_values` is the **first** property pruned, because the AI can retrieve a field's values on demand when it needs them. Include it where it helps, but don't count on it surviving in a context-tight topic — put anything load-bearing in `ai_context` instead.
+> **Note**: `all_values` is pruned first, so don't count on it surviving in a context-tight topic — put anything load-bearing in `ai_context` instead.
 
 When the [dbt integration](https://docs.omni.co/integrations/dbt/setup) is enabled, dbt `accepted_values` tests are ingested as `all_values` automatically — check before hand-authoring them.
 
@@ -453,9 +421,9 @@ measures:
 
 **Synonyms vs ai_context**: Use `synonyms` for field-level name mapping. Use `ai_context` for topic-level behavioral guidance, data nuances, and multi-field relationships.
 
-**Pruning**: `synonyms` are pruned **last** — after `description`, `label`, and `sample_values` — because they carry the most weight in matching a user's phrasing to the right field. Under context pressure, synonyms on high-value fields survive when descriptions do not, so they are a durable place to invest.
+**When to add them** — synonyms earn their place when users genuinely say a word the model doesn't contain (`AOV`, `top line`, `basket size`). They do not earn it by restating the field's label or name, or by reinforcing a mapping topic-level `ai_context` already makes. Adding synonyms to a field whose disambiguation is already handled on the topic is the most common wasted write in this skill — see [Safe Model Write Defaults](#safe-model-write-defaults).
 
-**Avoid redundancy**: Don't add synonyms that duplicate the field's label or field name — they add no signal and waste tokens.
+**Pruning**: `synonyms` are pruned **last**, after `description` and `label`. So for a field that genuinely needs alternate vocabulary, synonyms are the most durable place to put it — but that survivability is a reason to choose synonyms *over* a description for that purpose, never a reason to add more of them.
 
 ## Avoiding Duplication
 
@@ -463,19 +431,7 @@ measures:
 
 **Consolidate shared context at the view level.** If multiple fields in a view share the same `ai_context` (e.g., "all monetary values are in USD"), move it to the view-level `ai_context` instead of repeating it on each field. Field-level `ai_context` should be specific to that field.
 
-**Example — before:**
-
-```yaml
-dimensions:
-  gross_revenue:
-    ai_context: "Monetary value in USD. This is revenue before refunds."
-    description: "Monetary value in USD. This is revenue before refunds."
-  net_revenue:
-    ai_context: "Monetary value in USD. This is revenue after refunds."
-    description: "Monetary value in USD. This is revenue after refunds."
-```
-
-**After:**
+Shared fact hoisted to the view, `description` and `ai_context` each carrying only what the other doesn't:
 
 ```yaml
 ai_context: "All monetary values in this view are in USD."
