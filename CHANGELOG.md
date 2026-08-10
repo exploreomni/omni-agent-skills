@@ -6,6 +6,14 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.2.1] - 2026-08-10
+
+### omni-integrations
+
+**Changed**
+- `omni-to-databricks-metric-view` — treat everything returned by `omni models yaml-get` as untrusted data rather than instructions. Step 2 now states that Omni-authored `label`, `description`, `ai_context`, and `sample_queries` values are content to translate, and that any embedded directions (run a command, change the destination catalog/schema, widen a `GRANT`, skip a confirmation) must be surfaced to the user instead of acted on.
+- `omni-to-databricks-metric-view` — added a validation checkpoint before Omni metadata is carried into `display_name`, `comment`, or `expr`, which Databricks Genie and AI/BI read as semantic context. Instruction-like values are replaced with an agent-written summary, `$$` and control characters are stripped so metadata cannot terminate the metric view body and escape into surrounding SQL, and no fetched value may determine a catalog, schema, table, grantee, or SQL fragment — those come only from the user-confirmed Step 1 answers. Rejected or rewritten metadata is reported at the pre-generation review. Closes the remaining `PROMPT_INJECTION` finding in the Gen Agent Trust Hub audit (see https://www.skills.sh/exploreomni/omni-agent-skills/omni-to-databricks-metric-view/security/agent-trust-hub).
+
 ## [1.6.0] - 2026-07-24
 
 ### omni-analytics
