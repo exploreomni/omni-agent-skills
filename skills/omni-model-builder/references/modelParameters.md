@@ -177,19 +177,31 @@ measures:
     filters:
       state:
         is: California
+
+  returned_orders:        # filtered count on a BOOLEAN flag (the most common filtered measure)
+    aggregate_type: count
+    filters:
+      is_returned:
+        is: true          # booleans take the operator form too — NOT a bare `is_returned: true`
 ```
+
+> A filtered measure's `filters:` value is **always an operator object** (`{ is: … }`, `{ greater_than: … }`, …), never a bare scalar. The #1 mistake is writing `is_returned: true` or `status: "complete"` directly — both are rejected as an invalid filter spec.
 
 ### Measure Filter Conditions
 
 | Condition | Example |
 |-----------|---------|
-| `is` | `status: { is: complete }` |
+| `is` | `status: { is: complete }` · boolean: `is_returned: { is: true }` (`false`/`null`/`falsey` per the boolean three-state — see [yaml-filter-syntax.md](yaml-filter-syntax.md)) |
 | `is_not` | `status: { is_not: cancelled }` |
-| `greater_than` | `amount: { greater_than: 100 }` |
-| `less_than` | `amount: { less_than: 1000 }` |
+| `greater_than` / `greater_than_or_equal_to` | `amount: { greater_than: 100 }` |
+| `less_than` / `less_than_or_equal_to` | `amount: { less_than: 1000 }` |
+| `between` | `sale_price: { between: [50, 200] }` |
 | `contains` | `name: { contains: smith }` |
 | `starts_with` | `code: { starts_with: US }` |
 | `ends_with` | `email: { ends_with: .com }` |
+| `not` (IS NOT NULL) | `id: { not: null }` |
+
+> This table is a quick reference. For the **complete** condition catalog — `and`/`or` on one field, list matches, joined-view qualification (`users.country: { is: US }`), and the three filter contexts (measure filters, topic `always_where`/`always_having`, `default_filters`) — see **[yaml-filter-syntax.md](yaml-filter-syntax.md)**.
 
 ## Format Values
 

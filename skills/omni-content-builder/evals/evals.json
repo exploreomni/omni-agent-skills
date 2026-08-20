@@ -12,7 +12,7 @@
       "ground_truth": "Dashboard created via omni documents v2-create with two working tiles in the keyed queryPresentations envelope. Both queries validated before creation. Because a multi-tile v2-create only auto-lays-out tile \"1\", the agent authors a containers tree (or patches one in) so both tiles render. Dashboard read back via v2-get and queries verified after creation. Share link provided.",
       "expected_behavior": [
         "The agent runs omni query run to test each tile's query before creating the dashboard — not after",
-        "The agent checks that each query returned rows before proceeding, using the row-count field exposed by the response such as summary.row_count or cache_metadata.num_rows",
+        "The agent checks that each query returned rows before proceeding, using the row-count field exposed by the response (cache_metadata.num_rows)",
         "The agent creates the document with omni documents v2-create using the keyed queryPresentations envelope ({data: {\"1\": ..., \"2\": ...}, order: [\"1\",\"2\"]}), with each tile's query carrying the full required collection-field set and no modelId",
         "The agent ensures both tiles actually render: it authors a containers tree placing both tiles (at create or via a follow-up draft patch), because a multi-tile v2-create only lays out tile \"1\"",
         "The agent reads the created document back with omni documents v2-get and confirms both entries exist in queryPresentations.data and order",

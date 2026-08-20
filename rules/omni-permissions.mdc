@@ -1,0 +1,40 @@
+---
+description: Omni access & roles — determine a caller's capabilities from whoami before deciding where model or content changes live (branch vs workbook), and assign model roles correctly. Apply when reasoning about permissions, branching, or where a new field/metric should be modeled.
+globs: []
+alwaysApply: false
+---
+
+# Omni Access & Roles
+
+## Determine what a caller can do (run before deciding where changes live)
+
+Run `omni whoami whoami --modelid <modelId>` and read `rolesByModel[<id>].permissions`. Gate on the **presence of permissions**, not the role *name* — names can be renamed custom roles and surface as internal codes (e.g. `QUERY_TOPICS`):
+
+| Permission (in `whoami`) | Capability |
+|---|---|
+| `QUERY_TOPICS` | query curated **topics** only (Restricted Querier and up) — without `QUERY_FULL_MODEL`, every query authored must be **topic-based**; a bare base-view or `userEditedSQL` query needs `QUERY_FULL_MODEL` |
+| `QUERY_FULL_MODEL` | full-model + SQL access — and the **observable proxy for "can create/use a branch"** (Querier, Modeler, Admin) |
+| `UPDATE` (shared-model-scoped) | **merge/promote** changes to the shared model (Modeler, Admin) |
+| `USE_WORKBOOKS` | create content (workbooks/dashboards). A **Viewer lacks this and cannot author at all.** |
+
+## Where should a new model field live?
+
+- **`QUERY_FULL_MODEL` present** → a **shared-model branch**. If `UPDATE` is *also* present, merge it yourself (with the creator's OK); if not (Querier), open a PR / request a merge — a Querier can branch and modify but not promote.
+- **`QUERY_FULL_MODEL` absent but `USE_WORKBOOKS` present** (Restricted Querier) → the document's **workbook model** (extension) — **view-scoped only**: add fields to an **existing view** + edit decorations; **cannot** modify a **topic**, joins, or **access grants** (those need a branch). Don't plan a topic/join/grant change for them — it 403s mid-build and can strand the doc.
+- **Viewer** (no `USE_WORKBOOKS`) → cannot author content; never reaches this choice.
+
+A shared-model-scoped `whoami` does **not** list branch ability as its own entry — use `QUERY_FULL_MODEL` as the proxy. This holds for base roles; a custom role could grant one without the other — confirm when it matters.
+
+## Assigning model roles
+
+```bash
+# Keyed by the MEMBERSHIP id, NOT the user id (a user id → 404). Yourself: whoami → user.membershipId.
+# Another user: omni scim users-list --filter 'userName eq "them@company.com"' → the record's `id` IS the membershipId.
+omni users get-model-roles <membershipId> --modelid <modelId>
+omni users assign-model-role <membershipId> --body '{ "modelId": "<modelId>", "roleName": "<roleName>" }'
+```
+
+- The body key is **`roleName`** (not `role`); the path id is the **membership id** (a user id returns 404).
+- **Resolving *another* user's membershipId needs the ORG key.** `scim users-list --filter 'userName eq "…"'` returns it as the record's `id`, but the SCIM API rejects user PATs/OAuth (*"User-scoped API keys are not allowed to access the SCIM API"*). The role get/assign calls themselves work with a user PAT — only this lookup needs the org key.
+- `roleName` is a **server-validated, instance-specific** string — base roles plus org custom roles. It is **not** discoverable via `--schema` (bare string, no enum) or any list command; an unknown value returns `422 "Invalid role"`. Discover a valid code by reading `get-model-roles` on a membership that already holds the target role.
+- There is **no un-assign command** — to revert an override, re-assign the prior role.

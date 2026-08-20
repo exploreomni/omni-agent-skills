@@ -250,7 +250,15 @@ measures:
     filters:
       id:
         not: null
+
+  returned_orders:      # BOOLEAN flag — operator form, not a bare scalar
+    aggregate_type: count
+    filters:
+      is_returned:
+        is: true        # `false` / `null` / `falsey` per the boolean three-state (see Value Formats above)
 ```
+
+> **Booleans use the same `{ is: … }` operator form as every other field.** Writing the value as a bare scalar — `is_returned: true` or `status: "complete"` — is rejected with *"must be a valid filter specification."* The value under a field key is always an operator object, never the raw value.
 
 ## Advanced Operators
 

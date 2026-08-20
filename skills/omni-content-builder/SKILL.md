@@ -1,6 +1,6 @@
 ---
 name: omni-content-builder
-description: Create, update, and manage Omni Analytics documents and dashboards programmatically — document lifecycle, drafts, tiles, visualizations, filters, controls, and layouts — using the Omni CLI. Use this skill whenever someone wants to build a dashboard, create a workbook, add tiles or charts, configure dashboard filters or controls, update an existing dashboard's model, set up a KPI view, create visualizations, lay out a dashboard, arrange tiles or pages, create a document, edit a dashboard as a draft, publish a draft, change dashboard settings, rename a workbook, delete a dashboard, move a document to a folder, duplicate a dashboard, or any variant of "build a dashboard for", "create a report showing", "add a chart to", "make a dashboard", "update the dashboard layout", "rename this document", "publish this draft", "move to folder", or "delete this dashboard". Also use when modifying dashboard-level model customizations like workbook-specific joins or fields.
+description: Create, update, and manage Omni Analytics documents and dashboards programmatically — document lifecycle, drafts, tiles, visualizations, filters, controls, and layouts — using the Omni CLI. Use this skill whenever someone wants to build a dashboard, create a workbook or document, add tiles or charts, configure dashboard filters or controls, set up a KPI view, lay out or rearrange tiles and pages, edit a dashboard as a draft and publish it, change dashboard settings, rename/move/duplicate/delete a dashboard, or modify dashboard-level model customizations like workbook-specific joins or fields — including casual phrasings like "make a dashboard for…", "add a chart to…", or "clean up this dashboard's layout" that don't name the skill. For running a query or pulling metrics use omni-query; for adding a field to the shared model use omni-model-builder.
 ---
 
 # Omni Content Builder
@@ -60,7 +60,7 @@ omni config use <profile-name>
 omni whoami whoami
 ```
 
-> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the **`omni-api-conventions`** rule for profile setup (`omni config init --auth oauth`) and discovering request-body shapes with `--schema`.
+> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering request-body shapes with `--schema`.
 
 ## Discovering Commands
 
@@ -101,8 +101,8 @@ Omni dashboards are built from **documents**. A document's v2 state is an envelo
 }
 ```
 
-- **Tiles** live in `queryPresentations.data`, keyed by record key (`"1"`, `"2"`, …); `order` is the tab order.
-- **Filters and interactive controls** are one map: `controls` (see [references/controls.md](references/controls.md)).
+- **Tiles** live in `queryPresentations.data`, keyed by record key (`"1"`, `"2"`, …); `order` is the tab order. **Tile keys must be NUMERIC strings** (`"1"`, `"42"`) — a descriptive key like `"revenue_kpi"` or `"probe"` is rejected with `400 … Invalid key in record`. Track the tile↔meaning mapping in your build script, not in the key.
+- **Filters and interactive controls** are one map: `controls` (see [references/controls.md](references/controls.md)). **Unlike tile keys, control ids here ARE arbitrary strings** (`"date_filter"`, `"granularity"`) — don't carry that freedom over to tile keys, or vice-versa.
 - **Layout** is the `containers` tree — a tile renders only where a container references it (see [references/containers.md](references/containers.md)).
 - Each document also has a **workbook model** (per-dashboard model customizations) — its ID is the `workbookModelId` on the document's draft record from `documents list-drafts`.
 
@@ -113,6 +113,8 @@ A document is edited through **drafts**: `v2-patch-draft` creates a draft and ap
 Build every tile's query **on a topic** whenever possible: set the query `table` to the topic's **base view** and pass `join_paths_from_topic_name: <topic>`, plus `topicName: <topic>` on the **presentation** (the presentation-level `topicName` is tile-specific — a standalone query has no equivalent). Joined-view fields then resolve through the topic's join map from the base view. For the full shape — how the join map reaches joined-view fields, the worked example, and verifying with `omni models get-topic` (`base_view_name`/`join_via_map`) — see **`omni-query`**'s *Build queries on a topic*.
 
 **Access matters:** a tile **not** built on a topic is **not accessible to restricted queriers/viewers**. A bare base-view query (or a raw-SQL `userEditedSQL` tile) still works — it traverses the global `relationships` file — but is restricted-access-invisible in a dashboard. Use it only when no topic fits *and* the audience isn't restricted, **or** enable **Access Boost** on the document so Viewer/Restricted Querier roles can see it (dashboard-only — not the underlying workbook). To author a raw-SQL tile and boost it end-to-end, see [references/queryPresentations.md](references/queryPresentations.md) → *Raw-SQL tiles*; for the boost commands and the org-level prerequisite, see **`omni-admin`** → *Document Permissions* (`add-permits` with `accessBoost`, or `update-permission-settings`).
+
+**Authoring limit (distinct from the visibility above):** if *you* are a Restricted Querier, you **can't author a non-topic / raw-SQL tile at all** — `QUERY_TOPICS` queries topics only — so **every tile you build must be topic-based**. The non-topic + Access-Boost path is only for a `QUERY_FULL_MODEL` author building for a restricted *audience*. (Check with `whoami`; see **`omni-admin`** → *Model Roles & Caller Access*.)
 
 **If no existing topic fits the request**, don't just fall back to a base view (or raw SQL) — **ask the user** whether to *extend* an existing topic or *create* a new one, and build it on a branch only with their go-ahead. Don't silently convert un-modeled SQL into non-topic tiles. Use **`omni-query`** to choose/decide the topic and **`omni-model-builder`** to create or modify one (branch → validate → merge only on confirmation).
 
@@ -243,11 +245,19 @@ Error map, merge-semantics details, and recipes are in **[references/updating-da
 
 ## Updating a Dashboard's Model
 
-> **First decide where a new field belongs.** Skill users are almost always **modelers or admins** who *can* write to the shared model — so choose the field's right home, not the lowest-friction path. In order:
+> **First decide where a new field belongs.** Don't default to the lowest-friction path — choose the field's right home, gated by what your access actually allows.
+>
+> **Step 0 — check your access.** Run `omni whoami whoami --modelid <sharedModelId>` and read `rolesByModel[<id>].permissions`:
+> - **`QUERY_FULL_MODEL` present** (Querier / Modeler / Admin) → you can create a branch → **prefer a shared-model branch** for anything reusable. If **`UPDATE`** is *also* present (Modeler / Admin) you can merge it yourself (with the creator's OK); if it's absent (Querier), open the branch and **request a merge** — a Querier can branch and modify but not promote.
+> - **`QUERY_FULL_MODEL` absent but you can still create content** (Restricted Querier — has **`USE_WORKBOOKS`**) → you can't branch → use the **workbook model** (extension); the write is authorized against the shared model's permissions, which is exactly the restricted-but-workbook-capable case. (A **Viewer** lacks `USE_WORKBOOKS` and can't author a dashboard at all, so they never reach this decision — content creation presupposes `USE_WORKBOOKS`.) **Scope ceiling for a Restricted Querier:** their workbook-model writes are limited to **`.view` extensions** (new dimensions/measures on an existing view) + **decoration edits** — *not* `.topic` (topics/joins), the `model`/`relationships` files, or **access grants** (those need `QUERY_FULL_MODEL` on a branch). Keep the build **view-scoped**; planning a topic/join/grant change for a restricted querier 403s mid-build and can strand the doc. (Canonical: `omni-admin` → *Model Roles & Caller Access*.)
+>
+> The permission→capability map behind these signals (and why a shared-model-scoped `whoami` doesn't list branch ability as its own entry) is the canonical access check in **`omni-admin` → Model Roles & Caller Access** — this skill just applies it. In short: `QUERY_FULL_MODEL` = the proxy for "can branch"; `UPDATE` = "can merge/promote to shared."
+>
+> Then place the field. In order:
 > 1. **Can it be a calculation?** A table calculation is scoped to a **single query/tile** (computed on the result set). Prefer one for logic local to one query — but lean to a model field (→ #2/#3) when (a) the **query shape rules a calc out**, or (b) you're building **multiple queries at once** and the same logic spans them and can be expressed as a dimension/measure. **Window-shaped logic** (running total, moving average, % change) should almost always stay a calc — it runs post-query on the result set, not in-warehouse; only reach for an in-warehouse field when the window must span rows *outside* the result set. (See `omni-query`'s table-calculation guidance.)
-> 2. **Reusable elsewhere?** If the field is likely to be used beyond this one dashboard, prefer adding it to a **branch on the shared model** and follow **`omni-model-builder`** to create, validate, and ship it.
-> 3. **One-off for this dashboard (and not a calculation)?** Add it to the **workbook model** — see [Building a tile that queries a workbook-model field](#building-a-tile-that-queries-a-workbook-model-field) below.
-> 4. **Unsure?** Ask the creator where the field should live.
+> 2. **Reusable elsewhere *and* you can branch (`QUERY_FULL_MODEL`)?** Add it to a **branch on the shared model** and follow **`omni-model-builder`** to create, validate, and ship it — merge it yourself only if you have `UPDATE`, otherwise open a PR / request a merge.
+> 3. **One-off for this dashboard (and not a calculation) — *or* reusable but you can't branch (no `QUERY_FULL_MODEL`)?** Add it to the **workbook model** — see [Building a tile that queries a workbook-model field](#building-a-tile-that-queries-a-workbook-model-field) below.
+> 4. **Unsure** (or reusable + can-branch, but the creator may not want a shared-model change)? Ask the creator where the field should live.
 > 5. **Never write to the schema model** — it's auto-generated and read-only.
 >
 > **If the field isn't in the *published* shared model yet** — it lives only on a model **branch** that hasn't merged — put the tile on a **branch-bound draft**. See **[references/branch-bound-drafts.md](references/branch-bound-drafts.md)**.
@@ -277,6 +287,8 @@ omni models yaml-create <draftWorkbookModelId> --body '{
 > **Critical**: Always pass `"mode": "extension"` when editing an existing view in a workbook model. The default is `"combined"`, which treats your YAML body as the *complete* view definition and marks every field you didn't include as `ignored: true` — silently breaking queries that depend on fields from the shared base view. Extension mode layers your new dimensions and measures on top of the inherited view.
 
 `fileName` must be `"model"`, `"relationships"`, or end with `.view` or `.topic`. The `yaml` value is a YAML string (not a JSON object) containing the view's *contents* — no `views:` wrapper. Writing to a workbook model skips git sync entirely — authorization is still checked against the underlying shared model's permissions.
+
+> **The YAML you write here is ordinary model YAML — don't improvise it.** For the exact shape of dimensions, measures (incl. **filtered measures** like a count over a boolean flag), aggregate types, formats, and topics, follow **`omni-model-builder`** → `references/modelParameters.md`, and for filter conditions `references/yaml-filter-syntax.md`. A filtered measure's `filters:` value is always an **operator object** (`{ is: true }`, `{ greater_than: 100 }`), never a bare scalar — `is_flag: true` and `status: "complete"` are rejected as invalid filter specs.
 
 ### Building a tile that *queries* a workbook-model field
 
@@ -381,7 +393,7 @@ URL is a template.
 Every dashboard build or update must be validated **before publishing** — broken tiles, bad field references, and misconfigured viz specs fail **silently** ("Chart unavailable" / "No data") with no API-level error. The full methodology — commands, the viz-spec consistency table, and the post-creation checklist — is in **[references/validation-and-testing.md](references/validation-and-testing.md)**. In brief:
 
 1. **Validate the model** — `omni models validate <modelId>`; treat any `is_warning: false` issue as an error.
-2. **Test every query first** — run each tile's query via `omni query run` before building (the single most important step). Check for no `error`, `summary.row_count > 0`, and include the same filters you'll use on the dashboard.
+2. **Test every query first** — run each tile's query via `omni query run` before building (the single most important step). Check for no `error`, `cache_metadata.num_rows > 0` (the row count; `summary.row_count` doesn't exist), and include the same filters you'll use on the dashboard.
 3. **Check viz-spec consistency** — `prefersChart: true`; spec nested in `visConfig.visConfig.config`; a valid `chartType` with matching `visType`/`configType`; correct `_dependentAxis`; the stack/color dimension in `query.pivots`. See [references/visConfig.md](references/visConfig.md).
 4. **Verify the draft before publishing** — read it back with `v2-get-draft`, confirm `queryPresentations.data` keys match `order`, run `omni documents get-queries` + `omni query run` per tile, and report each tile's status + row count. After one failed corrected patch, discard the draft and report the blocker.
 
@@ -417,13 +429,39 @@ Every dashboard build or update must be validated **before publishing** — brok
 
 ## Dashboard Downloads
 
+Async render → poll → fetch. **Poll the `status` field** (`in_progress` → terminal `error`, or a success state carrying the result/URL). **Early-exit on any terminal state** — a fixed-count `for … sleep` loop that only breaks on success runs to the end if the filter is wrong or the render errors:
+
 ```bash
 # Start async download
-omni dashboards download <dashboardId> --body '{ "format": "pdf" }'
+JID=$(omni dashboards download <dashboardId> --body '{ "format": "png" }' -o json \
+  | python3 -c 'import json,sys;print(json.load(sys.stdin)["job_id"])')
 
-# Poll job
-omni dashboards download-status <dashboardId> <jobId>
+# Poll with early exit: anything that is NOT still-in-progress is terminal → break and inspect
+while :; do
+  R=$(omni dashboards download-status <dashboardId> "$JID" -o json)
+  S=$(echo "$R" | python3 -c 'import json,sys;print((json.load(sys.stdin).get("status") or "").lower())')
+  case "$S" in
+    in_progress|queued|pending|running) sleep 4 ;;
+    *) echo "$R"; break ;;   # terminal: success carries the result/URL; "error" carries .error
+  esac
+done
 ```
+
+> **`"Job failed to render."` has two causes — disambiguate, don't assume.** It's either (a) **one tile in *your* dashboard throws at render** (a markdown component handed an undefined value, a bad token) — a single bad tile fails the **whole** export — or (b) the render service is down. **Tell them apart by exporting a known-good dashboard:** if that renders, the fault is your content (find the bad tile — isolate by exporting a *one-tile* test doc, or binary-search tiles); if the known-good one *also* errors, the service is down — bound your attempts and report. Either way, while the render path is unavailable you can't PNG-verify markdown/CSS tiles, so fall back to draft read-back + per-tile `query run` + the UI. On success, fetch the image with **`omni dashboards download-file <dashboardId> <jobId>`**. Full catch-22 writeup: [references/markdown-tiles.md](references/markdown-tiles.md).
+
+### Download a single tile (not the whole dashboard)
+
+Add **`queryIdentifierMapKey`** = the tile's `queryPresentations.data` key (e.g. `"5"`) to the download body; it renders only that tile. Same async flow (`download` → `download-status` → `download-file`).
+
+```bash
+omni dashboards download <dashboardId> --body '{ "format": "png", "queryIdentifierMapKey": "5" }'
+```
+
+Format matrix: **pdf / png / xlsx / csv / json** — `json` is **single-tile only** (requires `queryIdentifierMapKey`), and for a full dashboard `csv` returns a **ZIP of one CSV per tile**. `pdf`/`png` give the image; `csv`/`xlsx`/`json` give the tile's data. For the authoritative `paperFormat` values and the full PDF/PNG + data option set (`paperOrientation`, `hideTitle`, `showFilters`, formatting/row-limit flags, `filename`, `filterConfig`, …), run **`omni dashboards download --schema`** — don't rely on this list staying exhaustive.
+
+### Multi-page dashboards — the public download API renders ONE page
+
+`POST /v1/dashboards/{id}/download` has **no `pages`/`pageId` parameter**. PNG is inherently one page, and a PDF of a multi-page dashboard returns only the **default/active page** — page *selection* exists only in the **UI download** form, not this endpoint (and not the schedules/deliveries API). There is no robust public-API way to render a chosen page today — tracked as an upstream API gap.
 
 ## Docs Reference
 

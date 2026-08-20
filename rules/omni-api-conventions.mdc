@@ -122,12 +122,16 @@ Any command that takes a request body accepts `--schema`. It prints the body's r
 
 `--schema` is the **source of truth** for field-level body detail. Where a skill or reference doc hardcodes a `--body` shape, treat it as a worked example or a carrier for behavioral gotchas (merge semantics, stringify errors, ignored flags) — not an exhaustive field list. When the doc and `--schema` disagree on which fields exist or are required, `--schema` wins.
 
+> **Caveat — `--schema` is authoritative for *which fields exist / are required*, but not always for *exact accepted values*.** Enum values and casing are hand-maintained in places and can drift from what the endpoint enforces. Two live examples: `query run`'s `cache` advertises `disabled|normal|refresh|refresh_all` but the API enforces `Standard|SkipRequery|SkipCache|…`; `documents update-permission-settings`'s `organizationRole` advertises lowercase `viewer|editor|…` but the API enforces **uppercase** `VIEWER|EDITOR|…`. When the API rejects a schema-conformant value (`400 … Invalid <field>` or `… expected one of …`), the **runtime is the source of truth for values** — use what the `400` accepts. (Separately, `query run`'s `query` object renders free-form — no sub-fields — so for `fields`/`sorts`/`filters`/`calculations` use the worked shapes in the `omni-query` skill.)
+
 ```bash
 omni query run --schema                    # schema + example for the query body
 omni ai generate-query --schema --compact  # compact, good for piping to jq
 ```
 
 The output is `{ method, path, body: <JSON schema>, example: <filled body> }`, plus a top-level `required` array when the body has required fields (omitted when it has none). `--help` tells you *that* a body is required; `--schema` tells you its *shape*.
+
+`--schema` covers the **request body only** — it carries no response schema. For response shape (e.g. a query's row count is at `cache_metadata.num_rows`, **not** `summary.row_count`), inspect a live response (`-o json`/`csv`) — the runtime is the source of truth there.
 
 Two companion flags keep large schemas manageable (e.g. `documents v2-create`):
 
