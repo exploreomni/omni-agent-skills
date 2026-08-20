@@ -140,7 +140,7 @@ users.created_at[year]      — Yearly
 - **`values`** — array of operands: a single value, a list (multi-select `EQUALS`), or `[lo, hi]` for `BETWEEN`. Date **rolling windows** use `left_side`/`right_side` + `ui_type` (e.g. `PAST`) instead of `values`.
 - **Verify the filter actually bound.** A filter object with the wrong properties for its type (e.g. `kind`/`values` on a `boolean`, which needs `is_negative`) is **silently ignored** — the query returns `COMPLETE` but the filter never reaches the SQL. Confirm via `cache:"SkipCache"` → `summary.display_sql` (the `WHERE`), or that the row count actually changes. The exact `kind`/`ui_type`/boolean enums live in `omni documents v2-create --schema` (under the filter objects); see also [references/filter-expressions.md](references/filter-expressions.md).
 
-> **Do NOT use the bare-string shorthand** (`"order_items.status": "complete"`, `"last 90 days"`, `"not null"`). The query API rejects it with `500 "Cannot use 'in' operator to search for 'query_id' in <value>"` — it misroutes the bare string to the query-reference (`field_name_in_query`) path. The typed object above is the reliable form. *(Reproduced on current Omni under both org-key and user-PAT auth.)*
+> **Do NOT use the bare-string shorthand** (`"order_items.status": "complete"`, `"last 90 days"`, `"not null"`). The query API rejects it — `400 "Unable to parse data stream"` as of August 2026, `500 "Cannot use 'in' operator to search for 'query_id' in <value>"` on older builds. The typed object above is the reliable form. *(Reproduced on current Omni for value, date, null-string, number, and boolean forms.)*
 
 ### Pivots
 
@@ -468,7 +468,7 @@ For complex analysis, chain queries:
 
 ## Known Bugs
 
-- **Bare-string filter expressions 500 with a `query_id` parser error.** `"filters": { "field": "complete" | "last 90 days" | "not null" }` returns `500 "Cannot use 'in' operator to search for 'query_id' in <value>"` — the API misroutes the bare string to the query-reference (`field_name_in_query`) path. **Use the typed filter object** (see *Filters* above). Reproduced for value, date, and null string forms under both org-key and user-PAT auth.
+- **Bare-string filter expressions are rejected.** `"filters": { "field": "complete" | "last 90 days" | "not null" }` returns `400 "Unable to parse data stream"` as of August 2026 (older builds returned `500 "Cannot use 'in' operator to search for 'query_id' in <value>"` — the query-reference/`field_name_in_query` probe). **Use the typed filter object** (see *Filters* above). Reproduced for value, date, null-string, number, and boolean forms.
 
 ## Linking to Results
 

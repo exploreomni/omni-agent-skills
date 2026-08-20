@@ -16,7 +16,7 @@ Complete reference for the `filters` object in Omni query API calls (`query run`
 }
 ```
 
-> **Do NOT use bare-string shorthand.** `{ "order_items.status": "complete" }` (or `"last 90 days"`, `"not null"`, `123`, `true`) is **rejected**: the API walks every filter value looking for a `query_id` key (the "filter by another query's results" feature) and a non-object value throws `500 "Cannot use 'in' operator to search for 'query_id' in <value>"`. The `filters` map has **always** required object values — bare scalars are never valid.
+> **Do NOT use bare-string shorthand.** `{ "order_items.status": "complete" }` (or `"last 90 days"`, `"not null"`, `123`, `true`) is **rejected** — as of Omni CLI 1.1.2 / August 2026 with `400 "Unable to parse data stream"` (verified for value, date, null-string, number, and boolean forms; older builds returned `500 "Cannot use 'in' operator to search for 'query_id' in <value>"` from the query-reference probe). The `filters` map has **always** required object values — bare scalars are never valid.
 
 > **Authoritative source for the full filter union.** `query run --schema` does *not* describe filters (its `query` object is an opaque pass-through). The exhaustive, typed union lives in the **documents** schema at the same path a tile uses:
 > ```
@@ -158,7 +158,7 @@ A filter keyed by a **measure** becomes a `HAVING` on the aggregate — comparis
 ## Two gotchas — always verify a filter *bound*
 
 1. **Malformed object → silently dropped.** A filter object with the wrong properties for its type (e.g. `kind`/`values` on a `boolean`, which needs `is_negative`) is **silently ignored**: the query returns `COMPLETE` but the filter never reaches the SQL. Confirm it bound via `cache: "SkipCache"` → `summary.display_sql` (check the `WHERE`), or that the row count actually changed.
-2. **Bare scalar → `500`** (`query_id` error, above).
+2. **Bare scalar → rejected** (`400 "Unable to parse data stream"` on current Omni; `500` `query_id` error on older builds — above).
 
 ## Get the exact shape for free — harvest from an agentic job
 
