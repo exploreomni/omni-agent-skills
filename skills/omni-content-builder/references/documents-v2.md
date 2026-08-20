@@ -12,6 +12,8 @@ The `omni documents v2-*` commands are the **only** surface for creating, readin
 | `v2-patch-draft <identifier>` | Create a draft (optionally branch-bound) and apply a patch |
 | `v2-patch-draft-by-identifier <identifier> <draftIdentifier>` | Patch an existing draft |
 | `v2-publish-draft <identifier>` | Publish the document's **main** draft |
+| `v2-bind-query-model <identifier> <draftIdentifier> <queryKey>` | Bind a tile to a query model on a draft (CLI ≥ 1.1.2) |
+| `v2-unbind-query-model <identifier> <draftIdentifier> <queryKey>` | Unbind a tile from its query model, keeping its query (CLI ≥ 1.1.2) |
 
 - Draft commands take the **document identifier first, then the draft identifier**: `<identifier> <draftIdentifier>`.
 - There is **no one-shot patch** — every edit is patch-draft → verify → publish-draft.
@@ -73,6 +75,8 @@ For anything non-trivial, write the body to a file and pass `--body "$(cat body.
 ### The server anchors tiles to the workbook model
 
 On create, the server mints a per-document **workbook** model extending the shared `modelId` you pass. Tile queries carry **no `modelId`** — reads never expose one, and a `modelId` or `model_extension_id` you send in a tile query is **silently rewritten** to the workbook model, so omit them. When you need the workbook model id (to write model YAML), read it from the draft's `workbookModelId` via `documents list-drafts` — and it **rotates**: each draft clones the workbook model (extensions carried along), and publishing swaps the document to the clone, so the id changes after **every** publish. Never cache it; read it fresh from `list-drafts` each time.
+
+Since the binding is server-owned on the PATCH surface, changing a tile's query-model binding goes through the dedicated draft-scoped commands (CLI ≥ 1.1.2): `v2-bind-query-model <identifier> <draftIdentifier> <queryKey>` (body carries the `queryModelId` — see `--schema`) and `v2-unbind-query-model` (no body; keeps the tile's query). The `queryModelId` must be a live query model layered on this draft's workbook model and not already bound to another tile — a query model is dedicated to a single query. A LINKED tile inherits its query model from its source and can't be bound directly. Because each draft re-clones its query models, bind against a draft you have already read.
 
 ## Tile (queryPresentation) shape
 

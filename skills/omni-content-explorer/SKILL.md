@@ -39,8 +39,18 @@ omni folders --help     # Folder operations
 
 ## Known Issues & Safe Defaults
 
-- `omni content list` does not currently support a `--labels` filter. To find documents by label, use `omni documents list --include labels -o json`, paginate with `--cursor`, then filter records whose `labels` array contains the target label.
+- `omni content list` does not currently support a `--labels` filter. For dashboards, `omni content search --q <labelName>` matches labels. For an exhaustive by-label listing (including workbook-only documents), use `omni documents list --include labels -o json`, paginate with `--cursor`, then filter records whose `labels` array contains the target label.
 - Some dashboard exports can fail before a job is created, for example with `Cannot use 'in' operator to search for 'query_id' in ...`. If `omni dashboards download` returns an error and no job ID, do not call `download-status` or claim the export completed. Report the dashboard identifier, the exact API error, and that no downloadable job was created.
+
+## Searching Content
+
+For "find the dashboard about X", reach for free-text search first (CLI ≥ 1.1.2):
+
+```bash
+omni content search --q "revenue" --limit 25
+```
+
+`--q` keywords are matched against dashboard names, descriptions, query names, folder names, labels, and creator names. `--limit` caps results at 1–25. Each result carries `identifier`, `name`, `description`, `folderPath`, `tileNames`, `verified`, and a ready-made `url` — link the user straight to it. Search covers **dashboards only** — workbook-only documents don't surface here, so fall back to `omni content list` / `omni documents list` filtering when the target may not have a dashboard.
 
 ## Browsing Content
 
@@ -129,6 +139,10 @@ omni documents add-label <identifier> <labelName>
 
 # Remove label
 omni documents remove-label <identifier> <labelName>
+
+# Add/remove labels on a folder in one atomic call (CLI ≥ 1.1.2).
+# Labels must already exist in the organization.
+omni folders bulk-update-labels <folderId> --body '{ "add": ["Q1"], "remove": ["Draft"] }'
 ```
 
 ## Favorites

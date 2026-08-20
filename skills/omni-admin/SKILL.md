@@ -67,6 +67,18 @@ omni connections schedules-list <connectionId>
 omni connections connection-environments-list
 ```
 
+### Commit Signing Key Rotation (CLI ≥ 1.1.2)
+
+Rotating invalidates the previous key — confirm with the user before running, and re-register the new public key wherever the old one was trusted.
+
+```bash
+# Rotate a connection's dbt commit signing key
+omni connections dbt-rotate-signing-key <connectionId>
+
+# Rotate a model's git commit signing key
+omni models git-rotate-signing-key <modelId>
+```
+
 ## User Management (SCIM 2.0)
 
 > The `--body` blocks below are worked examples. For the authoritative field list (types, required, enums), run the command with `--schema` — e.g. `omni scim users-create --schema` — rather than relying on these shapes to be exhaustive.
@@ -283,6 +295,49 @@ omni schedules recipients-get <scheduleId>
 
 omni schedules add-recipients <scheduleId> --body '{ "recipients": ["team@company.com"] }'
 ```
+
+## AI Credits
+
+Read and manage AI credit controls and usage (entity-group commands and usage reads require CLI ≥ 1.1.2). Org-level controls require the AI-admin permission; per-user controls and usage require manage-user-attributes; entity-group controls and usage require add/remove-users. Per-user and per-entity-group limits are also behind instance feature flags.
+
+```bash
+# Org-level credit controls
+omni ai credit-controls-get
+omni ai credit-controls-update --body '{ ... }'   # run with --schema for the body shape
+
+# Per-user and per-entity-group limits
+omni ai credit-controls-users-list
+omni ai credit-controls-users-update --body '{ ... }'
+omni ai credit-controls-entity-groups-list
+omni ai credit-controls-entity-groups-update --body '{ ... }'
+
+# Usage for the current billing period (reads work even when controls editing is disabled)
+omni ai credit-usage-users-read --body '{ "userIds": ["<membershipId>"] }'
+omni ai credit-usage-entity-groups-read --body '{ ... }'
+```
+
+> **Gotcha**: `credit-usage-users-read` takes **membership ids** (the user's membership in this organization), not base user ids — an unknown id 404s the whole request, naming the offending id. At most 1000 ids per request, no duplicates; users with no usage report 0.
+
+## Uploads
+
+Manage CSV/spreadsheet uploads (the files users upload to query alongside warehouse data). `create` and `replace-data` take the file via `--body` — run with `--schema` for the shape.
+
+```bash
+# List uploads — filter by connection or model, search by file name
+omni uploads list --connectionid <connectionId>
+omni uploads list --modelid <modelId> --searchterm "forecast" --type csv
+
+# Upload a CSV
+omni uploads create --body '{ ... }'   # see --schema
+
+# Replace the data behind an existing upload, keeping its id (CLI ≥ 1.1.2)
+omni uploads replace-data <uploadId> --body '{ ... }'
+
+# Delete an upload
+omni uploads delete <uploadId>
+```
+
+`replace-data` fully replaces the upload's data while its id stays stable — views and document tabs reference the upload by id, so they serve the new data with no model or document changes. Column renames/removals may break content referencing the old columns, so compare headers before replacing. For `uploads list --modelid`: shared models return connection uploads; workbook models return their own uploads.
 
 ## Verification After Changes
 

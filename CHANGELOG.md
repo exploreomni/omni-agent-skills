@@ -6,6 +6,20 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.8.0] - 2026-08-20
+
+### omni-analytics
+
+_Summary: sync skills with Omni CLI v1.1.2 (new commands from the spec sync in [exploreomni/cli#71](https://github.com/exploreomni/cli/pull/71)). Command shapes verified against the released CLI via `--help`/`--schema`._
+
+**Added**
+- `omni-content-explorer` — free-text dashboard search via `omni content search --q --limit` as the first stop for "find the dashboard about X" (dashboards only; keywords match names, descriptions, query names, folder names, labels, and creator names), and atomic folder label management via `omni folders bulk-update-labels`.
+- `omni-admin` — new **AI Credits** section covering `omni ai credit-controls-*` (org, per-user, per-entity-group) and the new usage reads `credit-usage-users-read` / `credit-usage-entity-groups-read`, including the membership-id (not user-id) gotcha. New **Commit Signing Key Rotation** section for `connections dbt-rotate-signing-key` and `models git-rotate-signing-key`, with a confirm-before-rotating caution.
+- `omni-ai-optimizer` — new **AI Model Suggestions** section for the `omni ai-model-suggestions` command group (generate runs, list/ignore/restore/delete suggestions, enable/disable the schedule).
+- `omni-content-builder` — documented `documents v2-bind-query-model` / `v2-unbind-query-model` in the documents-v2 reference: the draft-scoped route for changing a tile's server-owned query-model binding, with the one-query-model-per-tile and LINKED-tile constraints.
+- `omni-model-builder` — documented `omni models branch-dbt-get` for dbt-connected models: reads the dbt environment a branch resolves to, with the default-environment fallback behavior.
+- `omni-admin` — new **Uploads** section covering the `omni uploads` group (list/create/delete plus the new `replace-data`, which swaps an upload's data while keeping its id — existing views and document tabs keep working, with a caution on column renames/removals).
+
 ## [1.7.0] - 2026-08-20
 
 ### omni-analytics

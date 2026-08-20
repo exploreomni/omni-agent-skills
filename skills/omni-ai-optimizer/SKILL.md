@@ -460,6 +460,27 @@ Prioritize high-impact changes. Improve wording without changing semantics.
 
 > **Troubleshooting order** when Blobby answers wrong: confirm the topic is reachable (`ai_chat_topics`) → confirm the field is in context (workbook inspector; check it wasn't pruned or excluded by `ai_fields`/`hidden`) → then add or sharpen `ai_context`. Writing more context for a field the AI never received fixes nothing.
 
+## AI Model Suggestions
+
+Omni can generate model-improvement suggestions itself (CLI ≥ 1.1.2, `omni ai-model-suggestions --help`). Use these as a complement to the manual checklist above — review each suggestion before applying it:
+
+```bash
+# Kick off a generation run, then read it back
+omni ai-model-suggestions model-suggestions-generate <modelId>
+omni ai-model-suggestions model-suggestions-run-latest <modelId>
+omni ai-model-suggestions model-suggestions-run-get <modelId> <runId>
+
+# Work the suggestion list
+omni ai-model-suggestions model-suggestions-list <modelId>
+omni ai-model-suggestions model-suggestions-ignore <modelId> <suggestionId>
+omni ai-model-suggestions model-suggestions-restore <modelId> <suggestionId>
+omni ai-model-suggestions model-suggestions-delete <modelId> <suggestionId>
+
+# Recurring generation
+omni ai-model-suggestions model-suggestions-schedule-enable <modelId>
+omni ai-model-suggestions model-suggestions-schedule-disable <modelId>
+```
+
 ## Docs Reference
 
 - [Optimize models for Omni AI](https://docs.omni.co/modeling/develop/ai-optimization)
