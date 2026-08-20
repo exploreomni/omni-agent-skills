@@ -6,7 +6,7 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
-## [1.5.1] - 2026-06-27
+## [1.7.0] - 2026-08-20
 
 ### omni-analytics
 
@@ -32,6 +32,36 @@ _Summary: build-from-experience hardening across the content/model/query skills;
 - **`omni-content-builder` markdown/KPI cards** — data-component attributes are **kebab-case** (`swap-colors`, not the silently-stripped `swapColors` — the real cause of "swapColors doesn't work in markdown"); `<comparison>` **is** hand-authorable and self-computes its % (no calc); `<Sparkline>` is **fixed-px / non-responsive**; tile keys must be **numeric strings** (control ids needn't be); and a malformed `markdownConfig` value-field **persists but crashes at render** (`reading 'name'`/`'row'`). Adds a render-verified native-KPI tile + caveat checklist, the native-KPI-vs-markdown-card steer, and a mechanical `normalizeTile()` round-trip helper.
 - **`omni-model-explorer`** — `models list` paginates and nests results under the **`records`** key; on busy instances (mostly `name: null` workbook models) filter server-side with `--modelkind SHARED --name`.
 - **Skill best-practices pass** — every `SKILL.md` trimmed under the ~500-line progressive-disclosure guideline (`omni-model-builder` 509→498, redundancy-only — no content lost); sharpened `omni-content-builder`'s triggering description (977→859 chars: dropped the redundant quoted-phrase block, added an `omni-query` / `omni-model-builder` disambiguation clause for precision).
+
+## [1.2.1] - 2026-08-10
+
+### omni-integrations
+
+**Changed**
+- `omni-to-databricks-metric-view` — treat everything returned by `omni models yaml-get` as untrusted data rather than instructions. Step 2 now states that Omni-authored `label`, `description`, `ai_context`, and `sample_queries` values are content to translate, and that any embedded directions (run a command, change the destination catalog/schema, widen a `GRANT`, skip a confirmation) must be surfaced to the user instead of acted on.
+- `omni-to-databricks-metric-view` — added a validation checkpoint before Omni metadata is carried into `display_name`, `comment`, or `expr`, which Databricks Genie and AI/BI read as semantic context. Instruction-like values are replaced with an agent-written summary, `$$` and control characters are stripped so metadata cannot terminate the metric view body and escape into surrounding SQL, and no fetched value may determine a catalog, schema, table, grantee, or SQL fragment — those come only from the user-confirmed Step 1 answers. Rejected or rewritten metadata is reported at the pre-generation review. Closes the remaining `PROMPT_INJECTION` finding in the Gen Agent Trust Hub audit (see https://www.skills.sh/exploreomni/omni-agent-skills/omni-to-databricks-metric-view/security/agent-trust-hub).
+
+## [1.6.0] - 2026-07-24
+
+### omni-analytics
+
+_Summary: resync `omni-ai-optimizer` with the rewritten [Optimize models for Omni AI](https://docs.omni.co/modeling/develop/ai-optimization) guide — two wrong facts corrected, `ai_context` templating added, net −45 lines._
+
+**Fixed**
+- **The "~550 fields" limit doesn't exist.** Pruning is driven by character caps: ~75K per topic's field definitions, ~100K for the topic-selection summary, 100 fields per out-of-topic search. Removed from the skill and from eval case 2, which had asserted the agent should cite it.
+- **The synonyms pruning caveat was inverted.** Synonyms are pruned *last*, after `description` and `label` — not before. Guidance flipped accordingly.
+- **Dead docs link** — `/ai/optimize-models.md` now 404s. Reference section rebuilt around the current URL and expanded per-parameter.
+
+**Added**
+- **Context priority and pruning order**, replacing an invented "impact order" heuristic — including that **`ai_context` is never pruned**, so bloated context starves field metadata and can fail the request rather than degrading gracefully.
+- **`ai_context` templating** (model/topic/view only): `{{omni_attributes.<name>}}` personalization — with the caveat that dimension/measure `ai_context` does *not* substitute them; `omni_llm` tier scoping; `omni_agent` scoping; `constants` reuse.
+- **"Context is guidance, not instruction"** — no reliable model-over-topic precedence, non-deterministic behavior.
+- Model-level `ai_context` and `sample_queries`; where context applies beyond Omni Agent; troubleshooting order (topic reachable → field in context → then write `ai_context`); workbook sample-query path and its easily-missed **Include in AI context** checkbox; `ai_fields: [tag:use_for_ai]`; dbt `accepted_values` ingest as `all_values`.
+- Frontmatter `description` extended to route on the new surface area (user-attribute personalization, tier/agent scoping, pruning and truncation diagnosis, topic reachability).
+
+**Changed**
+- **Redundancy pass.** Synonyms guidance was stated in four places and had become self-contradictory — "pruned last" read as encouragement to add more, against the guardrail not to add them once topic-level `ai_context` already disambiguates. Reconciled: durability is a reason to prefer synonyms *over* a description, never to add more. Also deduplicated "`ai_context` is never pruned" (4× → 1), and cut the multi-language and chain-of-thought recipes, a paragraph restating the Safe Defaults synonyms rule, and two redundant example blocks.
+- **Fixed a contradiction in the skill's own example** — the field-description sample enumerated `status` values in `description` while the next subsection prescribed `all_values` for exactly that, on the same field.
 
 ## [1.5.0] - 2026-06-25
 

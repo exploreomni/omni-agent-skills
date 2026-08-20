@@ -211,13 +211,26 @@ jobs:
           branch="automation/skills-security-audits"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # The checkout is shallow and single-branch, so origin/$branch is absent
+          # locally and --force-with-lease would abort with "stale info".
+          git fetch --depth=1 origin "+refs/heads/$branch:refs/remotes/origin/$branch" || true
+
           git checkout -B "$branch"
           git add README.md
           git commit -m "Update skills.sh security audit status"
-          git push --force-with-lease origin "$branch"
+          if git rev-parse --verify --quiet "refs/remotes/origin/$branch" >/dev/null; then
+            git push --force-with-lease="$branch:$(git rev-parse "refs/remotes/origin/$branch")" origin "$branch"
+          else
+            git push origin "$branch"
+          fi
 
-          if gh pr view "$branch" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh pr edit "$branch" \
+          # Match only an open PR — gh pr view resolves to the last merged/closed
+          # PR for this branch, which would silently skip creating a new one.
+          open_pr="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$branch" --state open --json number --jq '.[0].number')"
+
+          if [ -n "$open_pr" ]; then
+            gh pr edit "$open_pr" \
               --repo "$GITHUB_REPOSITORY" \
               --title "Update skills.sh security audit status" \
               --body "Refreshes the README table from the public skills.sh security audit pages."
