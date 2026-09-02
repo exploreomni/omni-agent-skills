@@ -6,6 +6,29 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.9.0] - 2026-09-02
+
+### omni-analytics
+
+_Summary: sync skills with Omni CLI v1.2.0. This release added no commands — the command set is identical at 242 — so it is a **behavior and ergonomics** sync: kebab-case flag names, `--schema` on every command (plus response shapes), `--body @file`, client-side required-flag validation, and real flags for the multipart `uploads` commands. All 242 commands and 114 renamed flags were diffed between 1.1.2 and 1.2.0 and probed against the released binary; **no breaking changes** — every old flag spelling is still accepted as an alias, so pre-1.2.0 CLIs keep working._
+
+**Changed**
+- **Flag names normalized to kebab-case across all skills, agents, and rules (69 occurrences).** `--pagesize` → `--page-size`, `--userid` → `--user-id`, `--branchid` → `--branch-id`, `--filename` → `--file-name`, `--sortfield` → `--sort-field`, and 21 more. The old concatenated spellings remain valid aliases in 1.2.0 (verified against all 114 renamed flags), so this is a documentation-accuracy change, not a fix for breakage — but `--help` and `--schema` now print the kebab-case form.
+- **`omni-admin` Uploads** — `uploads create` / `replace-data` are documented against the new dedicated flags (`--file`, `--model-id`, `--branch-id`/`--branch-name`, `--view-name`) instead of a hand-built `--body`. `--file` takes a **path**, `--branch-id`/`--branch-name` are mutually exclusive, and `--body` on these two commands carries **multipart fields** (binary values are still file paths).
+- **`omni-api-conventions` rule — `--schema` section rewritten.** On CLI ≥ 1.2.0 `--schema` works on **every** command, not just body-taking ones, and its output is `{ method, path, args?, queryParams, body, example?, response }`. The `queryParams` list gives the exact flag spelling for each filter; the new `response` section documents the success shape and carries behavioral detail (e.g. `query run`'s default response is an **ndjson stream**, not a single JSON document). Removed the now-false claim that `--schema` "carries no response schema", while keeping the caveat that the runtime — not the spec — is authoritative for exact field paths and accepted enum values.
+- **`omni-content-builder`** — the v2 draft workflow now prefers `--body @patch.json` over `--body - < patch.json`: no shell quoting, diffable patches, and client-side JSON validation that reports a byte offset instead of a server-side `400`.
+- **`omni-ai-eval` / `omni-admin`** — `--schema` guidance no longer describes it as body-command-only.
+
+**Added**
+- **`omni-api-conventions` rule — a CLI ≥ 1.2.0 behavior block** covering `--body @path/to/file.json` with client-side JSON validation; client-side enforcement of required params (`Error: required flag(s) "q" not set`, no API call — affects `content search --q`, `query wait --job-ids`, `models dbt-sync --branch-id`, `models yaml-delete --file-name`, `uploads create --file/--model-id`, `uploads replace-data --file`, `ai-eval runs-list --prompt-set-id`), flagged as a **local usage error** rather than an API rejection so agents don't retry it or misread it as a permissions problem; `--query key=value` as the escape hatch for params the spec doesn't declare; and unknown subcommands now erroring instead of silently printing help — with the caveat that **both still exit 0**, so branch on the message.
+
+### omni-integrations
+
+_Summary: flag-spelling sync with Omni CLI v1.2.0._
+
+**Changed**
+- `omni-to-snowflake-semantic-view` and `omni-to-databricks-metric-views` — `omni models yaml-get` / `models list` examples use the kebab-case flag names (`--file-name`, `--model-kind`, `--branch-id`).
+
 ## [1.8.0] - 2026-08-20
 
 ### omni-analytics

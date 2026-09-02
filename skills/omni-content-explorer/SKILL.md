@@ -25,7 +25,7 @@ omni config use <profile-name>
 omni whoami whoami
 ```
 
-> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering request-body shapes with `--schema`.
+> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering command and request-body shapes with `--schema`.
 
 ## Discovering Commands
 
@@ -77,9 +77,9 @@ omni documents list --include labels -o json
 omni content list --scope organization
 
 # Sort by popularity or recency
-omni content list --sortfield favorites
+omni content list --sort-field favorites
 
-omni content list --sortfield updatedAt
+omni content list --sort-field updatedAt
 ```
 
 ### Pagination
@@ -98,7 +98,7 @@ omni content list --cursor <nextCursor>
 omni documents list
 
 # Filter by creator
-omni documents list --creatorid <userId>
+omni documents list --creator-id <userId>
 ```
 
 Each document includes: `identifier`, `name`, `type`, `scope`, `owner`, `folder`, `labels`, `updatedAt`, `hasDashboard`.

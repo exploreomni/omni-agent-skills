@@ -24,7 +24,7 @@ Requires **Connection Admin** permissions.
 ```bash
 omni models create-branch <modelId> --name "schema-refresh-impact-check"
 omni models refresh <modelId> --branch-id <branchId>
-omni models validate <modelId> --branchid <branchId>
+omni models validate <modelId> --branch-id <branchId>
 omni models content-validator-get <modelId> --branch-id <branchId>
 ```
 

@@ -35,7 +35,7 @@ omni query run --body '{
 - **No error field** — if the response contains an `error` key, the query is broken. Fix before proceeding.
 - **`cache_metadata.num_rows` > 0** — a query that returns zero rows will render as an empty tile. This may be correct (no data for the filter range) but is worth flagging. (The row count is at `cache_metadata.num_rows` — there is no `summary.row_count`; `summary` holds `invalid_calculations`/`missing_fields`/`display_sql`.)
 - **Include your dashboard filters** — pass the same filters you plan to wire up as dashboard controls as query-level filters here. This catches bad filter expressions (e.g., wrong field name, unsupported syntax) before they become dashboard-level problems.
-- **Long-running queries** — if the response includes `remaining_job_ids`, poll with `omni query wait --jobids <ids>` until complete, then check the final result for errors.
+- **Long-running queries** — if the response includes `remaining_job_ids`, poll with `omni query wait --job-ids <ids>` until complete, then check the final result for errors.
 
 Do this for **every** query you plan to include as a tile. A dashboard with 5 tiles needs 5 validated queries.
 

@@ -60,7 +60,7 @@ omni config use <profile-name>
 omni whoami whoami
 ```
 
-> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering request-body shapes with `--schema`.
+> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering command and request-body shapes with `--schema`.
 
 ## Discovering Commands
 
@@ -237,7 +237,8 @@ Edits go through the **draft flow** — the published dashboard is untouched unt
    - **Edit a tile**: send just that key — and **re-author its inner vis config nested under `config`** (never echo the flat GET shape back).
    - **Delete a tile**: set its key to `null` and remove it from `order` (and its stack from `containers`).
    - **Layout**: `containers` is a full replacement — send the whole tree with your edit applied.
-3. **Create the draft + apply**: `omni documents v2-patch-draft <identifier> --body - < patch.json` — capture `draftIdentifier` from the response. Include a `summary` in the body for the audit trail.
+3. **Create the draft + apply**: `omni documents v2-patch-draft <identifier> --body @patch.json` (or `--body - < patch.json`) — capture `draftIdentifier` from the response. Include a `summary` in the body for the audit trail.
+   > Prefer `--body @file` for these bodies: it needs no shell quoting, keeps the patch diffable, and **validates the JSON client-side** — a malformed patch fails immediately with the byte offset instead of a server-side `400`.
 4. **Validate the draft** — `omni documents v2-get-draft <identifier> <draftIdentifier>`, run the affected queries (see [Validation Loops](#validation-loops)). Iterate with `omni documents v2-patch-draft-by-identifier <identifier> <draftIdentifier> --body …`.
 5. **Publish**: `omni documents v2-publish-draft <identifier>`. On failure or abandonment, `omni documents discard-draft <identifier>` cleans up without touching the published doc.
 
@@ -247,7 +248,7 @@ Error map, merge-semantics details, and recipes are in **[references/updating-da
 
 > **First decide where a new field belongs.** Don't default to the lowest-friction path — choose the field's right home, gated by what your access actually allows.
 >
-> **Step 0 — check your access.** Run `omni whoami whoami --modelid <sharedModelId>` and read `rolesByModel[<id>].permissions`:
+> **Step 0 — check your access.** Run `omni whoami whoami --model-id <sharedModelId>` and read `rolesByModel[<id>].permissions`:
 > - **`QUERY_FULL_MODEL` present** (Querier / Modeler / Admin) → you can create a branch → **prefer a shared-model branch** for anything reusable. If **`UPDATE`** is *also* present (Modeler / Admin) you can merge it yourself (with the creator's OK); if it's absent (Querier), open the branch and **request a merge** — a Querier can branch and modify but not promote.
 > - **`QUERY_FULL_MODEL` absent but you can still create content** (Restricted Querier — has **`USE_WORKBOOKS`**) → you can't branch → use the **workbook model** (extension); the write is authorized against the shared model's permissions, which is exactly the restricted-but-workbook-capable case. (A **Viewer** lacks `USE_WORKBOOKS` and can't author a dashboard at all, so they never reach this decision — content creation presupposes `USE_WORKBOOKS`.) **Scope ceiling for a Restricted Querier:** their workbook-model writes are limited to **`.view` extensions** (new dimensions/measures on an existing view) + **decoration edits** — *not* `.topic` (topics/joins), the `model`/`relationships` files, or **access grants** (those need `QUERY_FULL_MODEL` on a branch). Keep the build **view-scoped**; planning a topic/join/grant change for a restricted querier 403s mid-build and can strand the doc. (Canonical: `omni-admin` → *Model Roles & Caller Access*.)
 >

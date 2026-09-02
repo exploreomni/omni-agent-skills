@@ -27,7 +27,7 @@ omni config use <profile-name>
 omni whoami whoami
 ```
 
-> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering request-body shapes with `--schema`.
+> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering command and request-body shapes with `--schema`.
 
 You also need a **model ID** and knowledge of available **topics and fields**.
 
@@ -240,7 +240,7 @@ These keys sit at the **top level** of the body, beside `query`, not inside it. 
 |--------|-------------|
 | `resultType` | Output format: `csv`, `xlsx`, or `json`. **Top-level only** — inside `query` it's silently ignored and you get Arrow. Omit for the default base64 Arrow response. |
 | `cache` | Cache policy: `Standard`, `SkipRequery`, `SkipCache`. |
-| `userId` | Run as another user (org-scoped API keys); also the `--userid` flag. |
+| `userId` | Run as another user (org-scoped API keys); also the `--user-id` flag. |
 | `branchId` | Run against a model **branch** (validate draft model changes on live data). Must be a branch of the same shared model. |
 | `planOnly` | Return the execution plan **without running** the query (validate/debug at no warehouse cost). Cannot combine with `resultType`. |
 | `formatResults` | On exports, emit **formatted** values (e.g. `$1,234.56`) vs. raw. Requires `resultType`; ignored for Arrow. |
@@ -328,7 +328,7 @@ df = reader.read_all().to_pandas()
 If the response includes `remaining_job_ids`, poll until complete:
 
 ```bash
-omni query wait --jobids job-id-1,job-id-2
+omni query wait --job-ids job-id-1,job-id-2
 ```
 
 ## Running Queries from Dashboards

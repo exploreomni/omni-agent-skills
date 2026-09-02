@@ -27,7 +27,7 @@ omni config use <profile-name>
 omni whoami whoami
 ```
 
-> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering request-body shapes with `--schema`.
+> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering command and request-body shapes with `--schema`.
 
 ---
 
@@ -127,7 +127,7 @@ Ask the user:
 #### 2a. Find the model ID
 
 ```bash
-omni models list --modelkind SHARED
+omni models list --model-kind SHARED
 ```
 
 Identify the **Shared Model** and note its `id`. Always prefer the Shared Model over Schema or Workbook models.
@@ -135,13 +135,13 @@ Identify the **Shared Model** and note its `id`. Always prefer the Shared Model 
 #### 2b. Fetch the topic file
 
 ```bash
-omni models yaml-get <modelId> --filename <topic_name>.topic
+omni models yaml-get <modelId> --file-name <topic_name>.topic
 ```
 
 #### 2c. Fetch the relationships file
 
 ```bash
-omni models yaml-get <modelId> --filename relationships
+omni models yaml-get <modelId> --file-name relationships
 ```
 
 #### 2d. Fetch each view file referenced in the topic
@@ -149,7 +149,7 @@ omni models yaml-get <modelId> --filename relationships
 For every view in `base_view` and `joins`, fetch its YAML:
 
 ```bash
-omni models yaml-get <modelId> --filename <view_name>.view
+omni models yaml-get <modelId> --file-name <view_name>.view
 ```
 
 > If a view is prefixed with `omni_dbt_`, fetch the file that also starts with `omni_dbt_` (e.g. `omni_dbt_ecomm__order_items.view`).

@@ -38,7 +38,7 @@
       "ground_truth": "Embed user resolved to an Omni user ID, then documents listed filtered to that user's permissions. Only documents with hasDashboard: true included. Identifiers used for SDK-based embed signing.",
       "expected_behavior": [
         "The agent looks up the embed user with omni scim embed-users-list --filter 'embedExternalId eq \"{{EVAL_EMBED_USER}}\"' to get the Omni user ID, or uses a clearly stated SCIM userName/email fallback only if the embedExternalId lookup is unsupported or returns no rows",
-        "The agent calls omni documents list --userid, or the equivalent /api/v1/documents?userId=<omniUserId> API, with the retrieved Omni user ID \u2014 not with the email directly",
+        "The agent calls omni documents list --user-id, or the equivalent /api/v1/documents?userId=<omniUserId> API, with the retrieved Omni user ID \u2014 not with the email directly",
         "The agent filters results to only documents where hasDashboard: true before presenting them as embeddable",
         "The agent uses the API domain (.omniapp.co) for the documents list call \u2014 not the embed domain (.embed-omniapp.co)",
         "Any embed URL signing remains server-side and uses embedSsoDashboard from @omni-co/embed rather than manual HMAC signing in Python or browser code"

@@ -5,7 +5,7 @@ Full reference for Step 2 of the model-builder workflow. Every YAML write must b
 ## Run model validation
 
 ```bash
-omni models validate <modelId> --branchid <branchId>
+omni models validate <modelId> --branch-id <branchId>
 ```
 
 Check the response:
@@ -75,7 +75,7 @@ This returns the topic's **full resolved field set, joined-view fields included*
 omni models get-topic <modelId> <topicName> --branch-id <branchId>
 
 # Or read back the YAML you just wrote
-omni models yaml-get <modelId> --filename your_view.view --branchid <branchId>
+omni models yaml-get <modelId> --file-name your_view.view --branch-id <branchId>
 
 ```
 
