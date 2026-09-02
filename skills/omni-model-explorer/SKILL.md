@@ -29,7 +29,7 @@ omni config use <profile-name>
 omni whoami whoami
 ```
 
-> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering request-body shapes with `--schema`.
+> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering command and request-body shapes with `--schema`.
 
 API keys: Settings > API Keys (Organization Admin) or User Profile > Manage Account > Generate Token (Personal Access Token).
 
@@ -56,7 +56,7 @@ omni models list
 
 Returns models (under the `records` key — `{pageInfo, records:[…]}`, not the top level) with `id`, `name`, `connectionId`, and `modelKind` (SCHEMA or SHARED). Use the SHARED model — it contains the curated semantic layer.
 
-> **On a busy instance the bare call paginates (20/page) and is mostly WORKBOOK models with `name: null` — don't page through them.** Filter server-side: `omni models list --modelkind SHARED --name "<exact name>"` resolves the shared model by name in one call.
+> **On a busy instance the bare call paginates (20/page) and is mostly WORKBOOK models with `name: null` — don't page through them.** Filter server-side: `omni models list --model-kind SHARED --name "<exact name>"` resolves the shared model by name in one call.
 
 To also see active branches on each model:
 
@@ -101,18 +101,18 @@ For the full semantic model definition:
 omni models yaml-get <modelId>
 
 # Specific file
-omni models yaml-get <modelId> --filename order_items.view
+omni models yaml-get <modelId> --file-name order_items.view
 
 # Regex filter
-omni models yaml-get <modelId> --filename '.*sales.*'
+omni models yaml-get <modelId> --file-name '.*sales.*'
 
 # From a branch (branchId is a UUID from the list models response)
-omni models yaml-get <modelId> --branchid <branchId>
+omni models yaml-get <modelId> --branch-id <branchId>
 ```
 
 The `mode` parameter: `combined` (default) merges schema + shared model; `extension` shows only shared model customizations.
 
-The `files` map is keyed by each file's **full stored path** (e.g. `MARTS/order_items.view`), and `--filename` is a regex on read. Reuse that exact key — including any folder prefix — when editing with `omni-model-builder`; a shortened name creates a duplicate instead of editing the original.
+The `files` map is keyed by each file's **full stored path** (e.g. `MARTS/order_items.view`), and `--file-name` is a regex on read. Reuse that exact key — including any folder prefix — when editing with `omni-model-builder`; a shortened name creates a duplicate instead of editing the original.
 
 ## Model Architecture
 
@@ -156,15 +156,15 @@ omni models get-schemas <modelId>
 # → {"schemas": ["ANALYTICS", "PUBLIC", "STAGING", ...]}
 
 # 2. If the target schema is in the list, load just that schema
-omni models yaml-get <modelId> --includeschemas PUBLIC
+omni models yaml-get <modelId> --include-schemas PUBLIC
 ```
 
 **If the schema isn't in the list at all**, this isn't a lazy-load issue — the connection likely doesn't have access or the schema isn't synced. Check with a Connection Admin.
 
-**Rules for `--includeschemas`:**
+**Rules for `--include-schemas`:**
 - Accepts exactly **one schema name** per call — commas are rejected by the API. Load schemas one at a time if you need multiple.
 - When set, the response contains only views belonging to that schema. Relationships are preserved even when they reference views in other schemas.
-- To scope to a branch, add `--branchid <id>` to `yaml-get` or `--branch-id <id>` to `get-schemas` (the flag names differ per command — this matches the API's underlying casing).
+- To scope to a branch, add `--branch-id <id>` to `yaml-get` or `--branch-id <id>` to `get-schemas` (the flag names differ per command — this matches the API's underlying casing).
 
 ## Calculation Fields
 
@@ -176,7 +176,7 @@ When the user asks what Blobby knows about a topic, inspect the topic and report
 
 ```bash
 omni models get-topic <modelId> <topicName>
-omni models yaml-get <modelId> --filename '<topicName>\.topic'
+omni models yaml-get <modelId> --file-name '<topicName>\.topic'
 ```
 
 Read `ai_context`, `sample_queries`, and AI field-selection values. Depending on CLI/API shape, `get-topic` may wrap these under a top-level `topic` object; if a top-level `ai_context` is null, check `topic.ai_context` before concluding none exists. If `get-topic` does not expose the full `ai_fields` list, read the topic YAML and report the configured `ai_fields` there. Include configured sample query names/prompts and the fields they exercise when present.
@@ -195,22 +195,22 @@ Then use the right setup for the change being tested:
 - **Database column deletion/rename**: refresh the schema on the branch after the warehouse change is present, then validate the branch.
 - **Model-only field removal/rename**: write the modified YAML to the branch with `omni models yaml-create`, using the exact `fileName` key returned by `yaml-get`.
 
-`yaml-create` accepts the update as a JSON body, not separate `--filename` or `--branchid` flags:
+`yaml-create` accepts the update as a JSON body, not separate `--file-name` or `--branch-id` flags:
 
 ```bash
 omni models yaml-create <modelId> \
   --body '{"branchId":"<branchId>","fileName":"public/order_items.view","yaml":"<full modified YAML string>"}'
 ```
 
-Use the response and `yaml-get --branchid` readback to verify the file was written to the branch. For model-only field removal impact, remove the field's own definition from the branch YAML, but leave existing dependent field references in place unless the user's planned change also removes them. Those unresolved references are what `omni models validate` uses to reveal dependent measures, dimensions, topics, and joins that would break.
+Use the response and `yaml-get --branch-id` readback to verify the file was written to the branch. For model-only field removal impact, remove the field's own definition from the branch YAML, but leave existing dependent field references in place unless the user's planned change also removes them. Those unresolved references are what `omni models validate` uses to reveal dependent measures, dimensions, topics, and joins that would break.
 
-Do not reuse an existing branch unless `yaml-get --branchid <branchId>` proves the target field is absent or renamed there. A branch with a matching name but unchanged YAML is not a valid blast-radius branch.
+Do not reuse an existing branch unless `yaml-get --branch-id <branchId>` proves the target field is absent or renamed there. A branch with a matching name but unchanged YAML is not a valid blast-radius branch.
 
 2. **Validate the branch setup** before interpreting content results:
 
 ```bash
-omni models yaml-get <modelId> --filename '<viewName>\.view' --branchid <branchId>
-omni models validate <modelId> --branchid <branchId>
+omni models yaml-get <modelId> --file-name '<viewName>\.view' --branch-id <branchId>
+omni models validate <modelId> --branch-id <branchId>
 ```
 
 Verify the field definition precisely, not with a whole-file substring search. For example, `sale_price` may still appear in `sql: ${sale_price}` after the `dimensions: sale_price: {}` definition has been removed; that is a valid impact-test branch and should be reported as a dependent reference. If the original field definition still appears in branch YAML, say the branch setup is invalid and do not claim validator results represent removal impact.
@@ -226,7 +226,7 @@ This returns all dashboards and tiles with broken references to the removed fiel
 4. **Search model YAML** for additional references (run in parallel with step 3):
 
 ```bash
-omni models yaml-get <modelId> --filename '.*'
+omni models yaml-get <modelId> --file-name '.*'
 ```
 
 Search the response for the field name to find references in other views, topics, and calculated fields.

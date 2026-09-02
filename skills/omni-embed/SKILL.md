@@ -33,7 +33,7 @@ omni whoami whoami
 export OMNI_EMBED_SECRET="your-embed-secret"   # Admin → Embed (for URL signing)
 ```
 
-> **Auth**: a profile authenticates with an **API key** or **OAuth** (separate from the embed secret below). If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering request-body shapes with `--schema`.
+> **Auth**: a profile authenticates with an **API key** or **OAuth** (separate from the embed secret below). If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering command and request-body shapes with `--schema`.
 
 The embed secret is found in **Admin → Embed** in your Omni instance. Do not assume
 `OMNI_BASE_URL` is the embed host: CLI/API URLs often use `.omniapp.co`, custom
@@ -414,7 +414,7 @@ the sidebar result.
 ### List Documents by User Permission
 
 ```bash
-omni documents list --userid <omniUserId>
+omni documents list --user-id <omniUserId>
 ```
 
 Use the Omni user ID returned by `embed-users-list`, not the email/externalId
@@ -432,7 +432,7 @@ GET /api/v1/documents?userId=<omniUserId>
 Authorization: Bearer <OMNI_API_TOKEN>
 ```
 
-Use camelCase `userId` in the API call. The CLI flag is lowercase `--userid`.
+Use camelCase `userId` in the API call. The CLI flag is lowercase `--user-id`.
 
 Response uses `records` array (not `documents`):
 

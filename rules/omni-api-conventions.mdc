@@ -17,7 +17,7 @@ curl -fsSL https://raw.githubusercontent.com/exploreomni/cli/main/install.sh | s
 
 Pre-built binaries for macOS (amd64/arm64), Linux (amd64/arm64), and Windows (amd64) are available on the [GitHub Releases page](https://github.com/exploreomni/cli/releases).
 
-> OAuth login (`omni config login`), the `whoami` command, and the `--schema` body-discovery flag require **omni CLI ≥ 1.0.7**. Don't gate on `omni --version` — custom/dev builds (e.g. `local-prs-…`) and `install.sh`-from-`main` binaries carry the features without a release version, so a semver check would reject a capable CLI. Instead probe capability: if a command errors with "unknown command", the binary is too old — ask the user to update it. (See the `whoami` preflight below.)
+> OAuth login (`omni config login`), the `whoami` command, and the `--schema` body-discovery flag require **omni CLI ≥ 1.0.7** (`--schema` on *every* command, plus response shapes, needs **≥ 1.2.0**). Don't gate on `omni --version` — custom/dev builds (e.g. `local-prs-…`) and `install.sh`-from-`main` binaries carry the features without a release version, so a semver check would reject a capable CLI. Instead probe capability: if a command errors with "unknown command", the binary is too old — ask the user to update it. (See the `whoami` preflight below.)
 
 ## Authentication
 
@@ -80,7 +80,7 @@ A headless agent **cannot** complete this flow itself — it can't click through
 
 ```bash
 omni whoami whoami                       # current identity, API-key scope, org role, per-model roles
-omni whoami whoami --modelid <id1,id2>   # scope rolesByModel to specific models
+omni whoami whoami --model-id <id1,id2>   # scope rolesByModel to specific models
 ```
 
 | Outcome | Meaning | Action |
@@ -105,7 +105,15 @@ omni <group> <operation> [positional-args] [--flags] [--body 'JSON']
 - **Operation**: the action (e.g., `list`, `create`, `yaml-get`)
 - **Positional args**: path parameters like `<modelId>`, `<identifier>`, plus shorthand body args (e.g., `omni ai generate-query <model-id> "prompt"`)
 - **Flags**: query parameters and promoted body fields as `--flag-name value`
-- **Body**: request body as `--body '{"key": "value"}'` or `--body -` to read from stdin (still supported, but prefer shorthand args/flags when available)
+- **Body**: request body as `--body '{"key": "value"}'`, `--body -` to read from stdin, or — on **CLI ≥ 1.2.0** — `--body @path/to/file.json` to read a file (still supported, but prefer shorthand args/flags when available)
+
+On **CLI ≥ 1.2.0**:
+
+- **`--body @file` is validated client-side.** Malformed JSON fails before the request with the byte offset (`request body from file … is not valid JSON: … (at byte 2, near "{bad json")`) instead of a server-side 400. Prefer it over shell-quoting large bodies — no escaping, and the file stays diffable.
+- **Required params are enforced client-side.** Missing ones fail as `Error: required flag(s) "q" not set` with no API call, where 1.1.x round-tripped to a `400`. Affects `content search --q`, `query wait --job-ids`, `models dbt-sync --branch-id`, `models yaml-delete --file-name`, `uploads create --file/--model-id`, `uploads replace-data --file`, and `ai-eval runs-list --prompt-set-id`. Branch on the message: this one is a **local usage error**, not an API rejection — don't retry it or treat it as a permissions problem.
+- **Unknown subcommands error** (`Error: unknown subcommand "…"`) instead of silently printing the group's help, so a typo'd operation no longer looks like a successful no-op. Note both still **exit 0** — branch on the message, not the exit code.
+- **`--query key=value`** (repeatable) sends a query parameter the spec doesn't declare — an escape hatch for endpoints ahead of the CLI's spec. Reach for it only when `--schema`'s `queryParams` lacks the filter you need.
+- **Flag names are normalized to kebab-case.** `--page-size`, `--user-id`, `--branch-id`, `--file-name`, `--sort-field`. The old concatenated spellings (`--pagesize`, `--userid`, …) are still accepted as aliases, so existing scripts keep working, but `--help` and `--schema` now print the kebab-case form — use it in new work.
 
 ### Discovering Commands
 
@@ -118,7 +126,7 @@ omni <group> <operation> --help    # Show flags and positional args
 
 ### Discovering request body shapes
 
-Any command that takes a request body accepts `--schema`. It prints the body's resolved JSON schema (field types, descriptions, enums, formats, required fields) **plus a filled-in example**, then exits — no API call, no token required. Use it instead of guessing the JSON for `--body`.
+**CLI ≥ 1.2.0: every command accepts `--schema`** — not just the ones that take a body. It prints the command's args, query-param flags, request-body schema (field types, descriptions, enums, formats, required fields) with a filled-in example, **and the response shape**, then exits — no API call, no token required. Use it instead of guessing the JSON for `--body`, and to learn a read command's filters before you call it. On CLI 1.1.x, `--schema` exists only on body-taking commands and prints the request body alone.
 
 `--schema` is the **source of truth** for field-level body detail. Where a skill or reference doc hardcodes a `--body` shape, treat it as a worked example or a carrier for behavioral gotchas (merge semantics, stringify errors, ignored flags) — not an exhaustive field list. When the doc and `--schema` disagree on which fields exist or are required, `--schema` wins.
 
@@ -129,9 +137,9 @@ omni query run --schema                    # schema + example for the query body
 omni ai generate-query --schema --compact  # compact, good for piping to jq
 ```
 
-The output is `{ method, path, body: <JSON schema>, example: <filled body> }`, plus a top-level `required` array when the body has required fields (omitted when it has none). `--help` tells you *that* a body is required; `--schema` tells you its *shape*.
+The output is `{ method, path, args?, queryParams, body, example?, response }`, plus a top-level `required` array when there are required fields (omitted when there are none). `queryParams` lists each filter with the **exact flag spelling** to pass it (`{ flag, name, type, enum?, required, description }`) — the fastest way to check a flag name. `--help` tells you *that* a body is required; `--schema` tells you its *shape*.
 
-`--schema` covers the **request body only** — it carries no response schema. For response shape (e.g. a query's row count is at `cache_metadata.num_rows`, **not** `summary.row_count`), inspect a live response (`-o json`/`csv`) — the runtime is the source of truth there.
+On **CLI ≥ 1.2.0** the `response` section (`{ status, contentType, description, schema }`) documents the success shape, and its `description` often carries behavioral detail worth reading — e.g. `query run` notes that the default response is an **ndjson stream**, one object per line, not parseable as a single JSON document. It is still a *spec* view: for exact runtime field paths (e.g. a query's row count is at `cache_metadata.num_rows`, **not** `summary.row_count`), inspect a live response (`-o json`/`csv`) — the runtime remains the source of truth there.
 
 Two companion flags keep large schemas manageable (e.g. `documents v2-create`):
 

@@ -35,7 +35,7 @@ omni config use <profile-name>
 omni whoami whoami
 ```
 
-> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering request-body shapes with `--schema`.
+> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering command and request-body shapes with `--schema`.
 
 You also need the **model ID** of a shared model to evaluate. Evals require at least **Querier** access on that model, and at least one topic optimized for AI. See the [Evals guide](https://docs.omni.co/ai/evals) for concepts and prompt-set best practices.
 
@@ -47,7 +47,7 @@ You also need the **model ID** of a shared model to evaluate. Evals require at l
 | **Eval run** | Executes a prompt set against a model branch (or `main`). Each prompt runs as a full async agentic AI job (the same engine as production Blobby), then the accuracy judge scores the result. |
 | **Accuracy judge** | A fixed judge model that reads the evaluated AI's full conversation and returns a **pass/fail** verdict per prompt, plus confidence and a rationale. It targets high-impact analysis errors (hallucinations, date/time filtering, row-limit handling, mental math, period-over-period mistakes, wrong topic). It does **not** grade wording or formatting. |
 
-All commands accept `-o json` (or `--compact`) to force structured output for parsing, and `--profile <name>` / `--branch-id` style global flags. Run `omni ai-eval <command> --help` for the full flag list. For commands that take a `--body` (e.g. `prompt-sets-create`), run them with `--schema` to print the body's JSON schema and a filled example instead of guessing the JSON.
+All commands accept `-o json` (or `--compact`) to force structured output for parsing, and `--profile <name>` / `--branch-id` style global flags. Run `omni ai-eval <command> --help` for the full flag list. Run any command with `--schema` to print its args, flags, request-body schema (with a filled example) and response shape instead of guessing — on CLI 1.1.x this works only on body-taking commands such as `prompt-sets-create`.
 
 ## Step 1 — Build a prompt set
 

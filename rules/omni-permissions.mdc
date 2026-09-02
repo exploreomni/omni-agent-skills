@@ -8,7 +8,7 @@ alwaysApply: false
 
 ## Determine what a caller can do (run before deciding where changes live)
 
-Run `omni whoami whoami --modelid <modelId>` and read `rolesByModel[<id>].permissions`. Gate on the **presence of permissions**, not the role *name* — names can be renamed custom roles and surface as internal codes (e.g. `QUERY_TOPICS`):
+Run `omni whoami whoami --model-id <modelId>` and read `rolesByModel[<id>].permissions`. Gate on the **presence of permissions**, not the role *name* — names can be renamed custom roles and surface as internal codes (e.g. `QUERY_TOPICS`):
 
 | Permission (in `whoami`) | Capability |
 |---|---|
@@ -30,7 +30,7 @@ A shared-model-scoped `whoami` does **not** list branch ability as its own entry
 ```bash
 # Keyed by the MEMBERSHIP id, NOT the user id (a user id → 404). Yourself: whoami → user.membershipId.
 # Another user: omni scim users-list --filter 'userName eq "them@company.com"' → the record's `id` IS the membershipId.
-omni users get-model-roles <membershipId> --modelid <modelId>
+omni users get-model-roles <membershipId> --model-id <modelId>
 omni users assign-model-role <membershipId> --body '{ "modelId": "<modelId>", "roleName": "<roleName>" }'
 ```
 

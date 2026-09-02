@@ -172,5 +172,5 @@ The structured path (no `userEditedSQL`) routes through `join_paths_from_topic_n
 Each job result's `model_extension_id` points to a query extension model containing the invented field definitions as standard view YAML. The `sql:` field in that YAML matches `csvResultFields[field].sql` exactly — they are the same source of truth, and `csvResultFields[field].expr` is simply the parsed AST of that SQL string. To inspect:
 
 ```bash
-omni models yaml-get <model_extension_id> --filename "<view_name>.view" -o json
+omni models yaml-get <model_extension_id> --file-name "<view_name>.view" -o json
 ```

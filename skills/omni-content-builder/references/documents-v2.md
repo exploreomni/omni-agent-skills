@@ -163,7 +163,7 @@ omni query run --body '{"query": { … same query object … }}'   # NOTE: wrapp
 
 - The body must be wrapped in a top-level `query` object.
 - `run` returns `{"jobs_submitted": {"<jobId>": "<clientId>"}}` — the query runs **async**.
-- Poll with `omni query wait --jobids <jobId>`.
+- Poll with `omni query wait --job-ids <jobId>`.
 - The completed result's `result` field is **base64-encoded Arrow IPC** — decode with pyarrow (`pa.ipc.open_stream(io.BytesIO(base64.b64decode(result))).read_all()`).
 - To verify a built document's tiles, `omni documents get-queries <identifier>` returns each tile's query **with the workbook `modelId` filled in** — directly runnable via `query run`. (Tile queries inside the v2 envelope carry no `modelId`; standalone `query run` bodies need one.)
 

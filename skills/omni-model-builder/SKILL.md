@@ -27,7 +27,7 @@ omni config use <profile-name>
 omni whoami whoami
 ```
 
-> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering request-body shapes with `--schema`.
+> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering command and request-body shapes with `--schema`.
 
 You need **Modeler** or **Connection Admin** permissions. Add `-o json` to any command to force structured output for parsing (default `auto` is human in a TTY, JSON when piped).
 
@@ -93,7 +93,7 @@ omni models yaml-create --schema  # Print the body's JSON schema + a filled exam
 
 ## Safe Development Workflow
 
-> **Always work in a branch — never write directly to production — and first check you *can* branch.** Branching requires full-model access. Run `omni whoami whoami --modelid <modelId>`: `QUERY_FULL_MODEL` present → you can create a branch (and `UPDATE` present → you can merge/promote it, else open a PR / request a merge); absent → you can't branch — a one-off field belongs in the document's workbook model instead (`omni-content-builder` → *Updating a Dashboard's Model*). Full permission→capability map: **`omni-admin` → Model Roles & Caller Access**.
+> **Always work in a branch — never write directly to production — and first check you *can* branch.** Branching requires full-model access. Run `omni whoami whoami --model-id <modelId>`: `QUERY_FULL_MODEL` present → you can create a branch (and `UPDATE` present → you can merge/promote it, else open a PR / request a merge); absent → you can't branch — a one-off field belongs in the document's workbook model instead (`omni-content-builder` → *Updating a Dashboard's Model*). Full permission→capability map: **`omni-admin` → Model Roles & Caller Access**.
 
 ### Step 0: Create a Branch
 
@@ -127,7 +127,7 @@ omni models yaml-create <modelId> --body '{
 
 > **Note**: The `branchId` parameter must be a UUID from the server (Step 0). Passing a string name instead will return `400 Bad Request: Unrecognized key: "branchName"`.
 
-> **⚠️ Editing an existing file = whole-file read-modify-write at its exact path.** `yaml-create` **replaces** a file's authored content (no field-by-field merge), so `yaml-get` it first, edit, and write the **complete** file back, or the other authored fields are dropped. `fileName` is the file's **exact path** (not a regex, unlike on read) — reuse the full-path key verbatim, folder prefix included (e.g. `MARTS/fct_ai_events.view`); a non-matching name doesn't error, it **silently creates a duplicate** at that path (`success: true`). (Schema base columns live in the schema layer, so they're unaffected.) To **inspect** a branch, `yaml-get` **without** `--filename` enumerates the whole model — `--mode extension` for just the branch's changed files (your deltas), `--mode combined` for the full composed model (schema + shared + branch); then drill into any file by its exact path.
+> **⚠️ Editing an existing file = whole-file read-modify-write at its exact path.** `yaml-create` **replaces** a file's authored content (no field-by-field merge), so `yaml-get` it first, edit, and write the **complete** file back, or the other authored fields are dropped. `fileName` is the file's **exact path** (not a regex, unlike on read) — reuse the full-path key verbatim, folder prefix included (e.g. `MARTS/fct_ai_events.view`); a non-matching name doesn't error, it **silently creates a duplicate** at that path (`success: true`). (Schema base columns live in the schema layer, so they're unaffected.) To **inspect** a branch, `yaml-get` **without** `--file-name` enumerates the whole model — `--mode extension` for just the branch's changed files (your deltas), `--mode combined` for the full composed model (schema + shared + branch); then drill into any file by its exact path.
 
 > **dbt-connected models**: `omni models branch-dbt-get <modelId> <branchName>` (CLI ≥ 1.1.2) reads the dbt environment a branch resolves to, including the dbt git branch it compiles against. A branch with no environment of its own resolves to the connection's default (production) environment, reported with `is_default_environment: true`.
 
@@ -137,14 +137,14 @@ Every YAML write must be validated and tested before merging — a field can be 
 
 ```bash
 # 1. Validate — a NEW issue with is_warning:false that references your changed file is blocking; fix before proceeding
-omni models validate <modelId> --branchid <branchId>
+omni models validate <modelId> --branch-id <branchId>
 
 # 2. Query the fields you changed — confirm no error, and cache_metadata.num_rows > 0
 #    (the row count is at cache_metadata.num_rows; there is NO summary.row_count — see omni-query)
 omni query run --body '{"query":{"modelId":"<modelId>","table":"your_view","fields":["your_view.new_dimension","your_view.new_measure"],"limit":10,"join_paths_from_topic_name":"your_topic"},"branchId":"<branchId>"}'
 
 # 3. Read it back — confirm the field is present (and not duplicated at a second path)
-omni models yaml-get <modelId> --filename your_view.view --branchid <branchId>
+omni models yaml-get <modelId> --file-name your_view.view --branch-id <branchId>
 ```
 
 > **Triage validation errors — most aren't yours.** On a fresh/inherited model, blocking `not found` errors (missing table/view/column) usually mean a **stale schema**: run a **schema refresh** (`omni models refresh <modelId>`) first — it clears them; a `not found` that **persists after refresh** is real (connection lacks DB access, or a genuinely broken reference). For what remains, **baseline before your change** (or filter issues by `yaml_path`) and treat as blocking only the **new** errors referencing **your** changed files — report the pre-existing ones, don't chase them.
@@ -180,7 +180,7 @@ omni models merge-branch <modelId> <branchName>
 
 #### After the merge — verify net-new topics and views (both paths)
 
-After the merge, Omni regenerates the default branch from its own (authoritative) model state — re-serializing to canonical form, and adding a normalization commit only when the merged git content *differs* from that state. Content authored through the Omni APIs is already canonical, so a clean merge often adds **no extra commit** — don't go hunting for one; verify by resolution instead. (A non-git merge promotes the branch into the shared model.) Either way — and **especially for net-new topics or views** — confirm the files resolve against the **production** model (no `--branchid`):
+After the merge, Omni regenerates the default branch from its own (authoritative) model state — re-serializing to canonical form, and adding a normalization commit only when the merged git content *differs* from that state. Content authored through the Omni APIs is already canonical, so a clean merge often adds **no extra commit** — don't go hunting for one; verify by resolution instead. (A non-git merge promotes the branch into the shared model.) Either way — and **especially for net-new topics or views** — confirm the files resolve against the **production** model (no `--branch-id`):
 
 ```bash
 # 1. Files resolve in production — the new view appears / the new topic resolves
@@ -272,10 +272,10 @@ Result: `created_at` inherits its type from the schema layer (DATE with automati
 
 ```bash
 # What you authored (deltas only) — default
-omni models yaml-get <modelId> --filename your_view.view --branchid <branchId> --mode extension
+omni models yaml-get <modelId> --file-name your_view.view --branch-id <branchId> --mode extension
 
 # What the model actually resolves to (schema + extension merged)
-omni models yaml-get <modelId> --filename your_view.view --branchid <branchId> --mode combined
+omni models yaml-get <modelId> --file-name your_view.view --branch-id <branchId> --mode combined
 ```
 
 Use `extension` to confirm *what you changed*, and `combined` to confirm *what the model resolves to*. When the model is git-integrated, the **combined** output mirrors what's written to the repository — which is why committed `*.view.yaml` files carry the schema-layer `table_name:` and base columns, while the extension layer holds only your deltas. (Other `--mode` values: `staged`, `merged`, `history`.)
@@ -319,13 +319,13 @@ omni models get-schemas <modelId>
 # → {"schemas": ["ANALYTICS", "PUBLIC", "STAGING", ...]}
 
 # 2. If the target schema appears in the list, load it explicitly
-omni models yaml-get <modelId> --includeschemas PUBLIC
+omni models yaml-get <modelId> --include-schemas PUBLIC
 ```
 
-**Rules for `--includeschemas`:**
+**Rules for `--include-schemas`:**
 - Accepts exactly **one schema name** per call — commas are rejected. Load schemas one at a time.
 - The response will contain only views from that schema; relationships to other schemas are preserved.
-- To scope to a branch, add `--branchid <id>` to `yaml-get` or `--branch-id <id>` to `get-schemas` (flag names differ per command).
+- To scope to a branch, add `--branch-id <id>` to `yaml-get` or `--branch-id <id>` to `get-schemas` (flag names differ per command).
 
 If the schema isn't in the `get-schemas` list at all, the connection likely doesn't have access or the schema isn't synced — check with a Connection Admin.
 

@@ -27,7 +27,7 @@ omni config use <profile-name>
 omni whoami whoami
 ```
 
-> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering request-body shapes with `--schema`.
+> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering command and request-body shapes with `--schema`.
 
 If no CLI profile exists but the environment provides credentials, pass them explicitly:
 
@@ -43,7 +43,7 @@ omni schedules --help        # Schedule operations
 omni connections --help      # Connection management
 omni documents --help        # Document permissions
 omni folders --help          # Folder permissions
-omni scim users-create --schema   # Print any body command's JSON schema + filled example (no token)
+omni scim users-create --schema   # Print a command's args, flags, body schema + example, and response shape (no token)
 ```
 
 > **Tip**: Use `-o json` to force structured output for programmatic parsing, or `-o human` for readable tables. The default is `auto` (human in a TTY, JSON when piped).
@@ -168,7 +168,7 @@ value under `urn:omni:params:1.0:UserAttribute`.
 
 ### Determining what a caller can do — run before deciding where model/content changes live
 
-This is the canonical access check other skills defer to (e.g. `omni-content-builder` / `omni-model-builder` deciding whether a new field goes on a **branch** vs a **workbook model**). Run `omni whoami whoami --modelid <modelId>` and read `rolesByModel[<id>].permissions`. Gate on the **presence of permissions**, not the role *name* — names can be renamed custom roles and surface as internal codes (e.g. `QUERY_TOPICS`):
+This is the canonical access check other skills defer to (e.g. `omni-content-builder` / `omni-model-builder` deciding whether a new field goes on a **branch** vs a **workbook model**). Run `omni whoami whoami --model-id <modelId>` and read `rolesByModel[<id>].permissions`. Gate on the **presence of permissions**, not the role *name* — names can be renamed custom roles and surface as internal codes (e.g. `QUERY_TOPICS`):
 
 | Permission (in `whoami`) | Capability |
 |---|---|
@@ -188,11 +188,11 @@ Decision shortcuts:
 ```bash
 # Roles are keyed by the MEMBERSHIP id, NOT the user id (a user id → 404 "Membership … not found").
 # Get it — yourself: whoami → user.membershipId · another user: scim users-list (its `id` IS the membershipId, see note below)
-omni users get-model-roles <membershipId> --modelid <modelId>
+omni users get-model-roles <membershipId> --model-id <modelId>
 omni users assign-model-role <membershipId> --body '{ "modelId": "<modelId>", "roleName": "<roleName>" }'
 
 # Group variants
-omni users user-groups-get-model-roles <groupId> --modelid <modelId>
+omni users user-groups-get-model-roles <groupId> --model-id <modelId>
 omni users user-groups-assign-model-role <groupId> --body '{ "modelId": "<modelId>", "roleName": "<roleName>" }'
 ```
 
@@ -206,7 +206,7 @@ omni users user-groups-assign-model-role <groupId> --body '{ "modelId": "<modelI
 
 ```bash
 # Check effective permissions for a user (userId required)
-omni documents get-permissions <documentId> --userid <userId>
+omni documents get-permissions <documentId> --user-id <userId>
 
 # List document access principals
 omni documents access-list <documentId>
@@ -320,24 +320,30 @@ omni ai credit-usage-entity-groups-read --body '{ ... }'
 
 ## Uploads
 
-Manage CSV/spreadsheet uploads (the files users upload to query alongside warehouse data). `create` and `replace-data` take the file via `--body` — run with `--schema` for the shape.
+Manage CSV/spreadsheet uploads (the files users upload to query alongside warehouse data). `create` and `replace-data` are multipart file uploads: on **CLI ≥ 1.2.0** pass the CSV path with `--file` and the other fields as flags. On older CLIs these took a hand-built `--body`. Run either with `--schema` for the full field list.
 
 ```bash
 # List uploads — filter by connection or model, search by file name
-omni uploads list --connectionid <connectionId>
-omni uploads list --modelid <modelId> --searchterm "forecast" --type csv
+omni uploads list --connection-id <connectionId>
+omni uploads list --model-id <modelId> --search-term "forecast" --type csv
 
-# Upload a CSV
-omni uploads create --body '{ ... }'   # see --schema
+# Upload a CSV into a model (CLI ≥ 1.2.0 flags; --file and --model-id are required)
+omni uploads create --file ./forecast.csv --model-id <modelId>
+
+# Upload onto a branch, overriding the generated view name
+omni uploads create --file ./forecast.csv --model-id <modelId> \
+  --branch-name <branchName> --view-name forecast_v2
 
 # Replace the data behind an existing upload, keeping its id (CLI ≥ 1.1.2)
-omni uploads replace-data <uploadId> --body '{ ... }'
+omni uploads replace-data <uploadId> --file ./forecast_november.csv
 
 # Delete an upload
 omni uploads delete <uploadId>
 ```
 
-`replace-data` fully replaces the upload's data while its id stays stable — views and document tabs reference the upload by id, so they serve the new data with no model or document changes. Column renames/removals may break content referencing the old columns, so compare headers before replacing. For `uploads list --modelid`: shared models return connection uploads; workbook models return their own uploads.
+`replace-data` fully replaces the upload's data while its id stays stable — views and document tabs reference the upload by id, so they serve the new data with no model or document changes. Column renames/removals may break content referencing the old columns, so compare headers before replacing. For `uploads list --model-id`: shared models return connection uploads; workbook models return their own uploads.
+
+> **Flags vs. `--body`**: `--file` takes a **path**, not file contents, and `--branch-id` / `--branch-name` are mutually exclusive. `--file` and `--model-id` are required on `create` (`--file` on `replace-data`) unless you supply the same fields through `--body`, which on these two commands carries **multipart fields** — binary values are still file paths, not inline data.
 
 ## Verification After Changes
 
@@ -368,7 +374,7 @@ Check that: the group exists with the expected `displayName`, and `members` arra
 omni documents access-list <documentId>
 
 # For a specific user, also check effective permissions
-omni documents get-permissions <documentId> --userid <userId>
+omni documents get-permissions <documentId> --user-id <userId>
 
 # After setting folder permissions, verify
 omni folders get-permissions <folderId>
