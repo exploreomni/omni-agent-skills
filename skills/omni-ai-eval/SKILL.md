@@ -47,7 +47,7 @@ You also need the **model ID** of a shared model to evaluate. Evals require at l
 | **Eval run** | Executes a prompt set against a model branch (or `main`). Each prompt runs as a full async agentic AI job (the same engine as production Blobby), then the accuracy judge scores the result. |
 | **Accuracy judge** | A fixed judge model that reads the evaluated AI's full conversation and returns a **pass/fail** verdict per prompt, plus confidence and a rationale. It targets high-impact analysis errors (hallucinations, date/time filtering, row-limit handling, mental math, period-over-period mistakes, wrong topic). It does **not** grade wording or formatting. |
 
-All commands accept `-o json` (or `--compact`) to force structured output for parsing, and `--profile <name>` / `--branch-id` style global flags. Run `omni ai-eval <command> --help` for the full flag list. Run any command with `--schema` to print its args, flags, request-body schema (with a filled example) and response shape instead of guessing — on CLI 1.1.x this works only on body-taking commands such as `prompt-sets-create`.
+All commands accept `-o json` (or `--compact`) to force structured output for parsing, and `--profile <name>` / `--branch-id` style global flags. Run `omni ai-eval <command> --help` for the full flag list. Run any command with `--schema` to print its args, flags, request-body schema (with a filled example) and response shape instead of guessing.
 
 ## Step 1 — Build a prompt set
 

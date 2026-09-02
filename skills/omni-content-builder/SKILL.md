@@ -237,7 +237,7 @@ Edits go through the **draft flow** — the published dashboard is untouched unt
    - **Edit a tile**: send just that key — and **re-author its inner vis config nested under `config`** (never echo the flat GET shape back).
    - **Delete a tile**: set its key to `null` and remove it from `order` (and its stack from `containers`).
    - **Layout**: `containers` is a full replacement — send the whole tree with your edit applied.
-3. **Create the draft + apply**: `omni documents v2-patch-draft <identifier> --body @patch.json` (CLI ≥ 1.2.0; `--body - < patch.json` works on any version) — capture `draftIdentifier` from the response. Include a `summary` in the body for the audit trail.
+3. **Create the draft + apply**: `omni documents v2-patch-draft <identifier> --body @patch.json` (or `--body - < patch.json`) — capture `draftIdentifier` from the response. Include a `summary` in the body for the audit trail.
    > Prefer `--body @file` for these bodies: it needs no shell quoting, keeps the patch diffable, and **validates the JSON client-side** — a malformed patch fails immediately with the byte offset instead of a server-side `400`.
 4. **Validate the draft** — `omni documents v2-get-draft <identifier> <draftIdentifier>`, run the affected queries (see [Validation Loops](#validation-loops)). Iterate with `omni documents v2-patch-draft-by-identifier <identifier> <draftIdentifier> --body …`.
 5. **Publish**: `omni documents v2-publish-draft <identifier>`. On failure or abandonment, `omni documents discard-draft <identifier>` cleans up without touching the published doc.

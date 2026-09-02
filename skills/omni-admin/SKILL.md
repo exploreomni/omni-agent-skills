@@ -320,14 +320,14 @@ omni ai credit-usage-entity-groups-read --body '{ ... }'
 
 ## Uploads
 
-Manage CSV/spreadsheet uploads (the files users upload to query alongside warehouse data). `create` and `replace-data` are multipart file uploads: on **CLI ≥ 1.2.0** pass the CSV path with `--file` and the other fields as flags. On older CLIs these took a hand-built `--body`. Run either with `--schema` for the full field list.
+Manage CSV/spreadsheet uploads (the files users upload to query alongside warehouse data). `create` and `replace-data` are multipart file uploads: pass the CSV path with `--file` and the other fields as flags. Run either with `--schema` for the full field list. (On CLI < 1.2.0 these flags don't exist — the same fields go through `--body` as *multipart* fields, with file paths as the binary values.)
 
 ```bash
 # List uploads — filter by connection or model, search by file name
 omni uploads list --connection-id <connectionId>
 omni uploads list --model-id <modelId> --search-term "forecast" --type csv
 
-# Upload a CSV into a model (CLI ≥ 1.2.0 flags; --file and --model-id are required)
+# Upload a CSV into a model (--file and --model-id are required)
 omni uploads create --file ./forecast.csv --model-id <modelId>
 
 # Upload onto a branch, overriding the generated view name
