@@ -305,9 +305,9 @@ measures:
 
 Avoid defining cross-view fields (dimensions or measures whose `sql` references `${other_view.field}`) directly in a view file. These fields depend on another view being joined, which is not guaranteed in every topic that includes this view. In topics where the referenced view isn't present, the field will be omitted — but more importantly, the model validator will throw errors for any topic that includes this view without also joining the referenced view. This can create a cascade of validator errors across topics that are otherwise valid but happen to include only a subset of the involved views.
 
-**In the vast majority of cases, cross-view fields should be defined in the topic's `views:` block** (see "Topic-Scoped View Definitions"), where the join context is explicit and controlled.
+**Placement follows dependency scope, not field namespace.** In the vast majority of cases, define a cross-view field in the topic's `views.<host_view>` block (see "Topic-Scoped View Definitions"), where the join context is explicit and controlled. The field remains queryable as `<host_view>.<field>`; topic scoping limits where it is available, not the namespace the user requested.
 
-Only define a cross-view field in the view file itself when you are certain the referenced view will always be joined in every topic that includes this view — for example, when the join is defined globally and the two views are inseparable by design.
+Only define a cross-view field in the view file itself after inspecting every topic that exposes the host view and confirming the referenced view is joined in each one. A global relationship alone does not prove both views are present in every topic; use the global view file only when the views are inseparable by design.
 
 ## Fallback: View Missing from yaml-get
 

@@ -55,6 +55,19 @@
         "The agent reports validation warnings separately and does not claim they were caused by the deleted column unless validation or content-validator output identifies the missing table or column"
       ],
       "expected_skill": "omni-model-builder"
+    },
+    {
+      "id": "5",
+      "question": "Add a revenue_per_user measure to the order_items view, defined as order_items.total_revenue divided by users.count. Keep the field under order_items, and query it by users.country to verify it.",
+      "ground_truth": "Because the measure depends on users, it is defined under views.order_items.measures in a topic that joins users, not in the global order_items view file. It remains queryable as order_items.revenue_per_user. The agent confirms users is joined, validates the branch, and queries the topic by users.country.",
+      "expected_behavior": [
+        "The agent recognizes users.count as a cross-view dependency and does not define revenue_per_user in the global order_items view file",
+        "The measure is defined under views.order_items.measures in a topic that joins users, preserving the query namespace order_items.revenue_per_user",
+        "The agent confirms the users view is declared in the topic's joins before writing the cross-view measure",
+        "The ratio SQL safely handles a zero denominator, and the agent reads the YAML back to confirm field references survived serialization",
+        "The agent validates the branch and queries order_items.revenue_per_user grouped by users.country through the topic join path before asking about any merge"
+      ],
+      "expected_skill": "omni-model-builder"
     }
   ]
 }
