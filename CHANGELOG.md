@@ -6,6 +6,13 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.9.1] - 2026-09-03
+
+### omni-analytics
+
+**Fixed**
+- **`omni-model-builder` cross-view field placement** — clarifies that topic-scoped fields retain the requested `<view>.<field>` query namespace, and bases global-versus-topic placement on intended availability plus each topic's resolved join map. Documents the reproduced boundary: topics may inherit global relationships, while an explicit/frozen join map can omit a dependency and produce blocking `field_broken_in_topic` validation. Adds a topic-only regression eval for a measure stored under `views.order_items.measures` and queried as `order_items.revenue_per_user`.
+
 ## [1.9.0] - 2026-09-02
 
 ### omni-analytics
