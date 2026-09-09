@@ -250,6 +250,13 @@ Each entry in `relationships.yaml` looks like:
 
 The `on_sql` field tells you the join columns. Extract the column names to populate `relationship_columns` in the output.
 
+> ⚠️ **Critical — match relationships to exact hierarchy edges, not view-name pairs:** `relationships.yaml` is model-wide — it commonly contains multiple relationships that reference the same view (e.g. both an `account ↔ contacts` relationship AND a separate `opportunity ↔ contacts` "primary contact" relationship). Never search `relationships.yaml` for "any entry that mentions view X" — this can silently pick the wrong relationship and skip an intermediate table in the hierarchy.
+>
+> Instead:
+> 1. From the indentation tree in Step 3, enumerate every `(parent, child)` edge exactly as nested (e.g. if `contacts` is indented under `account`, the edge is `(account, contacts)` — **not** `(base_view, contacts)`).
+> 2. For each edge, find the `relationships.yaml` entry whose `join_from_view`/`join_to_view` pair matches that **exact** parent/child pair (in either direction).
+> 3. If no entry matches that exact pair, or more than one entry matches ambiguously, **stop and ask the user** which relationship to use rather than substituting a different entry that happens to reference the same view name.
+
 **Available relationship parameters:**
 
 | Parameter | Description |
