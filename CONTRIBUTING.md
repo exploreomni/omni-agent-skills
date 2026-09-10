@@ -133,19 +133,26 @@ a `cli-synced/<tag>` marker tag, and skips any tag that already has one — a
 release needing no skill changes produces no PR, so a PR check alone would let
 the poll reconsider it every day.
 
-Two repository secrets back it:
+It needs one repository secret, `SYNC_REVIEW_TOKEN`, used only to comment
+`/review` on the sync PR. Reading `exploreomni/cli` needs no secret — the repo
+is public, so the built-in `GITHUB_TOKEN` covers it.
 
-| Secret | Used for |
-|---|---|
-| `CLI_REPO_TOKEN` | Reading releases and diffs from `exploreomni/cli` |
-| `SYNC_REVIEW_TOKEN` | Commenting `/review` on the sync PR |
-
-`SYNC_REVIEW_TOKEN` is needed because `skill-review.yml` triggers on
+`SYNC_REVIEW_TOKEN` is required because `skill-review.yml` triggers on
 `issue_comment`, and GitHub does not start workflow runs from events created
-with the built-in `GITHUB_TOKEN`. Commenting with the default token posts the
-comment and silently triggers nothing. If the secret is unset, the workflow
-skips the comment and logs a warning naming the PR to review by hand, rather
-than appearing to have requested a review that never runs.
+with `GITHUB_TOKEN`. Commenting with the default token posts the comment and
+silently triggers nothing.
+
+The review comment is best-effort and never fails the job: if the secret is
+unset, or set but rejected — a fine-grained token awaiting org approval looks
+exactly like this — the workflow logs a warning naming the PR to review by
+hand. The `cli-synced/<tag>` marker is pushed *before* the comment is
+attempted, so a review that could not be requested never costs the record of
+the sync having run.
+
+> **Fine-grained PATs expire.** `DOCS_REPO_TOKEN` (used by `notify-docs.yml`)
+> lapsed in early August 2026 and the workflow failed silently on every push
+> for a month. Prefer the built-in token wherever a repo is public, and when a
+> PAT is unavoidable, note its expiry.
 
 To run a sync by hand, install the release you are syncing to and follow
 `.claude/agents/sync-cli-changes.md`. The installed binary is the source of
