@@ -1,5 +1,8 @@
 .DS_Store
-.claude/
+# Local Claude Code settings stay out of the repo, but shared maintenance
+# agents under .claude/agents/ are versioned.
+.claude/*
+!.claude/agents/
 __pycache__/
 *.py[cod]
 # Eval run artifacts — never commit. Transcripts and raw outputs can capture

@@ -108,6 +108,55 @@ skills/<skill-name>/evals/evals.json
 
 Use the shared eval instance setup in `evals/SETUP.md` when a case depends on mutable Omni fixtures.
 
+## Staying in Sync with the Omni CLI
+
+The skills document CLI commands, so a CLI release can silently invalidate
+them — a removed command leaves prose pointing at something that now 404s, and
+a new command leaves agents working around a gap that has since been filled.
+
+`.github/workflows/sync-cli-changes.yml` handles this. It runs the procedure in
+`.claude/agents/sync-cli-changes.md` against a release, installs that release's
+binary on the runner, and opens a sync PR if anything in the repo is affected.
+
+It is triggered three ways:
+
+| Trigger | When |
+|---|---|
+| `repository_dispatch` (`cli-update`) | Preferred — `exploreomni/cli` dispatches on release |
+| `schedule` (daily) | Fallback — picks up a release whose dispatch never arrived |
+| `workflow_dispatch` | Manual, for a specific tag or to re-run a sync |
+
+The daily poll exists because the dispatch is a cross-repo dependency that can
+break silently on either side; without it, a missed dispatch means the drift is
+only found when someone hits a stale command. After each run the workflow pushes
+a `cli-synced/<tag>` marker tag, and skips any tag that already has one — a
+release needing no skill changes produces no PR, so a PR check alone would let
+the poll reconsider it every day.
+
+Two repository secrets back it:
+
+| Secret | Used for |
+|---|---|
+| `CLI_REPO_TOKEN` | Reading releases and diffs from `exploreomni/cli` |
+| `SYNC_REVIEW_TOKEN` | Commenting `/review` on the sync PR |
+
+`SYNC_REVIEW_TOKEN` is needed because `skill-review.yml` triggers on
+`issue_comment`, and GitHub does not start workflow runs from events created
+with the built-in `GITHUB_TOKEN`. Commenting with the default token posts the
+comment and silently triggers nothing. If the secret is unset, the workflow
+skips the comment and logs a warning naming the PR to review by hand, rather
+than appearing to have requested a review that never runs.
+
+To run a sync by hand, install the release you are syncing to and follow
+`.claude/agents/sync-cli-changes.md`. The installed binary is the source of
+truth: verify every command with `--help` and every body shape with `--schema`
+before documenting it. Release notes tell you where to look, not what is true.
+
+`.claude/agents/` holds maintenance agents. The marketplace entry installs from
+the repo root, so these files travel with the plugin, but Claude Code loads a
+plugin's user-facing agents from `agents/` — so they are not loaded as agents for
+plugin users, and are not counted in the plugin description.
+
 ## Versioning and Changelog
 
 Bump the affected plugin version when a user who already has the plugin installed would get different behavior after updating.

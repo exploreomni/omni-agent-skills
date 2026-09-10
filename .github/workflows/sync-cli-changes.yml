@@ -1,18 +1,27 @@
 name: Sync CLI Changes to Skills
 
 on:
+  # Preferred trigger: exploreomni/cli dispatches on release.
   repository_dispatch:
     types: [cli-update]
+  # Fallback: poll for a release the repo has not synced yet, so a missed
+  # dispatch delays the sync by a day instead of dropping it.
+  schedule:
+    - cron: "17 13 * * *"
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "exploreomni/cli release tag to process (e.g. v1.2.3)"
-        required: true
+        description: "exploreomni/cli release tag to sync (e.g. v1.2.3). Leave empty for the latest release."
+        required: false
         type: string
 
 permissions:
   contents: write
   pull-requests: write
+
+concurrency:
+  group: sync-cli-changes
+  cancel-in-progress: false
 
 jobs:
   sync:
@@ -20,74 +29,172 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+      # Tag values reach the shell through the environment, never through
+      # ${{ }} interpolation into a script body.
       - name: Resolve release tag
         id: release
-        run: |
-          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            echo "tag=${{ github.event.client_payload.release_tag }}" >> "$GITHUB_OUTPUT"
-            echo "commit=${{ github.event.client_payload.commit_sha }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${{ inputs.release_tag }}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Fetch CLI changes since previous release
         env:
           GH_TOKEN: ${{ secrets.CLI_REPO_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_TAG: ${{ github.event.client_payload.release_tag }}
+          INPUT_TAG: ${{ inputs.release_tag }}
         run: |
-          TAG="${{ steps.release.outputs.tag }}"
-          # Get the previous release tag
-          PREV_TAG=$(gh release list --repo exploreomni/cli --limit 2 --json tagName --jq '.[1].tagName // empty')
-          if [ -n "$PREV_TAG" ]; then
-            gh api repos/exploreomni/cli/compare/${PREV_TAG}...${TAG} --jq '.commits, .files' > /tmp/cli-release-diff.json
-            # Also get the full diff
-            gh api repos/exploreomni/cli/compare/${PREV_TAG}...${TAG} -H "Accept: application/vnd.github.v3.diff" > /tmp/cli-release-diff.txt
+          set -euo pipefail
+          case "$EVENT_NAME" in
+            repository_dispatch) TAG="$DISPATCH_TAG" ;;
+            workflow_dispatch)   TAG="${INPUT_TAG:-}" ;;
+            *)                   TAG="" ;;
+          esac
+          if [ -z "$TAG" ]; then
+            # Drafts publish no assets (the download below would fail); pre-releases
+            # would sync the skills to a CLI that was never actually released.
+            TAG=$(gh release list --repo exploreomni/cli --limit 1 \
+              --exclude-drafts --exclude-pre-releases --json tagName --jq '.[0].tagName')
+          fi
+          # This value names a branch and a git tag below, and is written to
+          # GITHUB_OUTPUT — so it must be anchored, not merely prefix-matched.
+          if [[ ! "$TAG" =~ ^v[0-9]+(\.[0-9]+)*([-.][A-Za-z0-9.]+)?$ ]]; then
+            echo "::error::Unexpected release tag: $TAG"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "branch=sync/cli-$TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved release tag: $TAG"
+
+      # A release that needs no skill changes produces no branch and no PR, so a
+      # PR check alone would let the daily poll re-run it every day until the next
+      # release. The marker tag below records "this tag was considered", whether or
+      # not it resulted in a PR.
+      - name: Skip tags already synced
+        id: guard
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ steps.release.outputs.branch }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          MARKER="cli-synced/$TAG"
+          if git ls-remote --exit-code --tags origin "refs/tags/$MARKER" >/dev/null 2>&1; then
+            echo "$MARKER exists — $TAG has already been through a sync run."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          EXISTING=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state all \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            echo "PR #$EXISTING already covers $TAG — nothing to do."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
           else
-            # First release — diff against the commit
-            echo "First release, no previous tag to compare" > /tmp/cli-release-diff.txt
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Pinned to the release being synced. install.sh always fetches the latest
+      # release, which would install the wrong binary when re-running an older tag.
+      - name: Install the released CLI
+        if: steps.guard.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.CLI_REPO_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" --repo exploreomni/cli \
+            --pattern 'omni_*_linux_amd64.tar.gz' --output /tmp/omni.tar.gz --clobber
+          tar -xzf /tmp/omni.tar.gz -C /tmp omni
+          mkdir -p "$HOME/.local/bin"
+          install -m 0755 /tmp/omni "$HOME/.local/bin/omni"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.local/bin:$PATH"
+          # The agent verifies every claim against this binary, so a version
+          # mismatch here would silently produce docs for the wrong release.
+          INSTALLED="v$(omni --version | awk '{print $NF}')"
+          echo "Installed $INSTALLED"
+          [ "$INSTALLED" = "$TAG" ] || { echo "::error::Installed $INSTALLED but syncing $TAG"; exit 1; }
+
+      - name: Fetch CLI changes since the previous release
+        if: steps.guard.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.CLI_REPO_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # The release immediately before TAG — not simply the second-newest,
+          # which would diff the wrong range when re-running for an older tag.
+          gh release list --repo exploreomni/cli --limit 100 \
+            --exclude-drafts --exclude-pre-releases --json tagName --jq '.[].tagName' > /tmp/cli-tags.txt
+          # Releases list newest-first, so the line after TAG is the one before it.
+          # `|| true` because grep exits 1 when TAG falls outside the 100-release
+          # window, which pipefail would otherwise turn into a bare step failure.
+          PREV_TAG=$(grep -A1 -x -F "$TAG" /tmp/cli-tags.txt | tail -n +2 | head -1 || true)
+          if [ -n "${PREV_TAG:-}" ]; then
+            echo "Diffing $PREV_TAG...$TAG"
+            gh api "repos/exploreomni/cli/compare/${PREV_TAG}...${TAG}" --jq '.commits, .files' > /tmp/cli-release-diff.json
+            gh api "repos/exploreomni/cli/compare/${PREV_TAG}...${TAG}" \
+              -H "Accept: application/vnd.github.v3.diff" > /tmp/cli-release-diff.txt
+          else
+            echo "No release before $TAG to compare against" > /tmp/cli-release-diff.txt
             echo "[]" > /tmp/cli-release-diff.json
           fi
-          # Fetch release notes
           gh release view "$TAG" --repo exploreomni/cli --json tagName,name,body > /tmp/cli-release-meta.json
 
       - uses: anthropics/claude-code-action@bbfaf8e1ffe3e688f7ab65ceee78de241e24a238 # v1
+        if: steps.guard.outputs.proceed == 'true'
         id: sync
         with:
           use_claude_code_app: true
           direct_prompt: |
-            Release ${{ steps.release.outputs.tag }} was published in the exploreomni/cli repo.
+            Omni CLI release ${{ steps.release.outputs.tag }} was published.
 
-            The diff since the previous release is at /tmp/cli-release-diff.txt and
-            release metadata at /tmp/cli-release-meta.json.
+            Follow the procedure in `.claude/agents/sync-cli-changes.md` to bring this
+            repo's skills, agents, and rules back in line with it.
 
-            Your task: determine whether any files in this repo need updating to match the CLI changes.
+            Inputs on this runner:
+            - The released CLI is installed and on PATH — `omni --help` / `--schema` are
+              the source of truth for every claim you write.
+            - /tmp/cli-release-diff.txt — diff since the previous release
+            - /tmp/cli-release-meta.json — release notes
 
-            This repo contains Omni Analytics skill definitions (.md), agent instructions (.md),
-            and rule files (.mdc) that include CLI command examples, parameter tables, and
-            instructional prose. When the CLI changes — new shorthand syntax, new commands,
-            renamed flags, changed defaults — these docs must be updated to match.
+            If changes are needed, commit them to the branch
+            `${{ steps.release.outputs.branch }}` and open a PR titled
+            "Sync skills with exploreomni/cli@${{ steps.release.outputs.tag }}".
 
-            Steps:
-            1. Read /tmp/cli-release-diff.txt and /tmp/cli-release-meta.json to understand what changed
-            2. Search ALL .md and .mdc files for references to affected commands (grep broadly)
-            3. Update code examples, parameter tables, prose descriptions, and batch scripts
-            4. Also update surrounding prose that references old parameter names (e.g. "Set `runQuery: false`" should become "Pass `--run-query false`")
-            5. Verify markdown formatting — table separator rows, code fences, no duplicate headers
-            6. Do a final pass: grep again for any remaining stale references you missed
+            If nothing in this repo is affected by the release, make no changes and
+            open no PR.
 
-            If changes were made, commit them to a new branch and create a PR titled:
-            "Sync skills with exploreomni/cli@${{ steps.release.outputs.tag }}"
-
-            The PR body should list each file changed and summarize what was updated.
-
-            If no files in this repo reference the changed commands, exit without making changes.
-
-      - name: Trigger review on created PR
-        if: steps.sync.outcome == 'success'
+      - name: Request review on the new PR
+        if: steps.guard.outputs.proceed == 'true' && steps.sync.outcome == 'success'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # skill-review.yml triggers on issue_comment, and GitHub does not start
+          # workflow runs from events created with GITHUB_TOKEN. Commenting with it
+          # would post the comment and silently never trigger a review, so this
+          # needs its own token.
+          GH_TOKEN: ${{ secrets.SYNC_REVIEW_TOKEN || secrets.GITHUB_TOKEN }}
+          HAVE_REVIEW_TOKEN: ${{ secrets.SYNC_REVIEW_TOKEN != '' }}
+          BRANCH: ${{ steps.release.outputs.branch }}
         run: |
-          # Find the PR that was just created by the sync step
-          PR_NUMBER=$(gh pr list --repo ${{ github.repository }} --head "claude-sync-" --json number --jq '.[0].number // empty')
-          if [ -n "$PR_NUMBER" ]; then
-            gh pr comment "$PR_NUMBER" --repo ${{ github.repository }} --body "/review"
+          set -euo pipefail
+          # --head matches a branch name exactly, so this must be the same
+          # branch name handed to the agent above.
+          PR_NUMBER=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" \
+            --json number --jq '.[0].number // empty')
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No PR on $BRANCH — the release needed no skill changes."
+            exit 0
           fi
+          if [ "$HAVE_REVIEW_TOKEN" != "true" ]; then
+            echo "::warning::SYNC_REVIEW_TOKEN is not set — commenting /review with GITHUB_TOKEN would not trigger skill-review.yml. Comment /review on PR #$PR_NUMBER by hand."
+            exit 0
+          fi
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body "/review"
+
+      # Recorded whether or not a PR was opened, so a release needing no skill
+      # changes is not reconsidered by tomorrow's poll.
+      - name: Mark this tag as synced
+        if: steps.guard.outputs.proceed == 'true' && steps.sync.outcome == 'success'
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "cli-synced/$TAG"
+          git push origin "refs/tags/cli-synced/$TAG"
