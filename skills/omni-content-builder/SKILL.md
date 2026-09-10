@@ -1,11 +1,11 @@
 ---
 name: omni-content-builder
-description: Create, update, and manage Omni Analytics documents and dashboards programmatically — document lifecycle, drafts, tiles, visualizations, filters, controls, and layouts — using the Omni CLI. Use this skill whenever someone wants to build a dashboard, create a workbook or document, add tiles or charts, configure dashboard filters or controls, set up a KPI view, lay out or rearrange tiles and pages, edit a dashboard as a draft and publish it, change dashboard settings, rename/move/duplicate/delete a dashboard, or modify dashboard-level model customizations like workbook-specific joins or fields — including casual phrasings like "make a dashboard for…", "add a chart to…", or "clean up this dashboard's layout" that don't name the skill. For running a query or pulling metrics use omni-query; for adding a field to the shared model use omni-model-builder.
+description: Create, update, and manage Omni Analytics documents and dashboards programmatically — document lifecycle, drafts, tiles, visualizations, filters, controls, and layouts — using the Omni CLI. Use this skill whenever someone wants to build a dashboard, create a workbook or document, add tiles or charts, configure dashboard filters or controls, set up a KPI view, lay out or rearrange tiles and pages, edit a dashboard as a draft and publish it, change dashboard settings, rename/move/duplicate/delete a dashboard, modify dashboard-level model customizations like workbook-specific joins or fields, or build and edit an Omni app (custom HTML content in place of a dashboard) — including casual phrasings like "make a dashboard for…", "add a chart to…", or "clean up this dashboard's layout" that don't name the skill. For running a query or pulling metrics use omni-query; for adding a field to the shared model use omni-model-builder.
 ---
 
 # Omni Content Builder
 
-Create, update, and manage Omni documents and dashboards programmatically via the Omni CLI — document lifecycle, drafts, workbook models, filters, controls, and dashboard content.
+Create, update, and manage Omni documents, dashboards, and apps programmatically via the Omni CLI — document lifecycle, drafts, workbook models, filters, controls, and dashboard content.
 
 > **Tip**: Use `omni-model-explorer` to understand available fields and `omni-content-explorer` to find existing dashboards to modify or learn from.
 
