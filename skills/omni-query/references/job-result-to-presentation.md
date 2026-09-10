@@ -1,6 +1,6 @@
 # Job Result → queryPresentation Transformation
 
-Converts an `omni ai job-submit` result into a `queryPresentation` object suitable for use in `omni documents create` or a dashboard PUT.
+Converts an `omni ai job-submit` result into a `queryPresentation` object suitable for use in `omni documents v2-create` or a `v2-patch-draft` body.
 
 ## Why transformation is required
 

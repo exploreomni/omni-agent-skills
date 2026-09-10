@@ -4,15 +4,13 @@ All notable changes to this repository will be documented in this file.
 
 Changelog tracking begins with the next release. Historical releases are not backfilled.
 
-The versions documented here should match the published plugin versions in the affected manifest files.
+Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
 ## [1.11.0] - 2026-09-10
 
 _Both plugins move to a single shared version with this release. They ship from
 the same repo at the same commit, so `omni-integrations` jumps from 1.2.2 to
-match. Entries below 1.11.0 use the old scheme, where the heading number belonged
-to whichever plugin that release was for — which is why version numbers there do
-not read in order._
+match._
 
 ### omni-analytics
 
@@ -23,6 +21,21 @@ not read in order._
 
 **Changed**
 - Version realigned from 1.2.2 to the shared repo version. No functional change.
+
+## [1.10.0] - 2026-09-10
+
+### omni-analytics
+
+_Summary: sync skills with Omni CLI v1.2.1 and v1.2.2. 1.2.2 adds the **alpha app sub-resource** on documents v2 (8 commands), `models delete`, and `ai job-feedback-submit`, and **removes** the v1 document write endpoints (`documents update` / `documents put`); 1.2.1 adds update notifications. Every command and body shape below was probed against the released 1.2.2 binary with `--help` / `--schema`._
+
+**Added**
+- **`omni-content-builder` — apps (alpha).** A document can now carry HTML content in place of a dashboard. New *Apps* section in `references/documents-v2.md` covering the eight `documents v2-*-app` commands, the `app` slice on `v2-create` (mutually exclusive with `containers` / `controls` / `settings`), the dashboard-XOR-app rule, `PUT`-creates / `PATCH`-doesn't and the differing 409 gates on `v2-patch-app` (no app on the draft) versus `v2-patch-app-auto-draft` (no *published* app), last-write-wins on `PUT` versus all-or-nothing content-addressed `htmlEdits` on `PATCH` — which detects a stale read but is **not** concurrency safety — the 2 MiB HTML cap, the `allowCreateApps` / org-toggle creation gates behind an otherwise-bare 403, and the silent-failure mode that matters most: **writes never reject on host policy**, so an app pulling a disallowed CDN host returns 200 with a non-blocking `warnings` entry and then renders blank under the CSP. Per-command detail is left to `--help` / `--schema`, which carry it verbatim from the spec.
+- **`omni-model-builder` — `models delete`.** Trashes a SHARED or shared-extension model together with the workbooks, dashboards, and child extension models built on it; requires Connection Admin. Flagged for user confirmation because of that blast radius, and distinguished from `models delete-branch`.
+- **`omni-query` — `ai job-feedback-submit`.** Thumbs up/down (plus optional comment) on a finished AI job, with the `COMPLETE`/`FAILED`-only 409 gate and the append-only, never-read-back caveat.
+- **`omni-api-conventions` rule — `omni update check`** (CLI ≥ 1.2.1) as the follow-up when a capability probe fails: it reports `currentVersion` / `latestVersion` and an `upgrade` object carrying both the `brew` and `install.sh` commands. Documented as *offer the user both* — it does no install-method detection — with the `v`-prefix mismatch that makes a naive string compare of the two versions never match.
+
+**Fixed**
+- **The v1 document write commands are gone.** `PATCH`/`PUT /api/v1/documents/{identifier}` were removed from the API, so `documents update` / `documents put` no longer exist in the CLI. `omni-content-builder` (SKILL.md and `references/documents-v2.md`) told agents "never fall back to v1 `create`/`get`/`put`/`update`" — the two removed verbs are dropped from that list, since naming a nonexistent command as a tempting fallback is worse than not naming it. `omni-query`'s `references/job-result-to-presentation.md` pointed at `omni documents create` "or a dashboard PUT" and now points at `v2-create` / `v2-patch-draft`.
 
 ## [1.9.1] - 2026-09-03
 
