@@ -34,7 +34,9 @@ jobs:
       - name: Resolve release tag
         id: release
         env:
-          GH_TOKEN: ${{ secrets.CLI_REPO_TOKEN }}
+          # exploreomni/cli is public, so the built-in token can read its
+          # releases and diffs. Avoids depending on a PAT that expires silently.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVENT_NAME: ${{ github.event_name }}
           DISPATCH_TAG: ${{ github.event.client_payload.release_tag }}
           INPUT_TAG: ${{ inputs.release_tag }}
@@ -93,7 +95,9 @@ jobs:
       - name: Install the released CLI
         if: steps.guard.outputs.proceed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.CLI_REPO_TOKEN }}
+          # exploreomni/cli is public, so the built-in token can read its
+          # releases and diffs. Avoids depending on a PAT that expires silently.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.release.outputs.tag }}
         run: |
           set -euo pipefail
@@ -113,7 +117,9 @@ jobs:
       - name: Fetch CLI changes since the previous release
         if: steps.guard.outputs.proceed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.CLI_REPO_TOKEN }}
+          # exploreomni/cli is public, so the built-in token can read its
+          # releases and diffs. Avoids depending on a PAT that expires silently.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.release.outputs.tag }}
         run: |
           set -euo pipefail
@@ -160,6 +166,20 @@ jobs:
             If nothing in this repo is affected by the release, make no changes and
             open no PR.
 
+      # Pushed before the review request, and never gated on it: the marker is
+      # what stops tomorrow's poll from redoing this sync, while the /review
+      # comment is a convenience. A failure there must not cost us the marker.
+      - name: Mark this tag as synced
+        if: steps.guard.outputs.proceed == 'true' && steps.sync.outcome == 'success'
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "cli-synced/$TAG"
+          git push origin "refs/tags/cli-synced/$TAG"
+
       - name: Request review on the new PR
         if: steps.guard.outputs.proceed == 'true' && steps.sync.outcome == 'success'
         env:
@@ -181,20 +201,12 @@ jobs:
             exit 0
           fi
           if [ "$HAVE_REVIEW_TOKEN" != "true" ]; then
-            echo "::warning::SYNC_REVIEW_TOKEN is not set — commenting /review with GITHUB_TOKEN would not trigger skill-review.yml. Comment /review on PR #$PR_NUMBER by hand."
+            echo "::warning::SYNC_REVIEW_TOKEN is not set. Comment /review on PR #$PR_NUMBER by hand."
             exit 0
           fi
-          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body "/review"
-
-      # Recorded whether or not a PR was opened, so a release needing no skill
-      # changes is not reconsidered by tomorrow's poll.
-      - name: Mark this tag as synced
-        if: steps.guard.outputs.proceed == 'true' && steps.sync.outcome == 'success'
-        env:
-          TAG: ${{ steps.release.outputs.tag }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag "cli-synced/$TAG"
-          git push origin "refs/tags/cli-synced/$TAG"
+          # The secret being present does not mean it works: a fine-grained token
+          # awaiting org approval is set but rejected. Never fail the job over it —
+          # the PR is already open, and the sync is already recorded above.
+          if ! gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body "/review"; then
+            echo "::warning::SYNC_REVIEW_TOKEN was rejected (an org-approval-pending token looks like this). Comment /review on PR #$PR_NUMBER by hand."
+          fi
