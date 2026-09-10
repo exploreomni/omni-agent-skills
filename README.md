@@ -314,6 +314,18 @@ Or update manually from the `/plugin` menu.
 
 Re-run the installation command or re-copy the updated `skills/` folders to pull the latest version.
 
+### How These Skills Track the Omni CLI
+
+These skills document a moving target: the Omni CLI ships new commands, and
+occasionally removes them. When a CLI release changes the command surface, a
+maintenance agent re-checks the skills against the newly released binary and
+opens a sync PR — so an updated plugin describes the CLI you actually have.
+
+Sync releases are recorded in `CHANGELOG.md`, naming the CLI version each one
+covers. If you are running a newer CLI than the most recent sync, some commands may not
+be documented here yet; `omni <command> --help` and `--schema` are authoritative
+in that gap. `omni update check` reports whether your CLI itself is current.
+
 ### Getting the Latest Version
 
 If your skills appear outdated, or the install command reports the plugin is "already installed" while skills aren't loading, your IDE may be serving a cached version. This can happen when the uninstall process doesn't fully clean up all registry and cache entries.
@@ -364,6 +376,9 @@ To ensure you're running the latest version, manually clear the stale plugin dat
 
 ```
 omni-agent-skills/
+├── .claude/
+│   └── agents/
+│       └── sync-cli-changes.md   # maintenance agent, not loaded for plugin users
 ├── .claude-plugin/
 │   ├── marketplace.json
 │   └── plugin.json
