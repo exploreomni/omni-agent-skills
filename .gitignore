@@ -3,6 +3,12 @@
 # agents under .claude/agents/ are versioned.
 .claude/*
 !.claude/agents/
+# `npx skills add` install artifacts. This repo publishes skills rather than
+# installing any, so a consumer lockfile and an installed copy of the skill tree
+# here only ever come from testing the install flow in a working checkout — they
+# pin this repo to itself and go stale silently.
+.agents/
+skills-lock.json
 __pycache__/
 *.py[cod]
 # Eval run artifacts — never commit. Transcripts and raw outputs can capture
