@@ -426,6 +426,7 @@ Before presenting an async job answer, inspect the `actions[]` entries. A job ca
 Additional job commands:
 - `omni ai job-cancel <jobId>` — cancel a running job
 - `omni ai job-visualization <jobId>` — get the visualization output
+- `omni ai job-feedback-submit <jobId> --body '{"rating":"good"}'` — record a thumbs up/down on a finished job (CLI ≥ 1.2.2). `rating` is **required** (`good` / `bad`); `comment` is optional free text. Only once the poll reports `COMPLETE`/`FAILED` — any other state is a 409. Append-only and never read back, so submit once per job. With an org-scoped key, pass `--user-id` to attribute the feedback to the user the job was submitted with.
 
 ### Using Job Results in a Dashboard
 
