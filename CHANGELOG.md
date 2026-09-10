@@ -6,6 +6,13 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.11.1] - 2026-09-10
+
+### omni-integrations
+
+**Fixed**
+- **`omni-to-snowflake-semantic-view` matches relationships to exact join-hierarchy edges.** The skill previously could match a `relationships.yaml` entry by view name alone, which — since that file is model-wide and can hold multiple relationships touching the same view — could silently pick the wrong one and skip an intermediate table (e.g. joining a child view straight to a grandparent instead of through its actual parent). It now requires an exact `(parent, child)` match per hierarchy edge, respects `reversible` before using a reversed entry, always orients output relationships child → parent, and stops to ask the user on no match or an ambiguous match.
+
 ## [1.11.0] - 2026-09-10
 
 _Both plugins move to a single shared version with this release. They ship from

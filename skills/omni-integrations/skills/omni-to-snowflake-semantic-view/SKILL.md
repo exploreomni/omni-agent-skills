@@ -183,7 +183,7 @@ joins:
       ecomm__distribution_centers: {}   # joins to PRODUCTS
 ```
 
-> Skip any view that is a derived table (CTE defined in SQL in Omni). These have no physical Snowflake table to reference.
+> Skip any view that is a derived table (CTE defined in SQL in Omni). These have no physical Snowflake table to reference. If another view is nested *beneath* a skipped derived table, see Step 5 — its hierarchy edge names a parent with no physical table, so it can't be matched to a `relationships.yaml` entry either.
 
 #### Primary keys
 
@@ -250,12 +250,12 @@ Each entry in `relationships.yaml` looks like:
 
 The `on_sql` field tells you the join columns. Extract the column names to populate `relationship_columns` in the output.
 
-> ⚠️ **Critical — match relationships to exact hierarchy edges, not view-name pairs:** `relationships.yaml` is model-wide — it commonly contains multiple relationships that reference the same view (e.g. both an `account ↔ contacts` relationship AND a separate `opportunity ↔ contacts` "primary contact" relationship). Never search `relationships.yaml` for "any entry that mentions view X" — this can silently pick the wrong relationship and skip an intermediate table in the hierarchy.
+> ⚠️ **Critical — match relationships to exact hierarchy edges, not view-name pairs:** `relationships.yaml` is model-wide — it commonly contains multiple relationships that reference the same view, including a join between the same two views in either direction with a different `on_sql`. Never search `relationships.yaml` for "any entry that mentions view X" — this can silently pick the wrong relationship and skip an intermediate table in the hierarchy. For example, in the Step 3 tree, `demo__product_images` is nested under `ecomm__products` — the relationship you need is `ecomm__products ↔ demo__product_images`, not any entry that happens to reference `demo__product_images` from a different view.
 >
-> Instead:
-> 1. From the indentation tree in Step 3, enumerate every `(parent, child)` edge exactly as nested (e.g. if `contacts` is indented under `account`, the edge is `(account, contacts)` — **not** `(base_view, contacts)`).
-> 2. For each edge, find the `relationships.yaml` entry whose `join_from_view`/`join_to_view` pair matches that **exact** parent/child pair (in either direction).
-> 3. If no entry matches that exact pair, or more than one entry matches ambiguously, **stop and ask the user** which relationship to use rather than substituting a different entry that happens to reference the same view name.
+> 1. From the indentation tree in Step 3, enumerate every `(parent, child)` edge exactly as nested (e.g. `(ecomm__products, demo__product_images)` — **not** `(base_view, demo__product_images)`).
+> 2. For each edge, find the `relationships.yaml` entry whose `join_from_view`/`join_to_view` pair matches that exact parent/child pair, checked in either direction.
+> 3. **Check `reversible` before using a reversed match.** If the matching entry is already written child → parent, use it as-is. If it's written parent → child (reversed relative to the hierarchy edge), only use it if `reversible: true` — otherwise it's not a valid match. Snowflake relationships are directional (many-to-one, child → parent), so regardless of how the entry is written, emit the output oriented **child → parent**: `left_table`/`left_column` is the child (foreign key), `right_table`/`right_column` is the parent (primary key).
+> 4. If no entry matches that exact pair (per steps 2–3), or more than one entry matches ambiguously, **stop and ask the user** which relationship to use rather than substituting a different entry that happens to reference the same view name. This also covers a view nested beneath a *skipped* derived table (Step 3) — its edge names a parent with no physical table, so nothing can match it. Don't silently drop the view or reparent it to the base view; stop and ask.
 
 **Available relationship parameters:**
 
