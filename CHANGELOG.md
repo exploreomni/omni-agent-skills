@@ -6,6 +6,24 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 The versions documented here should match the published plugin versions in the affected manifest files.
 
+## [1.11.0] - 2026-09-10
+
+_Both plugins move to a single shared version with this release. They ship from
+the same repo at the same commit, so `omni-integrations` jumps from 1.2.2 to
+match. Entries below 1.11.0 use the old scheme, where the heading number belonged
+to whichever plugin that release was for — which is why version numbers there do
+not read in order._
+
+### omni-analytics
+
+**Changed**
+- **Versions now come from `versions.json`.** One line at the repo root is stamped into all ten version fields across the six manifests by CI on merge, so a release bump no longer conflicts with every other PR in flight. A `guard` check fails any PR that hand-writes a version disagreeing with the source of truth. See CONTRIBUTING.md → *Versioning and Changelog*.
+
+### omni-integrations
+
+**Changed**
+- Version realigned from 1.2.2 to the shared repo version. No functional change.
+
 ## [1.9.1] - 2026-09-03
 
 ### omni-analytics
