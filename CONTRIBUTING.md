@@ -189,12 +189,49 @@ Use semantic versioning:
 | New skills, new features, behavior changes | `MINOR` |
 | Breaking changes to existing skill behavior | `MAJOR` |
 
-Only bump the plugin whose behavior changed. A fix to `omni-integrations` does not require bumping `omni-analytics`.
+Always all three components: `1.11.0`, never `1.11`.
 
-Keep duplicated version metadata in sync:
+**CI does not infer the level.** Whether a change is a patch or a minor is a
+judgment about impact that only the author can make — a one-word edit to a skill
+`description` changes which requests reach that skill and is a `MINOR`, while a
+large rewrite that leaves behavior identical is a `PATCH`. Pick it with the table
+above; CI only propagates the number you chose.
 
-- `omni-analytics`: `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.cursor-plugin/plugin.json`, `.cursor-plugin/marketplace.json`
-- `omni-integrations`: `skills/omni-integrations/.claude-plugin/plugin.json`, `skills/omni-integrations/.cursor-plugin/plugin.json`, `.claude-plugin/marketplace.json` (`omni-integrations` entry), `.cursor-plugin/marketplace.json` (`omni-integrations` entry)
+### One version, one place
+
+`versions.json` at the repo root is the single source of truth:
+
+```json
+{ "version": "1.11.0" }
+```
+
+Bumping a release means editing that one line. On merge to `main`, the `stamp`
+job in `.github/workflows/versions.yml` writes it into all ten version fields
+across the six manifests and commits the result, so a PR carries its actual
+change rather than ten lines of bookkeeping that conflict with every other PR in
+flight.
+
+To stamp locally — never required, but handy before cutting a release:
+
+```bash
+.github/scripts/stamp_versions.py          # rewrite manifests
+.github/scripts/stamp_versions.py --check  # report drift, change nothing
+```
+
+A PR may leave the manifests alone entirely. What it may not do is hand-write a
+version that disagrees with `versions.json`: the `guard` job fails the PR if a
+manifest is touched and does not match. That is the check that keeps the ten
+fields from drifting apart again.
+
+**Both plugins share one version** as of 1.11.0. They ship from the same repo at
+the same commit — `omni-analytics` installs from the repo root and
+`omni-integrations` from a subdirectory of it — so two numbers described a
+release cadence that did not exist, and the changelog had already collapsed them
+into one heading per release. The visible cost is that `omni-integrations` now
+takes a version bump in releases where its own files did not change; the benefit
+is that a version identifies a commit of this repo, unambiguously. Entries before
+1.11.0 use the old scheme, where the heading number belonged to whichever plugin
+that release was for.
 
 Document user-visible changes in `CHANGELOG.md` under the affected version. Use `Added`, `Changed`, and `Fixed` sections. The date should be the release date, not necessarily the commit date.
 

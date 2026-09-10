@@ -4,7 +4,23 @@ All notable changes to this repository will be documented in this file.
 
 Changelog tracking begins with the next release. Historical releases are not backfilled.
 
-The versions documented here should match the published plugin versions in the affected manifest files.
+Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
+
+## [1.11.0] - 2026-09-10
+
+_Both plugins move to a single shared version with this release. They ship from
+the same repo at the same commit, so `omni-integrations` jumps from 1.2.2 to
+match._
+
+### omni-analytics
+
+**Changed**
+- **Versions now come from `versions.json`.** One line at the repo root is stamped into all ten version fields across the six manifests by CI on merge, so a release bump no longer conflicts with every other PR in flight. A `guard` check fails any PR that hand-writes a version disagreeing with the source of truth. See CONTRIBUTING.md → *Versioning and Changelog*.
+
+### omni-integrations
+
+**Changed**
+- Version realigned from 1.2.2 to the shared repo version. No functional change.
 
 ## [1.10.0] - 2026-09-10
 

@@ -1,0 +1,59 @@
+name: Versions
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  # A PR may leave the manifests untouched — the stamp job below fills them in
+  # after merge. What it may not do is hand-write a version that disagrees with
+  # versions.json, which is how the ten fields drifted apart before.
+  guard:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      - name: Reject hand-edited versions
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          CHANGED=$(git diff --name-only "$BASE_SHA"...HEAD -- \
+            '.claude-plugin/*.json' '.cursor-plugin/*.json' \
+            'skills/omni-integrations/.claude-plugin/*.json' \
+            'skills/omni-integrations/.cursor-plugin/*.json')
+          if [ -z "$CHANGED" ]; then
+            echo "No manifest changes — versions.json alone is the way to bump."
+            exit 0
+          fi
+          echo "Manifests touched by this PR:"
+          echo "$CHANGED" | sed 's/^/  /'
+          echo
+          # Touching them is allowed, but only in agreement with versions.json.
+          python3 .github/scripts/stamp_versions.py --check
+
+  stamp:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Stamp manifests from versions.json
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/stamp_versions.py
+          if git diff --quiet; then
+            echo "Manifests already match versions.json."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- '*.json'
+          git commit -m "chore: stamp manifests from versions.json"
+          git push origin HEAD:main
