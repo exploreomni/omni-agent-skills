@@ -91,7 +91,7 @@ omni whoami whoami --model-id <id1,id2>   # scope rolesByModel to specific model
 
 Both failure modes exit non-zero, so **branch on the message, not just the exit code**. A `403` whose message is a *permissions* error (not `Invalid bearer token`) means you're authenticated but lack access — that's not an auth-handoff case. `whoami` is **self-scoped and available to non-admins**, so this works for any profile.
 
-**Prefer this capability probe over comparing `omni --version`.** Custom and dev builds (e.g. `local-prs-…`) and `install.sh`-from-`main` binaries carry the features without a release version, so a strict semver gate would reject a perfectly capable CLI. The same idiom guards other version-sensitive features — e.g. `omni documents v2-get --help >/dev/null 2>&1 || echo "CLI too old for the v2 documents API"`.
+**Prefer this capability probe over comparing `omni --version`.** Custom and dev builds (e.g. `local-prs-…`) and `install.sh`-from-`main` binaries carry the features without a release version, so a strict semver gate would reject a perfectly capable CLI. The same idiom guards other version-sensitive features — e.g. `omni documents v2-get --help >/dev/null 2>&1 || echo "CLI too old for the v2 documents API"`. When a probe does fail, `omni update check` (CLI ≥ 1.2.1) reports `currentVersion` / `latestVersion` and an `upgrade` object carrying **both** a `homebrew` and an `other` (`install.sh`) command — it does not detect how this binary was installed, so offer the user both rather than picking one. Note `latestVersion` is `v`-prefixed and `currentVersion` is not, so don't compare them as strings — read `updateAvailable`.
 
 ## Command Pattern
 

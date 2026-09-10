@@ -60,6 +60,8 @@ Use dialect-appropriate functions in your SQL (e.g. `SAFE_DIVIDE` for BigQuery, 
 
 > **Creating a *new* SHARED model (rare).** Most work is on an existing model — but if you do create one with `omni models create`, the body is `{ modelKind: "SHARED", connectionId }` (no `baseModelId`; it inherits the connection's schema views + assumed relationships — run `omni models create --schema` for the full field list). **Footgun: create takes `modelName`, update takes `name`.** Passing `name` on create is silently ignored and the model is named from the connection — then you'd have to `omni models update <id> --body '{"name":"…"}'` to fix it. Pass **`modelName`** on create and skip the rename.
 
+> **Deleting a model (CLI ≥ 1.2.2).** `omni models delete <modelId>` trashes a SHARED or shared-extension model **together with the workbooks, dashboards, and child extension models built on it** — confirm that blast radius with the user before running it. Requires **Connection Admin**. It does not delete branches: use `omni models delete-branch` for those.
+
 ## Schema Refresh: Syncing with Database Changes
 
 The **schema layer** is auto-generated from your database. When your database schema changes (new/deleted/renamed columns, type changes), refresh it to stay in sync: `omni models refresh <modelId>` (add `--branch-id <branchId>` to scope to a branch; requires **Connection Admin**).

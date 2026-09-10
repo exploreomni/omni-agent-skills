@@ -9,7 +9,7 @@ Create, update, and manage Omni documents and dashboards programmatically via th
 
 > **Tip**: Use `omni-model-explorer` to understand available fields and `omni-content-explorer` to find existing dashboards to modify or learn from.
 
-Documents are created and edited through the **v2 documents API** (`omni documents v2-*`) — an explicit envelope of `queryPresentations`, `controls`, `containers`, and `settings`, edited through a **draft → publish** flow. This is the only path for building, reading, or changing a document — never fall back to the v1 `documents create`/`get`/`put`/`update` commands. A few document-management operations (list, delete, move, duplicate, downloads) have no v2 form; see [Commands](#commands) below.
+Documents are created and edited through the **v2 documents API** (`omni documents v2-*`) — an explicit envelope of `queryPresentations`, `controls`, `containers`, and `settings`, edited through a **draft → publish** flow. This is the only path for building, reading, or changing a document — never fall back to the v1 `documents create`/`get` commands (v1 `put`/`update` were removed in CLI 1.2.2). A few document-management operations (list, delete, move, duplicate, downloads) have no v2 form; see [Commands](#commands) below.
 
 ## Known Issues & Safe Defaults
 
@@ -75,7 +75,7 @@ omni documents v2-create --schema  # Body schema + example (add --depth 1 for an
 
 ## Commands
 
-**Build and edit documents with the `documents v2-*` commands — always.** There is no situation where you reach back to the v1 `documents create`/`get`/`put`/`update` path to build, read, or change a document; the v2 draft flow covers all of it.
+**Build and edit documents with the `documents v2-*` commands — always.** There is no situation where you reach back to the v1 `documents create`/`get` path to build, read, or change a document; the v2 draft flow covers all of it.
 
 | Operation | Command |
 |---|---|
@@ -84,6 +84,7 @@ omni documents v2-create --schema  # Body schema + example (add --depth 1 for an
 | Edit document (tiles, controls, layout, settings, rename) | `documents v2-patch-draft` (+ `v2-patch-draft-by-identifier`) |
 | Get the workbook model ID | `documents list-drafts` → `workbookModelId` (open a draft first) |
 | Publish a draft | `documents v2-publish-draft` |
+| Read or edit an **app** (HTML instead of a dashboard) | `documents v2-*-app` — alpha, CLI ≥ 1.2.2; see [references/documents-v2.md](references/documents-v2.md) |
 
 A handful of **document-management** operations have no v2 form — they aren't alternatives to the v2 build path, just the only command for that job: `documents list` / `list-drafts` (find documents and drafts), `documents discard-draft` (abandon a draft), `documents delete` / `move` / `duplicate` (lifecycle), `documents get-queries` (extract a tile's runnable query for validation), `dashboards download` / `download-status`, and `models yaml-create` / `validate` (model writes).
 

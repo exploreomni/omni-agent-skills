@@ -1,6 +1,6 @@
 # Documents v2 API Reference
 
-The `omni documents v2-*` commands are the **only** surface for creating, reading, and editing documents — an explicit envelope of `queryPresentations`, `controls`, `containers`, and `settings`, edited through a **draft → publish** flow. Never fall back to the v1 `documents create`/`get`/`put`/`update` path. A few document-management operations (list, delete, move, duplicate, discard-draft, get-queries, downloads) have no v2 form and are the only command for that job — see the command list in [SKILL.md](../SKILL.md). Always read your result back with `v2-get` / `v2-get-draft` and verify.
+The `omni documents v2-*` commands are the **only** surface for creating, reading, and editing documents — an explicit envelope of `queryPresentations`, `controls`, `containers`, and `settings`, edited through a **draft → publish** flow. Never fall back to the v1 `documents create`/`get` path (v1 `put`/`update` were removed in CLI 1.2.2). A few document-management operations (list, delete, move, duplicate, discard-draft, get-queries, downloads) have no v2 form and are the only command for that job — see the command list in [SKILL.md](../SKILL.md). Always read your result back with `v2-get` / `v2-get-draft` and verify.
 
 ## Commands
 
@@ -105,6 +105,29 @@ column_totals{}, row_totals{}, fill_fields[], userEditedSQL
 ```
 
 All but `limit` and `join_paths_from_topic_name` are schema-required — omitting any of those returns a 400 listing each missing field. Send `limit` and `join_paths_from_topic_name` anyway: an unbounded query and broken topic joins are worse than a 400. `join_paths_from_topic_name` is the **topic name** (e.g. `"orders"`), not the base view name. Do **not** include `modelId` or `model_extension_id` (see above).
+
+## Apps (alpha, CLI ≥ 1.2.2)
+
+An **app** is HTML content in place of a dashboard. A document carries at most one of a dashboard or an app — never both; workbook-only is valid. The HTML and its `settings` live only at the app commands below; `v2-get` carries an `app` slice that points here and accepts it back only as it was read.
+
+| Command | Purpose |
+|---|---|
+| `v2-get-app <identifier>` | Read the published HTML + `settings` |
+| `v2-get-draft-app <identifier> <draftIdentifier>` | Read a named draft's app |
+| `v2-get-main-draft-app <identifier>` | Read the main draft's app (404 if there is no main draft) |
+| `v2-put-app <identifier> <draftIdentifier>` | Replace the HTML on a draft, creating the app if the draft is workbook-only |
+| `v2-patch-app <identifier> <draftIdentifier>` | Apply `htmlEdits` (substring search/replace) without resending the HTML |
+| `v2-remove-app <identifier> <draftIdentifier>` | Drop the app, leaving a workbook-only document |
+| `v2-put-app-auto-draft` / `v2-patch-app-auto-draft` `<identifier>` | The same two writes, creating-or-reusing the main draft in one call |
+
+- Create an app document with `omni documents v2-create <SHARED_MODEL_ID> "My App" --body '{"app": {"html": "…"}}'` — `model-id` and `name` are still required, and the `app` slice is mutually exclusive with `containers`, `controls`, and `settings`. Creation is gated on the org app toggle, and a user-scoped key needs the role's `allowCreateApps` on the model (or on its parent SHARED model) — otherwise a bare 403.
+- Writes are draft-only and never auto-publish. `v2-publish-draft` publishes the **main** draft only, so an app written to a branch-bound draft goes live through the branch merge instead (see [branch-bound-drafts.md](branch-bound-drafts.md)).
+- `PUT` creates the app; `PATCH` never does. The two PATCH variants differ on what they check: `v2-patch-app` 409s against a draft with no app, while `v2-patch-app-auto-draft` 409s when the **document has no published app** — so the create-then-edit-before-first-publish path must use `v2-patch-app`, not the auto-draft form.
+- `PUT` is last-write-wins with no version precondition. `PATCH`'s `htmlEdits` are all-or-nothing and content-addressed: an edit matching zero times, or more than once without `replaceAll`, rejects the whole request. That catches a **stale read**, not a concurrent writer — serialize writes to one app when it matters.
+- **Writes never reject on host policy.** An external `<script src>` / `<link rel="stylesheet">` host outside the org's app policy comes back as a non-blocking `warnings` entry on an otherwise-200 response, and the render-time CSP leaves it inert until an admin allows the host — so a CDN-loading app can "succeed" and render blank. Read `warnings` before reporting success.
+- HTML is capped at **2 MiB** on write; apps saved before the cap can read back larger and then fail on the way back in.
+- A dashboard document can't become an app in place — drop the dashboard first (`v2-remove-dashboard <identifier> <draftIdentifier>`), since a draft carrying a dashboard can never carry an app. Also avoid naming a draft `app`: the route ranks that literal above `{draftIdentifier}`, making the draft unaddressable on these commands.
+- Alpha — the app sub-resource may change shape without a deprecation cycle. Run `--help` / `--schema` on the command before your first write.
 
 ## Behaviors to design around
 
