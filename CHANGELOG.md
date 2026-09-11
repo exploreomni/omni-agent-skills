@@ -6,6 +6,13 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.12.0] - 2026-09-10
+
+### omni-integrations
+
+**Added**
+- **`omni-to-snowflake-semantic-view` and `omni-to-databricks-metric-view` sync the Omni topic back after export.** Both skills previously stopped once the Semantic View / Metric View was created and granted in the warehouse, leaving the Omni topic's model-layer (extension) content as a second, independent copy of the same logic — identical at conversion time but free to drift the moment either side is edited next. Each skill gains a final step that refreshes the Omni model schema, checks the topic's extension layer, and — after explicit user confirmation — clears it with a direct write to the shared model (`mode: extension`, empty `yaml`, no branch ID, since a branch + merge does not propagate an empty-`yaml` write), then verifies the topic still resolves fully. Step 1 in both skills now also asks whether the topic was itself generated from an existing Semantic View / Metric View, to set this expectation up front.
+
 ## [1.11.0] - 2026-09-10
 
 _Both plugins move to a single shared version with this release. They ship from

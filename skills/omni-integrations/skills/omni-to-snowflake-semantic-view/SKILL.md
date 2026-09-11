@@ -117,8 +117,9 @@ Ask the user:
 2. What should the **Semantic View be named**?
 3. Where should it be created in Snowflake (**database** and **schema**)?
 4. Which **role** should be granted access to the Semantic View?
+5. **Is this topic generated from an existing Semantic View?** If yes, warn the user up front: this conversion will replace that Semantic View, and — per Step 8 — the Omni topic's extension layer should be cleared afterward so the new Semantic View is the only source of truth. Skipping Step 8 leaves two definitions that are identical today but will drift the next time either side is edited.
 
-> ⚠️ **STOP** — Confirm all four answers before proceeding.
+> ⚠️ **STOP** — Confirm all five answers before proceeding.
 
 ---
 
@@ -727,6 +728,58 @@ GRANT SELECT ON SEMANTIC VIEW <database>.<schema>.<name> TO ROLE <role>;
 ```
 
 Execute this the same way as the `CREATE` call above, using whichever connection method was established during the Runtime Environment Detection step.
+
+---
+
+### Step 8 — Sync the Omni Topic with the New Semantic View
+
+The Semantic View created in Step 7 is now a second, independent copy of the topic's logic. If the Omni topic still carries its own model-layer (extension) content, that content and the Semantic View are identical right now but **will drift** the next time someone edits either side — leaving no clear source of truth. Close the loop before finishing.
+
+#### 8a. Refresh the Omni model schema
+
+```bash
+omni models refresh <modelId>
+```
+
+Lets Omni pick up the new Semantic View's structure on its next schema sync.
+
+#### 8b. Check the topic's extension layer
+
+```bash
+omni models yaml-get <modelId> --file-name '<topic_name>.topic' --mode extension
+```
+
+An empty/absent result means the topic has no model-layer overrides — nothing further to do. Non-empty content means the topic still defines dimensions, measures, joins, or fields that now duplicate what the Semantic View defines.
+
+#### 8c. Clear the extension layer
+
+> ✋ **STOP** — Show the user the extension content from 8b and confirm they want it cleared before proceeding. This is a destructive, hard-to-reverse edit to the shared model.
+
+If overrides exist and the user confirms, write an empty extension **directly to the shared model** — do not pass a branch ID:
+
+```bash
+omni models yaml-create <modelId> --body '{
+  "fileName": "<topic_name>.topic",
+  "yaml": "",
+  "mode": "extension",
+  "commitMessage": "Clear model layer - topic now driven by semantic view"
+}'
+```
+
+> ⚠️ **Write directly to the shared model — do not go through a branch + merge.** Branch merges do not propagate an empty-`yaml` write, so the extension survives merge and the duplication returns. This is the one step in this skill that intentionally bypasses the branch → validate → merge workflow described in `omni-model-builder`.
+
+#### 8d. Verify
+
+```bash
+# Extension layer is now empty
+omni models yaml-get <modelId> --file-name '<topic_name>.topic' --mode extension
+
+# Topic still resolves fully, now from the schema/Semantic View layer alone
+omni models get-topic <modelId> <topic_name>
+omni models validate <modelId>
+```
+
+Confirm `get-topic` still returns every expected field and `validate` reports no blocking errors (any `is_warning:false` is blocking). If a field is missing, the extension layer was carrying logic the Semantic View doesn't have — add that logic to the Semantic View YAML (Step 6/7) rather than restoring the extension, or the two sources of truth problem just comes back.
 
 ---
 
