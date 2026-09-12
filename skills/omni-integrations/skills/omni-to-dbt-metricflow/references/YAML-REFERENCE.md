@@ -118,7 +118,7 @@ saved_queries: [...]                   # top-level, not under models[]
 
 Legacy populates manifest `semantic_models[].measures` and `metrics[].type_params.measure`. Flattened YAML leaves `semantic_models[].measures` empty. Its aggregation is on `metrics[].type_params.metric_aggregation_params` with `semantic_model`, `agg`, `agg_params`, and `agg_time_dimension`, plus `type_params.expr`.
 
-Omni's importer reads both paths. dbt 1.12.4 emits no deprecation warning for the legacy spec. `dbt-autofix deprecations --semantic-layer` converts legacy YAML to flattened YAML. It renames semantic models to the model name, turns measures without a metric into `hidden: true` metrics, and does not rewrite filter qualifiers.
+Omni's importer reads both paths. dbt 1.12.4 emits no deprecation warning for the legacy spec. `dbt-autofix deprecations --semantic-layer` (dbt-autofix 0.22.6) converts legacy YAML to flattened YAML. It renames semantic models to the model name, turns measures without a metric into `hidden: true` metrics, and does not rewrite filter qualifiers.
 
 ## Aggregate Type Mapping
 

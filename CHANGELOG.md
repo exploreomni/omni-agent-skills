@@ -11,7 +11,7 @@ Since 1.11.0 both plugins share one version, held in `versions.json` and stamped
 ### omni-integrations
 
 **Added**
-- **`omni-to-dbt-metricflow` — move Omni logic into the dbt Semantic Layer.** Exports Omni view and relationship logic (scoped by a view or a topic) to dbt MetricFlow YAML, validates it with dbt and mf, and adds the `FALLBACK-TO-DBT.md` reference for the last step: once a dbt sync brings the definition in, remove the Omni model-layer override so Omni falls back to dbt. The procedure was validated on a live Omni instance.
+- **`omni-to-dbt-metricflow` — move Omni logic into the dbt Semantic Layer.** Exports Omni view and relationship logic (scoped by a field list, a view, or a topic) to dbt MetricFlow YAML, checks every emitted name against the dbt project before writing, validates it with dbt and mf, and adds the `FALLBACK-TO-DBT.md` reference for the last step: once a dbt sync brings the definition in, remove the Omni model-layer override so Omni falls back to dbt. The procedure was validated on a live Omni instance.
 
 ## [1.11.0] - 2026-09-10
 

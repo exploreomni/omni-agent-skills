@@ -25,7 +25,7 @@ Omni merges a same-named field key by key. Extension keys win. dbt-only keys fil
 
 For example, an extension can retain `sql`, tags, format, synonyms, and `ai_context`. The dbt import can still add a description or an `sql` key that the extension does not define.
 
-Fields marked `ignored: true` in the extension never appear in combined output. This is how the demo hides four dbt measures.
+Fields marked `ignored: true` in the extension never appear in combined output. An extension can hide an imported dbt measure this way.
 
 ## Branch Procedure
 
@@ -37,7 +37,7 @@ This procedure follows `omni-model-builder` → Safe Development Workflow (Steps
    omni models create-branch <modelId> --name <unique-branch>
    ```
 
-2. List dbt environments for the connection. Select an existing environment with `is_default: false`. Do not create a dbt environment without asking the user.
+2. List dbt environments for the connection. Select an existing environment with `isDefaultEnvironment: false` in the list response. Do not create a dbt environment without asking the user.
 
    ```bash
    omni connections dbt-environments-list <connectionId>
@@ -166,7 +166,7 @@ measures:
 
 The removal of the extension field let the dbt definition supply its SQL, description, and aggregation. It also removed the extension-only tags, format, synonyms, and AI context.
 
-The live test left the `sale_price` dimension override in place. The branch query then computed `SUM("SALE_PRICE" * 0.95 * 0.95)`. Step 6 removes that override too.
+The live test left the `sale_price` dimension override in place. The branch query then computed `SUM("SALE_PRICE" * 0.95 * 0.95)`. Step 6 of the Branch Procedure above removes that override too.
 
 ## Importer Support Matrix
 

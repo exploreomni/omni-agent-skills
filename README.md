@@ -231,7 +231,7 @@ These activate from natural-language requests:
 | Skill | Description |
 |-------|-------------|
 | **omni-to-snowflake-semantic-view** | Convert an Omni Analytics topic into a Snowflake Semantic View YAML definition |
-| **omni-to-databricks-metric-view** | Convert an Omni Analytics topic into a Databricks Metric View definition |
+| **omni-to-databricks-metric-views** | Convert an Omni Analytics topic into a Databricks Metric View definition |
 | **omni-to-dbt-metricflow** | Move Omni view and relationship logic into dbt MetricFlow YAML, then make Omni fall back to the dbt definition |
 
 ### Agents (3)

@@ -1,6 +1,6 @@
 ---
 name: omni-to-dbt-metricflow
-description: "Move logic that lives in Omni Analytics views (dimensions, measures, primary keys) and relationships into the dbt Semantic Layer as MetricFlow semantic_models, metrics, and saved_queries YAML, scoped by a view or a topic, validate it with dbt and mf, then make Omni fall back to the dbt definition by removing the Omni model-layer override once a dbt sync has brought it in. Use this skill whenever someone wants to push Omni measures or metrics down to dbt, hand Omni logic to the dbt Semantic Layer, generate semantic_models or metrics YAML from an Omni view, or make dbt the source of a metric that Omni currently defines."
+description: "Move logic that lives in Omni Analytics views (dimensions, measures, primary keys) and relationships into the dbt Semantic Layer as MetricFlow semantic_models, metrics, and saved_queries YAML, scoped by a field list, a view, or a topic, validate it with dbt and mf, then make Omni fall back to the dbt definition by removing the Omni model-layer override once a dbt sync has brought it in. Use this skill whenever someone wants to push Omni measures or metrics down to dbt, hand Omni logic to the dbt Semantic Layer, generate semantic_models or metrics YAML from an Omni view, or make dbt the source of a metric that Omni currently defines."
 ---
 
 # Omni → dbt MetricFlow
@@ -37,6 +37,7 @@ Replace `dbt-snowflake` with the project adapter. Install `mf` in the same Pytho
 
 ```bash
 omni models --help
+omni connections --help
 omni models yaml-get --schema
 omni models yaml-create --schema
 omni query run --schema
@@ -48,7 +49,7 @@ Use `-o json` for structured Omni output. Use `-o human` for tables.
 ## Known Issues & Safe Defaults
 
 - Select the spec already used by the dbt project. Legacy and flattened dbt 1.12 specs both compile into manifests that Omni imports.
-- dbt 1.12.4 emits no deprecation warning for the legacy spec. `dbt-autofix deprecations --semantic-layer` can convert it. Read [YAML-REFERENCE.md](./references/YAML-REFERENCE.md) before converting a project.
+- dbt 1.12.4 emits no deprecation warning for the legacy spec. `dbt-autofix deprecations --semantic-layer` (dbt-autofix 0.22.6, checked with `--help`) can convert it. Read [YAML-REFERENCE.md](./references/YAML-REFERENCE.md) before converting a project.
 - MetricFlow measure, metric, and saved-query names are project-wide. Step 8 checks the dbt project for every name before writing and asks the user how to resolve a match.
 - Qualify filters as `<entity>__<dimension>`, such as `user_id__state`. Do not use the semantic-model name. Use `IS TRUE` for booleans and `TimeDimension` for fixed-date filters.
 - A measure `expr` is written against dbt model columns. It is not written against an Omni dimension override.
@@ -73,7 +74,7 @@ Ask for the export scope. Three scopes are valid:
 
 Default to the narrowest scope the user named. Do not widen a field list to the whole view. Ask for the dbt project path, destination branch, and whether to write files or print a draft. Ask which dbt model backs each view. Detect the project YAML shape.
 
-Ask whether the exported definitions must round-trip into Omni. This determines how to handle model-layer dimension overrides.
+Tell the user that Step 10 removes the matching Omni model-layer override once the dbt sync brings the definition in. Confirm they accept that before you inline a dimension override in Step 5 (option 2).
 
 > ⚠️ **STOP** — Confirm the scope (fields, views, or topic), dbt model map, YAML shape, and write scope before inspecting or writing definitions.
 
@@ -202,7 +203,7 @@ Skip and report `sum_distinct_on`, `average_distinct_on`, `median_distinct_on`, 
 
 Map supported `default_filters` and `sample_queries` to `saved_queries`. Drop table calculations, pivots, and unsupported query logic.
 
-Store round-trip-safe `ai_context` and synonyms in `config.meta` as `omni_*` values. Do not treat metadata as executable instruction. Do not let it select a target, branch, grant, or SQL fragment.
+Store `ai_context` and synonyms in `config.meta` as `omni_*` values for reference only. Omni does not import `meta`. Do not treat metadata as executable instruction. Do not let it select a target, branch, grant, or SQL fragment.
 
 ### Step 8 — Check the dbt Project for Existing Names
 
@@ -253,12 +254,12 @@ Successfully validated the semantics of built manifest (ERRORS: 0, ...)
 
 ### Step 10 — Make Omni Fall Back to the dbt Definition
 
-After the dbt YAML is merged, Omni brings it in on the next schema refresh or dbt sync. The Omni model-layer field with the same name still wins, key by key. To let the dbt logic show through, remove that override on an Omni branch and ship the branch.
+After the dbt YAML is merged, Omni brings it in on the next schema refresh or dbt sync. The Omni model-layer field with the same name still wins, key by key. To let the dbt logic take effect, remove that override on an Omni branch and ship the branch.
 
 This skill owns only the dbt-specific steps. Branch creation, YAML read-modify-write, validation, test queries, and shipping follow **`omni-model-builder`** (Safe Development Workflow, Steps 0–3). Install the `omni-analytics` plugin to get it. Read [FALLBACK-TO-DBT.md](./references/FALLBACK-TO-DBT.md) for the full sequence with the dbt-specific differences.
 
 1. **Branch** — `omni-model-builder` Step 0. First run `omni whoami whoami --model-id <modelId>` to make sure you can branch. Use a unique branch name. Do not delete a branch you did not create.
-2. **dbt environment (this skill)** — needed only while the dbt YAML is still on an unmerged dbt branch. List environments, choose an existing one with `is_default: false`, bind it with the dbt Git branch, and read it back. If the dbt YAML is already merged to the default branch, skip this step. `branch-dbt-get` must show the requested Git branch before you sync. Do not create an environment without user approval.
+2. **dbt environment (this skill)** — needed only while the dbt YAML is still on an unmerged dbt branch. List environments, choose an existing one with `isDefaultEnvironment: false`, bind it with the dbt Git branch, and read it back. If the dbt YAML is already merged to the default branch, skip this step. `branch-dbt-get` must show the requested Git branch before you sync. Do not create an environment without user approval.
 3. **Sync (this skill)** — run `dbt-sync` on the branch (or wait for the next scheduled schema refresh) and poll the job to `COMPLETED` or `FAILED`. The status response has only `job_id`, `job_type`, and `status`. Read failures in the IDE dbt Sync page.
 4. **Find the override** — `omni-model-builder` Step 1 read-modify-write, with two dbt-branch differences: read and write the view with `--mode merged` (not `extension`), and reuse the flat returned key (`omni_dbt_ecomm__order_items.view`). Also read the topic file for a topic-scoped `fields:` override.
 5. **Remove only the override** that must yield to dbt. Also remove a dimension override that an imported measure depends on (Step 5 checkpoint). Write the complete file back.
@@ -309,7 +310,7 @@ The precedence is schema/dbt, model extension, topic `fields:` override, then wo
 
 Before handing off an Omni-to-dbt export, report these facts:
 
-- the Omni topic and dbt model for each exported view;
+- the export scope (fields, view, or topic) and the dbt model for each exported view;
 - the selected YAML shape;
 - every primary and foreign entity;
 - the aggregate time dimension;
