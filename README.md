@@ -226,11 +226,13 @@ These activate from natural-language requests:
 | **omni-embed** | Embed Omni dashboards in external applications - URL signing, themes, and postMessage events |
 | **omni-ai-eval** | Evaluate AI query generation accuracy — run test prompts, compare results, and score across dimensions |
 
-### omni-integrations — Skills (1)
+### omni-integrations — Skills (3)
 
 | Skill | Description |
 |-------|-------------|
 | **omni-to-snowflake-semantic-view** | Convert an Omni Analytics topic into a Snowflake Semantic View YAML definition |
+| **omni-to-databricks-metric-view** | Convert an Omni Analytics topic into a Databricks Metric View definition |
+| **omni-to-dbt-metricflow** | Convert an Omni topic to dbt MetricFlow YAML or pull the dbt semantic layer into Omni |
 
 ### Agents (3)
 
@@ -269,6 +271,7 @@ Ask naturally:
 "Give the marketing team access to the sales dashboard"
 "Generate a signed embed URL for this dashboard"
 "Convert this Omni topic to a Snowflake Semantic View"
+"Turn this Omni topic into dbt semantic models and metrics"
 ```
 
 For direct agent routing:
@@ -401,7 +404,9 @@ omni-agent-skills/
 │       ├── .cursor-plugin/
 │       │   └── plugin.json
 │       └── skills/
-│           └── omni-to-snowflake-semantic-view/
+│           ├── omni-to-snowflake-semantic-view/
+│           ├── omni-to-databricks-metric-views/
+│           └── omni-to-dbt-metricflow/
 ├── agents/
 │   ├── omni-analyst.md
 │   ├── omni-modeler.md
