@@ -72,7 +72,7 @@ metrics:
         - name: total_sale_price
 ```
 
-The `sale_price * 0.95` examples are valid dbt YAML. Before pull-back, follow the dimension-override rule in [FIELD-MAPPING.md](./FIELD-MAPPING.md). Remove the Omni `sale_price` override or the calculation applies twice.
+The `sale_price * 0.95` examples are valid dbt YAML. Before the fallback step, follow the dimension-override rule in [FIELD-MAPPING.md](./FIELD-MAPPING.md). Remove the Omni `sale_price` override or the calculation applies twice.
 
 ## dbt 1.12 flattened spec
 

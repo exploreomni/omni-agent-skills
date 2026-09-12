@@ -1,6 +1,6 @@
 # Omni → MetricFlow Field Mapping
 
-Use the effective Omni `combined` YAML. Do not export fields with dbt provenance comments. The legacy YAML below is based on the tested `sem_order_items.yml` and `metrics_omni_order_items.yml` export. It passed `dbt parse`, `mf validate-configs`, `mf query --explain`, and a pull into Omni.
+Use the effective Omni `combined` YAML. Do not export fields with dbt provenance comments. The legacy YAML below is based on the tested `sem_order_items.yml` and `metrics_omni_order_items.yml` export. It passed `dbt parse`, `mf validate-configs`, `mf query --explain`, and a dbt sync into an Omni branch.
 
 Use [YAML-REFERENCE.md](./YAML-REFERENCE.md) for the equivalent dbt 1.12 flattened form.
 
@@ -82,7 +82,7 @@ dimensions:
 > ✋ **STOP** — If a measure references `sale_price`, show this override. Choose one of these options:
 >
 > 1. Move the override into dbt model SQL or a dbt derived dimension. Export the measure against that dbt definition.
-> 2. Inline the override into the dbt measure `expr` for dbt correctness. Record that the Omni dimension override must be removed before pull-back.
+> 2. Inline the override into the dbt measure `expr` for dbt correctness. Record that the Omni dimension override must be removed in the fallback step.
 > 3. Skip the measure.
 
 Never inline an override silently. If the dbt expression is `sale_price * 0.95` and Omni still defines `sale_price` as `"SALE_PRICE" * 0.95`, the returned measure evaluates `SUM("SALE_PRICE" * 0.95 * 0.95)`.
@@ -99,7 +99,7 @@ measures:
     create_metric: true
 ```
 
-It is a valid dbt example. It is safe to pull back only after the matching Omni dimension override has been removed.
+It is a valid dbt example. In Omni it is correct only after the matching Omni dimension override has been removed.
 
 ## Aggregations
 

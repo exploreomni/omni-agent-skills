@@ -1,10 +1,10 @@
-# Pull the dbt Semantic Layer into Omni
+# Make Omni Fall Back to the dbt Definition
 
-Use this procedure to inspect a dbt semantic-layer import and let a dbt definition replace an Omni model-layer override. Work on an Omni branch. Do not promote without user confirmation.
+Use this procedure after the exported YAML is in dbt. Omni brings the dbt semantic layer in on schema refresh or dbt sync, but an Omni model-layer field with the same name still wins. This procedure removes that override so the dbt definition shows through. Work on an Omni branch. Do not promote without user confirmation.
 
 ## How the Sync Works
 
-Omni compiles the dbt manifest from the configured Git branch and dbt environment. Push the dbt branch before sync. `dbt-sync` starts a background job.
+Omni compiles the dbt manifest from the configured Git branch and dbt environment. A connection schema refresh (Refresh now, the schedule, or `omni models refresh`) also runs a dbt sync. If the dbt YAML is already merged to the default dbt branch, the next refresh brings it in and you can skip the environment binding below. If it is still on a dbt branch, push that branch and use `dbt-sync` on an Omni branch bound to it. `dbt-sync` starts a background job.
 
 ```bash
 omni models dbt-sync <modelId> --branch-id <branchId>
