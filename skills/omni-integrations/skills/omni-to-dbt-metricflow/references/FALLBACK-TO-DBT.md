@@ -6,7 +6,17 @@ Worked example. The examples below use an e-commerce model: Omni view `omni_dbt_
 
 ## How the Sync Works
 
-Omni compiles the dbt manifest from the configured Git branch and dbt environment. A connection schema refresh (Refresh now, the schedule, or `omni models refresh`) also runs a dbt sync. If the dbt YAML is already merged to the default dbt branch, the next refresh brings it in and you can skip the environment binding below. If it is still on a dbt branch, push that branch and use `dbt-sync` on an Omni branch bound to it. `dbt-sync` starts a background job.
+Omni compiles the dbt manifest from the configured Git branch and dbt environment. A connection schema refresh (Refresh now, the schedule, or `omni models refresh`) also runs a dbt sync.
+
+Prefer the narrowest trigger:
+
+| Trigger | Scope | Use when |
+|---|---|---|
+| `omni models dbt-sync <modelId> --branch-id <branchId>` | dbt manifest only, no database scan | Only the dbt YAML changed (the normal case for this skill) |
+| `omni models refresh <modelId> --hard-refresh false --schemas <schema> --tables <t1,t2>` | Listed schemas and tables only; additive (dropped objects stay) | The warehouse tables behind the exported views also changed |
+| `omni models refresh <modelId>` | Every schema, hard refresh | Not for this workflow. It pulls every warehouse change into the model and is slow on large warehouses |
+
+`--schemas` and `--tables` take comma-separated names; `*` wildcards work (`sales_*`). Both need `--hard-refresh false`. Add `--branch-id` only when the connection has branch-based schema refresh enabled; if it is not enabled the API rejects `branch_id`, and the refresh writes to the shared schema model, not the branch. Check with `omni models refresh --help`. If the dbt YAML is already merged to the default dbt branch, the next refresh brings it in and you can skip the environment binding below. If it is still on a dbt branch, push that branch and use `dbt-sync` on an Omni branch bound to it. `dbt-sync` starts a background job.
 
 ```bash
 omni models dbt-sync <modelId> --branch-id <branchId>

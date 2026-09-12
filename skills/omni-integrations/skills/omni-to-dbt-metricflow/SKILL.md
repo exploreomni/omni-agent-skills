@@ -58,7 +58,7 @@ Use `-o json` for structured Omni output. Use `-o human` for tables.
 - A model-extension field with `ignored: true` does not appear in combined output. This is the supported way to hide an imported dbt field.
 - On a branch, bind a non-production dbt environment. A production/default environment ignores `--dbt-git-branch`.
 - Omni compiles the manifest from the configured Git branch. Push that dbt branch before `dbt-sync`.
-- `omni models refresh` rebuilds the schema model from the database. A connection-level schema refresh also runs a dbt sync. On a branch, `dbt-sync` alone recompiles the manifest without a database scan.
+- `omni models refresh` rebuilds the schema model from the database and also runs the dbt sync. With no filters it is a hard refresh of every schema. Scope it: `--hard-refresh false --schemas <schema> --tables <table,...>` reloads only those objects (wildcards such as `sales_*` are allowed) and leaves the rest of the schema model untouched. A soft refresh is additive: it does not remove dropped objects. On a branch, `dbt-sync` alone recompiles the manifest without a database scan.
 
 ## Workflow
 
@@ -260,7 +260,7 @@ This skill owns only the dbt-specific steps. Branch creation, YAML read-modify-w
 
 1. **Branch** — `omni-model-builder` Step 0. First run `omni whoami whoami --model-id <modelId>` to make sure you can branch. Use a unique branch name. Do not delete a branch you did not create.
 2. **dbt environment (this skill)** — needed only while the dbt YAML is still on an unmerged dbt branch. List environments, choose an existing one with `isDefaultEnvironment: false`, bind it with the dbt Git branch, and read it back. If the dbt YAML is already merged to the default branch, skip this step. `branch-dbt-get` must show the requested Git branch before you sync. Do not create an environment without user approval.
-3. **Sync (this skill)** — run `dbt-sync` on the branch (or wait for the next scheduled schema refresh) and poll the job to `COMPLETED` or `FAILED`. The status response has only `job_id`, `job_type`, and `status`. Read failures in the IDE dbt Sync page.
+3. **Sync (this skill)** — run `dbt-sync` on the branch and poll the job to `COMPLETED` or `FAILED`. The status response has only `job_id`, `job_type`, and `status`. Read failures in the IDE dbt Sync page. If the warehouse tables behind the exported views also changed, run a targeted soft refresh instead: `omni models refresh <modelId> --hard-refresh false --schemas <schema> --tables <table,...>` (add `--branch-id` only when the connection has branch-based schema refresh enabled; otherwise the refresh writes to the shared schema model). Never run an unfiltered refresh for this step: it reloads every schema and pulls every warehouse change into the branch.
 4. **Find the override** — `omni-model-builder` Step 1 read-modify-write, with two dbt-branch differences: read and write the view with `--mode merged` (not `extension`), and reuse the flat returned key (`omni_dbt_ecomm__order_items.view`). Also read the topic file for a topic-scoped `fields:` override.
 5. **Remove only the override** that must yield to dbt. Also remove a dimension override that an imported measure depends on (Step 5 checkpoint). Write the complete file back.
 6. **Check** — `omni-model-builder` Step 2: `models validate` on the branch and one branch query on the field. Then confirm the dbt provenance comment in `--mode combined`. Re-sync only if the dbt manifest changed.
@@ -271,6 +271,7 @@ omni connections dbt-environments-list <connectionId>
 omni models branch-dbt <modelId> <branchName> <nonProdDbtEnvId> --dbt-git-branch <git-branch>
 omni models branch-dbt-get <modelId> <branchName>
 omni models dbt-sync <modelId> --branch-id <branchId>
+omni models refresh <modelId> --hard-refresh false --schemas <schema> --tables <table,...> [--branch-id <branchId>]
 omni models jobs-get-status <jobId>
 ```
 
