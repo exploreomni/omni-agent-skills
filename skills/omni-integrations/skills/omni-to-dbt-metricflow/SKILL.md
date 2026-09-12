@@ -219,21 +219,17 @@ Successfully validated the semantics of built manifest (ERRORS: 0, ...)
 
 ## Pulling the dbt Semantic Layer into Omni
 
-Read [PULL-INTO-OMNI.md](./references/PULL-INTO-OMNI.md) first. The required sequence is:
+This skill owns only the dbt-specific steps. Branch creation, YAML read-modify-write, validation, test queries, and shipping follow **`omni-model-builder`** (Safe Development Workflow, Steps 0–3). Install the `omni-analytics` plugin to get it. Read [PULL-INTO-OMNI.md](./references/PULL-INTO-OMNI.md) for the full sequence with the dbt-specific differences.
 
-1. Create a unique Omni branch. Do not delete a branch you did not create.
-2. List dbt environments. Choose an existing non-production environment with `is_default: false`. Do not create an environment without user approval.
-3. Bind that environment and Git branch. `branch-dbt-get` must return the requested Git branch before sync.
-4. Run `dbt-sync`. Poll the job. The status response only contains `job_id`, `job_type`, and `status`. Inspect failures in the IDE dbt Sync page.
-5. Read the branch override file using `--mode merged`. Reuse its returned file key exactly. On a branch, `combined` keys use `omni_dbt_ecomm/order_items.view`; `merged` keys use `omni_dbt_ecomm__order_items.view`.
-6. Remove only the conflicting override. Also remove a dimension override required by an imported measure when the Step 5 checkpoint requires it.
-7. Write the full merged file with JSON `mode: "merged"`. Do not use `mode: extension` for this branch write.
-8. Read `--mode combined`, run `models validate` on the branch, then run a branch query with top-level `branchId` and `resultType: "json"`.
-9. Re-sync only if the dbt manifest changed. Do not re-sync merely because an existing field was masked.
-10. Ask for confirmation before a Git commit/PR or `merge-branch`.
+1. **Branch** — `omni-model-builder` Step 0. First run `omni whoami whoami --model-id <modelId>` to make sure you can branch. Use a unique branch name. Do not delete a branch you did not create.
+2. **dbt environment (this skill)** — list environments, choose an existing one with `is_default: false`, bind it with the dbt Git branch, and read it back. `branch-dbt-get` must show the requested Git branch before you sync. Do not create an environment without user approval.
+3. **Sync (this skill)** — run `dbt-sync` and poll the job to `COMPLETED` or `FAILED`. The status response has only `job_id`, `job_type`, and `status`. Read failures in the IDE dbt Sync page.
+4. **Find the override** — `omni-model-builder` Step 1 read-modify-write, with two dbt-branch differences: read and write the view with `--mode merged` (not `extension`), and reuse the flat returned key (`omni_dbt_ecomm__order_items.view`). Also read the topic file for a topic-scoped `fields:` override.
+5. **Remove only the override** that must yield to dbt. Also remove a dimension override that an imported measure depends on (Step 5 checkpoint). Write the complete file back.
+6. **Check** — `omni-model-builder` Step 2: `models validate` on the branch and one branch query on the field. Then confirm the dbt provenance comment in `--mode combined`. Re-sync only if the dbt manifest changed.
+7. **Ship** — `omni-model-builder` Step 3 (`git-get` → `commit` and PR, or `merge-branch`). Ask the user before either path.
 
 ```bash
-omni models create-branch <modelId> --name <unique-branch>
 omni connections dbt-environments-list <connectionId>
 omni models branch-dbt <modelId> <branchName> <nonProdDbtEnvId> --dbt-git-branch <git-branch>
 omni models branch-dbt-get <modelId> <branchName>
@@ -269,6 +265,7 @@ The precedence is schema/dbt, model extension, topic `fields:` override, then wo
 8. **Use `merged` for a branch override write.** Reuse the exact returned flat key.
 9. **Check with a query.** `mf validate-configs` does not catch every bad filter qualifier.
 10. **Do not promote without confirmation.** A Git PR and `merge-branch` both change shared state.
+11. **Write model YAML through `omni-model-builder`.** This skill adds only the dbt environment, sync, and merge-mode rules on top of its workflow.
 
 ## Export Handoff Checklist
 
@@ -296,6 +293,13 @@ Do not rewrite dbt model SQL, create dbt environments, delete branches, or promo
 Do not remove an extension merely because dbt has a same-named object. First show the key-level difference and confirm which definition should win.
 
 Do not treat a successful background job as proof of the intended merged output. Read the combined YAML and query the branch.
+
+## Related Skills
+
+- **omni-model-builder** — branch, write, validate, and ship model YAML (used by the pull workflow)
+- **omni-model-explorer** — inspect topics, views, and relationships before export
+- **omni-query** — run the branch query that proves an imported field resolves
+- **omni-admin** — connection dbt settings and dbt environments
 
 ## Reference
 

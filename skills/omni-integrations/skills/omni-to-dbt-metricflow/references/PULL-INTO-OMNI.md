@@ -29,7 +29,9 @@ Fields marked `ignored: true` in the extension never appear in combined output. 
 
 ## Branch Procedure
 
-1. Create a unique Omni branch. Record its ID. Do not delete a branch you did not create.
+This procedure follows `omni-model-builder` → Safe Development Workflow (Steps 0–3) for every Omni model write. Only steps 2–4 below are dbt-specific. The other steps repeat the model-builder rules with the dbt-branch differences called out. Before you start, run `omni whoami whoami --model-id <modelId>`: `QUERY_FULL_MODEL` lets you branch; `UPDATE` lets you merge.
+
+1. Create a unique Omni branch (`omni-model-builder` Step 0). The response `model.id` is the `branchId`. Do not delete a branch you did not create.
 
    ```bash
    omni models create-branch <modelId> --name <unique-branch>
@@ -57,7 +59,7 @@ Fields marked `ignored: true` in the extension never appear in combined output. 
    omni models jobs-get-status <jobId>
    ```
 
-5. Read the branch override file with `--mode merged`. Read the topic for higher-layer `fields:` overrides. Read the workbook model if the field exists only there.
+5. Read the branch override file (`omni-model-builder` Step 1 read-modify-write) with `--mode merged`. Read the topic for higher-layer `fields:` overrides. Read the workbook model if the field exists only there.
 
    ```bash
    omni models yaml-get <modelId> --branch-id <branchId> --mode merged --file-name <exact-file-key>
@@ -100,7 +102,7 @@ Fields marked `ignored: true` in the extension never appear in combined output. 
    omni models yaml-get <modelId> --branch-id <branchId> --mode combined --file-name <combined-file-key>
    ```
 
-9. Run `models validate` on the branch. The command returns a bare JSON list of issues. Do not expect an object with an `issues` key.
+9. Run `models validate` on the branch (`omni-model-builder` Step 2). The command returns a bare JSON list of issues. Do not expect an object with an `issues` key.
 
    ```bash
    omni models validate <modelId> --branch-id <branchId>
@@ -127,7 +129,7 @@ Fields marked `ignored: true` in the extension never appear in combined output. 
     omni query run --body @query.json
     ```
 
-11. Check the promotion path.
+11. Check the promotion path (`omni-model-builder` Step 3, Path A or Path B).
 
     > ✋ **STOP** — Both commands change shared state. Ask the user before either action.
 
