@@ -150,7 +150,7 @@ Inline `${view.column}` only when every reference is in the same view. Do not ma
 
 #### Dimension override checkpoint
 
-Inspect the extension and combined definitions before mapping a measure. A dimension can be overridden at the model layer.
+Inspect the extension and combined definitions before mapping a measure. A dimension can be overridden at the model layer:
 
 ```yaml
 # Model extension
@@ -159,15 +159,20 @@ dimensions:
     sql: '"SALE_PRICE" * 0.95'
 ```
 
-In dbt, `expr: sale_price` is a column reference and reads the raw column. When Omni imports that measure, it rewrites every column name in `expr` to the Omni dimension of the same name: `sale_price` becomes `${omni_dbt_ecomm__order_items.sale_price}`, whose `sql` is the override above. So the same dbt expression means the raw column in dbt and the overridden dimension in Omni. The dbt measure must use dbt model columns, and the export must not silently inherit this Omni override.
+The same dbt expression means two different things on the two sides:
 
-> ✋ **STOP** — If a referenced measure dimension has a model-layer `sql` override, show the override and select one option:
+| Where | `expr: sale_price * 0.95` reads | Result |
+|---|---|---|
+| dbt (MetricFlow) | the raw column `sale_price` | `SUM(sale_price * 0.95)` |
+| Omni, after import | the Omni dimension `sale_price`, because the importer rewrites column names in `expr` to same-named dimensions | `SUM("SALE_PRICE" * 0.95 * 0.95)` |
+
+The dbt measure must use dbt model columns. The export must not silently inherit the Omni override.
+
+> ✋ **STOP** — If a referenced dimension has a model-layer `sql` override, show the override and select one option:
 >
-> 1. Move the override into dbt model SQL, or a dbt derived dimension, then export the measure against that dbt definition.
-> 2. Inline the override into the dbt measure `expr` for dbt correctness. Record that the Omni dimension override must be removed in the fallback step, together with the measure override.
-> 3. Skip the measure.
-
-If option 2 reaches Omni while the dimension override stays, the transform is applied twice: dbt `expr: sale_price * 0.95` imports as `${view.sale_price} * 0.95`, and `${view.sale_price}` resolves to `"SALE_PRICE" * 0.95`. The generated SQL is `SUM("SALE_PRICE" * 0.95 * 0.95)`.
+> 1. **Move the override into dbt.** Put the logic in the dbt model SQL or a dbt dimension `expr`. Export the measure against that. Remove the Omni dimension override in the fallback step.
+> 2. **Inline the override into the measure `expr`.** Correct in dbt. In Omni it applies twice until the fallback step removes the Omni dimension override together with the measure override.
+> 3. **Skip the measure.**
 
 ### Step 6 — Map Measures and Metrics
 
