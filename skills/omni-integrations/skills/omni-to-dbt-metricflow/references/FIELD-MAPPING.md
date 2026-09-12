@@ -87,7 +87,7 @@ dimensions:
 > 2. Inline the override into the dbt measure `expr` for dbt correctness. Record that the Omni dimension override must be removed in the fallback step.
 > 3. Skip the measure.
 
-Never inline an override silently. If the dbt expression is `sale_price * 0.95` and Omni still defines `sale_price` as `"SALE_PRICE" * 0.95`, the returned measure evaluates `SUM("SALE_PRICE" * 0.95 * 0.95)`.
+Never inline an override silently. In dbt, `sale_price` in `expr` reads the raw column. On import, Omni rewrites each column name in `expr` to the Omni dimension of the same name, so `sale_price * 0.95` becomes `${view.sale_price} * 0.95`. If Omni still defines the `sale_price` dimension as `"SALE_PRICE" * 0.95`, the returned measure evaluates `SUM("SALE_PRICE" * 0.95 * 0.95)`.
 
 Option 2 is illustrated by this worked example:
 

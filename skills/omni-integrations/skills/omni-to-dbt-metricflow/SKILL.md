@@ -159,7 +159,7 @@ dimensions:
     sql: '"SALE_PRICE" * 0.95'
 ```
 
-The dbt measure must use dbt model columns. It must not silently inherit this Omni override.
+In dbt, `expr: sale_price` is a column reference and reads the raw column. When Omni imports that measure, it rewrites every column name in `expr` to the Omni dimension of the same name: `sale_price` becomes `${omni_dbt_ecomm__order_items.sale_price}`, whose `sql` is the override above. So the same dbt expression means the raw column in dbt and the overridden dimension in Omni. The dbt measure must use dbt model columns, and the export must not silently inherit this Omni override.
 
 > ✋ **STOP** — If a referenced measure dimension has a model-layer `sql` override, show the override and select one option:
 >
@@ -167,7 +167,7 @@ The dbt measure must use dbt model columns. It must not silently inherit this Om
 > 2. Inline the override into the dbt measure `expr` for dbt correctness. Record that the Omni dimension override must be removed in the fallback step, together with the measure override.
 > 3. Skip the measure.
 
-If option 2 reaches Omni while the dimension override stays, Omni applies the transform twice. `sale_price * 0.95` becomes `SUM("SALE_PRICE" * 0.95 * 0.95)`.
+If option 2 reaches Omni while the dimension override stays, the transform is applied twice: dbt `expr: sale_price * 0.95` imports as `${view.sale_price} * 0.95`, and `${view.sale_price}` resolves to `"SALE_PRICE" * 0.95`. The generated SQL is `SUM("SALE_PRICE" * 0.95 * 0.95)`.
 
 ### Step 6 — Map Measures and Metrics
 

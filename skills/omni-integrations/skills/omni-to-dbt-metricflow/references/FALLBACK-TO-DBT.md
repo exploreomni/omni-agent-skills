@@ -189,7 +189,7 @@ measures:
 
 Removing the extension field lets the dbt definition supply its SQL, description, and aggregation. It also removes extension-only tags, format, synonyms, and AI context.
 
-General rule: remove a dimension override when an imported measure's dbt expression already applies that transformation. In this example, keeping the `sale_price` override makes the branch query compute `SUM("SALE_PRICE" * 0.95 * 0.95)`. Step 6 of the Branch Procedure removes that override too.
+General rule: remove a dimension override when an imported measure's dbt expression already applies that transformation. The importer rewrites column names in a dbt `expr` to Omni dimensions of the same name, so the dbt expression reads the overridden dimension, not the raw column. In this example, keeping the `sale_price` override makes the branch query compute `SUM("SALE_PRICE" * 0.95 * 0.95)`. Step 6 of the Branch Procedure removes that override too.
 
 ## Importer Support Matrix
 
