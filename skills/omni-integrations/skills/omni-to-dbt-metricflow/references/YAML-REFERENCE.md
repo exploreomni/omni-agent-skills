@@ -1,11 +1,13 @@
 # dbt MetricFlow YAML Reference
 
-Use the YAML shape already used by the dbt project. The legacy example reflects the tested `sem_order_items.yml` and `metrics_omni_order_items.yml` export. It passed `dbt parse`, `mf validate-configs`, `mf query --explain`, and a round trip into Omni.
+Use the YAML shape already used by the dbt project.
+
+Worked example. The annotated blocks below use an e-commerce model: Omni view `omni_dbt_ecomm__order_items` backed by dbt model `order_items`, joined to `omni_dbt_ecomm__users` on `user_id`. Replace the view, model, column, and entity names with your own.
 
 ## Legacy spec: `semantic_models` and `metrics`
 
 ```yaml
-# models/semantic-models/sem_order_items.yml
+# File path: use the project's semantic-YAML location.
 semantic_models:
   - name: sem_order_items
     model: ref('order_items')
@@ -47,7 +49,7 @@ semantic_models:
         agg: count
         expr: 1
 
-# models/semantic-models/metrics_omni_order_items.yml
+# File path: use the project's metrics-YAML location.
 metrics:
   - name: sale_price_average
     label: Sale Price Average (For Complete Orders)
@@ -80,16 +82,16 @@ Add these keys to the existing dbt model entry. Do not create a second `models:`
 
 ```yaml
 models:
-  - name: order_items                 # existing dbt model entry (often already in _schema.yml — add keys there, do not duplicate the model)
+  - name: order_items                 # dbt model behind the Omni view; extend its existing entry rather than adding another one
     semantic_model:
       enabled: true
-      name: order_items               # optional; only name/enabled/group/config are allowed here
-    agg_time_dimension: created_at    # MODEL-LEVEL key in 1.12.4 (not under semantic_model:)
+      name: order_items               # semantic-model name; only name/enabled/group/config are allowed in this mapping
+    agg_time_dimension: created_at    # model time dimension; this is a model-level key in dbt 1.12.4
     columns:
       - name: id
-        entity: { type: primary, name: order_item_id }
+        entity: { type: primary, name: order_item_id } # primary entity name for this model's stable key
       - name: user_id
-        entity: { type: foreign, name: user_id }
+        entity: { type: foreign, name: user_id }       # FK column name on the many side; must match the primary entity name on the one side
       - name: status
         dimension: { type: categorical }
       - name: created_at
@@ -101,8 +103,8 @@ models:
     metrics:
       - { name: total_sale_price, type: simple, agg: sum, expr: sale_price, label: Total Sale Price }
       - { name: sale_price_average, type: simple, agg: average, expr: sale_price, filter: "{{ Dimension('order_item_id__status') }} = 'Complete'" }
-      - { name: order_item_count, type: simple, agg: count, expr: 1, hidden: true }   # hidden → manifest is_private
-metrics:                               # ratio/derived/cumulative/conversion stay top-level
+      - { name: order_item_count, type: simple, agg: count, expr: 1, hidden: true }   # internal metric; Omni imports it as private
+metrics:                               # top-level list for ratio, derived, cumulative, and conversion metrics
   - name: price_per_order
     type: ratio
     numerator: total_sale_price
@@ -111,7 +113,7 @@ metrics:                               # ratio/derived/cumulative/conversion sta
     type: derived
     expr: total_sale_price * 1.07
     input_metrics: [{ name: total_sale_price }]
-saved_queries: [...]                   # top-level, not under models[]
+saved_queries: [...]                   # top-level list for saved queries, not a property of models[]
 ```
 
 ### How the two specs compile

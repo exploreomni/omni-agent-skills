@@ -7,7 +7,7 @@ description: "Move logic that lives in Omni Analytics views (dimensions, measure
 
 Export Omni model logic to dbt MetricFlow YAML. The logic lives in views (dimensions, measures, primary keys) and in the relationships file. Each dbt-backed view becomes one semantic model. A topic is optional: it scopes the views and fields, and its `default_filters` and `sample_queries` become saved queries. Once the YAML is merged in dbt, Omni brings it in on the next schema refresh or dbt sync, and the Omni model layer still wins over it. The last part of this skill removes the Omni override so Omni falls back to the dbt definition. Treat exported YAML as a draft until the user approves a write or promotion.
 
-Read [FIELD-MAPPING.md](./references/FIELD-MAPPING.md) for mappings and tested examples. Read [YAML-REFERENCE.md](./references/YAML-REFERENCE.md) for legacy and dbt 1.12 YAML. Read [FALLBACK-TO-DBT.md](./references/FALLBACK-TO-DBT.md) before you remove an Omni override.
+Read [FIELD-MAPPING.md](./references/FIELD-MAPPING.md) for mappings and worked examples. Read [YAML-REFERENCE.md](./references/YAML-REFERENCE.md) for legacy and dbt 1.12 YAML. Read [FALLBACK-TO-DBT.md](./references/FALLBACK-TO-DBT.md) before you remove an Omni override.
 
 ---
 
@@ -193,7 +193,7 @@ Do not use the same name for different atomic and user-facing definitions. A cou
 | fixed date | `{{ TimeDimension('entity__created_at', 'day') }} >= '2024-01-01'` |
 | semantic-model prefix | Wrong. `sem_users__state` must be `user_id__state`. |
 
-Use the entity of the filtered view. The demo relationship creates `user_id` on the many side, so a user-state filter is `user_id__state`, not `sem_users__state`.
+Use the entity of the filtered view. For a relationship `${orders.user_id} = ${users.id}`, the entity is `user_id`, so a user-state filter is `user_id__state`, not `sem_users__state`.
 
 Skip and report `sum_distinct_on`, `average_distinct_on`, `median_distinct_on`, `percentile_distinct_on`, `list`, templated SQL, filter-only fields, cross-view expressions, unsupported joins, relative time filters, period-over-period logic, and unsupported metric filters.
 
@@ -281,7 +281,7 @@ The precedence is schema/dbt, model extension, topic `fields:` override, then wo
 | Symptom | Cause | Action |
 |---|---|---|
 | MetricFlow cannot resolve a filter | Wrong qualifier | Use `entity__dimension`. Run `mf query --explain`. |
-| `dbt-sync` fails after about 150 seconds with no detail | Default environment ignored the Git branch | Bind an existing non-production environment. Confirm `branch-dbt-get` first. |
+| `dbt-sync` fails with no detail in `jobs-get-status` | Default environment ignored the Git branch | Bind an existing non-production environment. Confirm `branch-dbt-get` first. |
 | Branch write succeeds but changes nothing | Used `mode: extension` | Read and write the flat branch file key with `mode: merged`. |
 | dbt field is missing from combined output | Extension has `ignored: true` | Find that extension entry. Remove `ignored` only with user approval. |
 | Imported field retains Omni label, SQL, or filters | Extension key wins during merge | Remove only the conflicting extension key. dbt-only keys still fill in. |

@@ -2,6 +2,8 @@
 
 Use this procedure after the exported YAML is in dbt. Omni brings the dbt semantic layer in on schema refresh or dbt sync, but an Omni model-layer field with the same name still wins. This procedure removes that override so the dbt definition shows through. Work on an Omni branch. Do not promote without user confirmation.
 
+Worked example. The examples below use an e-commerce model: Omni view `omni_dbt_ecomm__order_items` backed by dbt model `order_items`, joined to `omni_dbt_ecomm__users` on `user_id`. Replace the view, model, column, and entity names with your own.
+
 ## How the Sync Works
 
 Omni compiles the dbt manifest from the configured Git branch and dbt environment. A connection schema refresh (Refresh now, the schedule, or `omni models refresh`) also runs a dbt sync. If the dbt YAML is already merged to the default dbt branch, the next refresh brings it in and you can skip the environment binding below. If it is still on a dbt branch, push that branch and use `dbt-sync` on an Omni branch bound to it. `dbt-sync` starts a background job.
@@ -11,7 +13,7 @@ omni models dbt-sync <modelId> --branch-id <branchId>
 omni models jobs-get-status <jobId>
 ```
 
-`jobs-get-status` returns only `job_id`, `job_type: "dbt_sync"`, and `status`. A live sync completed in about 30 seconds. A default-environment sync failed after about 150 seconds with no CLI error detail. Inspect sync failures on the IDE dbt Sync page. The CLI has no command that reports those issues.
+`jobs-get-status` returns only `job_id`, `job_type: "dbt_sync"`, and `status`. Poll until the job reaches a terminal status. A default environment ignores `--dbt-git-branch`. The sync job then fails with no detail in `jobs-get-status`. Inspect sync failures on the IDE dbt Sync page. The CLI has no command that reports those issues.
 
 ## Layer Precedence and Merge Behavior
 
@@ -68,7 +70,7 @@ This procedure follows `omni-model-builder` → Safe Development Workflow (Steps
 
    On a branch, `--mode extension` returns only the branch delta layer, usually `model` and `relationships`. Do not use it as the view override file.
 
-   File keys differ by mode. Combined output can use `omni_dbt_ecomm/order_items.view`. Merged and extension output can use `omni_dbt_ecomm__order_items.view`. Reuse the key exactly as returned.
+   File keys differ by mode. Combined output uses `<schema>/<view>.view`. Merged and extension output use `<schema>__<view>.view`. Reuse the key exactly as returned.
 
 6. Identify the exact key that blocks dbt. Remove only the needed model-layer field. Preserve other authored content. If the imported measure depends on an Omni dimension override, follow the dimension-override rule before writing.
 
@@ -94,9 +96,9 @@ This procedure follows `omni-model-builder` → Safe Development Workflow (Steps
    omni models yaml-create <modelId> --body @file.json
    ```
 
-   `mode: extension` silently stored a stub on the branch in the live test. It changed nothing in the merged or combined view. Do not use it for this write.
+   A branch write with `mode: extension` can store a stub that does not change the merged or combined view. Do not use it for this write.
 
-8. Read the composed result. Make sure the dbt provenance comment is present. Re-sync only if the dbt manifest changed. In the live test, the removal of a conflicting extension key did not need a second sync.
+8. Read the composed result. Make sure the dbt provenance comment is present. Re-sync only if the dbt manifest changed. Removing a conflicting extension key does not require a second sync.
 
    ```bash
    omni models yaml-get <modelId> --branch-id <branchId> --mode combined --file-name <combined-file-key>
@@ -139,9 +141,9 @@ This procedure follows `omni-model-builder` → Safe Development Workflow (Steps
     omni models merge-branch <modelId> <branchName>
     ```
 
-## Tested Before and After
+## Worked example: before and after
 
-The live test removed only the extension `total_sale_price` from the merged branch file.
+Remove only the extension field that blocks the dbt definition. In this worked example, that field is `total_sale_price` in the merged branch file.
 
 ```yaml
 # Before: extension wins
@@ -164,9 +166,9 @@ measures:
     aggregate_type: sum
 ```
 
-The removal of the extension field let the dbt definition supply its SQL, description, and aggregation. It also removed the extension-only tags, format, synonyms, and AI context.
+Removing the extension field lets the dbt definition supply its SQL, description, and aggregation. It also removes extension-only tags, format, synonyms, and AI context.
 
-The live test left the `sale_price` dimension override in place. The branch query then computed `SUM("SALE_PRICE" * 0.95 * 0.95)`. Step 6 of the Branch Procedure above removes that override too.
+General rule: remove a dimension override when an imported measure's dbt expression already applies that transformation. In this example, keeping the `sale_price` override makes the branch query compute `SUM("SALE_PRICE" * 0.95 * 0.95)`. Step 6 of the Branch Procedure removes that override too.
 
 ## Importer Support Matrix
 
@@ -196,3 +198,16 @@ The live test left the `sale_price` dimension override in place. The branch quer
 - `omni models validate` was parsed as a bare list.
 - One `omni query run` completed with top-level `resultType: "json"`.
 - No promotion occurred without user confirmation.
+
+## Adapt to your project
+
+| Substitute | Use in your project |
+|---|---|
+| Omni view name | `<schema>__<view>` |
+| dbt model name | The model name in `ref('<model>')` |
+| Semantic model name | `sem_<model>` or the project convention |
+| Entity names | FK column names on the many side |
+| Aggregate time dimension | The model's time dimension for `agg_time_dimension` |
+| dbt project YAML layout | Legacy or flattened |
+| dbt YAML file layout | `models/semantic-models/` or the project's semantic-YAML location |
+| Omni file keys | `<schema>/<view>.view` in combined mode; `<schema>__<view>.view` in merged mode |

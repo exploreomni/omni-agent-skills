@@ -1,6 +1,8 @@
 # Omni → MetricFlow Field Mapping
 
-Use the effective Omni `combined` YAML. Do not export fields with dbt provenance comments. The legacy YAML below is based on the tested `sem_order_items.yml` and `metrics_omni_order_items.yml` export. It passed `dbt parse`, `mf validate-configs`, `mf query --explain`, and a dbt sync into an Omni branch.
+Use the effective Omni `combined` YAML. Do not export fields with dbt provenance comments.
+
+Worked example. The examples below use an e-commerce model: Omni view `omni_dbt_ecomm__order_items` backed by dbt model `order_items`, joined to `omni_dbt_ecomm__users` on `user_id`. Replace the view, model, column, and entity names with your own.
 
 Use [YAML-REFERENCE.md](./YAML-REFERENCE.md) for the equivalent dbt 1.12 flattened form.
 
@@ -43,7 +45,7 @@ dimensions:
 ```
 
 ```yaml
-# Tested legacy output
+# MetricFlow output (legacy)
 defaults:
   agg_time_dimension: created_at
 dimensions:
@@ -87,7 +89,7 @@ dimensions:
 
 Never inline an override silently. If the dbt expression is `sale_price * 0.95` and Omni still defines `sale_price` as `"SALE_PRICE" * 0.95`, the returned measure evaluates `SUM("SALE_PRICE" * 0.95 * 0.95)`.
 
-The tested source used option 2:
+Option 2 is illustrated by this worked example:
 
 ```yaml
 measures:
@@ -104,7 +106,7 @@ It is a valid dbt example. In Omni it is correct only after the matching Omni di
 ## Aggregations
 
 ```yaml
-# Tested source
+# MetricFlow output (legacy)
 measures:
   - name: total_sale_price
     label: Total Sale Price
@@ -136,7 +138,7 @@ measures:
 
 ## Filtered Aggregate → Simple Metric
 
-Use an atomic measure plus a user-facing metric. This example is from the tested files.
+Use an atomic measure plus a user-facing metric. This worked example uses an atomic average measure and a filtered metric.
 
 ```yaml
 # sem_order_items.yml
@@ -178,7 +180,7 @@ measures:
     filters: {_filter_sale_price_average: true}
 ```
 
-In the live test the extension already had `sale_price_average`, so its `sql` and `label` keys won and only the comment and `filters` came from dbt. An existing extension can mask individual keys in this returned measure. The provenance comment is still added. A field marked `ignored: true` in the extension does not appear in combined output.
+If the Omni model layer already has a field with the exported name, its keys win on re-import; only the provenance comment and dbt-only keys come through. An existing extension can mask individual keys in the returned measure. A field marked `ignored: true` in the extension does not appear in combined output.
 
 ## Filter Operators
 
@@ -264,3 +266,16 @@ Skip and report these constructs:
 - relative time filters;
 - time and period comparison logic; and
 - dbt objects the importer does not support, including conversion and cumulative metrics.
+
+## Adapt to your project
+
+| Substitute | Use in your project |
+|---|---|
+| Omni view name | `<schema>__<view>` |
+| dbt model name | The model name in `ref('<model>')` |
+| Semantic model name | `sem_<model>` or the project convention |
+| Entity names | FK column names on the many side |
+| Aggregate time dimension | The model's time dimension for `agg_time_dimension` |
+| dbt project YAML layout | Legacy or flattened |
+| dbt YAML file layout | `models/semantic-models/` or the project's semantic-YAML location |
+| Omni file keys | `<schema>/<view>.view` in combined mode; `<schema>__<view>.view` in merged mode |
