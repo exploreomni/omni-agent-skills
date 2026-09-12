@@ -49,11 +49,22 @@ This procedure follows `omni-model-builder` → Safe Development Workflow (Steps
    omni models create-branch <modelId> --name <unique-branch>
    ```
 
-2. Decide which dbt environment the branch needs. The Omni branch isolates the Omni-side change on its own. The environment only picks the dbt Git branch that gets compiled. If the dbt YAML is merged to the default dbt branch, keep the production environment and skip step 3. If the YAML is still on an unmerged dbt branch, list the environments and pick an existing one with `isDefaultEnvironment: false`. Do not create a dbt environment without asking the user.
+2. Decide which dbt environment the branch needs. The Omni branch isolates the Omni-side change on its own. The environment only picks the dbt Git branch that gets compiled. If the dbt YAML is merged to the default dbt branch, keep the production environment and skip step 3. If the YAML is still on an unmerged dbt branch, list the environments and choose one with the rule below. Do not create a dbt environment without asking the user.
 
    ```bash
    omni connections dbt-environments-list <connectionId>
+   omni whoami whoami          # user.id, to match ownerId
    ```
+
+   **Choose the dbt environment.** Teams set these up differently: some have shared `dev` / `staging` / `prod` environments, others one environment per person. The list response gives `name`, `isDefaultEnvironment`, `isDeferralEnabled`, `targetName`, `targetDatabase`, `targetSchema`, and `ownerId`. Show the user this table and ask. Suggest a default in this order:
+
+   | Preference | Pick | Why |
+   |---|---|---|
+   | 1 | An environment whose `ownerId` equals your `user.id` from `whoami` | Per-user environments point at the schema your own `dbt build` writes to |
+   | 2 | A shared non-default environment the team names for this purpose (`dev`, `staging`, `ci`) | Its `targetSchema` is where the team builds branch code |
+   | 3 | Any other non-default environment | Only with the user's approval; it belongs to someone else |
+
+   The choice matters beyond the sync. `dbt-sync` only compiles the manifest, so any environment imports the YAML. But a branch query runs against that environment's `targetDatabase.targetSchema`. If the models are not built there, the query fails or returns stale data. With `isDeferralEnabled: true`, unbuilt models resolve to the production tables instead. State the target schema to the user before you query.
 
 3. (Unmerged dbt branch only.) Bind the non-production environment and the dbt Git branch. Read it back. `branch-dbt-get` must show the requested Git branch and `is_default_environment: false` before you sync.
 
