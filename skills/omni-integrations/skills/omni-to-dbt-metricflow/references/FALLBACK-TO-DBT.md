@@ -49,20 +49,20 @@ This procedure follows `omni-model-builder` → Safe Development Workflow (Steps
    omni models create-branch <modelId> --name <unique-branch>
    ```
 
-2. List dbt environments for the connection. Select an existing environment with `isDefaultEnvironment: false` in the list response. Do not create a dbt environment without asking the user.
+2. Decide which dbt environment the branch needs. The Omni branch isolates the Omni-side change on its own. The environment only picks the dbt Git branch that gets compiled. If the dbt YAML is merged to the default dbt branch, keep the production environment and skip step 3. If the YAML is still on an unmerged dbt branch, list the environments and pick an existing one with `isDefaultEnvironment: false`. Do not create a dbt environment without asking the user.
 
    ```bash
    omni connections dbt-environments-list <connectionId>
    ```
 
-3. Bind the selected non-production environment and the dbt Git branch. Read it back. `branch-dbt-get` must show the requested Git branch and `is_default_environment: false` before you sync.
+3. (Unmerged dbt branch only.) Bind the non-production environment and the dbt Git branch. Read it back. `branch-dbt-get` must show the requested Git branch and `is_default_environment: false` before you sync.
 
    ```bash
    omni models branch-dbt <modelId> <branchName> <nonProdDbtEnvId> --dbt-git-branch <git-branch>
    omni models branch-dbt-get <modelId> <branchName>
    ```
 
-   A production/default environment ignores `--dbt-git-branch`. `branch-dbt` returns success, but `branch-dbt-get` continues to show `git_branch: main` and `is_default_environment: true`. Stop and choose an existing non-production environment.
+   The production/default environment ignores `--dbt-git-branch`. `branch-dbt` returns success, but `branch-dbt-get` still shows the default Git branch and `is_default_environment: true`. That is fine when the YAML is merged. For an unmerged dbt branch, use a non-production environment instead.
 
 4. Run `dbt-sync`. Poll to a terminal status. Do not infer sync details from the status response.
 

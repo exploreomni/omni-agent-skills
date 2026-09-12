@@ -56,7 +56,7 @@ Use `-o json` for structured Omni output. Use `-o human` for tables.
 - If a referenced Omni dimension has a model-layer `sql` override, stop and show it. Move the override to dbt, inline it only with a plan to remove the Omni override in the fallback step, or skip the measure. Never inline it silently.
 - Re-import merges fields key by key. Model-extension keys win. dbt-only keys fill in. Provenance comments are added even when a key is masked.
 - A model-extension field with `ignored: true` does not appear in combined output. This is the supported way to hide an imported dbt field.
-- On a branch, bind a non-production dbt environment. A production/default environment ignores `--dbt-git-branch`.
+- The Omni branch isolates the Omni-side change; the dbt environment only decides which dbt Git branch gets compiled. The production/default environment compiles the default dbt branch and ignores `--dbt-git-branch`. Use it when the dbt YAML is merged. Bind a non-production environment only while the YAML is still on an unmerged dbt branch.
 - Omni compiles the manifest from the configured Git branch. Push that dbt branch before `dbt-sync`.
 - `omni models refresh` rebuilds the schema model from the database and also runs the dbt sync. With no filters it is a hard refresh of every schema. Scope it: `--hard-refresh false --schemas <schema> --tables <table,...>` reloads only those objects (wildcards such as `sales_*` are allowed) and leaves the rest of the schema model untouched. A soft refresh is additive: it does not remove dropped objects. On a branch, `dbt-sync` alone recompiles the manifest without a database scan.
 
@@ -259,7 +259,7 @@ After the dbt YAML is merged, Omni brings it in on the next schema refresh or db
 This skill owns only the dbt-specific steps. Branch creation, YAML read-modify-write, validation, test queries, and shipping follow **`omni-model-builder`** (Safe Development Workflow, Steps 0–3). Install the `omni-analytics` plugin to get it. Read [FALLBACK-TO-DBT.md](./references/FALLBACK-TO-DBT.md) for the full sequence with the dbt-specific differences.
 
 1. **Branch** — `omni-model-builder` Step 0. First run `omni whoami whoami --model-id <modelId>` to make sure you can branch. Use a unique branch name. Do not delete a branch you did not create.
-2. **dbt environment (this skill)** — needed only while the dbt YAML is still on an unmerged dbt branch. List environments, choose an existing one with `isDefaultEnvironment: false`, bind it with the dbt Git branch, and read it back. If the dbt YAML is already merged to the default branch, skip this step. `branch-dbt-get` must show the requested Git branch before you sync. Do not create an environment without user approval.
+2. **dbt environment (this skill)** — if the dbt YAML is merged to the default dbt branch, keep the production environment; the Omni branch already isolates your change. If the YAML is still on an unmerged dbt branch, bind an existing environment with `isDefaultEnvironment: false` together with that Git branch, and read it back: `branch-dbt-get` must show the requested Git branch before you sync. The production environment ignores `--dbt-git-branch`. Do not create an environment without user approval.
 3. **Sync (this skill)** — run `dbt-sync` on the branch and poll the job to `COMPLETED` or `FAILED`. The status response has only `job_id`, `job_type`, and `status`. Read failures in the IDE dbt Sync page. If the warehouse tables behind the exported views also changed, run a targeted soft refresh instead: `omni models refresh <modelId> --hard-refresh false --schemas <schema> --tables <table,...>` (add `--branch-id` only when the connection has branch-based schema refresh enabled; otherwise the refresh writes to the shared schema model). Never run an unfiltered refresh for this step: it reloads every schema and pulls every warehouse change into the branch.
 4. **Find the override** — `omni-model-builder` Step 1 read-modify-write, with two dbt-branch differences: read and write the view with `--mode merged` (not `extension`), and reuse the flat returned key (`omni_dbt_ecomm__order_items.view`). Also read the topic file for a topic-scoped `fields:` override.
 5. **Remove only the override** that must yield to dbt. Also remove a dimension override that an imported measure depends on (Step 5 checkpoint). Write the complete file back.
@@ -282,7 +282,7 @@ The precedence is schema/dbt, model extension, topic `fields:` override, then wo
 | Symptom | Cause | Action |
 |---|---|---|
 | MetricFlow cannot resolve a filter | Wrong qualifier | Use `entity__dimension`. Run `mf query --explain`. |
-| `dbt-sync` fails with no detail in `jobs-get-status` | Default environment ignored the Git branch | Bind an existing non-production environment. Confirm `branch-dbt-get` first. |
+| `dbt-sync` fails with no detail in `jobs-get-status` | The Git branch was not applied (production environment ignores `--dbt-git-branch`), or the dbt project does not compile | Check `branch-dbt-get`. For an unmerged dbt branch, bind a non-production environment. Read the IDE dbt Sync page for compile errors. |
 | Branch write succeeds but changes nothing | Used `mode: extension` | Read and write the flat branch file key with `mode: merged`. |
 | dbt field is missing from combined output | Extension has `ignored: true` | Find that extension entry. Remove `ignored` only with user approval. |
 | Imported field retains Omni label, SQL, or filters | Extension key wins during merge | Remove only the conflicting extension key. dbt-only keys still fill in. |
@@ -299,7 +299,7 @@ The precedence is schema/dbt, model extension, topic `fields:` override, then wo
 4. **Stop on dimension overrides.** Move it to dbt, record its removal for Step 10, or skip the measure.
 5. **Do not re-export dbt fields.** Provenance comments identify imported definitions.
 6. **Expect key-by-key re-import merges.** Extension keys win. `ignored: true` hides the field.
-7. **Use a non-production dbt environment on branches.** Confirm its Git branch before sync.
+7. **Match the dbt environment to where the YAML lives.** Merged YAML: production environment. Unmerged dbt branch: a non-production environment bound to that branch. Confirm with `branch-dbt-get` before sync.
 8. **Use `merged` for a branch override write.** Reuse the exact returned flat key.
 9. **Check with a query.** `mf validate-configs` does not catch every bad filter qualifier.
 10. **Do not promote without confirmation.** A Git PR and `merge-branch` both change shared state.
