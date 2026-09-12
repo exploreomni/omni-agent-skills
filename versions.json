@@ -1,4 +1,4 @@
 {
   "//": "Single source of truth for the plugin version. Both plugins ship from this repo at the same commit and share one version; see CONTRIBUTING.md.",
-  "version": "1.11.0"
+  "version": "1.12.0"
 }
