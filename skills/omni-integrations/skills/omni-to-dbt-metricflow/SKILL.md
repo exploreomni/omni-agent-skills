@@ -1,11 +1,11 @@
 ---
 name: omni-to-dbt-metricflow
-description: "Convert an Omni Analytics topic into dbt MetricFlow semantic_models, metrics, and saved_queries YAML, or pull the dbt Semantic Layer into Omni. Use this skill when someone asks to export Omni definitions to dbt, MetricFlow, or the dbt Semantic Layer, or to pull the dbt semantic layer into Omni, run dbt sync, or let dbt definitions win over Omni model-layer overrides."
+description: "Translate the logic in Omni Analytics views (dimensions, measures, primary keys) and relationships into dbt MetricFlow semantic_models, metrics, and saved_queries YAML, scoped by a view or a topic, and validate it with dbt and mf. Also covers the reverse path: run a dbt sync on an Omni branch, see what the dbt Semantic Layer becomes in Omni, and remove model-layer overrides so dbt definitions win. Use this skill whenever someone wants to move Omni measures or metrics to dbt, hand Omni logic to the dbt Semantic Layer, generate semantic_models or metrics YAML from Omni, or pull dbt semantic-layer definitions into Omni."
 ---
 
 # Omni ↔ dbt MetricFlow
 
-Export an Omni topic to dbt MetricFlow YAML. You can also pull a dbt semantic layer into Omni. Treat exported YAML as a draft until the user approves a write or promotion.
+Export Omni model logic to dbt MetricFlow YAML. The logic lives in views (dimensions, measures, primary keys) and in the relationships file. Each dbt-backed view becomes one semantic model. A topic is optional: it scopes the views and fields, and its `default_filters` and `sample_queries` become saved queries. You can also pull a dbt semantic layer into Omni. Treat exported YAML as a draft until the user approves a write or promotion.
 
 Read [FIELD-MAPPING.md](./references/FIELD-MAPPING.md) for mappings and tested examples. Read [YAML-REFERENCE.md](./references/YAML-REFERENCE.md) for legacy and dbt 1.12 YAML. Read [PULL-INTO-OMNI.md](./references/PULL-INTO-OMNI.md) before a reverse sync.
 
@@ -62,11 +62,11 @@ Use `-o json` for structured Omni output. Use `-o human` for tables.
 
 ### Step 1 — Gather Requirements
 
-Ask for the Omni topic, dbt project path, destination branch, and whether to write files or print a draft. Ask which dbt model backs each view. Detect the project YAML shape.
+Ask for the export scope: one or more views, or a topic. A view exports its own dimensions, measures, primary key, and the relationships that touch it. A topic exports its base view and joined views, restricted by its `fields:` list, plus saved queries. Ask for the dbt project path, destination branch, and whether to write files or print a draft. Ask which dbt model backs each view. Detect the project YAML shape.
 
 Ask whether the exported definitions must round-trip into Omni. This determines how to handle model-layer dimension overrides.
 
-> ⚠️ **STOP** — Confirm the topic, dbt model map, YAML shape, and write scope before inspecting or writing definitions.
+> ⚠️ **STOP** — Confirm the scope (views or topic), dbt model map, YAML shape, and write scope before inspecting or writing definitions.
 
 ### Step 2 — Explore the Omni Model
 
@@ -78,12 +78,14 @@ Ask whether the exported definitions must round-trip into Omni. This determines 
 omni models list --model-kind SHARED
 ```
 
-#### 2b. Read the topic and relationships
+#### 2b. Read the relationships file, and the topic when the scope is a topic
 
 ```bash
-omni models yaml-get <modelId> --file-name <topic>.topic --mode combined
 omni models yaml-get <modelId> --file-name relationships --mode combined
+omni models yaml-get <modelId> --file-name <topic>.topic --mode combined   # topic scope only
 ```
+
+For a view scope, the relationships file tells you which other views join to it. Export a joined view as its own semantic model only when the user includes it.
 
 #### 2c. Read every selected view
 
@@ -118,7 +120,7 @@ Use a stable expression for a composite primary key. Skip joins with `where_sql`
 
 ### Step 4 — Resolve the Field List
 
-Apply topic `fields:` inclusions first. Apply `-view.field` exclusions second. Include `all_views.*`, `view.*`, `tag:<tag>`, and named fields only when the topic selects them.
+For a view scope, start from every dimension and measure in the view. For a topic scope, apply topic `fields:` inclusions first, then `-view.field` exclusions. Include `all_views.*`, `view.*`, `tag:<tag>`, and named fields only when the topic selects them.
 
 Drop these fields:
 
@@ -126,7 +128,7 @@ Drop these fields:
 - dbt-sourced fields with provenance comments;
 - filter-only fields;
 - fields from skipped views; and
-- fields that the topic does not select.
+- fields that the topic does not select (topic scope only).
 
 Keep a skip list with the field, reason, and possible manual alternative.
 

@@ -232,7 +232,7 @@ These activate from natural-language requests:
 |-------|-------------|
 | **omni-to-snowflake-semantic-view** | Convert an Omni Analytics topic into a Snowflake Semantic View YAML definition |
 | **omni-to-databricks-metric-view** | Convert an Omni Analytics topic into a Databricks Metric View definition |
-| **omni-to-dbt-metricflow** | Convert an Omni topic to dbt MetricFlow YAML or pull the dbt semantic layer into Omni |
+| **omni-to-dbt-metricflow** | Translate Omni view and relationship logic into dbt MetricFlow YAML, or pull the dbt semantic layer into Omni |
 
 ### Agents (3)
 
@@ -271,7 +271,7 @@ Ask naturally:
 "Give the marketing team access to the sales dashboard"
 "Generate a signed embed URL for this dashboard"
 "Convert this Omni topic to a Snowflake Semantic View"
-"Turn this Omni topic into dbt semantic models and metrics"
+"Move the measures on this Omni view into dbt semantic models and metrics"
 ```
 
 For direct agent routing:

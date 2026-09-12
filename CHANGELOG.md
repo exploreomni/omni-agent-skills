@@ -11,7 +11,7 @@ Since 1.11.0 both plugins share one version, held in `versions.json` and stamped
 ### omni-integrations
 
 **Added**
-- **`omni-to-dbt-metricflow` — bidirectional dbt Semantic Layer support.** Exports Omni topics to dbt MetricFlow YAML and adds the `PULL-INTO-OMNI.md` reverse-sync reference, including how to let dbt definitions win over Omni model-layer overrides. The procedure was validated on a live Omni instance.
+- **`omni-to-dbt-metricflow` — bidirectional dbt Semantic Layer support.** Exports Omni view and relationship logic (scoped by a view or a topic) to dbt MetricFlow YAML and adds the `PULL-INTO-OMNI.md` reverse-sync reference, including how to let dbt definitions win over Omni model-layer overrides. The procedure was validated on a live Omni instance.
 
 ## [1.11.0] - 2026-09-10
 
