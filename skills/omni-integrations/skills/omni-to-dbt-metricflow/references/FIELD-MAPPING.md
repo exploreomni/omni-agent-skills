@@ -83,7 +83,7 @@ dimensions:
 
 > ✋ **STOP** — If a measure references `sale_price`, show this override. Choose one of these options:
 >
-> 1. Move the override into dbt model SQL or a dbt derived dimension. Export the measure against that dbt definition.
+> 1. Materialize the override in the dbt model SQL as a column. Export the measure against that column. (A semantic dimension `expr` does not work here: a measure `expr` reads the physical column, and one that names a dimension fails at query time.)
 > 2. Inline the override into the dbt measure `expr` for dbt correctness. Record that the Omni dimension override must be removed in the fallback step.
 > 3. Skip the measure.
 
@@ -136,9 +136,36 @@ measures:
 | `list` | none | Skip and report. |
 | measure with `sql` and no `aggregate_type` (custom aggregate) | none | Skip and report unless the SQL is plain arithmetic over other measures (derived metric). |
 
+## Filtered Count → Count with the Predicate Inside `expr`
+
+For a `count` with a same-view filter, put the predicate in the expression and omit the metric `filter`. The count of a group with no matching rows is then 0, as in Omni.
+
+```yaml
+# Omni
+measures:
+  count_copy:
+    label: Returned Count
+    aggregate_type: count
+    filters:
+      is_returned:
+        is: true
+```
+
+```yaml
+# MetricFlow output (legacy)
+measures:
+  - name: count_copy
+    label: Returned Count
+    agg: count
+    expr: CASE WHEN is_returned IS TRUE THEN 1 END
+    create_metric: true
+```
+
+On re-import, Omni creates a `count` measure with that `sql`; `COUNT` ignores NULL, so the result matches. A cross-view predicate cannot go inside `expr`; keep a metric `filter` and report that empty groups return NULL.
+
 ## Filtered Aggregate → Simple Metric
 
-Use an atomic measure plus a user-facing metric. This worked example uses an atomic average measure and a filtered metric.
+Use an atomic measure plus a user-facing metric for `sum`, `average`, `count_distinct`, `min`, `max`, `median`, and `percentile`. Empty groups return NULL in MetricFlow where Omni returns 0 for `sum`; report that difference. This worked example uses an atomic average measure and a filtered metric.
 
 ```yaml
 # sem_order_items.yml
@@ -250,10 +277,14 @@ saved_queries:
   - name: monthly_sales
     query_params:
       metrics: [total_sale_price]
-      group_by: [metric_time__month]
+      group_by:
+        - "TimeDimension('metric_time', 'month')"
+        - "Dimension('user_id__country')"
+      where:
+        - "{{ Dimension('order_item_id__status') }} NOT IN ('Returned', 'Cancelled')"
 ```
 
-Map compatible topic defaults and sample queries to saved queries. Drop table calculations, pivots, and unsupported query logic.
+Map compatible topic defaults and sample queries to saved queries. Drop table calculations, pivots, and unsupported query logic. `group_by` entries are semantic objects in quotes (`TimeDimension`, `Dimension`, `Entity`). The bare form `metric_time__month` is only valid on the `mf query --group-by` flag; in YAML it fails `dbt parse`. Run `mf query --saved-query <name>` after writing.
 
 ## Unsupported Constructs
 

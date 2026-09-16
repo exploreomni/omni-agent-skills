@@ -45,9 +45,10 @@ semantic_models:
       - name: average_sale_price
         agg: average
         expr: sale_price * 0.95
-      - name: order_item_count
+      - name: count_copy                # filtered count: predicate inside expr, no metric filter (empty groups stay 0)
         agg: count
-        expr: 1
+        expr: CASE WHEN is_returned IS TRUE THEN 1 END
+        create_metric: true
 
 # File path: use the project's metrics-YAML location.
 metrics:
@@ -103,7 +104,7 @@ models:
     metrics:
       - { name: total_sale_price, type: simple, agg: sum, expr: sale_price, label: Total Sale Price }
       - { name: sale_price_average, type: simple, agg: average, expr: sale_price, filter: "{{ Dimension('order_item_id__status') }} = 'Complete'" }
-      - { name: order_item_count, type: simple, agg: count, expr: 1, hidden: true }   # internal metric; Omni imports it as private
+      - { name: count_copy, type: simple, agg: count, expr: "CASE WHEN is_returned IS TRUE THEN 1 END" }   # filtered count with the predicate inside expr
 metrics:                               # top-level list for ratio, derived, cumulative, and conversion metrics
   - name: price_per_order
     type: ratio
@@ -113,7 +114,11 @@ metrics:                               # top-level list for ratio, derived, cumu
     type: derived
     expr: total_sale_price * 1.07
     input_metrics: [{ name: total_sale_price }]
-saved_queries: [...]                   # top-level list for saved queries, not a property of models[]
+saved_queries:                         # top-level list, not a property of models[]
+  - name: monthly_sales
+    query_params:
+      metrics: [total_sale_price]
+      group_by: ["TimeDimension('metric_time', 'month')"]   # object syntax; bare metric_time__month fails dbt parse
 ```
 
 ### How the two specs compile
