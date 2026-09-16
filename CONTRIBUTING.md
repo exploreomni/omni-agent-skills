@@ -82,6 +82,50 @@ Rules in `rules/` are Cursor-specific `.mdc` files. Keep them narrowly scoped to
 
 Do not copy rule content into skills. Link to rules as shared reference material when needed.
 
+## Customer and partner instance names
+
+**This repository is public.** A tenant hostname — `<customer>.omniapp.co` — names a
+specific Omni customer or partner, so it must never appear in a file, a commit
+message, or a pull request title or body. It is not a credential, so secret
+scanning does not flag it; the disclosure is the customer relationship itself.
+
+Use a placeholder (`yourorg.omniapp.co`) or describe the instance generically
+("a real multi-tenant instance"). **A validation claim does not need a hostname to
+be credible** — say what you ran and what came back, not whose instance it ran
+against. Omni-owned domains (`omni.co`, `exploreomni.dev`, including the
+playground and evals hosts) are fine.
+
+`.github/workflows/no-customer-instances.yml` enforces this on every PR, via
+`.github/scripts/check_no_customer_instances.py`. It scans three things, because
+the tracked files are the least likely of them to carry the name:
+
+| Scanned | Why |
+|---|---|
+| Tracked files | The obvious case, and the one least often hit |
+| Commit messages in the PR range | Where a "validated against …" line usually lands |
+| PR title and body | Where a findings write-up usually lands |
+
+The check is **default-deny** on `*.omniapp.co`: anything that is not a generic
+placeholder fails. That is deliberate — a denylist of real customer names would
+mean committing those names to a public repo, so the guard would become the leak.
+To scan before pushing:
+
+```bash
+python3 .github/scripts/check_no_customer_instances.py            # tracked files
+git log origin/main..HEAD --format=%B | \
+  python3 .github/scripts/check_no_customer_instances.py --stdin "commits"
+```
+
+> **If a name has already been pushed, editing it out is not enough.** A
+> force-push leaves the old commit retrievable by its SHA, and an edited PR body
+> keeps its previous revisions in the "edited" history — both readable by anyone
+> while this repo is public. **Deleting a fork does not help:** a fork shares an
+> object store with its parent and opening a PR pins those objects into it, so
+> the superseded commits stay retrievable from this repository whether or not the
+> fork exists. Scrub the current state, then ask GitHub Support to purge the
+> superseded objects and body revisions — that is the only route, and it needs
+> someone with admin on this repo.
+
 ## Validation
 
 Before opening a PR that changes skill or agent behavior, validate against a real Omni instance:
@@ -261,6 +305,7 @@ Version bumps and changelog entries should be included in the same PR as the beh
 - [ ] Eval cases were added or updated if query behavior changed
 - [ ] Affected plugin manifests were version bumped if distributed behavior changed
 - [ ] `CHANGELOG.md` was updated if distributed behavior changed
+- [ ] No customer or partner instance hostname in the diff, the commit messages, or the PR body
 - [ ] `git diff --check` passes
 
 ## What to Avoid

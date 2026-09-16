@@ -6,6 +6,20 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.13.1] - 2026-09-16
+
+### omni-analytics
+
+_Summary: model-side findings from porting two Looker dashboards to Omni entirely through the CLI, against a real multi-tenant model. Three further findings from the same exercise — unknown vis-`config` keys being accepted silently, misplaced dependent-axis styling blanking a tile, and point-map coordinate fields being silently renamed — are **Omni API/renderer bugs and are being pushed upstream rather than documented as authoring rules**; they appear below only as short symptom notes so the failures are recognisable while the fixes are in flight._
+
+**Added**
+- **`omni-model-builder` — two LookML constructs with no Omni equivalent.** `timeframes: [time, …]` is rejected (there is no `time` and no `duration` timeframe; `second` is nearest, and the `duration` *dimension parameter* is the separate construct for elapsed time). `type: location` with `sql_latitude`/`sql_longitude` is rejected with `Invalid property name at "dimensions->x->type"` — expose latitude and longitude as separate dimensions.
+- **`omni-model-builder` — `hidden: true` is picker-invisible but API-queryable.** A hidden dimension keeps returning values from `query run`, so its absence from the UI reads like missing warehouse data. Anything a user must be able to pick in the UI must not be hidden; contrasted with `ignored: true`.
+
+**Changed**
+- **`omni-content-builder` — upstream bugs noted as symptoms, not rules.** Short notes that an unknown inner-`config` key is currently accepted and does nothing, that misplaced styling on a *dependent* axis has been seen suppressing every mark, and that a point-map coordinate **dimension** reference is silently rewritten with an `_average` suffix and then fails. Each is flagged as tracked/reported upstream; the point-map note carries an interim workaround only.
+- **`omni-content-builder` — validation flow.** *Validate the Draft Before Publishing* now states that neither read-back nor `query run` can observe a render, so a config that round-trips clean can still be drawing a default chart; where the visual matters, finish with a PNG export or a UI check.
+
 ## [1.13.0] - 2026-09-15
 
 ### omni-analytics

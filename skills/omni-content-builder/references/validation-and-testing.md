@@ -84,8 +84,10 @@ omni documents v2-get <identifier>                           # published state
 Check that:
 - **Tile count matches**: the length of `queryPresentations.order` AND the set of keys in `queryPresentations.data` both match what you expect — check both agree with each other.
 - No `queryPresentations.data` entries have null or missing `query` objects.
-- Each tile you wrote read back with a non-empty inner vis config (it reads back *flat* — that's expected; see Step 3).
+- Each tile you wrote read back with a non-empty inner vis config (it reads back *flat* — that's expected; see Step 3). **Non-empty is not the same as correct** — see the caveat below.
 - Every tile in `order` is referenced by a `containers` stack — stored-but-unplaced tiles render nowhere.
+
+> **Neither read-back nor `query run` can observe a *render*.** A non-empty config proves the spec landed in the right place, not that the chart drew — the draft PATCH schema currently accepts unknown `config` keys (an upstream bug; see [visConfig.md](visConfig.md)), so a config that round-trips clean can still be rendering a default chart. Where the visual matters, finish with a PNG export (`omni dashboards download` → `download-status` → `download-file`) or a UI check.
 
 **4b. Execute the dashboard's queries to verify they run:**
 

@@ -1,0 +1,55 @@
+name: No customer instances
+
+# This repository is public. A tenant hostname (`<customer>.omniapp.co`) names a
+# specific Omni customer, so it must not land in a file, a commit message, or a
+# PR title or body. It is not a credential, so secret scanning does not see it.
+#
+# The PR-body and commit-message scans matter more than the file scan: a skill
+# author validates against a real instance and then names it in the write-up,
+# which is exactly how it leaks while every tracked file stays clean.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Scan tracked files
+        run: python3 .github/scripts/check_no_customer_instances.py
+
+      - name: Scan commit messages
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          # First push of a branch reports an all-zero "before" SHA.
+          if [ -z "${BASE_SHA:-}" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "No usable base SHA — scanning HEAD's message only."
+            git log -1 --format=%B \
+              | python3 .github/scripts/check_no_customer_instances.py --stdin "commit message"
+            exit 0
+          fi
+          git log "$BASE_SHA"..HEAD --format='=== %h ===%n%B' \
+            | python3 .github/scripts/check_no_customer_instances.py --stdin "commit messages"
+
+      - name: Scan PR title and body
+        if: github.event_name == 'pull_request'
+        env:
+          # Via env, never inlined into the script body.
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          printf '%s\n%s\n' "$PR_TITLE" "$PR_BODY" \
+            | python3 .github/scripts/check_no_customer_instances.py --stdin "PR title/body"

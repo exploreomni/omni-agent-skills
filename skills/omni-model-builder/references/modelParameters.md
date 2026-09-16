@@ -50,6 +50,26 @@ Complete parameter reference for views, topics, dimensions, and measures. Use th
 > the dimension auto-map by its column name (no `sql:` needed); only add `sql:`
 > for derived/computed expressions, referencing other fields via `${field}`.
 
+> **No `type: location` dimension.** `dimension: x { type: location  sql_latitude: …  sql_longitude: … }`
+> is another LookML-ism with no Omni equivalent — there is no single location
+> dimension taking two SQL expressions, and `type` is **rejected outright**:
+> `Invalid property name at "dimensions->x->type"`. Expose latitude and longitude
+> as **separate dimensions**. Driving a point-map tile from them currently also
+> needs averaged coordinate *measures*, but only as a workaround for an upstream
+> rename bug — see omni-content-builder's
+> [visConfig.md](../../omni-content-builder/references/visConfig.md) before adding
+> them.
+
+> **`hidden: true` hides a field from the picker but leaves it fully queryable
+> through the API.** That asymmetry is a debugging trap: a hidden dimension keeps
+> returning values from `omni query run`, so its absence from the UI reads like
+> missing **warehouse** data when the column is in fact populated — check the
+> model YAML for `hidden` before you go looking at the table. The practical rule:
+> anything a user must be able to **pick** in the UI, or that you want available
+> when building a tile through the picker, must not be hidden. (Contrast
+> `ignored: true`, which removes the field from the UI *and* prevents all
+> references.)
+
 ### Common dimension examples
 
 ```yaml
@@ -309,6 +329,12 @@ Valid values for the `timeframes` parameter on date/time dimensions:
 | `fiscal_year` | Requires `fiscal_month_offset` |
 
 Default if omitted: `raw`, `date`, `week`, `month`, `quarter`, `year`
+
+> **There is no `time` timeframe and no `duration` timeframe.** `timeframes: [time, …]`
+> is a LookML-ism and is **rejected**; the error helpfully returns the full accepted
+> enum. `second` is the nearest equivalent to LookML's to-the-second `time`. For an
+> elapsed-time field, reach for the `duration` **dimension parameter** instead — a
+> different construct, giving the difference between two timestamp fields.
 
 ## Groups
 

@@ -63,6 +63,8 @@ Set `prefersChart: true` to default the tile to chart (vs. table) view, and `aut
 
 **Verify after writing:** read the document back (`omni documents v2-get <identifier>` or `v2-get-draft`) and confirm the tile's `visConfig.chartType` is set and the flat inner `visConfig` contains more than just `visType`. If only `visType` survived, the write sent the flat shape — re-nest under `config` and retry.
 
+> **An unknown `config` key is accepted and silently does nothing** — the draft PATCH schema takes `config` as a loose object, so a typo persists and reads back clean while the tile keeps its default render. **Tracked as an upstream API bug** (the fix logs unknown keys, then rejects them with a 400); until it ships, read-back cannot tell a real key from an invented one, so confirm anything visual with a render — PNG-verify the tile or open it in the UI.
+
 ## chartType Values
 
 These are the supported `chartType` values for building tiles with a structured inner `config`. Feature-flagged, deprecated, and non-config-driven viz types — e.g. the raw Vega code editor and interactive spreadsheets — are intentionally omitted. A stacked **column** is vertical; a stacked **bar** is horizontal.
@@ -157,6 +159,8 @@ There are **two distinct uses** of `x`/`y` in a cartesian config, and the axis-s
 ```
 
 > **The styling object is always nested one level down, under `axis`.** Putting `domain`/`title`/`scale` directly on `x`/`y` (e.g. `y.domain`, `y.min`) is **silently ignored** — the #1 axis-config mistake. The correct path is `<axisName>.axis.<prop>`.
+>
+> On a **dependent** axis the same misplacement is not always harmless: stray `tickFormat`/`label`/`showLabel` on `y`/`y2` has been observed **suppressing every mark** and leaving axes and gridlines drawn on an otherwise empty tile. A misplaced key should be ignored, not stop the chart rendering — that is **an upstream renderer bug, not a rule to design around**; it is noted here only so the symptom is recognisable.
 
 #### `axis` styling properties (all optional)
 
@@ -451,7 +455,17 @@ A complete, **render-verified** status KPI — label + value + change-vs-prior (
 
 ## Config Object: Map / Region Map
 
-**Point map** — `chartType: "map"`, `visType: "map"`, no `configType`. Key fields: `latitudeFieldName`, `longitudeFieldName` (plain field-name strings), plus optional `markType` (`"circle"`/`"heatmap"`), `markRadius`, `color`, `size`, `tooltip`, `zoom`, `center`.
+**Point map** — `chartType: "map"`, `visType: "map"`, no `configType`. Key fields: `latitudeFieldName`, `longitudeFieldName` (plain field-name strings — but see the rename bug below), plus optional `markType` (`"circle"`/`"heatmap"`), `markRadius`, `color`, `size`, `tooltip`, `zoom`, `center`.
+
+> **Known bug — a *dimension* reference is silently renamed, then fails.** Pointing either field at a latitude/longitude dimension (the obvious reading of "plain field-name string") gets the stored value rewritten with an `_average` suffix, and the tile then fails naming a field you never wrote:
+>
+> ```text
+> written: "latitudeFieldName": "employee.destination_latitude"
+> stored:  "latitudeFieldName": "employee.destination_latitude_average"
+> error:   FAILED: No such field "employee.destination_longitude_average"
+> ```
+>
+> **Reported upstream — the silent rename is the bug**, so do not treat the suffix as a naming convention to satisfy. The interim workaround, if you need a map to ship before the fix lands, is to define measures matching the rewritten names (`aggregate_type: average` over the coordinate dimensions) and reference **those** directly. Average coordinates only within a location grouping — the mean of two cities is a point between them, at sea if you are unlucky.
 
 **Region / choropleth map** — `chartType: "regionMap"`, `visType: "map"` (the Mapbox renderer), no `configType`.
 
@@ -823,7 +837,7 @@ Enables AI-generated descriptions/subtitles on tiles:
 | `prefersChart` is `false` or missing | Always shows table | Set `prefersChart: true` |
 | `_dependentAxis` mismatched | Axes inverted / column vs bar wrong | `"y"` for vertical (column/line/area), `"x"` for horizontal bars |
 | `series[].yAxis` vs `xAxis` wrong | Measures don't render | `yAxis: "y"` for vertical, `xAxis: "x"` for horizontal |
-| `domain`/`title`/`scale` set directly on `x`/`y` (e.g. `y.domain`, `y.min`) | **Silently ignored** — axis won't zoom, title won't change | Nest under `axis`: `y.axis.domain.{min,max,zero}`, `y.axis.title.value`. `domain` is an **object** `{min,max,zero}`, not `[min,max]`; min/max are **raw** values (`0.6` = 60%) |
+| `domain`/`title`/`scale` set directly on `x`/`y` (e.g. `y.domain`, `y.min`) | **Silently ignored** — axis won't zoom, title won't change (on a *dependent* axis it has also been seen blanking the tile — upstream renderer bug) | Nest under `axis`: `y.axis.domain.{min,max,zero}`, `y.axis.title.value`. `domain` is an **object** `{min,max,zero}`, not `[min,max]`; min/max are **raw** values (`0.6` = 60%) |
 | `_stack: "normalize"` for 100% stacked | Invalid enum | Use `_stack: "stack_percentage"` (enum: `group`/`stack`/`stack_percentage`/`overlay`) |
 | `series[].color: "#hex"` for a solid series color | No effect (ignored per-layer slot) | Use `series[].mark._mark_color` + `manual: true`; for color-by-value use `config.color.values` |
 | `series[].label` to rename a legend entry | No effect — legend keeps the field label | Set `series[].title.value` (the legend reads `title.value`, falling back to the field label) |
