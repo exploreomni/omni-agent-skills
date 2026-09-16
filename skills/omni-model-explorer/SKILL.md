@@ -74,7 +74,7 @@ Topics are entry points for querying. Each topic defines a base view and the set
 omni models list-topics <modelId>
 ```
 
-Returns topic names, base views, labels, and descriptions.
+Returns topic names, base views, labels, and descriptions. The list mixes regular and **composite** topics: a composite entry has `is_composite: true`, names its component topics in `topics[]` (and any cross-model imports in `import_models`), and has **no `base_view_name`** — so code that reads `base_view_name` off every entry gets `undefined` for it. `get-topic` on a composite topic returns the same shape plus its `views` and `relationships`.
 
 ### Step 3: Inspect a Topic
 
@@ -222,6 +222,8 @@ omni models content-validator-get <modelId> --branch-id <branchId>
 ```
 
 This returns all dashboards and tiles with broken references to the removed field.
+
+> **A clean result on large content may be references-only.** When the content is large, the validator checks field, view, and topic references without planning each query, so a query that references valid fields but no longer plans still reports clean. Pass `--force-full-validation true` (CLI ≥ 1.3.1) to plan every query; it is slower on large models.
 
 4. **Search model YAML** for additional references (run in parallel with step 3):
 

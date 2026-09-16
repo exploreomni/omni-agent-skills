@@ -110,7 +110,7 @@ omni <group> <operation> [positional-args] [--flags] [--body 'JSON']
 Behaviors worth knowing:
 
 - **`--body @file` is validated client-side.** Malformed JSON fails before the request with the byte offset (`request body from file … is not valid JSON: … (at byte 2, near "{bad json")`) instead of a server-side 400. Prefer it over shell-quoting large bodies — no escaping, and the file stays diffable.
-- **Required params are enforced client-side.** Missing ones fail as `Error: required flag(s) "q" not set` with no API call. Affects `content search --q`, `query wait --job-ids`, `models dbt-sync --branch-id`, `models yaml-delete --file-name`, `uploads create --file/--model-id`, `uploads replace-data --file`, and `ai-eval runs-list --prompt-set-id`. Branch on the message: this one is a **local usage error**, not an API rejection — don't retry it or treat it as a permissions problem.
+- **Required params are enforced client-side.** Missing ones fail as `Error: required flag(s) "q" not set` with no API call. Affects `content search --q`, `models dbt-sync --branch-id`, `models yaml-delete --file-name`, `uploads create --file/--model-id`, `uploads replace-data --file`, and `ai-eval runs-list --prompt-set-id`. Branch on the message: this one is a **local usage error**, not an API rejection — don't retry it or treat it as a permissions problem.
 - **Unknown subcommands error** (`Error: unknown subcommand "…"`) instead of silently printing the group's help, so a typo'd operation no longer looks like a successful no-op. It still **exits 0**, though — branch on the message, not the exit code.
 - **`--query key=value`** (repeatable) sends a query parameter the spec doesn't declare — an escape hatch for endpoints ahead of the CLI's spec. Reach for it only when `--schema`'s `queryParams` lacks the filter you need.
 - **Flag names are kebab-case** — `--page-size`, `--user-id`, `--branch-id`, `--file-name`. Older concatenated spellings (`--pagesize`, `--userid`, …) still work as aliases, so don't "fix" a script that uses them.
@@ -130,7 +130,7 @@ omni <group> <operation> --help    # Show flags and positional args
 
 `--schema` is the **source of truth** for field-level body detail. Where a skill or reference doc hardcodes a `--body` shape, treat it as a worked example or a carrier for behavioral gotchas (merge semantics, stringify errors, ignored flags) — not an exhaustive field list. When the doc and `--schema` disagree on which fields exist or are required, `--schema` wins.
 
-> **Caveat — `--schema` is authoritative for *which fields exist / are required*, but not always for *exact accepted values*.** Enum values and casing are hand-maintained in places and can drift from what the endpoint enforces. Two live examples: `query run`'s `cache` advertises `disabled|normal|refresh|refresh_all` but the API enforces `Standard|SkipRequery|SkipCache|…`; `documents update-permission-settings`'s `organizationRole` advertises lowercase `viewer|editor|…` but the API enforces **uppercase** `VIEWER|EDITOR|…`. When the API rejects a schema-conformant value (`400 … Invalid <field>` or `… expected one of …`), the **runtime is the source of truth for values** — use what the `400` accepts. (Separately, `query run`'s `query` object renders free-form — no sub-fields — so for `fields`/`sorts`/`filters`/`calculations` use the worked shapes in the `omni-query` skill.)
+> **Caveat — `--schema` is authoritative for *which fields exist / are required*, but not always for *exact accepted values*.** Enum values and casing are hand-maintained in places and can drift from what the endpoint enforces. A live example: `documents update-permission-settings`'s `organizationRole` advertises lowercase `viewer|editor|…` but the API enforces **uppercase** `VIEWER|EDITOR|…`. When the API rejects a schema-conformant value (`400 … Invalid <field>` or `… expected one of …`), the **runtime is the source of truth for values** — use what the `400` accepts. (Separately, `query run`'s `query` object renders free-form — no sub-fields — so for `fields`/`sorts`/`filters`/`calculations` use the worked shapes in the `omni-query` skill.)
 
 ```bash
 omni query run --schema                    # schema + example for the query body
@@ -157,6 +157,8 @@ omni documents v2-create --schema --field queryPresentations.data  # just the ti
 - The default is `-o auto` (human in a TTY, JSON when piped or redirected).
 - Use `--compact` for single-line JSON (good for piping to `jq`).
 - Errors go to stderr as JSON with `error` and `status` fields
+- **Pass `-o json` explicitly when you parse output.** `auto` only decides when nobody chose: a default set with `omni config set-format` or `OMNI_OUTPUT_FORMAT` applies to piped calls too. On CLI ≥ 1.3.0 this matters for `query run` / `query wait`, whose human output is a rendered table (field labels, model number formats, remaining jobs polled to completion) with no job envelope — no `summary`, `cache_metadata`, or `remaining_job_ids` to validate against.
+- **Keep stderr out of stdout.** Informational output can land on stderr on a successful call — e.g. `query run --workbook` in JSON mode writes `{"workbookUrl": …}` there — so `2>&1` corrupts an NDJSON or CSV payload you meant to parse.
 
 ## Error Handling
 

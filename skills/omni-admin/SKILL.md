@@ -63,8 +63,8 @@ omni connections list
 # Schema refresh schedules
 omni connections schedules-list <connectionId>
 
-# Connection environments
-omni connections connection-environments-list
+# Connection environments (create, update <id>, delete <id>)
+omni connections connection-environments-create --schema
 ```
 
 ### Commit Signing Key Rotation (CLI ≥ 1.1.2)
@@ -318,6 +318,21 @@ omni ai credit-usage-entity-groups-read --body '{ ... }'
 
 > **Gotcha**: `credit-usage-users-read` takes **membership ids** (the user's membership in this organization), not base user ids — an unknown id 404s the whole request, naming the offending id. At most 1000 ids per request, no duplicates; users with no usage report 0.
 
+## Color Palettes
+
+Custom chart color palettes for the organization (CLI ≥ 1.3.1). Writes need the **Manage Config** permission. Run `create` / `update` with `--schema` for the body; `type` is `discrete` (colors categories in order) or `continuous` (a gradient for numeric scales).
+
+```bash
+omni color-palettes list                 # custom palettes only; built-ins are not listed
+omni color-palettes get <paletteId>
+omni color-palettes create --body '{ "name": "Brand colors", "type": "discrete", "colors": ["#1f77b4", "#ff7f0e"] }'
+omni color-palettes update <paletteId> --body '{ "colors": ["#1f77b4", "#2ca02c"] }'
+omni color-palettes delete <paletteId>
+```
+
+- **Updates and deletes reach every chart that uses the palette.** An update recolors those charts in place; a delete makes them fall back to the org default palette. Neither reports which charts were affected.
+- The org's current default palette cannot be deleted, and names must be unique per `type`.
+
 ## Uploads
 
 Manage CSV/spreadsheet uploads (the files users upload to query alongside warehouse data). `create` and `replace-data` are multipart file uploads: pass the CSV path with `--file` and the other fields as flags. Run either with `--schema` for the full field list. (On CLI < 1.2.0 these flags don't exist — the same fields go through `--body` as *multipart* fields, with file paths as the binary values.)
@@ -441,6 +456,9 @@ omni models content-validator-get <modelId>
 
 # Run against a specific branch (e.g., after removing a field)
 omni models content-validator-get <modelId> --branch-id <branchId>
+
+# On large content the validator may only check references; plan every query (slower)
+omni models content-validator-get <modelId> --force-full-validation true
 
 # Git configuration
 omni models git-get <modelId>

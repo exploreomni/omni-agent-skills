@@ -32,7 +32,7 @@ Some connections do not support branch-based schema refresh. If `omni models ref
 
 Report the blast radius from validation and content-validator results before recommending any merge. Ask for the deleted table/column only if the refresh and validator output are too broad or ambiguous to identify the affected field.
 
-If refresh and content validation complete successfully and the content validator returns no broken dashboards or tiles, say that no dashboard breakage was found in the checked model state. Do not turn that into a blocker; only ask for the specific deleted table/column if the user wants you to remove or hide a particular model field after the impact check.
+If refresh and content validation complete successfully and the content validator returns no broken dashboards or tiles, say that no dashboard breakage was found in the checked model state. On large content the validator may only have checked references; rerun with `--force-full-validation true` before calling a large model clean. Do not turn that into a blocker; only ask for the specific deleted table/column if the user wants you to remove or hide a particular model field after the impact check.
 
 Distinguish validation warnings from dashboard breakage. A warning such as `No join path from ...` should be reported as a model validation warning, but do not infer that it was caused by the deleted column unless validation or the content validator identifies the missing table/column directly.
 

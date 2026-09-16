@@ -34,8 +34,9 @@ be confirmed with `omni … --help` or `omni … --schema`.
    body shape you have not seen in `--schema`.
 4. **Write the docs.** See below.
 5. **Add a CHANGELOG entry** under a new version heading, matching the style of
-   the entries above it, and bump the version in the manifests listed in
-   CONTRIBUTING.md → *Versioning*.
+   the entries above it, and set that version in `versions.json`. Leave the
+   plugin manifests alone: CI stamps them on merge (CONTRIBUTING.md →
+   *Versioning and Changelog*).
 6. **Open the PR** on the branch the workflow passes you, with the title it
    gives you.
 

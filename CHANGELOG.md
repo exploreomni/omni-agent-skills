@@ -6,12 +6,47 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
-## [1.12.0] - 2026-09-11
+## [1.14.0] - 2026-09-16
 
 ### omni-integrations
 
 **Added**
 - **`omni-to-dbt-metricflow` — move Omni logic into the dbt Semantic Layer.** Exports Omni view and relationship logic (scoped by a field list, a view, or a topic) to dbt MetricFlow YAML, checks every emitted name against the dbt project before writing, validates it with dbt and mf, and adds the `FALLBACK-TO-DBT.md` reference for the last step: once a dbt sync brings the definition in, remove the Omni model-layer override so Omni falls back to dbt. The procedure was validated on a live Omni instance.
+
+## [1.13.0] - 2026-09-15
+
+### omni-analytics
+
+_Summary: sync skills with Omni CLI v1.3.1. The release adds two command groups, `skills` and `color-palettes` (243 commands, up from 233), and syncs the API spec: `query run` documents the `cache` values the API accepts, `query wait --job-ids` is no longer required client-side, `models content-validator-get` gains `--force-full-validation`, list endpoints document their page-size and sort enums, and topic and AI job-result responses gain composite-topic and per-action `status` schemas. No command or flag was removed. Every behavior below was checked against the released 1.3.1 binary._
+
+**Added**
+- **`omni-ai-optimizer` — *Agent Skills*.** `omni skills` list / get / create / update / delete, with the behaviors that do not surface as errors: `list` is scoped to the caller for non-admins and omits `body`, and a skill's `description` is what the agent picks between skills on.
+- **`omni-admin` — *Color Palettes*.** `omni color-palettes` commands; `list` excludes built-in palettes, and an update or delete changes every chart using the palette without saying which.
+- **`omni-model-explorer` — composite topics.** `list-topics` mixes regular and composite topics; a composite entry has `is_composite: true`, component `topics[]`, and no `base_view_name`.
+- **Content validator — `--force-full-validation`** (`omni-model-explorer`, `omni-admin`, `omni-model-builder` schema-refresh reference). On large content the validator checks references without planning queries, so a clean result can miss queries that no longer plan.
+
+**Changed**
+- **`omni-query` — `cache` values.** Adds `SkipCacheAndRebuildExtracts`.
+- **`omni-query` — async job actions.** Each action's `status` (`complete` / `partial` / `skipped` / `failed`) is separate from `result.status`; a `partial` action with a successful query still answered less than was asked.
+- **`omni-content-builder` — app write warnings.** `warnings` also flags `settings.allowDefaultMapProviders` when the org's app policy turns map providers off; the setting saves but no map tile loads.
+- **`omni-api-conventions` rule.** `query wait --job-ids` leaves the list of client-side required flags, and the `--schema` enum-drift caveat drops the `query run` `cache` example now that the schema lists the accepted values.
+
+## [1.12.0] - 2026-09-15
+
+### omni-analytics
+
+_Summary: sync skills with Omni CLI v1.3.0. The command set is identical to 1.2.2 and no request or response schema changed; the release adds four presentation flags — `--chart`, `--chart-value`, `--chart-rows`, `--workbook` — and renders `query run` / `query wait` results as formatted tables in human mode. JSON-mode output is unchanged. Every behavior below was probed against the released 1.3.0 binary._
+
+**Added**
+- **`omni-query` — `--workbook` and `workbookUrl`.** New row in *Request-level options*: the ephemeral-workbook link comes back in a response header, printed under human output or as `{"workbookUrl": …}` on **stderr** in JSON mode, and is **silently omitted** when the user lacks the workbooks permission on the model.
+- **`omni-query` — *Showing results to a person*.** Human-mode tables and `--chart` bar tables for presenting results, with the caveat that neither carries the job envelope, so validation stays a JSON-mode step.
+
+**Changed**
+- **`omni-query` — NDJSON and long-running queries.** The NDJSON warning now applies to JSON mode, and says to pass `-o json` when parsing. *Long-Running Queries* notes that JSON mode never polls: `remaining_job_ids` in the footer is the only sign a result is incomplete.
+- **`omni-api-conventions` rule — Output.** Pass `-o json` explicitly when parsing, since a default from `omni config set-format` or `OMNI_OUTPUT_FORMAT` also applies to piped calls and turns `query run` into a rendered table. Keep stderr out of stdout, since `--workbook` writes its link there on a successful call.
+
+**Fixed**
+- **`omni-admin` — connection environments.** The Connections example called a list command the CLI does not have; it now points at `connection-environments-create --schema` and names the create / update / delete operations.
 
 ## [1.11.0] - 2026-09-10
 
