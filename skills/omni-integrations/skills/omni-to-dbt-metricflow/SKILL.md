@@ -1,6 +1,6 @@
 ---
 name: omni-to-dbt-metricflow
-description: "Move logic that lives in Omni Analytics views (dimensions, measures, primary keys) and relationships into the dbt Semantic Layer as MetricFlow semantic_models, metrics, and saved_queries YAML, scoped by a field list, a view, or a topic, validate it with dbt and mf, then make Omni fall back to the dbt definition by removing the Omni model-layer override once a dbt sync has brought it in. Use this skill whenever someone wants to push Omni measures or metrics down to dbt, hand Omni logic to the dbt Semantic Layer, generate semantic_models or metrics YAML from an Omni view, or make dbt the source of a metric that Omni currently defines."
+description: "Move logic that lives in Omni Analytics views (dimensions, measures, primary keys) and relationships into the dbt Semantic Layer as MetricFlow semantic_models, metrics, and saved_queries YAML, scoped by a field list, a view, or a topic, check it with dbt and mf, then make Omni fall back to the dbt definition by removing the Omni model-layer override once a dbt sync has brought it in. Use this skill whenever someone wants to push Omni measures or metrics down to dbt, hand Omni logic to the dbt Semantic Layer, generate semantic_models or metrics YAML from an Omni view, or make dbt the source of a metric that Omni currently defines."
 ---
 
 # Omni → dbt MetricFlow
@@ -196,7 +196,7 @@ Apply the Step 5 dimension-override checkpoint before writing every measure expr
 
 Do not use the same name for different atomic and user-facing definitions. A count with no SQL uses `expr: 1`.
 
-**Zero versus NULL.** A metric `filter` removes non-matching rows before aggregation. When that metric is queried together with another metric at a grouped grain, MetricFlow joins the two aggregations and a group with no matching rows comes back NULL where Omni returns 0. For a filtered `count`, put the predicate inside the `expr` (`CASE WHEN … THEN 1 END`); the count of an empty group is then 0. For `sum`, `average`, and `count_distinct`, an empty group is NULL in MetricFlow either way; report that difference to the user. Do not add `fill_nulls_with` to a metric that must come back into Omni: the importer rejects it (`UnsupportedFeature`). Cross-view predicates cannot go inside `expr`; keep the metric `filter` and report the NULL behaviour.
+**Zero versus NULL.** A metric `filter` removes non-matching rows before aggregation. When that metric is queried together with another metric at a grouped grain, MetricFlow joins the two aggregations and a group with no matching rows comes back NULL where Omni returns 0. For a filtered `count`, put the predicate inside the `expr` (`CASE WHEN … THEN 1 END`); the count of an empty group is then 0. For `sum`, `average`, and `count_distinct`, an empty group is NULL in MetricFlow either way; report that difference to the user. Do not add `fill_nulls_with` to a metric that must come back into Omni: the importer rejects it (`UnsupportedFeature`). Cross-view predicates cannot go inside `expr`; keep the metric `filter` and report the NULL behavior.
 
 #### Filter syntax
 
@@ -311,9 +311,10 @@ The precedence is schema/dbt, model extension, topic `fields:` override, then wo
 | Branch write succeeds but changes nothing | Used `mode: extension` | Read and write the flat branch file key with `mode: merged`. |
 | dbt field is missing from combined output | Extension has `ignored: true` | Find that extension entry. Remove `ignored` only with user approval. |
 | Imported field retains Omni label, SQL, or filters | Extension key wins during merge | Remove only the conflicting extension key. dbt-only keys still fill in. |
-| `Binder Error: column "<dim>" not found` at query time, but `mf validate-configs --skip-dw` passed | A measure `expr` names a semantic dimension | Use the physical column, or materialize the transform in the dbt model SQL. Run `mf validate-configs` without `--skip-dw`. |
+| `column "<dim>" not found` or `invalid identifier` at query time (DuckDB: `Binder Error`), but `mf validate-configs --skip-dw` passed | A measure `expr` names a semantic dimension | Use the physical column, or materialize the transform in the dbt model SQL. Run `mf validate-configs` without `--skip-dw`. |
 | A filtered count shows NULL for a group where Omni shows 0 | Metric `filter` drops the group before the join | Put the predicate in the count `expr`: `CASE WHEN <pred> THEN 1 END`. |
 | `dbt parse`: `ParseJinjaObjectException` on `{{metric_time__month}}` | Saved query `group_by` used the CLI form | Use `"TimeDimension('metric_time', 'month')"`. |
+| `WARNING … fix_proxy_metrics: Metric <name> should not have an expr set if it's proxy from measures` on `dbt parse` | `create_metric: true` on a measure with a non-trivial `expr` | Ignore. Validation and results are unaffected. |
 | `Invalid name 'day' - names cannot match reserved time granularity keywords` | Dimension named after a granularity | Rename the dimension and set `expr` to the column. |
 | Measure applies a discount twice | dbt expr and Omni dimension both transform it | Move logic to dbt, remove the Omni dimension override in Step 10, or skip the measure. |
 | dbt parse reports a mapping error after append | Existing YAML lacked trailing newline | Check `tail -c1 <file> | xxd`; add a newline before appending. |
@@ -367,7 +368,7 @@ Do not treat a successful background job as proof of the intended merged output.
 
 ## Related Skills
 
-- **omni-model-builder** — branch, write, validate, and ship model YAML (used by Step 10)
+- **omni-model-builder** — branch, write, check, and ship model YAML (used by Step 10)
 - **omni-model-explorer** — inspect topics, views, and relationships before export
 - **omni-query** — run the branch query that proves an imported field resolves
 - **omni-admin** — connection dbt settings and dbt environments

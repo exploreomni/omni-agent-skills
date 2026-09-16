@@ -147,7 +147,8 @@ Omni's importer reads both paths. dbt 1.12.4 emits no deprecation warning for th
 | Omni construct | Legacy | Flattened |
 |---|---|---|
 | unfiltered aggregate | measure with `create_metric: true` | model-level simple metric |
-| aggregate with filters | atomic measure plus simple metric | model-level simple metric with `agg`, `expr`, and `filter` |
+| filtered `count` (same-view predicate) | measure `agg: count`, `expr: CASE WHEN … THEN 1 END`, `create_metric: true` | model-level simple metric with `agg: count` and the same `expr` |
+| aggregate with filters (`sum`, `average`, `count_distinct`, …) | atomic measure plus simple metric | model-level simple metric with `agg`, `expr`, and `filter` |
 | division of measures | ratio metric | top-level ratio metric |
 | arithmetic over measures | derived metric | top-level derived metric |
 | compatible topic extra | saved query | top-level saved query |
