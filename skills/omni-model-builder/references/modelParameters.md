@@ -32,7 +32,7 @@ Complete parameter reference for views, topics, dimensions, and measures. Use th
 | `groups` | Buckets values with CASE-like logic (see Groups below) |
 | `bin_boundaries` | Numeric bins/tiers (e.g., `[0, 10, 50, 100]`) |
 | `duration` | Time difference between two timestamp fields |
-| `level_of_detail` | Controls aggregation granularity (LOD) |
+| `level_of_detail` | Aggregate at a grain independent of the query (`fixed` / `always_include` / `always_exclude`). See [level-of-detail.md](level-of-detail.md) |
 | `dynamic_top_n` | Auto-filtering for top/bottom N values by measure |
 | `order_by_field` | Sort this field by another field's values |
 | `aliases` | Maps old field names to preserve content |
@@ -279,6 +279,27 @@ Use D3 time format strings: `"%Y-%m"`, `"%Y-%m-%d"`, `"%Y-%m-%d %H:%M:%S"`
 | `base_view_label` | Display name for the base view table |
 | `warehouse_override` | Different warehouse for queries using this topic |
 | `required_access_grants` | Access grants for topic-level control |
+
+## Composite Topic Parameters
+
+A `.composite_topic` file. See [composite-topics.md](composite-topics.md).
+
+| Parameter | Description |
+|-----------|-------------|
+| `topics` | **Required.** Member topics, a list |
+| `shared_views` | Views present in every member topic; selectable once for the composite |
+| `shared_dimensions` | Named dimensions with a `mappings:` entry per topic (`<topic>: { field: view.field }`); the join keys between legs |
+| `shared_measures` | Measures over the joined result: `sql:` over `${<topic>.<view>.<measure>}` references, no `aggregate_type`; a `filters:` block is not applied |
+| `unrelated_dimension_handling` | `filter_only` (default), `null_fill`, or `repeat`: what a member topic's own dimensions can do in a query |
+| `always_join_all_topics` | `true` — include every member even when it has no selected fields |
+| `label`, `description`, `hidden`, `fields`, `ai_context`, `sample_queries`, `required_access_grants` | As on a regular topic |
+
+## View Parameters (selected)
+
+| Parameter | Description |
+|-----------|-------------|
+| `filters` | View-level block declaring filter-only fields (parameters with no column) read by other fields via Mustache. See [templated-filters.md](templated-filters.md) |
+| `materialized_query` | Declares the view as a pre-aggregated table: `fields:` map (topic field → column), `base_view`, `topic`, optional `filters:` pin. See [aggregate-awareness.md](aggregate-awareness.md) |
 
 ## Timeframes
 

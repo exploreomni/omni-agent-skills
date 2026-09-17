@@ -1,6 +1,6 @@
 ---
 name: omni-model-builder
-description: Create and edit Omni Analytics semantic model definitions — views, topics, dimensions, measures, relationships, and query views — using YAML through the Omni CLI. Use this skill whenever someone wants to add a field, create a new dimension or measure, define a topic, set up joins between tables, modify the data model, build a new view, add a calculated field, create a relationship, edit YAML, work on a branch, promote model changes, or any variant of "model this data", "add this metric", "create a view for", or "set up a join between". Also use for migrating modeling patterns since Omni's YAML is conceptually similar to other semantic layer definitions.
+description: Create and edit Omni Analytics semantic model definitions — views, topics, dimensions, measures, relationships, query views, composite topics, and aggregate tables (materialized_query) — using YAML through the Omni CLI. Use this skill whenever someone wants to add a field, create a new dimension or measure, define a topic, set up joins between tables, modify the data model, build a new view, add a calculated field, create a relationship, edit YAML, work on a branch, promote model changes, or any variant of "model this data", "add this metric", "create a view for", or "set up a join between". Also use for migrating modeling patterns since Omni's YAML is conceptually similar to other semantic layer definitions.
 ---
 
 # Omni Model Builder
@@ -205,6 +205,7 @@ In the query response, confirm `summary.missing_fields` is `[]` (and `summary.in
 | View | `.view` | Dimensions, measures, filters for a table |
 | Topic | `.topic` | Joins views into a queryable unit |
 | Relationships | (special) | Global join definitions |
+| Composite topic | `.composite_topic` | Joins two or more topics on shared dimensions (see [composite-topics.md](references/composite-topics.md)) |
 
 Write with `mode: "extension"` (shared model layer). To delete a file, send empty `yaml`.
 
@@ -293,6 +294,8 @@ Two gotchas: a raw column **auto-maps by name** (no `sql:` needed); there is **n
 
 See `references/modelParameters.md` (24+ params, all 13 aggregate types) and `references/yaml-filter-syntax.md` (filter operators + measure-filter examples). **Prefer a measure `filters:` block** for filtered aggregates over `CASE WHEN`/`WHERE` in `sql` — keep `sql` focused on the value being aggregated:
 
+For level-of-detail aggregates (`fixed` / `always_include` / `always_exclude`, on dimensions and measures) see `references/level-of-detail.md`.
+
 ```yaml
 measures:
   completed_revenue:
@@ -302,6 +305,18 @@ measures:
       status:
         is: Complete
 ```
+
+### Filter-only fields and dynamic fields
+
+**Reach for a filter-only field** when one user choice should change *how a field is computed* rather than *which rows are kept*: report by created date or shipped date, show revenue or order count in the same KPI, apply a threshold the viewer sets. It is a view-level `filters:` entry with no column that other fields read through Mustache. **Don't** reach for it to hide or show fields (use topic `fields:`), to filter rows (an ordinary filter), or when the two variants deserve their own topics (see "new topic vs extend"). Shapes, binding, validation: [templated-filters.md](references/templated-filters.md).
+
+### Aggregate tables (aggregate awareness)
+
+**Reach for an aggregate table** when the same fact rollup is queried repeatedly at a coarser grain than the table (daily or monthly tiles over an event-level fact) and a pre-aggregated table exists or can be built. Declare it with a `materialized_query` block on a view, one per table, on the topic it serves; Omni reads it when a query fits and falls back to the fact table when not. **It will not help** a query that needs a column the table lacks, a non-additive measure (`average`, `count_distinct`, `median`) at another grain, or a finer grain than the table. Confirm with a `planOnly` query headed `-- Query rewritten to use materialized view`. Rules, filter pins, the non-inner-join feature: [aggregate-awareness.md](references/aggregate-awareness.md).
+
+### Level of detail
+
+**Reach for `level_of_detail`** when a measure has to be computed at a grain other than the query's: a per-customer total on every order row (`fixed:`), a finer aggregate summarized up (`always_include:`), or an amount held at a coarser grain while finer dims are on the report (`always_exclude:`). Name the grain the report actually uses — `fixed:` is flat across everything *not* listed only while the listed field is on the report, and listing a field the report does not use re-splits the measure. `always_exclude` adapts to whichever coarser field is present and tolerates over-listing, but needs an idempotent outer aggregate (`max`, not `sum`). **It will not** cap a level via `always_include`, and the lists take field references only — no wildcards. For a header amount repeating across line detail, weigh it against a composite topic with `unrelated_dimension_handling: repeat`, which needs no list. Grain matching, the outer-aggregate rule, template reuse and verification: [level-of-detail.md](references/level-of-detail.md).
 
 ### Cross-View Fields in Views
 
@@ -369,6 +384,10 @@ omni ai search-omni-docs "how do I configure always_where_filters on a topic in 
 ```
 
 Use targeted questions to get precise YAML examples for your specific filtering need before writing the model YAML.
+
+### Composite topics
+
+**Reach for a composite topic** when one query must place measures from two facts that share dimensions but no join (sales and returns by month), or one fact under two conditions (this period and last, created basis and shipped basis). Cardinality decides: a filter table that is many-to-one from the summed fact is a dimension, join it; one-to-many is a query view rolled up to the summed grain; only unjoined facts need a composite. **Don't** reach for it when one topic with a join answers the question, or when the second measure is a filtered variant of the first. Authoring, the two-lens `extends` pattern, and the `@`-addressed query shape: [composite-topics.md](references/composite-topics.md).
 
 ## Writing Relationships
 
@@ -475,6 +494,8 @@ Both options work with either a `query:` block (field-mapped virtual table) or a
 
 Query views can also be defined inline within a topic's `views:` block, scoping the virtual table to that topic only. See `references/topic-scoped-views.md` for an example.
 
+**`sql:` versus `query:` for a rollup.** Field references (`${view.field}`) work inside a `sql:` block, but Omni expands them once, when the file is saved, into alias-qualified columns, so the `FROM` must be aliased to the view's reference name (`FROM ${order_items} AS "order_items"`). Validation does not catch a missing alias; a query does. The `query:` form (`fields:` mapping view fields and measures to column names, plus `base_view` and `topic`) compiles through the model on every run, so later changes to those fields flow through. A `sql:` query view gets no automatic `count` measure; declare one if it is needed. Examples in `references/query-view-examples.md`.
+
 ## Common Validation Errors
 
 | Error | Fix |
@@ -493,7 +514,7 @@ If the model doesn't reflect the database (missing columns/tables, wrong types, 
 
 ## Docs Reference
 
-- [Model YAML API](https://docs.omni.co/api/models.md) · [Views](https://docs.omni.co/modeling/views.md) · [Topics](https://docs.omni.co/modeling/topics/parameters.md) · [Dimensions](https://docs.omni.co/modeling/dimensions.md) · [Measures](https://docs.omni.co/modeling/measures.md) · [Relationships](https://docs.omni.co/modeling/relationships.md) · [Query Views](https://docs.omni.co/modeling/query-views.md) · [Branch Mode](https://docs.omni.co/finding-content/drafting-publishing/branch-mode.md)
+- [Model YAML API](https://docs.omni.co/api/models.md) · [Views](https://docs.omni.co/modeling/views.md) · [Topics](https://docs.omni.co/modeling/topics/parameters.md) · [Dimensions](https://docs.omni.co/modeling/dimensions.md) · [Measures](https://docs.omni.co/modeling/measures.md) · [Relationships](https://docs.omni.co/modeling/relationships.md) · [Query Views](https://docs.omni.co/modeling/query-views.md) · [Composite Topics](https://docs.omni.co/modeling/topics/composite-topics) · [Templated Filters](https://docs.omni.co/modeling/templated-filters) · [Aggregate Awareness](https://docs.omni.co/analyze-explore/performance/aggregate-awareness) · [Branch Mode](https://docs.omni.co/finding-content/drafting-publishing/branch-mode.md)
 
 ## Related Skills
 

@@ -6,6 +6,27 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.14.0] - 2026-09-17
+
+### omni-analytics
+
+_Summary: four modeling features the skills did not cover — aggregate awareness (`materialized_query`), composite topics, templated filters (filter-only fields), and level of detail — each now has a reference in `omni-model-builder` with worked shapes checked against the current release, plus the query and explorer notes needed to use them. The content-builder skill gains dashboard design defaults from Omni's Dashboarding Best Practices guide. No command or flag changed._
+
+**Added**
+- **`omni-model-builder` — *Aggregate awareness*.** `references/aggregate-awareness.md`: declaring `materialized_query`, pinning a table to a filter value (a filter-only field included), what a table serves by timeframe and aggregate type, the non-inner-join model feature, and confirming a rewrite with `planOnly`.
+- **`omni-model-builder` — *Composite topics*.** `references/composite-topics.md`: the `.composite_topic` file, when a cross-fact metric is a composite at all, `shared_views`, `shared_dimensions`, `shared_measures` and its limits, `unrelated_dimension_handling`, the two-lens `extends` pattern, query addressing, and how legs use member-topic aggregate tables.
+- **`omni-model-builder` — *Templated filters*.** `references/templated-filters.md`: filter-only fields, the Mustache tokens, four dynamic-field shapes (date basis, metric switcher, numeric threshold, section block with a default), query and control binding, validating through executed SQL.
+- **`omni-model-builder` — *Level of detail*.** `references/level-of-detail.md`: `fixed` / `always_include` / `always_exclude`, grain matching, the idempotent outer aggregate for `always_exclude`, header amounts across line detail against a composite with `repeat`, a per-query grain from a templated `fixed:` target, reuse through field-level `extends`.
+- **`omni-content-builder` — *Design defaults*.** A short section in `SKILL.md` (lead with the answer top-left, three to five charts per page, neutral palette with one accent, chart type by question, controls beside what they drive with action-oriented labels, a parent control to hide complexity, charts that read without hovering), stated as defaults that never override direction the user gives, with placement guidance in `containers.md` and the parent-control pattern in `controls.md` linked back to the guide.
+- **`omni-model-builder` — *Evals*.** Seven cases covering the four features: an aggregate table with a proven rewrite, a composite build, date-basis pins, a dynamic date switch, a many-side flag rolled up, a header amount across line detail, and a `fixed:` grain that is wrong on a second report.
+
+**Changed**
+- **`omni-model-builder` — SKILL.md.** Reach-for-it pointers for the four features, a `.composite_topic` file-type row, trigger terms in the skill description, `sql:` versus `query:` for rollup query views, and composite and view rows in the parameter tables.
+- **`omni-model-builder` — *Query views*.** `references/query-view-examples.md` gains a many-side rollup in both forms; `${view.field}` in a `sql:` block expands at save time and needs an aliased `FROM`, and a `sql:` query view has no automatic `count`.
+- **`omni-query` — *Date `BETWEEN`*.** The end of a date `BETWEEN` is exclusive (`>= start AND < end`), not inclusive as previously stated; a whole year ends on the first day of the next year. Number `BETWEEN` stays inclusive at both ends.
+- **`omni-query` — *Composite topics*.** Querying one (no `table`, `@`-prefixed addressing, per-leg filters) and confirming an aggregate table served a query.
+- **`omni-model-explorer` — *Composite topics*.** What `get-topic` returns for one.
+
 ## [1.13.0] - 2026-09-15
 
 ### omni-analytics
