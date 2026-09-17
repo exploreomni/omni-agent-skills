@@ -27,7 +27,7 @@ omni documents v2-patch-draft <identifier> --body '{
 # → response includes draftIdentifier
 ```
 
-> **CRITICAL: `branchId` must go INSIDE the body.** When `--body` is present, the CLI silently drops `--branch-id` and every other shorthand flag (verified in the CLI source and live). `--branch-id` alone — flags-only, no `--body` — does work.
+> **CRITICAL: `branchId` must go INSIDE the body.** When `--body` is present, the CLI silently drops `--branch-id` and every other shorthand flag (verified in the CLI source and live). `--branch-id` alone — flags-only, no `--body` — does work. `branchId` is accepted only on `v2-patch-draft` (the call that creates the draft); `v2-patch-draft-by-identifier` rejects it, so the binding is fixed when the draft is created.
 
 ### Verify the binding — always
 
@@ -72,7 +72,7 @@ This sets expectations and names the one action that finishes the job (merge + p
 
 > The general flow — `omni models yaml-create <workbookModelId>` with `"mode": "extension"`, YAML body with no `views:` wrapper — lives in *Updating a Dashboard's Model* in SKILL.md. This section covers what changes on a draft.
 
-**Each draft has its own cloned workbook model**, with a different id from the published doc's. Get it straight from `list-drafts` (`workbookModelId` on the draft record). Then:
+**Each draft has its own cloned workbook model**, with a different id from the published doc's. Get it from `v2-get-draft` (`workbookModelId` in the response) or `list-drafts` (on the draft record). Then:
 
 ```bash
 # 1) write the field into the DRAFT's workbook model

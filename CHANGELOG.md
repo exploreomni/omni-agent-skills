@@ -6,6 +6,21 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.16.0] - 2026-09-21
+
+### omni-analytics
+
+_Summary: `omni-content-builder` re-checked against the current documents v2 API. Four behaviors it still warned about have changed: a tile's inner vis config reads back in the write shape, a control is visible exactly where a container places it, new tiles are auto-placed when a create or patch carries no `containers`, and `v2-get` returns the published state with `modelId` and `workbookModelId`. Missing enum values and container options added. No command or flag changed._
+
+**Changed**
+- **`omni-content-builder` — *Vis config round-trip*.** Reads return `visConfig.visConfig` as `{ visType, config }`, the write shape, and a flat spec is normalized on write. The flat-read warnings and the `normalizeTile()` helper are gone; read the written tile back and confirm `config` is non-empty.
+- **`omni-content-builder` — *Control visibility*.** `hidden` is not on the v2 contract: a patch carrying it is rejected, and an unplaced control is hidden and stays unplaced. Hide a control by leaving it out of every container (`controls.md`, `containers.md`, design defaults).
+- **`omni-content-builder` — *Auto-placement*.** With no `containers` in the request, every new dashboard-eligible tile is placed on the first page; sending `containers` turns that off. Replaces "only the seed tile is laid out". The seed note is narrowed to what reproduces: tile `"1"`'s `automaticVis` comes back `true` on create.
+- **`omni-content-builder` — *Reads*.** `v2-get` is the published state (drafts via `v2-get-draft`); both carry `modelId` and `workbookModelId`. `branchId` is accepted only on the draft-creating patch. `v2-update-identifier` added to the command tables.
+- **`omni-content-builder` — *Enums and shapes*.** Tile `type` values (`foreign` replaces `app`), `sourceQueryPresentationKey` required on `linked`, `foreignModelId` / `editingModelObjectName` / `fileUploadId`, name and subtitle caps, `treemap` and `svgMap`, `_stack: "stack_percentage"` (not `normalize`), filter metadata (`requiredScope`, `filterControlType`, `watchedContainerIds`; `base_view` ignored), `FIELD_PICKER.fieldOrder`, the `inline-spacer` / `inline-divider` / `placeholder` / `text` items, stack and grid options, page `breakpoint`, and the 15-page limit. The inline-filter materialization claim is removed as unverified.
+- **`omni-api-conventions` rule.** `--schema` reflects the installed CLI build and can lag the API; it is no longer the tie-break when a doc disagrees with it. Keep the CLI current and confirm with a live call.
+- **`omni-content-builder` — *Evals*.** Six cases updated; three added (hide by placement, add a tile without `containers`, rename a tile read from a draft).
+
 ## [1.15.0] - 2026-09-21
 
 ### omni-analytics

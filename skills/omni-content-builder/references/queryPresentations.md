@@ -16,7 +16,7 @@ Every chart queryPresentation requires: `name`, `prefersChart: true`, a `visConf
 ## Table of Contents
 
 - [Keyed map & order semantics](#keyed-map--order-semantics)
-- [Where the visualization config lives](#where-the-visualization-config-lives-read-this-first) — the #1 gotcha
+- [Where the visualization config lives](#where-the-visualization-config-lives-read-this-first)
 - [v1 → v2 field locations](#v1--v2-field-locations)
 - [Key Parameters](#key-parameters)
 - [queryPresentation Object Parameters](#querypresentation-object-parameters)
@@ -37,19 +37,19 @@ Every chart queryPresentation requires: `name`, `prefersChart: true`, a `visConf
 
 | Operation | What to send |
 |---|---|
-| Add a tile | New key in `data` + the key appended to a complete `order` array (+ a `containers` stack so it renders — see [containers.md](containers.md)) |
-| Edit a tile | Just that key, with the full tile object — re-author the inner vis config nested under `config` (never echo the flat GET shape) |
+| Add a tile | New key in `data` + the key appended to a complete `order` array. With no `containers` in the patch the tile is auto-placed on the first page; send `containers` to place it yourself (see [containers.md](containers.md)) |
+| Edit a tile | Just that key, with the full tile object (a tile read from `v2-get-draft` can be edited and sent back as is) |
 | Delete a tile | The key set to `null` in `data` + a complete `order` without it (+ remove its `containers` stack) |
 | Reorder tabs | Just `order` |
 
 - **`order` replaces wholesale** — whenever you send it, send the complete array.
 - **A single patch can touch at most 48 `data` entries** — batch larger rewrites into multiple patches on the same draft.
-- **Tile `"1"` on create merges over a server seed tile** — some seed properties can win over what you sent (`automaticVis: false` came back `true` on tile `"1"` while tile `"2"` kept `false`). Read the document back and re-patch tile `"1"` if its exact fields matter.
-- **A multi-tile `v2-create` auto-lays-out only tile `"1"`** — author the full `containers` tree for the rest.
+- **Tile `"1"` on create merges over a server seed tile** — the seed's `automaticVis: true` wins over the `false` you send (tile `"2"` onward keep `false`). Re-patch tile `"1"` on a draft if it matters.
+- **A create or patch with no `containers` auto-places every new tile** — send `containers` only when you want to own the layout.
 
 ## Where the visualization config lives (read this first)
 
-This is the single most common source of "my chart renders as a table / loses its spec" bugs. A chart is defined by **one queryPresentation-level field**: the `visConfig` envelope.
+A chart is defined by **one queryPresentation-level field**: the `visConfig` envelope.
 
 ```json
 "visConfig": {
@@ -64,18 +64,18 @@ This is the single most common source of "my chart renders as a table / loses it
 ```
 
 - `chartType` and `fields` sit at the **outer** `visConfig` level. They are **no longer top-level presentation keys** — the v1 top-level `chartType`/`fields`/`config` are unknown keys and 400.
-- The renderer (`visType`) and the rendering spec live in the **inner** `visConfig` — and on write the spec **must be nested under `config`**.
+- The renderer (`visType`) and the rendering spec live in the **inner** `visConfig`, with the spec under `config`.
 
-> **Write vs. read asymmetry — the one remaining silent failure.** `v2-get` returns the inner vis config **flat**: the spec keys spread beside `visType`, with no `config` key. A patch that sends that flat shape back **silently keeps only `visType`** and drops everything else (flat-sent `markdownConfig`/`alignment` dropped; `config`-nested persisted). Always re-author the inner spec nested under `config` before writing.
+> **Read and write share one shape.** `v2-get` / `v2-get-draft` return the inner config as `{ visType, config }` — exactly what you write — so a tile read back can be patched back unchanged. A spec sent flat beside `visType` (the shape older reads returned) is also accepted and normalized under `config`.
 
-Everything else now fails **loudly** — tile bodies are strict (`additionalProperties: false`), so unknown or misplaced top-level keys return a clean 400:
+Misplaced keys fail **loudly** — tile bodies are strict (`additionalProperties: false`), so unknown or misplaced top-level keys return a clean 400:
 
 | What you send | What happens |
 |---|---|
 | Top-level `chartType`, `fields`, or `config` on the presentation (v1 shape) | **400** "Unrecognized key" |
 | `modelId` / `model_extension_id` inside `query` | **Silently rewritten** — the server re-anchors the tile to the document's workbook model (a sent shared-model id reads back as the workbook model). Omit them. |
 | `query` missing any required collection field | **400** listing each missing field |
-| Inner vis spec sent **flat** (no `config` key) | **Silently dropped** — only `visType` persists |
+| Inner vis spec sent **flat** beside `visType` | Accepted — normalized under `config` on write |
 
 Set `automaticVis: false` whenever you author an explicit vis config — otherwise the renderer may derive its own chart instead of using your spec.
 
@@ -87,7 +87,7 @@ If you're carrying payloads or muscle memory over from the v1 documents API:
 |---|---|
 | presentation `chartType` (top level) | `visConfig.chartType` |
 | presentation `visConfig.visType` | `visConfig.visConfig.visType` |
-| presentation `visConfig.config` (rendering spec) | `visConfig.visConfig.config` on **write**; flattened into `visConfig.visConfig` on **read** |
+| presentation `visConfig.config` (rendering spec) | `visConfig.visConfig.config` (same shape on read and write) |
 | presentation `fields` (top-level duplicate of query fields) | gone — only `visConfig.fields` |
 | `query.visConfig` (`{ "chartType": … }` hint) | gone — not part of the v2 query schema; the tile is driven entirely by the presentation-level envelope |
 | `query.modelId` | gone — server-anchored to the workbook model; a sent value is silently rewritten |
@@ -108,20 +108,23 @@ The allowed tile keys — anything else is a 400:
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `name` | Yes | Tile/tab title |
-| `type` | **Yes** | Tile kind — omitting it 400s. Dashboard query tiles — **including raw-SQL tiles** — use **`"query"`**; a raw-SQL tile is a `query` tile with `userEditedSQL` set (do **not** use `"sql"` — that is a separate content-item kind, not a dashboard query tile; the renderer reports "Unknown content item type"). Other enum values (`blank`, `csv`, `dataset`, `spreadsheet`, `sql`, `dbt`, `query-view`, `linked`, `app`) are non-query content items. The `containers` slot's child `type` must match — for query tiles it is always `"query"`. |
+| `name` | Yes | Tile/tab title (≤ 144 characters) |
+| `type` | **Yes** | Tile kind — omitting it 400s. Dashboard query tiles — **including raw-SQL tiles** — use **`"query"`**; a raw-SQL tile is a `query` tile with `userEditedSQL` set (do **not** use `"sql"` — that is a workbook tab kind, not a dashboard query tile; the renderer reports "Unknown content item type"). The other values (`blank`, `csv`, `dataset`, `spreadsheet`, `sql`, `dbt`, `query-view`, `linked`, `foreign`) are workbook tab kinds; `foreign` (a tab that queries another shared model) can only be echoed back, never created or converted through the API. The `containers` slot's child `type` must match — for query tiles it is always `"query"`. |
 | `topicName` | Recommended | Topic name for the query — set this whenever querying from a topic. Ensures correct join context in the dashboard. |
 | `prefersChart` | Yes (charts) | **Must be `true` to render a chart.** Without it, Omni always shows the results table regardless of any other vis settings. |
 | `automaticVis` | Recommended | Set `false` when authoring an explicit vis config (and always for markdown tiles). Seed-tile caveat: tile `"1"` on create can come back `true` — re-patch if it matters. |
 | `visConfig` | Yes (charts) | The envelope: `{ chartType, fields, version, visConfig: { visType, config } }` — see above. |
 | `query` | Yes | Query definition (see below). |
-| `description` | No | Tile description. |
-| `subTitle` | No | Tile subtitle. |
+| `description` | No | Tile description (≤ 500 characters). |
+| `subTitle` | No | Tile subtitle (≤ 250 characters). |
 | `filterOrder` | No | Ordering of tile-level filters. |
 | `isSql` | No | `true` for SQL-mode tiles. |
 | `resultConfig` | No | Result display: `columnOrder`, `hiddenColumns`, `columnWidths`, `tableType`, `conditionalFormatters` — see [visConfig.md](visConfig.md). |
 | `aiConfig` | No | AI-generated description/subtitle settings — see [visConfig.md](visConfig.md). |
-| `sourceQueryPresentationKey` | No | Reference to another tile's key (appears in read-back on derived tiles; not normally authored). |
+| `sourceQueryPresentationKey` | `linked` only | The record key of the source tile whose query a `linked` tab reuses. Required on `type: "linked"`, rejected on every other type. |
+| `foreignModelId` | Read-only | Present only on `foreign` tabs: the shared model the tab's query runs against. Ignored on write. |
+| `editingModelObjectName`, `editingModelObjectNameChange` | `dataset` / `query-view` only | The model object the tab edits, and a pending rename. Rejected on any other tab type. |
+| `fileUploadId` | `csv` / `spreadsheet` only | The file upload backing the tab. Rejected on other types. |
 
 > *(charts)* in the Required column means the field is required **for chart tiles**; a plain table tile uses `prefersChart: false` and an inner `config: {}`.
 
@@ -133,7 +136,7 @@ The allowed tile keys — anything else is a 400:
 | `fields` | Yes | The fields the visualization uses — mirror `query.fields`. (The v1 top-level duplicate is gone; this is the only copy outside the query.) |
 | `version` | Recommended | `0` |
 | `visConfig.visType` | Yes (charts) | Renderer: `"basic"` for cartesian/pie/heatmap/boxplot, `"omni-kpi"` for KPI, `"funnel"`, `"sankey"`, `"map"` (point **and** region/choropleth maps), `"omni-table"` for tables. |
-| `visConfig.config` | Yes (charts) | The chart rendering spec — **nested under `config` on write** (reads back flat). Per-family shapes in [visConfig.md](visConfig.md). |
+| `visConfig.config` | Yes (charts) | The chart rendering spec, nested under `config` (same shape on read). Per-family shapes in [visConfig.md](visConfig.md). |
 
 ## Query Object Parameters
 
@@ -229,39 +232,19 @@ The most reliable way to learn the exact inner config for a chart family (especi
 omni documents v2-get <identifier>
 ```
 
-Returns the full envelope — `queryPresentations` (`data` keyed map + `order`), `controls`, `containers`, `settings`. Each tile includes `topicName`, the `visConfig` envelope, and the full `query` object — use this as the source of truth when recreating or templating dashboards.
-
-> **Read-back warning:** the inner vis config comes back **flat** (spec keys spread beside `visType`, no `config` key). Before reusing a tile in a create/patch body, re-nest everything except `visType` under `config`. Round-tripping the flat shape silently strips the spec.
-
-> **Make it mechanical — normalize EVERY GET-sourced tile before writing.** The flat-read / nested-write asymmetry means the most natural duplication instinct ("copy the object I just read and patch it back") is *always* wrong for v2 tiles, and it fails **silently** (the write returns success; the spec is just gone). Knowing the rule isn't enough — the reliable fixes are: **(a) duplicate from your own canonical *nested* representation, not from a `v2-get` payload**, and **(b) run any GET-sourced tile through a normalize step before the write.** Don't hand-eyeball it per tile:
->
-> ```js
-> // Re-nest a flat (GET) inner visConfig into the write shape. Idempotent.
-> function normalizeTile(tile) {
->   const iv = tile.visConfig?.visConfig
->   if (iv && !iv.config) {
->     const { visType, ...spec } = iv          // everything except visType…
->     tile.visConfig.visConfig = { visType, config: spec }   // …goes under config
->   }
->   if (tile.query) { delete tile.query.modelId; delete tile.query.model_extension_id }
->   return tile
-> }
-> ```
->
-> Apply it to every tile you sourced from a `v2-get`/`v2-get-draft`/snapshot — including when you're **duplicating, restoring, reverting, or moving** a tile, not just editing one. (A tile built from scratch in nested form is already fine; running it through is harmless — the guard is a no-op when `config` already exists.) Then **read the written tile back and confirm the inner `visConfig` has more than just `visType`.**
+Returns the full envelope — `queryPresentations` (`data` keyed map + `order`), `controls`, `containers`, `settings`, plus `modelId` and `workbookModelId`. Each tile includes `topicName`, the `visConfig` envelope, and the full `query` object, all in the write shape — copy a tile's `visConfig` straight into a create/patch body when recreating or templating dashboards. (`v2-get` is the published state; a draft's tiles come from `v2-get-draft`.)
 
 ## Caveats When Reusing queryPresentations
 
 These apply when copying tiles from an existing document (for both creating new dashboards and updating existing ones):
 
-- **Re-nest the inner vis config** — `visConfig.visConfig` from a GET is flat; move every key except `visType` under a `config` key before writing.
 - **Strip `modelId` and `model_extension_id`** from each query object — the server re-anchors tiles to the target document's workbook model and silently rewrites any value you send, so a copied id is at best dead weight.
 - **Strip the v1 `query.visConfig` hint** if copying from old v1 exports — it is not part of the v2 query schema.
 - **Filter to the tiles you want** — a document's `data` map can include workbook-only tabs not placed on the dashboard. Only carry over (and `order` + lay out) the tiles you want visible.
 - **Queries without `topicName` are valid** — SQL-mode and tab-selector queries won't have a `topicName`. Do not add one.
 - **Do not save known-broken query-level filters** — if `omni query run` rejects a tile query filter with a server-side parsing error, validate the unfiltered base query once. Do not save the broken filter into the tile; either use a verified dashboard-level control or leave the dashboard unchanged and report the blocker.
 - **Bound server-side failures** — if a patch fails with a validation error, stop after one corrected retry; discard the draft and report rather than looping filter rewrites.
-- **Check readback for a stripped spec** — after writing, read the tile back (`v2-get` / `v2-get-draft`) and confirm its (flat) inner `visConfig` contains more than just `visType`, and `visConfig.chartType` is set. If only `visType` survived, the write sent the flat shape — re-nest under `config` and retry.
+- **Check readback** — after writing, read the tile back (`v2-get` / `v2-get-draft`) and confirm `visConfig.chartType` is set and `visConfig.visConfig.config` is non-empty.
 
 ## Period-over-period (current vs previous) in a tile
 
@@ -532,7 +515,7 @@ Same as a line chart but with `mark.type: "area"` and `chartType: "area"`.
 
 ### Stacked Column Chart (Vertical)
 
-A category/time dimension on x, a measure on y, and a **pivoted** dimension that becomes the stack. `chartType: "columnStacked"`, `color._stack: "stack"` with the pivoted field, `_dependentAxis: "y"`. **The query must pivot the stack dimension**: `"pivots": ["order_items.status"]`. (For a horizontal stacked **bar**, use `chartType: "barStacked"` with `_dependentAxis: "x"` and `series[].xAxis: "x"`. For 100% stacking, use `columnStackedPercentage` / `barStackedPercentage` with `color._stack: "normalize"`.)
+A category/time dimension on x, a measure on y, and a **pivoted** dimension that becomes the stack. `chartType: "columnStacked"`, `color._stack: "stack"` with the pivoted field, `_dependentAxis: "y"`. **The query must pivot the stack dimension**: `"pivots": ["order_items.status"]`. (For a horizontal stacked **bar**, use `chartType: "barStacked"` with `_dependentAxis: "x"` and `series[].xAxis: "x"`. For 100% stacking, use `columnStackedPercentage` / `barStackedPercentage` with `color._stack: "stack_percentage"`.)
 
 ```json
 "visConfig": {
@@ -597,7 +580,7 @@ All line, column/bar, area, scatter, and combo charts use this structure:
 | `x` | Conditional | Independent (category) axis field. Used when `_dependentAxis` is `"y"`. |
 | `y` | Conditional | Independent (category) axis field. Used when `_dependentAxis` is `"x"` (horizontal bars). |
 | `mark.type` | Yes | `"line"`, `"bar"` (for both column and bar), `"area"`, or `"point"` (scatter). |
-| `color` | Yes | Stacking / color encoding. `{}` = single series; `{ "_stack": "group" }` = grouped; `{ "_stack": "stack", "field": {...} }` = stacked; `{ "_stack": "normalize", "field": {...} }` = 100% stacked; `{ "field": {...} }` = color by dimension. The `_stack` value must match the `chartType` suffix. |
+| `color` | Yes | Stacking / color encoding. `{}` = single series; `{ "_stack": "group" }` = grouped; `{ "_stack": "stack", "field": {...} }` = stacked; `{ "_stack": "stack_percentage", "field": {...} }` = 100% stacked; `{ "field": {...} }` = color by dimension. The `_stack` value must match the `chartType` suffix. |
 | `series` | Yes | Measure fields. Each has `"yAxis": "y"` (vertical) or `"xAxis": "x"` (horizontal). Per-series `mark` overrides enable combo charts. |
 | `tooltip` | Yes | Fields shown on hover — include all dimensions and measures. |
 | `behaviors.stackMultiMark` | No | `true` for stacked, `false` for grouped/overlay. |
@@ -623,4 +606,4 @@ All line, column/bar, area, scatter, and combo charts use this structure:
 | Point map | `"map"` | `"map"` | — | — | — |
 | Region map | `"regionMap"` | `"map"` | — | — | — |
 
-> For funnel, sankey, map, region map, heatmap, and boxplot, the inner `config` field names are best confirmed by building the chart once in the Omni UI and reading it back (`omni documents v2-get`, re-nesting the flat inner spec under `config`) — see [visConfig.md](visConfig.md) for the known shapes.
+> For funnel, sankey, map, region map, heatmap, and boxplot, the inner `config` field names are best confirmed by building the chart once in the Omni UI and reading it back (`omni documents v2-get`; the inner spec reads back in the write shape) — see [visConfig.md](visConfig.md) for the known shapes.
