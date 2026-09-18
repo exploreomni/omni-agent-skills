@@ -86,13 +86,13 @@
     {
       "id": "7",
       "question": "Analysts want returns and sales side by side by month and by user country. Build it so one query can show sales revenue and returned revenue per month per country.",
-      "ground_truth": "On a branch, two regular topics on order_items exist (sales and returns, the returns topic restricted to returned rows) both joining users. A .composite_topic file lists both topics, declares users as a shared view, and defines a shared dimension mapping to each topic's date field. Validation is clean. A test query on the composite selects the shared dimension at month grain, @_shared_views_.users.country, and one measure per leg addressed as @<topic>.order_items.<measure>, sends no table, and returns rows.",
+      "ground_truth": "On a branch, two regular topics on order_items exist (sales and returns, the returns topic restricted to returned rows) both joining users. A .composite_topic file lists both topics, declares users as a shared view, and defines a shared dimension mapping to each topic's date field. Validation is clean. A test query on the composite selects the shared dimension at month grain, @_shared_views_.users.country, and one measure per member topic addressed as @<topic>.order_items.<measure>, sends no table, and returns rows.",
       "expected_behavior": [
         "The agent creates a branch before writing any YAML",
         "The agent writes a .composite_topic file with topics: listing both member topics, shared_views including users, and a shared_dimensions entry with a mappings: block naming each topic's date field",
         "The agent does not put a views: block in the composite file and does not define cross-topic measures in the member view files",
         "The test query uses join_paths_from_topic_name set to the composite, carries no table, and addresses fields with @_shared_dimensions_., @_shared_views_., and @<topic>. prefixes",
-        "The agent validates the branch and confirms the query returns rows with both legs' measures populated",
+        "The agent validates the branch and confirms the query returns rows with both member topics' measures populated",
         "The agent does not merge the branch without explicit confirmation"
       ],
       "expected_skill": "omni-model-builder"

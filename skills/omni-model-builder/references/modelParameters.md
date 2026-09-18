@@ -288,7 +288,7 @@ A `.composite_topic` file. See [composite-topics.md](composite-topics.md).
 |-----------|-------------|
 | `topics` | **Required.** Member topics, a list |
 | `shared_views` | Views present in every member topic; selectable once for the composite |
-| `shared_dimensions` | Named dimensions with a `mappings:` entry per topic (`<topic>: { field: view.field }`); the join keys between legs |
+| `shared_dimensions` | Named dimensions with a `mappings:` entry per topic (`<topic>: { field: view.field }`); the join keys between member topics |
 | `shared_measures` | Measures over the joined result: `sql:` over `${<topic>.<view>.<measure>}` references, no `aggregate_type`; a `filters:` block is not applied |
 | `unrelated_dimension_handling` | `filter_only` (default), `null_fill`, or `repeat`: what a member topic's own dimensions can do in a query |
 | `always_join_all_topics` | `true` — include every member even when it has no selected fields |

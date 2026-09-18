@@ -98,9 +98,9 @@ When a report needs a header-level measure (an order's shipping fee) to repeat a
 | Route | Header measure | Cost |
 |---|---|---|
 | One topic joining header to lines | `always_exclude` of every line-level field, outer `max` | The list, and its upkeep as columns are added |
-| Two topics and a composite with `unrelated_dimension_handling: repeat` | A plain `sum` on the header topic — no `level_of_detail` at all | Splitting an established topic into legs and naming the shared views |
+| Two topics and a composite with `unrelated_dimension_handling: repeat` | A plain `sum` on the header topic — no `level_of_detail` at all | Splitting an established topic into member topics and naming the shared views |
 
-The composite computes each leg at its own grain and stitches them, so the header leg's `GROUP BY` never sees the line dimension and there is no fan-out to undo. Reach for it when the model can be arranged that way; reach for `always_exclude` when a wide topic already serving content has to keep doing so. Authoring and query shape: [composite-topics.md](composite-topics.md).
+The composite computes each member query at its own grain and stitches them, so the header query's `GROUP BY` never sees the line dimension and there is no fan-out to undo. Reach for it when the model can be arranged that way; reach for `always_exclude` when a wide topic already serving content has to keep doing so. Authoring and query shape: [composite-topics.md](composite-topics.md).
 
 ## A grain chosen per query
 

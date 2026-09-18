@@ -161,4 +161,4 @@ No header means the fact table was used. Check the shape of the query against th
 
 ## Composite topics
 
-A query on a composite topic is planned as one query per member topic and the results are joined. Each of those per-topic queries is matched against the member topic's aggregate tables on its own, so a table declared on a member topic serves its leg with the same rules as above, pins included. A `materialized_query` whose `topic:` names the composite itself is used only for an exact repeat of its defining query. See [composite-topics.md](composite-topics.md).
+A query on a composite topic is planned as one query per member topic and the results are joined. Each of those per-topic queries is matched against the member topic's aggregate tables on its own, so a table declared on a member topic serves that member's query with the same rules as above, pins included. A `materialized_query` whose `topic:` names the composite itself is used only for an exact repeat of its defining query. See [composite-topics.md](composite-topics.md).

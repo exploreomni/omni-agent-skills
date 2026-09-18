@@ -68,7 +68,7 @@ Prefer building every query **on a topic**, not a bare base view. Topics carry t
 
 When the conclusion is "build or modify a topic," hand off to **`omni-model-builder`** to do it right.
 
-**Composite topics.** A composite (`is_composite: true` in `list-topics`) has no base view: send `join_paths_from_topic_name: <composite>` and **no `table`**. Address fields as `@_shared_dimensions_.<name>[timeframe]`, `@_shared_views_.<view>.<field>`, and `@<topic>.<view>.<measure>`; a filter keyed `@<topic>.` applies to that leg only. A dimension that belongs to one member topic can be filtered but not selected under the composite's default `unrelated_dimension_handling` — make it a shared dimension if it must be grouped on, or expect the composite to declare `null_fill` (other legs' measures land on a null row) or `repeat` (they repeat on every row). `get-topic` on the composite lists the addressable surface.
+**Composite topics.** A composite (`is_composite: true` in `list-topics`) has no base view: send `join_paths_from_topic_name: <composite>` and **no `table`**. Address fields as `@_shared_dimensions_.<name>[timeframe]`, `@_shared_views_.<view>.<field>`, and `@<topic>.<view>.<measure>`; a filter keyed `@<topic>.` applies to that member topic only; the `@` is required. A dimension that belongs to one member topic can be filtered but not selected under the composite's default `unrelated_dimension_handling` — make it a shared dimension if it must be grouped on, or expect the composite to declare `null_fill` (other members' measures land on a null row) or `repeat` (they repeat on every row). `get-topic` on the composite lists the addressable surface.
 
 ## Running a Query
 
@@ -251,7 +251,7 @@ These keys sit at the **top level** of the body, beside `query`, not inside it. 
 
 ### Confirming an aggregate table was used
 
-When the model declares aggregate tables (`materialized_query`), plan the query with `planOnly: true` and `cache: SkipCache` and read `summary.display_sql`. A query served from an aggregate table is headed `-- Query rewritten to use materialized view "<view>"` with the original SQL commented out beneath; no header means the fact table was used. On a composite topic each leg is matched separately and the header names the first table used, so read the SQL for the other legs. Why a query misses is covered in `omni-model-builder`'s aggregate-awareness reference.
+When the model declares aggregate tables (`materialized_query`), plan the query with `planOnly: true` and `cache: SkipCache` and read `summary.display_sql`. A query served from an aggregate table is headed `-- Query rewritten to use materialized view "<view>"` with the original SQL commented out beneath; no header means the fact table was used. On a composite topic each member query is matched separately and the header names the first table used, so read the SQL for the other members. Why a query misses is covered in `omni-model-builder`'s aggregate-awareness reference.
 
 ### Showing results to a person (CLI ≥ 1.3.0)
 
