@@ -2,7 +2,7 @@
 
 A filter-only field is a parameter on a view: it appears in the field picker and as a dashboard control, but it has no column. Its value is read inside other fields' SQL through Mustache, so one control can switch which column a dimension uses, which measure a KPI shows, or what threshold a filtered measure applies. Omni resolves the template at query time and constant-folds the result, so the executed SQL reads as if the chosen branch had been written by hand.
 
-Docs: [Templated filters](https://docs.omni.co/modeling/templated-filters) · [Parameters](https://docs.omni.co/modeling/templated-filters/parameters) · Guide: [Improving date flexibility with templated filters](https://docs.omni.co/guides/modeling/date-flexibility-templated-filters)
+Docs: [Templated filters](https://docs.omni.co/modeling/templated-filters) · [Parameters](https://docs.omni.co/modeling/templated-filters/parameters) · [bind_to](https://docs.omni.co/modeling/templated-filters#bind_to) · Guide: [Improving date flexibility with templated filters](https://docs.omni.co/guides/modeling/date-flexibility-templated-filters)
 
 ## Declaring one
 
@@ -26,9 +26,32 @@ filters:
 | `suggest_from_field` | Populate suggestions from another field's values instead |
 | `default_filter` | The value used when the query sends none, in filter syntax (`is: created`) |
 | `filter_single_select_only` | Force a single value. Set it whenever the field drives a `CASE`; a multi-value pick has no single value to render |
+| `bind_to` | Fields the filter value is applied to directly, with no Mustache: dimensions in `WHERE`, measures in `HAVING`. Below |
 | `label`, `description`, `group_label`, `hidden`, `display_order` | As on a dimension |
 
 A filter-only field can also be declared inside a topic's `views:` block, scoped to that topic, and the dimension that reads it may reference topic-scoped aliases (a second role of a date view, for instance). The token path is unchanged: `filters.<view>.<field>` names the view the block sits under, not the topic.
+
+## Binding without SQL: `bind_to`
+
+A filter-only field with `bind_to:` needs no Mustache. When a query filters on it, Omni applies the filter expression to every listed field: a dimension lands in the `WHERE` clause, a measure in `HAVING` (the measure does not have to be selected). Targets are `field` on the same view or `view.field`; each must exist and be a dimension or a measure, or the query fails with a `bind_to` error.
+
+```yaml
+filters:
+  activity_window:
+    type: timestamp
+    bind_to: [created_at, shipped_at]   # one control; both columns get the window
+  min_revenue:
+    type: number
+    bind_to: [total_sale_price]         # a threshold on a measure → HAVING
+```
+
+Three shapes it serves:
+
+- **One control, several columns.** The window above applies to `created_at` and to `shipped_at`; the conditions are ANDed, one per target.
+- **Filterable but not selectable.** Pair a `hidden: true` dimension with a filter-only field bound to it. Viewers filter on the value; the column never appears in the field picker or a `GROUP BY`.
+- **A threshold on a measure.** A number control bound to a measure becomes a `HAVING` clause with its own label and `default_filter`.
+
+Compared with a dashboard filter control, the binding lives in the model: every workbook and dashboard on the topic gets it, and the modeler fixes the targets instead of each dashboard's per-tile `map`. Docs: [bind_to](https://docs.omni.co/modeling/templated-filters#bind_to).
 
 ## Reading it in SQL
 
