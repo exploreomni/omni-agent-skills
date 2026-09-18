@@ -379,6 +379,8 @@ omni documents v2-create --body '{
 - **Every filter MUST include `fieldName`** with the fully qualified field name (no timeframe bracket for date filters), or it won't bind to any column.
 - To learn exact shapes, build filters in the Omni UI and read them back with `omni documents v2-get` — the `controls` slice is directly reusable in a patch.
 
+**Model it or control it?** A dashboard filter or control lives in one document and is scoped per tile through `map`. Put the filter in the **model** instead, as a filter-only field (`omni-model-builder` → `references/templated-filters.md`), when the same filter should follow the topic into every workbook and dashboard, when one control must drive several columns or a measure threshold (`bind_to`), or when a control must switch which column or measure a field uses (a templated `CASE`). The dashboard then binds an ordinary filter control to that field (`fieldName: <view>.<field>`) and needs no `map`, because the model already decided what it applies to. Keep it a dashboard control when the behavior is specific to one document, when viewers should pick the field themselves (`FIELD_SELECTION`, `FIELD_PICKER`), or when you cannot change the model.
+
 ## Document Settings
 
 `settings` is a shallow-merged object: `crossfilterEnabled` (click a value in one tile to filter the others), `facetFilters`, `refreshInterval` (seconds, `null` disables), `runQueriesOn` (`"current-page"` / `"all-pages"` / `null`), and `customText` (`{queryError, queryNoResults}` overrides). Patch only the keys you're changing.
