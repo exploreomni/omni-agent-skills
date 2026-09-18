@@ -11,6 +11,18 @@ Create, update, and manage Omni documents, dashboards, and apps programmatically
 
 Documents are created and edited through the **v2 documents API** (`omni documents v2-*`) — an explicit envelope of `queryPresentations`, `controls`, `containers`, and `settings`, edited through a **draft → publish** flow. This is the only path for building, reading, or changing a document — never fall back to the v1 `documents create`/`get` commands (v1 `put`/`update` were removed in CLI 1.2.2). A few document-management operations (list, delete, move, duplicate, downloads) have no v2 form; see [Commands](#commands) below.
 
+## Design defaults
+
+The mechanics here build a *correct* dashboard; for a *good* one, apply Omni's [Dashboarding Best Practices](https://docs.omni.co/guides/dashboards/dashboarding-best-practices). The bullets below are that guide's defaults for when nobody has said otherwise. **They never override direction you have been given**: a requested layout, chart type, palette, or control placement wins; so does the convention of an existing dashboard you are editing or an org theme in force. When a request conflicts with a default, follow the request and, at most, mention the default once. Without such direction, default to:
+
+- **Lead with the answer, top-left.** Put the main KPI / answering chart in the upper-left — viewers scan in an F/Z pattern.
+- **3–5 charts per page.** Beyond that, split across pages/tabs (see [containers.md](references/containers.md)).
+- **Functional color, 90/10.** Neutral tones dominate; one accent for emphasis or status — not decoration.
+- **Match chart to question** — trend → line/area/bar; ranking → horizontal bar; part-to-whole → 100% stacked; correlation → scatter.
+- **Put controls next to what they drive,** with action-oriented labels ("Filter by Region", not "Region").
+- **Hide complexity behind a parent control** — coordinate many controls from one, children `config.hidden` (see [controls.md](references/controls.md#parent-controls-one-control-drives-many)).
+- **Charts read without hovering.** A viewer should get the key insight from the chart itself; a tooltip is a detail, not the message.
+
 ## Known Issues & Safe Defaults
 
 - **Always run the full validation loop** — see [Validation Loops](#validation-loops) below. At minimum: validate the model, test every query via `omni query run`, check viz spec consistency, and verify the dashboard by reading the draft back and executing its queries **before publishing**.

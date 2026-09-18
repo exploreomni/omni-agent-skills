@@ -58,7 +58,7 @@ Complete reference for the `filters` object in Omni query API calls (`query run`
 |---|---|---|
 | `BEFORE` | before a date | `{ "type":"date", "kind":"BEFORE", "values":["2024-01-01"] }` |
 | `ON_OR_AFTER` | on/after a date | `{ "type":"date", "kind":"ON_OR_AFTER", "values":["2024-01-01"] }` |
-| `BETWEEN` | inclusive range | `{ "type":"date", "kind":"BETWEEN", "values":["2024-01-01","2024-12-31"] }` |
+| `BETWEEN` | start inclusive, **end exclusive** (`>= start AND < end`); for a whole year end on the first day of the next year | `{ "type":"date", "kind":"BETWEEN", "values":["2024-01-01","2025-01-01"] }` |
 
 **Rolling windows** use `ui_type` + `left_side`/`right_side` (no `values`):
 
