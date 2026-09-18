@@ -16,7 +16,7 @@ Prefer the narrowest trigger:
 | `omni models refresh <modelId> --hard-refresh false --schemas <schema> --tables <t1,t2>` | Listed schemas and tables only; additive (dropped objects stay) | The warehouse tables behind the exported views also changed |
 | `omni models refresh <modelId>` | Every schema, hard refresh | Not for this workflow. It pulls every warehouse change into the model and is slow on large warehouses |
 
-`--schemas` and `--tables` take comma-separated names; `*` wildcards work (`ORDER_*`). Both need `--hard-refresh false`. Always pass `--schemas` with `--tables`: a table filter alone scans every schema and takes about three times longer. Lowercase names are accepted. The job status reports only `COMPLETED`; it does not say how many objects matched, so a misspelled name refreshes nothing without an error. Read the view back with `yaml-get` to confirm. Add `--branch-id` only when the connection has branch-based schema refresh enabled; if it is not enabled the API rejects `branch_id`, and the refresh writes to the shared schema model, not the branch. Check with `omni models refresh --help`. If the dbt YAML is already merged to the default dbt branch, the next refresh brings it in and you can skip the environment binding below. If it is still on a dbt branch, push that branch and use `dbt-sync` on an Omni branch bound to it. `dbt-sync` starts a background job.
+`--schemas` and `--tables` take comma-separated names; `*` wildcards work (`ORDER_*`). Both need `--hard-refresh false`. Always pass `--schemas` with `--tables`: a table filter alone scans every schema and takes about three times longer. Lowercase names are accepted. The job status reports only `COMPLETED`; it does not say how many objects matched, so a misspelled name refreshes nothing without an error. Read the view back with `yaml-get` to confirm. `--branch-id` is required when the connection has branch-based schema refresh enabled and rejected when it does not (`omni models refresh --help`). On a connection without it, every refresh writes to the shared schema model, not the branch, so there is no branch-isolated refresh; ask the user before you run one. If the dbt YAML is already merged to the default dbt branch, the next refresh brings it in and you can skip the environment binding below. If it is still on a dbt branch, push that branch and use `dbt-sync` on an Omni branch bound to it. `dbt-sync` starts a background job.
 
 ```bash
 omni models dbt-sync <modelId> --branch-id <branchId>
@@ -213,7 +213,7 @@ General rule: remove a dimension override when an imported measure's dbt express
 ## Verification Checklist
 
 - The dbt branch is pushed.
-- `branch-dbt-get` shows the requested Git branch and a non-default environment.
+- `branch-dbt-get` shows the requested Git branch. Unmerged dbt branch only: it also shows `is_default_environment: false`. Merged YAML keeps the default environment (`is_default_environment: true`).
 - The branch write used the exact merged file key and `mode: "merged"`.
 - Combined YAML has the expected provenance comment.
 - `omni models validate` was parsed as a bare list.

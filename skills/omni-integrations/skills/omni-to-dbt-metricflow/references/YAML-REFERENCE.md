@@ -102,8 +102,9 @@ models:
       dimensions:
         - { name: status_complete, type: categorical, expr: "case when status = 'Complete' then true else false end" }
     metrics:
-      - { name: total_sale_price, type: simple, agg: sum, expr: sale_price, label: Total Sale Price }
-      - { name: sale_price_average, type: simple, agg: average, expr: sale_price, filter: "{{ Dimension('order_item_id__status') }} = 'Complete'" }
+      - { name: total_sale_price, type: simple, agg: sum, expr: sale_price * 0.95, label: Total Sale Price }   # same inlined override as the legacy block
+      - { name: order_id_count_distinct, type: simple, agg: count_distinct, expr: order_id, label: Order Count }
+      - { name: sale_price_average, type: simple, agg: average, expr: sale_price * 0.95, filter: "{{ Dimension('order_item_id__status') }} = 'Complete'" }
       - { name: count_copy, type: simple, agg: count, expr: "CASE WHEN is_returned IS TRUE THEN 1 END" }   # filtered count with the predicate inside expr
 metrics:                               # top-level list for ratio, derived, cumulative, and conversion metrics
   - name: price_per_order

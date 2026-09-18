@@ -224,9 +224,14 @@ Store `ai_context` and synonyms in `config.meta` as `omni_*` values for referenc
 MetricFlow names are project-wide: a measure name, a metric name, and a saved-query name must each be unique across every file, and one dbt model can have only one semantic model. Before you write, search the project for each name you plan to emit.
 
 ```bash
-rg -n "^\s*-\s*name:\s*(total_sale_price|sale_price_average|order_item_id)\b" models/
-rg -n "model:\s*ref\('order_items'\)" models/
+# Names: match block style (- name: x) and inline flow-map style (- { name: x, ... }).
+rg -n "name:\s*['\"]?(total_sale_price|sale_price_average|order_item_id)\b" models/
+# Semantic models on the same dbt model: legacy ref() with either quote style, and the flattened `semantic_model:` key on the models[] entry.
+rg -n "model:\s*ref\(['\"]order_items['\"]\)" models/
+rg -n -B1 -A3 "^\s*-\s*name:\s*['\"]?order_items\b" models/ | rg -n "semantic_model:"
 ```
+
+The flattened spec attaches the semantic model to the `models:` entry, so the second search alone misses it. Treat a `semantic_model:` hit under the target model as an existing semantic model.
 
 For every hit, show the user the existing definition next to the Omni definition and ask how to handle it. Do not choose for them.
 
@@ -285,7 +290,7 @@ This skill owns only the dbt-specific steps. Branch creation, YAML read-modify-w
 
 1. **Branch** — `omni-model-builder` Step 0. First run `omni whoami whoami --model-id <modelId>` to make sure you can branch. Use a unique branch name. Do not delete a branch you did not create.
 2. **dbt environment (this skill)** — if the dbt YAML is merged to the default dbt branch, keep the production environment; the Omni branch already isolates your change. If the YAML is still on an unmerged dbt branch, list the environments, show them to the user, and ask which one to bind (see "Choose the dbt environment" in [FALLBACK-TO-DBT.md](./references/FALLBACK-TO-DBT.md) for the selection rule). Bind it together with that Git branch and read it back: `branch-dbt-get` must show the requested Git branch before you sync. The production environment ignores `--dbt-git-branch`. Do not create an environment without user approval.
-3. **Sync (this skill)** — run `dbt-sync` on the branch and poll the job to `COMPLETED` or `FAILED`. The status response has only `job_id`, `job_type`, and `status`. Read failures in the IDE dbt Sync page. If the warehouse tables behind the exported views also changed, run a targeted soft refresh instead: `omni models refresh <modelId> --hard-refresh false --schemas <schema> --tables <table,...>` (add `--branch-id` only when the connection has branch-based schema refresh enabled; otherwise the refresh writes to the shared schema model). Never run an unfiltered refresh for this step: it reloads every schema and pulls every warehouse change into the branch.
+3. **Sync (this skill)** — run `dbt-sync` on the branch and poll the job to `COMPLETED` or `FAILED`. The status response has only `job_id`, `job_type`, and `status`. Read failures in the IDE dbt Sync page. If the warehouse tables behind the exported views also changed, run a targeted soft refresh instead: `omni models refresh <modelId> --hard-refresh false --schemas <schema> --tables <table,...>` (`--branch-id` is required when the connection has branch-based schema refresh enabled and rejected when it does not; without it the refresh writes to the shared schema model, so ask the user first). Never run an unfiltered refresh for this step: it reloads every schema and pulls every warehouse change into the branch.
 4. **Find the override** — `omni-model-builder` Step 1 read-modify-write, with two dbt-branch differences: read and write the view with `--mode merged` (not `extension`), and reuse the flat returned key (`omni_dbt_ecomm__order_items.view`). Also read the topic file for a topic-scoped `fields:` override.
 5. **Remove only the override** that must yield to dbt. Also remove a dimension override that an imported measure depends on (Step 5 checkpoint). Write the complete file back.
 6. **Check** — `omni-model-builder` Step 2: `models validate` on the branch and one branch query on the field. Then confirm the dbt provenance comment in `--mode combined`. Re-sync only if the dbt manifest changed.
