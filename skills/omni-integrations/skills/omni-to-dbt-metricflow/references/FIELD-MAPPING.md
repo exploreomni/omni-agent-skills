@@ -61,6 +61,8 @@ dimensions:
 
 Omni `week_start_day` (model or topic) has no MetricFlow equivalent. MetricFlow's standard `week` renders `DATE_TRUNC('week', …)`, `ISOWEEK` on BigQuery. That is Monday on every adapter except Snowflake, where it follows the `WEEK_START` session parameter, Monday by default ([metricflow #792](https://github.com/dbt-labs/metricflow/issues/792)). If Omni `week_start_day` is Monday, no action is needed. The documented answer is a custom granularity on the time spine (dbt 1.9+, [MetricFlow time spine](https://docs.getdbt.com/docs/build/metricflow-time-spine)); dbt Labs confirmed on [metricflow #820](https://github.com/dbt-labs/metricflow/issues/820) that this covers a non-Monday week start.
 
+Before you add anything, find the project's time spine: `grep -rn "time_spine:" models/` and read its `custom_granularities` list and the model SQL. If a granularity already starts the week on the Omni day (a name such as `week_sun`, `fiscal_week`, or `retail_week`), reuse its name and add no column. If one exists with a different start day, do not change it; add a new one with a new name.
+
 Do not build the custom column with the adapter's `DATE_TRUNC('week', …)`: dbt-bigquery's `date_trunc` macro emits `WEEK` (Sunday), and Snowflake's follows the `WEEK_START` session parameter. Count days from a fixed anchor date that falls on the Omni week start instead. The expression below uses only dbt cross-db macros and `mod`, so it gives the same buckets on every adapter.
 
 ```sql
