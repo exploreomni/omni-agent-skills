@@ -43,7 +43,7 @@ omni documents v2-patch-draft-by-identifier <identifier> <draftIdentifier> --bod
 omni documents v2-publish-draft <identifier>
 ```
 
-Publishes the **main** draft only. Publishing swaps the document to the draft's workbook model — the workbook model id changes; if you need it afterwards, read `workbookModelId` from `v2-get` (published) or from the next draft's `v2-get-draft`.
+Publishes the **main** draft only. Publishing swaps the document to the draft's workbook model — the workbook model id changes; if you need it afterwards, read the id for the place you will write to. These are two different models, not two ways to get one id: `v2-get` returns the **published** document's workbook model, and each new draft has its own clone, read from `list-drafts` or that draft's `v2-get-draft`.
 
 ## Merge-by-key semantics
 
@@ -55,7 +55,7 @@ Publishes the **main** draft only. Publishing swaps the document to the draft's 
 
 ## Recipes
 
-All go in a `v2-patch-draft` (or `…-by-identifier`) body, alongside a `summary`.
+All go in a patch body, alongside a `summary`: `v2-patch-draft` for the first patch, which opens the draft, and `v2-patch-draft-by-identifier` for every later patch to that same draft.
 
 **Add a tile** — new key in `data`, append to `order`. Omit `containers` to have the tile auto-placed on the first page, or send the full tree to place it yourself:
 
