@@ -331,7 +331,7 @@ Top-level `KpiConfig` also takes `fontLabelSize?` / `fontBodySize?` / `fontKPISi
 
 > **⚠️ A malformed `markdownConfig` entry PERSISTS on write but CRASHES at render — the API won't catch it.** Two signatures, both from an incomplete value-field:
 > - **`Cannot read properties of undefined (reading 'name')`** — a `comparison` entry whose `comparison` (or `field`) is a bare `{ "row": "_second" }` with no `field: { name, pivotMap }`. The renderer reads `entry.config.comparison.field.name` → crash. The `comparison` value is a **full value-field**, not just a row pointer.
-> - **`Cannot read properties of undefined (reading 'row')`** — a `progress` entry with **no `comparison`** (the bar's max). The renderer reads `entry.config.comparison.row` → crash. Either supply a `comparison` value-field or don't use `progress`.
+> - **`Cannot read properties of undefined (reading 'row')`** — a `progress` entry with **no `comparison`** (the bar's max). The renderer reads `entry.config.comparison.row` → crash. Supply a `comparison` value-field when the query has a field for the bar's maximum (a target, a total). When it does not, leave `progress` out and show the value another way.
 >
 > **Every `markdownConfig` entry's `field` (and a `comparison`'s `comparison`) MUST be the complete `{ row, field: { name, pivotMap: {} }, label: { value } }`** — omitting `row`, `field.name`, or the wrapper crashes the tile. Complete, render-safe card (value + sparkline + change-vs-prior, "lower is better" → add `"swapColors": true` to the comparison):
 >
@@ -783,7 +783,7 @@ Optional field on `queryPresentation` controlling result display independent of 
 
 ### Table display & conditional formatting
 
-**Table display + conditional formatting live in the omni-table's INNER config** (`visConfig.visConfig.config` on write — NOT `resultConfig`). Verify by building a conditionally-formatted table in the UI (or via Blobby) and reading it back with `omni documents v2-get` — the formatters come back under the inner `config`, and a config placed in `resultConfig` is silently ignored. The inner config carries: `tableType` (`"stretch"` fills the tile; default `"spreadsheet"` hugs left), `rowBanding` (`{enabled, bandSize}`), `hideIndexColumn`, `columnFormats` (`{ "<view.field>": { align: "left"|"right" } }`), and **`conditionalFormatters`**:
+**Table display + conditional formatting live in the omni-table's INNER config** (`visConfig.visConfig.config` on write — NOT `resultConfig`). Verify by building a conditionally-formatted table and reading it back: have a person build it in the UI when one is available, or build it via Blobby when you are working without the UI. Read it back with `omni documents v2-get` — the formatters come back under the inner `config`, and a config placed in `resultConfig` is silently ignored. The inner config carries: `tableType` (`"stretch"` fills the tile; default `"spreadsheet"` hugs left), `rowBanding` (`{enabled, bandSize}`), `hideIndexColumn`, `columnFormats` (`{ "<view.field>": { align: "left"|"right" } }`), and **`conditionalFormatters`**:
 
 ```jsonc
 // visConfig.visConfig = { visType: "omni-table", config: {
@@ -833,7 +833,7 @@ Enables AI-generated descriptions/subtitles on tiles:
 | Stack dimension not pivoted | Single un-split series | Add the `color.field` dimension to `query.pivots` |
 | Missing measure in query | Empty tile, no error | Every query must include at least one measure |
 | `regionMap` not shading | "No chart available" / blank map | Use `visType: "map"`, `regionType: "us-states"`/`"countries"`, a `sourceProperty` matching your field's values (`"NAME"`/`"CODE"`/iso codes), and `center`/`zoom` |
-| `chartType: "auto"` with empty config | "No chart available" | `auto` can't persist a render; populate a concrete spec (or build in UI and read back) |
+| `chartType: "auto"` with empty config | "No chart available" | `auto` can't persist a render; populate a concrete spec from the recipes in this file. When no recipe covers the chart, have it built in the UI and read the config back |
 | `aiContext`/`markdown` on AI-summary tile | Renders blank/wrong | Use `ai_context` + `showWarning` (snake_case) |
 
 ## Text & AI tiles

@@ -13,7 +13,7 @@ The v1 problem — `documents create` stamping the shared model onto every tile'
 Two commands:
 
 ```bash
-# 1) create the model branch (or reuse an existing one)
+# 1) create the model branch. Reuse an existing branch instead when the model change this draft depends on is already on it.
 omni models create-branch <sharedModelId> --name <branch>
 #    → response is the branch model; its model.id is the branchId
 
@@ -72,7 +72,7 @@ This sets expectations and names the one action that finishes the job (merge + p
 
 > The general flow — `omni models yaml-create <workbookModelId>` with `"mode": "extension"`, YAML body with no `views:` wrapper — lives in *Updating a Dashboard's Model* in SKILL.md. This section covers what changes on a draft.
 
-**Each draft has its own cloned workbook model**, with a different id from the published doc's. Get it from `v2-get-draft` (`workbookModelId` in the response) or `list-drafts` (on the draft record). Then:
+**Each draft has its own cloned workbook model**, with a different id from the published doc's. Read it from the draft's record in `list-drafts` (`workbookModelId`): that call needs only the published document's identifier, and it also shows which draft belongs to which branch. If you have already fetched the draft with `v2-get-draft`, the same field is in that response, so no second call is needed. Then:
 
 ```bash
 # 1) write the field into the DRAFT's workbook model

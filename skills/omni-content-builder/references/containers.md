@@ -215,7 +215,7 @@ Any content-item (`chart`, `control`, `filter`, `inline-page-switcher`, `metadat
 |---|---|---|
 | A tile is missing after a create/patch that sent `containers` | The tree you sent doesn't reference it (auto-placement is off whenever you send `containers`) | Add a tile stack for it, or omit `containers` and let the server place it |
 | Tiles render at half width | Sized for a 12-col grid | Grid is 24 cols — double the `w` (full = 24) |
-| Control sits in "HIDDEN CONTROLS" | Not added as a content-item | Add `{type:filter|control}` to the filter bar (or a tile) |
+| Control sits in "HIDDEN CONTROLS" | Not added as a content-item | Add `{type:filter|control}` to the filter bar for a dashboard-wide control, or to the container of one tile when the control belongs to that tile only |
 | "Item missing" placeholder | Wrong content-item type | Filter → `type:filter`; switcher → `type:control` |
 | Rows overlap after a height change | Increased a row's `h`/`y` without shifting rows below | Shift every lower row's `y` by the same delta |
 | Can't navigate away from a page | Page switcher only on some pages' grids | Add an `inline-page-switcher` to **every** page's grid (unique `instanceKey` each) |
