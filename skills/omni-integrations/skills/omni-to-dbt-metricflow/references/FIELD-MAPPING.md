@@ -59,25 +59,27 @@ dimensions:
 
 ### Week start day
 
-Omni `week_start_day` (model or topic) has no MetricFlow equivalent. Standard `week` grain is the adapter's `DATE_TRUNC('week', …)`, rendered as `ISOWEEK` on BigQuery, so it is Monday by default on every adapter. Snowflake follows the `WEEK_START` session parameter; do not rely on that, because the other adapters have no such setting ([metricflow #792](https://github.com/dbt-labs/metricflow/issues/792)). The documented answer is a custom granularity on the time spine (dbt 1.9+, [MetricFlow time spine](https://docs.getdbt.com/docs/build/metricflow-time-spine)); dbt Labs confirmed on [metricflow #820](https://github.com/dbt-labs/metricflow/issues/820) that this covers a non-Monday week start.
+Omni `week_start_day` (model or topic) has no MetricFlow equivalent. MetricFlow's standard `week` is Monday on every adapter: it renders `DATE_TRUNC('week', …)` and `ISOWEEK` on BigQuery ([metricflow #792](https://github.com/dbt-labs/metricflow/issues/792)). The documented answer is a custom granularity on the time spine (dbt 1.9+, [MetricFlow time spine](https://docs.getdbt.com/docs/build/metricflow-time-spine)); dbt Labs confirmed on [metricflow #820](https://github.com/dbt-labs/metricflow/issues/820) that this covers a non-Monday week start.
+
+Do not build the custom column with the adapter's `DATE_TRUNC('week', …)`: dbt-bigquery's `date_trunc` macro emits `WEEK` (Sunday), and Snowflake's follows the `WEEK_START` session parameter. Count days from a fixed anchor date that falls on the Omni week start instead. The expression below uses only dbt cross-db macros and `mod`, so it gives the same buckets on every adapter.
 
 ```sql
--- metricflow_time_spine.sql: Saturday-start week, portable through dbt cross-db macros
+-- metricflow_time_spine.sql: Saturday-start week. 1970-01-03 is a Saturday.
+{% set anchor = "cast('1970-01-03' as date)" %}
 select date_day,
-       cast({{ dbt.dateadd('day', -2, dbt.date_trunc('week', dbt.dateadd('day', 2, 'date_day'))) }} as date) as week_sat
+       cast({{ dbt.dateadd('day', "-1 * mod(mod(" ~ dbt.datediff(anchor, 'date_day', 'day') ~ ", 7) + 7, 7)", 'date_day') }} as date) as week_sat
 from ...
 ```
 
-The shift moves the date so the Omni week start lands on Monday, truncates, and moves it back. Shift by the number of days from the Omni week start forward to Monday:
-
-| Omni `week_start_day` | shift |
+| Omni `week_start_day` | anchor |
 |---|---|
-| Sunday | 1 day |
-| Saturday | 2 days |
-| Friday | 3 days |
-| Thursday | 4 days |
-| Wednesday | 5 days |
-| Tuesday | 6 days |
+| Monday | 1970-01-05 |
+| Tuesday | 1970-01-06 |
+| Wednesday | 1970-01-07 |
+| Thursday | 1970-01-08 |
+| Friday | 1970-01-09 |
+| Saturday | 1970-01-03 |
+| Sunday | 1970-01-04 |
 
 ```yaml
 models:
@@ -174,15 +176,15 @@ measures:
 | `list` | none | Skip and report. |
 | measure with `sql` and no `aggregate_type` (custom aggregate) | none | Skip and report unless the SQL is plain arithmetic over other measures (derived metric). |
 
-## Filtered `count`, `count_distinct`, `sum` → Predicate Inside `expr`
+## Same-View Filter → Predicate Inside `expr`
 
-For a `count`, `count_distinct`, or `sum` with a same-view filter, put the predicate in the expression and omit the metric `filter`. A group with no matching rows is then 0, as in Omni. Forms:
+For any aggregate with a same-view filter, put the predicate in the expression and omit the metric `filter`. Every row is scanned, so a group with no matching rows stays present with the same value as Omni: 0 for `count`, `count_distinct`, and `sum`, NULL for `average`, `min`, `max`, `median`, and `percentile`. Forms:
 
 | Omni aggregate | `expr` |
 |---|---|
 | `count` | `CASE WHEN <predicate> THEN 1 END` |
-| `count_distinct` | `CASE WHEN <predicate> THEN <column> END` |
 | `sum` | `CASE WHEN <predicate> THEN <column> ELSE 0 END` |
+| `count_distinct`, `average`, `min`, `max`, `median`, `percentile` | `CASE WHEN <predicate> THEN <column> END` |
 
 ```yaml
 # Omni
@@ -205,11 +207,11 @@ measures:
     create_metric: true
 ```
 
-On re-import, Omni creates a measure of the same aggregate type with that `sql`; `COUNT` ignores NULL and the `sum` form adds 0, so the result matches. A cross-view predicate cannot go inside `expr`; keep a metric `filter` and report that empty groups return NULL for these three aggregates.
+On re-import, Omni creates a measure of the same aggregate type with that `sql`, which is the SQL Omni generates for a filtered measure itself. A cross-view predicate cannot go inside `expr`; use the next section.
 
-## Filtered Aggregate → Simple Metric
+## Cross-View Filter → Atomic Measure Plus Simple Metric
 
-Use an atomic measure plus a user-facing metric for `average`, `min`, `max`, `median`, and `percentile`, and for any aggregate whose predicate crosses a view. For these five aggregates an empty group is NULL in both tools. For a cross-view `count`, `count_distinct`, or `sum`, an empty group is NULL in MetricFlow where Omni returns 0; report that difference. This worked example uses an atomic average measure and a filtered metric.
+Use an atomic measure plus a user-facing metric when the predicate crosses a view. MetricFlow applies the `filter` before aggregation, so a group with no matching rows is absent when the metric is queried alone and NULL when it is queried with other metrics. Omni keeps the group: 0 for `count`, `count_distinct`, and `sum`, NULL for the other aggregates. Report both differences. This worked example uses a same-view predicate on an average only to show the shape and the re-import result, which was observed on a live instance; for a same-view predicate use the section above.
 
 ```yaml
 # sem_order_items.yml
