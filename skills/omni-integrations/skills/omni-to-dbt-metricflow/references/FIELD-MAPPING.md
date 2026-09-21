@@ -59,7 +59,7 @@ dimensions:
 
 ### Week start day
 
-Omni `week_start_day` (model or topic) has no MetricFlow equivalent. MetricFlow's standard `week` is Monday on every adapter: it renders `DATE_TRUNC('week', …)` and `ISOWEEK` on BigQuery ([metricflow #792](https://github.com/dbt-labs/metricflow/issues/792)). The documented answer is a custom granularity on the time spine (dbt 1.9+, [MetricFlow time spine](https://docs.getdbt.com/docs/build/metricflow-time-spine)); dbt Labs confirmed on [metricflow #820](https://github.com/dbt-labs/metricflow/issues/820) that this covers a non-Monday week start.
+Omni `week_start_day` (model or topic) has no MetricFlow equivalent. MetricFlow's standard `week` renders `DATE_TRUNC('week', …)`, `ISOWEEK` on BigQuery. That is Monday on every adapter except Snowflake, where it follows the `WEEK_START` session parameter, Monday by default ([metricflow #792](https://github.com/dbt-labs/metricflow/issues/792)). If Omni `week_start_day` is Monday, no action is needed. The documented answer is a custom granularity on the time spine (dbt 1.9+, [MetricFlow time spine](https://docs.getdbt.com/docs/build/metricflow-time-spine)); dbt Labs confirmed on [metricflow #820](https://github.com/dbt-labs/metricflow/issues/820) that this covers a non-Monday week start.
 
 Do not build the custom column with the adapter's `DATE_TRUNC('week', …)`: dbt-bigquery's `date_trunc` macro emits `WEEK` (Sunday), and Snowflake's follows the `WEEK_START` session parameter. Count days from a fixed anchor date that falls on the Omni week start instead. The expression below uses only dbt cross-db macros and `mod`, so it gives the same buckets on every adapter.
 
@@ -169,7 +169,7 @@ measures:
 | `sum` | `sum` | Use dbt-column expression. |
 | `count` | `count` | Use `expr: 1` when Omni has no SQL. |
 | `count_distinct` | `count_distinct` | Use the dbt column. |
-| `average` | `average` | Use an atomic measure for a filtered metric. |
+| `average` | `average` | Same-view filter: predicate inside `expr`. Cross-view filter: atomic measure plus metric. |
 | `min`, `max`, `median` | same | Supported aggregation. |
 | `percentile` | `percentile` | Convert 0–100 to 0–1 in `agg_params.percentile`. |
 | `sum_distinct_on`, `average_distinct_on`, `median_distinct_on`, `percentile_distinct_on` | none | Skip and report. Omni dedupes by `custom_primary_key_sql`; MetricFlow has no equivalent. |
@@ -211,31 +211,43 @@ On re-import, Omni creates a measure of the same aggregate type with that `sql`,
 
 ## Cross-View Filter → Atomic Measure Plus Simple Metric
 
-Use an atomic measure plus a user-facing metric when the predicate crosses a view. MetricFlow applies the `filter` before aggregation, so a group with no matching rows is absent when the metric is queried alone and NULL when it is queried with other metrics. Omni keeps the group: 0 for `count`, `count_distinct`, and `sum`, NULL for the other aggregates. Report both differences. This worked example uses a same-view predicate on an average only to show the shape and the re-import result, which was observed on a live instance; for a same-view predicate use the section above.
+Use an atomic measure plus a user-facing metric when the predicate crosses a view. MetricFlow applies the `filter` before aggregation, so a group with no matching rows is absent when the metric is queried alone and NULL when it is queried with other metrics. Omni keeps the group: 0 for `count`, `count_distinct`, and `sum`, NULL for the other aggregates. Report both differences. This worked example filters an order-items average by the joined users view.
+
+```yaml
+# Omni
+measures:
+  sale_price_average_california:
+    aggregate_type: average
+    sql: ${omni_dbt_ecomm__order_items.sale_price}
+    filters:
+      omni_dbt_ecomm__users.state:
+        is: California
+```
 
 ```yaml
 # sem_order_items.yml
 measures:
   - name: average_sale_price
     agg: average
-    expr: sale_price * 0.95
+    expr: sale_price
 
 # metrics_omni_order_items.yml
 metrics:
-  - name: sale_price_average
-    label: Sale Price Average (For Complete Orders)
-    description: Average price per item across completed orders
+  - name: sale_price_average_california
+    label: Sale Price Average (California)
     type: simple
     type_params:
       measure:
         name: average_sale_price
         filter: |
-          {{ Dimension('order_item_id__status') }} = 'Complete'
+          {{ Dimension('user_id__state') }} = 'California'
 ```
+
+Queried alone by region, a region with no California users is absent; queried with an unfiltered count, it is NULL.
 
 ### Re-import result
 
-When no extension field with the same name exists, Omni imports this simple metric as a hidden filter dimension and a measure:
+When no extension field with the same name exists, Omni imports a filtered simple metric as a hidden `_filter_<metric>` dimension and a measure with `filters: {_filter_<metric>: true}`. The block below is the observed result for a same-view predicate (`status = 'Complete'`) on a live instance; a cross-view predicate gives the same shape with the joined view's field in the `_filter_` dimension `sql`.
 
 ```yaml
 dimensions:
