@@ -12,7 +12,7 @@
       "ground_truth": "Branch created first. Measure eval_completed_revenue written to a branch with correct aggregate_type: sum, sql referencing sale_price, and a filters block restricting to completed orders using the model's canonical status value (Complete). Branch validated. Query test run on the branch.",
       "expected_behavior": [
         "The agent creates a branch with omni models create-branch before writing any YAML",
-        "The measure YAML includes a filters block with status restricted to completed orders, using the model's canonical value such as status: { is: Complete } \u2014 not a WHERE clause in the sql field",
+        "The measure YAML includes a filters block with status restricted to completed orders, using the model's canonical value such as status: { is: Complete } — not a WHERE clause in the sql field",
         "The agent validates the model on the branch with omni models validate --branch-id after writing",
         "The agent asks the user for confirmation before merging the branch to production"
       ],
@@ -25,7 +25,7 @@
       "expected_behavior": [
         "The agent checks the SQL dialect via omni connections list before writing any SQL expressions",
         "The view YAML includes a dimension with primary_key: true",
-        "The agent creates a branch before writing the YAML \u2014 it does not write directly to the shared model",
+        "The agent creates a branch before writing the YAML — it does not write directly to the shared model",
         "The agent validates the model after writing and checks for errors (not just warnings)"
       ],
       "expected_skill": "omni-model-builder"
@@ -36,7 +36,7 @@
       "ground_truth": "If the relationship is absent, it is written on a branch with correct join_from_view, join_to_view, on_sql using ${} field references, and relationship_type: many_to_one, then tested before any merge. If the exact relationship already exists globally, the agent verifies it and avoids creating a duplicate.",
       "expected_behavior": [
         "The agent checks existing global/topic relationships before writing a new join",
-        "The on_sql uses ${order_items.inventory_item_id} and ${inventory_items.id} field reference syntax \u2014 not raw column names",
+        "The on_sql uses ${order_items.inventory_item_id} and ${inventory_items.id} field reference syntax — not raw column names",
         "The relationship_type is many_to_one, or an existing equivalent relationship is explicitly identified as already present",
         "If the relationship is missing, the agent creates a branch, writes the relationship YAML, and validates by running a query on the branch that pulls fields from both views before merging",
         "If the exact relationship already exists, the agent reports no duplicate write is needed instead of adding a redundant relationship"
@@ -66,6 +66,102 @@
         "The agent confirms the users view is present in the topic's resolved join map before writing the cross-view measure",
         "The ratio SQL safely handles a zero denominator, and the agent reads the YAML back to confirm field references survived serialization",
         "The agent validates the branch and queries order_items.revenue_per_user grouped by users.country through the topic join path before asking about any merge"
+      ],
+      "expected_skill": "omni-model-builder"
+    },
+    {
+      "id": "6",
+      "question": "We have a warehouse table ORDER_ITEMS_DAILY with one row per created day, user_id, and status, holding an order count and a sale-price total. Make Omni use it for order_items queries at day grain or coarser, and prove a month-by-status query is served from it.",
+      "ground_truth": "On a branch, a view for ORDER_ITEMS_DAILY is written with a materialized_query block: the fields map lists order_items.created_at[date], order_items.user_id, order_items.status, order_items.count, and the sale-price sum measure, each mapped to its column, with base_view order_items and no topic key. The branch validates with no materialized_query warning. A planOnly query for created_at[month], status, count, and the total on that topic returns display_sql headed with the rewritten-to-use-materialized-view comment.",
+      "expected_behavior": [
+        "The agent creates a branch before writing any YAML",
+        "The aggregate view carries a materialized_query block with a fields map (topic field to column name), base_view: order_items, and no topic: key; it does not try to express the aggregate as a query view or a join",
+        "The date field is mapped with a timeframe, order_items.created_at[date], not the bare created_at",
+        "The agent validates the branch and treats a materialized_query warning as blocking",
+        "The agent runs a planOnly query with cache SkipCache at month grain and confirms display_sql begins with the rewritten-to-use-materialized-view comment naming the new view",
+        "The agent does not merge the branch without explicit confirmation"
+      ],
+      "expected_skill": "omni-model-builder"
+    },
+    {
+      "id": "7",
+      "question": "Analysts want returns and sales side by side by month and by user country. Build it so one query can show sales revenue and returned revenue per month per country.",
+      "ground_truth": "On a branch, two regular topics on order_items exist (sales and returns, the returns topic restricted to returned rows) both joining users. A .composite_topic file lists both topics, declares users as a shared view, and defines a shared dimension mapping to each topic's date field. Validation is clean. A test query on the composite selects the shared dimension at month grain, @_shared_views_.users.country, and one measure per member topic addressed as @<topic>.order_items.<measure>, sends no table, and returns rows.",
+      "expected_behavior": [
+        "The agent creates a branch before writing any YAML",
+        "The agent writes a .composite_topic file with topics: listing both member topics, shared_views including users, and a shared_dimensions entry with a mappings: block naming each topic's date field",
+        "The agent does not put a views: block in the composite file and does not define cross-topic measures in the member view files",
+        "The test query uses join_paths_from_topic_name set to the composite, carries no table, and addresses fields with @_shared_dimensions_., @_shared_views_., and @<topic>. prefixes",
+        "The agent validates the branch and confirms the query returns rows with both member topics' measures populated",
+        "The agent does not merge the branch without explicit confirmation"
+      ],
+      "expected_skill": "omni-model-builder"
+    },
+    {
+      "id": "8",
+      "question": "Our order_items view has a filter-only field date_basis (created or shipped) that switches which date the event_date dimension uses. We maintain one daily aggregate table per basis. Declare both so a dashboard control on date_basis routes each query to the right table, and prove it.",
+      "ground_truth": "On a branch, two aggregate views are declared, each with a materialized_query on the same base view mapping order_items.event_date[date] and the count, and each pinned with filters: order_items.date_basis set to its own value (created or shipped). Validation is clean. planOnly queries for event_date[month] and count with date_basis set to created are rewritten onto the created table, and with date_basis set to shipped onto the shipped table.",
+      "expected_behavior": [
+        "The agent creates a branch before writing any YAML",
+        "Each aggregate view's materialized_query maps event_date[date] (the switched dimension), not created_at or shipped_at directly, and carries a filters: pin on order_items.date_basis with that table's value",
+        "The agent does not try to add the filter-only field to the fields map or store it as a column",
+        "The agent proves routing with two planOnly queries that differ only in the date_basis filter value and checks which view each rewritten header names",
+        "The agent validates the branch and does not merge without explicit confirmation"
+      ],
+      "expected_skill": "omni-model-builder"
+    },
+    {
+      "id": "9",
+      "question": "Give the sales topic a control that switches whether order dates are reported by created date or shipped date, defaulting to created, and make sure month and year breakdowns follow the choice.",
+      "ground_truth": "On a branch, the order_items view gains a filter-only field under a top-level filters: block (type string, a suggestion_list of created and shipped, default_filter created, filter_single_select_only true) and a timestamp dimension whose sql is a CASE on {{ filters.order_items.<field>.value }} choosing created_at or shipped_at. The branch validates. Queries at month grain are run on the branch once per value and once with no filter, and the executed SQL shows the matching date column each time.",
+      "expected_behavior": [
+        "The agent creates a branch before writing any YAML",
+        "The switch is a view-level filters: entry with filter_single_select_only: true and a default_filter, not a dimension and not a topic default filter",
+        "The dynamic dimension reads the value with {{ filters.order_items.<field>.value }} inside a CASE and does not wrap the token in quotes",
+        "The agent validates the branch and checks the executed SQL (stage_summaries execution_sql), not omni_sql, for each control value and for the default",
+        "The agent confirms the dimension exposes month and year timeframes",
+        "The agent does not merge the branch without explicit confirmation"
+      ],
+      "expected_skill": "omni-model-builder"
+    },
+    {
+      "id": "10",
+      "question": "Add a measure to the users topic that counts users who have at least one returned order line. The status is on order_items.",
+      "ground_truth": "On a branch, the agent recognises that order_items is one-to-many from users, so the flag is rolled up first: a query view grouped by user_id with a MAX(CASE) has_return column (status = Returned) and user_id as primary key (either a sql: block with an aliased FROM or a query: block over an order_items topic), a one_to_one relationship from users to the rollup, the rollup added to the users topic's joins, and a count_distinct measure on users with filters: on the rollup's flag. The branch validates and a test query returns the count. The agent does not rely on joining order_items into the users topic for this, and does not write it as a composite topic.",
+      "expected_behavior": [
+        "The agent creates a branch before writing any YAML",
+        "The agent identifies the one-to-many direction from users to order_items and rolls the flag up to user grain in a query view with a primary key, rather than filtering across the line join or building a composite",
+        "If the rollup uses a sql: block with ${order_items.<field>} references, the FROM is aliased to the view's reference name; if it uses a query: block, the measures are defined on order_items and a topic is named",
+        "The relationship from users to the rollup is one_to_one and the measure uses a filters: block on the rollup's flag",
+        "The agent validates the branch and runs a query that returns the measure before reporting",
+        "The agent does not merge the branch without explicit confirmation"
+      ],
+      "expected_skill": "omni-model-builder"
+    },
+    {
+      "id": "11",
+      "question": "Shipping fee lives on orders. Reports show it beside line-item sales, and it has to stay the order's fee — not split — when order line number or product is on the report. Model it.",
+      "ground_truth": "On a branch, the agent recognises that a header amount and line detail are two grains and does not hold the fee at the order key with fixed: (it re-splits per cell) or reach for always_include (it adds to the level). It takes one of two routes and says which: a header topic and a line topic combined in a .composite_topic with unrelated_dimension_handling: repeat and the conformed dimension views (users, products, dates) in shared_views, where the fee is a plain sum on the header topic; or, if the work must stay in one topic, an always_exclude of the line-level fields on a measure with an outer max, defined in the topic's views: block because the list is cross-view. It validates and runs a query with order line number on it showing the fee constant across lines while sales varies.",
+      "expected_behavior": [
+        "The agent creates a branch before writing any YAML",
+        "The agent does not use fixed: at the order key or always_include as the fix, and can say why each re-splits or fails to cap",
+        "If it builds a composite: two member topics, a .composite_topic with unrelated_dimension_handling: repeat, conformed dimensions shared via shared_views, and a plain sum for the fee on the header topic",
+        "If it stays in one topic: always_exclude listing the line-level fields, outer aggregate max not sum, and the measure defined in the topic's views: block rather than the global view file",
+        "The agent validates the branch and runs a query grouped by a line-level dimension showing the header fee repeating while the line measure breaks out",
+        "The agent does not merge the branch without explicit confirmation"
+      ],
+      "expected_skill": "omni-model-builder"
+    },
+    {
+      "id": "12",
+      "question": "state_shipping_fee uses level_of_detail fixed: [users.state] and is correct on a report by state, but a report by customer shows the wrong numbers. Fix it so the total holds on either report.",
+      "ground_truth": "The agent explains that fixed: names one grain and is only right while that field is on the report — by customer it returns state totals summed per customer cell — and does not fix it by adding users.id to the fixed list, which makes the level finer and re-splits the state report. It offers a route that adapts: always_exclude of the line-level fields with an outer max (adapts to whichever coarser field is present), a templated fixed: target driven by a filter-only field when one grain per query is acceptable, or a composite if the model can be arranged as header and line topics. It shows the chosen measure reconciling on both reports before reporting.",
+      "expected_behavior": [
+        "The agent works on a branch",
+        "The agent states why fixed: [users.state] fails on the customer report and does not add users.id (or another field) to the fixed list as the fix",
+        "The agent proposes always_exclude with an outer max, a templated fixed: target, or a composite topic, and says when each applies",
+        "The agent validates and queries both report shapes to show the measure reconciles",
+        "The agent does not merge without explicit confirmation"
       ],
       "expected_skill": "omni-model-builder"
     }

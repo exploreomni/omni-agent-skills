@@ -91,6 +91,7 @@ The response includes:
 - `default_filters` — filters applied by default
 - `ai_context` — instructions for Blobby (Omni's AI)
 - `sample_queries` and AI field-selection metadata when configured
+- For a composite topic: the member `topics`, `shared_views`, `shared_dimensions` with their per-topic mappings, and the addressable field surface (`@_shared_dimensions_.<name>`, `@_shared_views_.<view>.<field>`, `@<topic>.<view>.<field>`); there is no `base_view_name`
 
 ### Step 4: Read the Model YAML
 
