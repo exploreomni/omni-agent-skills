@@ -144,4 +144,11 @@ No header means the fact table was used. Check the shape of the query against th
 
 ## Composite topics
 
-A query on a composite topic is planned as one query per member topic and the results are joined. Each of those per-topic queries is matched against the member topic's aggregate tables on its own, so a table declared on a member topic serves that member's query with the same rules as above, pins included. Declare the table on the base view as above; there is nothing to declare on the composite. See [composite-topics.md](composite-topics.md).
+Aggregate tables serve queries on composite topics too, at the member topic level. Nothing can currently be declared on the composite itself: there is no way to point a composite topic at a table that pre-aggregates the composite query as a whole.
+
+- A query on a composite topic is planned as one query per member topic, and the results are joined.
+- Each member's query is matched against that member topic's aggregate tables on its own, with the same rules as above, pins included.
+- So declare the table on the member topic's base view, as above. It then serves both the member topic and any composite that includes it.
+- The join of the members' results always runs at query time, even when every member's query is served from an aggregate table.
+
+See [composite-topics.md](composite-topics.md).
