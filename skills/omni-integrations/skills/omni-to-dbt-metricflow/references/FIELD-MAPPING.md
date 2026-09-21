@@ -97,7 +97,7 @@ models:
       - name: week_sat
 ```
 
-Query with `--group-by metric_time__week_sat`; in a saved query use `"TimeDimension('metric_time', 'week_sat')"`. MetricFlow joins the fact rows to the spine on day and groups by the custom column. Custom granularities do not support offsets or period-over-period yet. Tell the user that every MetricFlow weekly grouping must use the custom name instead of `metric_time__week`. Omni's weekly results do not change after fallback.
+Query with `--group-by metric_time__week_sat`; in a saved query use `"TimeDimension('metric_time', 'week_sat')"`. MetricFlow joins the fact rows to the spine on day and groups by the custom column. The dbt docs say offsets and period-over-period on custom granularities are "coming soon"; in MetricFlow 0.213 a derived metric with `offset_window: 1 week_sat` parsed and returned the previous week's value. Test it on the project's version before you rely on it. Tell the user that every MetricFlow weekly grouping must use the custom name instead of `metric_time__week`. Omni's weekly results do not change after fallback: the Omni query planner applies `week_start_day` itself and does not read the dbt time spine.
 
 Use the finest matching timeframe. `raw` and `date` map to `day`. Calendar parts such as `month_name` have no MetricFlow equivalent.
 
