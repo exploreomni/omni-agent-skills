@@ -11,9 +11,9 @@ Since 1.11.0 both plugins share one version, held in `versions.json` and stamped
 ### omni-integrations
 
 **Fixed**
-- **`omni-to-dbt-metricflow` — filter dependencies survive the hidden-field drop.** Step 4 now adds each kept measure's filter and `sql` dependencies in every scope, including dimensions that are `hidden: true` in Omni. Before, a view or topic export could drop a hidden dimension that a measure filters on; `dbt parse` and `mf validate-configs` pass, and only `mf query --explain` fails.
-- **`omni-to-dbt-metricflow` — week start day.** New note: MetricFlow has no per-model week start (ISO Monday on every adapter). FIELD-MAPPING.md documents the custom-granularity time-spine column for an Omni `week_start_day`, with the shift per weekday. Omni's own weekly results are unchanged after fallback.
-- **`omni-to-dbt-metricflow` — empty-group `average`.** Corrects the zero-versus-NULL note: Omni returns NULL for a filtered `average` of an empty group, same as MetricFlow. Only `sum` and `count_distinct` differ.
+- **`omni-to-dbt-metricflow` — filter dependencies survive the drop list.** Step 4 is now three ordered passes: candidates, drops, dependencies. The dependency pass adds the primary key of every touched view and each kept measure's filter and `sql` dimensions, even when the drop pass removed them as `hidden: true` or as not selected by the topic. A measure whose dependency is filter-only, in a skipped view, or cross-view is dropped and reported. Before, a view or topic export could drop a hidden dimension that a measure filters on; `dbt parse` and `mf validate-configs` pass, and only `mf query --explain` fails.
+- **`omni-to-dbt-metricflow` — empty groups stay 0 for `count_distinct` and `sum`.** A same-view predicate now goes inside `expr` for `count`, `count_distinct` (`THEN <column> END`), and `sum` (`THEN <column> ELSE 0 END`), so an empty group is 0 in MetricFlow as in Omni. The zero-versus-NULL note now states which aggregates differ: only a cross-view `count`, `count_distinct`, or `sum`. `average`, `min`, `max`, `median`, and `percentile` are NULL in both tools.
+- **`omni-to-dbt-metricflow` — week start day.** New note: MetricFlow has no per-model week start (`DATE_TRUNC('week')`, Monday by default on every adapter). FIELD-MAPPING.md documents a custom-granularity time-spine column for an Omni `week_start_day`, written with dbt cross-db macros, with the shift per weekday. Omni's own weekly results are unchanged after fallback.
 
 ## [1.14.0] - 2026-09-16
 

@@ -52,9 +52,9 @@ Use `-o json` for structured Omni output. Use `-o human` for tables.
 - dbt 1.12.4 emits no deprecation warning for the legacy spec. `dbt-autofix deprecations --semantic-layer` (dbt-autofix 0.22.6, checked with `--help`) can convert it. Read [YAML-REFERENCE.md](./references/YAML-REFERENCE.md) before converting a project.
 - MetricFlow measure, metric, and saved-query names are project-wide. Step 8 checks the dbt project for every name before writing and asks the user how to resolve a match.
 - A dimension name cannot be a time-granularity keyword (`day`, `week`, `month`, `quarter`, `year`, `hour`, `minute`, `second`). Rename it (`day_dt` with `expr: day`) or `dbt parse` fails validation.
-- MetricFlow has no per-model week start. `metric_time__week` renders the adapter's `DATE_TRUNC('week', …)`, which is Monday on every supported warehouse. If the Omni model or topic sets `week_start_day`, weekly grain served by MetricFlow will not match Omni. Add a custom granularity on the time spine for the Omni week start (see Week start day in [FIELD-MAPPING.md](./references/FIELD-MAPPING.md)). Omni's own weekly results do not change after fallback, because Omni still applies `week_start_day`.
+- MetricFlow has no per-model week start. `metric_time__week` renders the adapter's `DATE_TRUNC('week', …)` (`ISOWEEK` on BigQuery), which is Monday by default on every adapter; Snowflake follows the `WEEK_START` session parameter. If the Omni model or topic sets `week_start_day`, weekly grain served by MetricFlow will not match Omni. Add a custom granularity on the time spine for the Omni week start (see Week start day in [FIELD-MAPPING.md](./references/FIELD-MAPPING.md)). Omni's own weekly results do not change after fallback, because Omni still applies `week_start_day`.
 - A MetricFlow dimension `expr` never feeds a measure. A measure `expr` reads the physical column. Materialize a transform in dbt model SQL or inline it in each measure.
-- A metric `filter` returns NULL for groups with no matching rows when queried with other metrics. Build filtered counts with `CASE WHEN … THEN 1 END` inside `expr`.
+- A metric `filter` returns NULL for groups with no matching rows when queried with other metrics. For a same-view predicate on `count`, `count_distinct`, or `sum`, put the predicate inside `expr` (Step 6); the empty group then stays 0, as in Omni.
 - Saved-query `group_by` uses object syntax (`TimeDimension('metric_time', 'month')`); the CLI form `metric_time__month` fails `dbt parse`.
 - Qualify filters as `<entity>__<dimension>`, such as `user_id__state`. Do not use the semantic-model name. Use `IS TRUE` for booleans and `TimeDimension` for fixed-date filters.
 - A measure `expr` is written against dbt model columns. It is not written against an Omni dimension override.
@@ -135,17 +135,18 @@ Use a stable expression for a composite primary key. Skip joins with `where_sql`
 
 ### Step 4 — Resolve the Field List
 
-For a field scope, start from the named fields. For a view scope, start from every dimension and measure in the view. For a topic scope, apply topic `fields:` inclusions first, then `-view.field` exclusions. Include `all_views.*`, `view.*`, `tag:<tag>`, and named fields only when the topic selects them.
+Build the field list in three passes. Do not reorder them.
 
-In every scope, then add the dependencies of each kept measure: the primary key of each touched view, every dimension its `filters:` or `sql` references, and the entity pair for any join the filter crosses. A dependency stays in the export even when it is `hidden: true` in Omni. List the added dependencies to the user.
+1. **Candidates.** For a field scope, the named fields. For a view scope, every dimension and measure in the view. For a topic scope, the fields the topic `fields:` list selects (`all_views.*`, `view.*`, `tag:<tag>`, named fields), minus `-view.field` exclusions.
+2. **Drops.** Remove from the candidates:
+   - `hidden: true` fields;
+   - dbt-sourced fields with provenance comments;
+   - filter-only fields;
+   - fields from skipped views; and
+   - fields that the topic does not select (topic scope only).
 
-Drop these fields:
-
-- `hidden: true` fields that no kept measure depends on;
-- dbt-sourced fields with provenance comments;
-- filter-only fields;
-- fields from skipped views; and
-- fields that the topic does not select (topic scope only).
+   What is left is the kept list.
+3. **Dependencies.** Add the primary key of every view a kept field touches. For each kept measure, add every dimension its `filters:` or `sql` references and the entity pair for any join the filter crosses. A dependency is added even when pass 2 would drop it as `hidden: true` or as not selected by the topic. If a dependency is a filter-only field, a field in a skipped view, or a cross-view expression, the measure cannot be exported: drop the measure instead and record it. If a dependency is dbt-sourced, reference it and do not export it again. List the added dependencies to the user.
 
 Keep a skip list with the field, reason, and possible manual alternative.
 
@@ -192,14 +193,14 @@ Apply the Step 5 dimension-override checkpoint before writing every measure expr
 | Omni definition | Legacy output | Flattened dbt 1.12 output |
 |---|---|---|
 | Unfiltered aggregate | Measure named as Omni measure with `create_metric: true` | Simple metric named as Omni measure. |
-| Filtered `count` with a same-view predicate | Measure `agg: count`, `expr: CASE WHEN <predicate> THEN 1 END`, `create_metric: true`. No metric `filter`. | Simple metric with `agg: count` and the same `expr`. |
-| Other filtered aggregate (`sum`, `average`, `count_distinct`, …) | Atomic `<agg>_<column>` measure plus metric named as Omni measure with `filter` | Simple metric named as Omni measure with `agg`, `expr`, and `filter`. |
+| Filtered `count`, `count_distinct`, or `sum` with a same-view predicate | Measure named as Omni measure with the predicate inside `expr` and `create_metric: true`. No metric `filter`. `count`: `CASE WHEN <predicate> THEN 1 END`. `count_distinct`: `CASE WHEN <predicate> THEN <column> END`. `sum`: `CASE WHEN <predicate> THEN <column> ELSE 0 END`. | Simple metric with the same `agg` and `expr`. |
+| Filtered `average`, `min`, `max`, `median`, or `percentile`, or any filtered aggregate with a cross-view predicate | Atomic `<agg>_<column>` measure plus metric named as Omni measure with `filter` | Simple metric named as Omni measure with `agg`, `expr`, and `filter`. |
 | Ratio of measures | Ratio metric | Top-level ratio metric. |
 | Arithmetic over measures | Derived metric | Top-level derived metric. |
 
 Do not use the same name for different atomic and user-facing definitions. A count with no SQL uses `expr: 1`.
 
-**Zero versus NULL.** A metric `filter` removes non-matching rows before aggregation. When that metric is queried together with another metric at a grouped grain, MetricFlow joins the two aggregations and a group with no matching rows comes back NULL where Omni returns 0. For a filtered `count`, put the predicate inside the `expr` (`CASE WHEN … THEN 1 END`); the count of an empty group is then 0. For `sum` and `count_distinct`, an empty group is NULL in MetricFlow either way where Omni returns 0; report that difference to the user. For `average`, both return NULL. Do not add `fill_nulls_with` to a metric that must come back into Omni: the importer rejects it (`UnsupportedFeature`). Cross-view predicates cannot go inside `expr`; keep the metric `filter` and report the NULL behavior.
+**Zero versus NULL.** A metric `filter` removes non-matching rows before aggregation. When that metric is queried together with another metric at a grouped grain, MetricFlow joins the two aggregations and a group with no matching rows comes back NULL. Omni returns 0 for `count`, `count_distinct`, and `sum` in that group, and NULL for `average`, `min`, `max`, `median`, and `percentile`. For a same-view predicate on `count`, `count_distinct`, or `sum`, put the predicate inside `expr` as in the table; the empty group is then 0 in both tools. For the other aggregates, both tools return NULL, so the atomic measure plus metric `filter` matches. A cross-view predicate cannot go inside `expr`; keep the metric `filter` and report to the user that `count`, `count_distinct`, and `sum` return NULL where Omni returns 0. Do not add `fill_nulls_with` to a metric that must come back into Omni: the importer rejects it (`UnsupportedFeature`).
 
 #### Filter syntax
 
@@ -280,7 +281,7 @@ Static checks do not prove that the numbers match. Run these comparisons against
 | Check | How | What must match |
 |---|---|---|
 | Result parity for a transformed measure | `mf query --metrics <metric> --group-by <entity>__<dimension>` and the same grouping in Omni (`omni query run`) | Every group value, for any measure whose dimension carried an Omni override |
-| Grouped parity for a filtered metric | Query the filtered metric together with an unfiltered one, grouped, on data where some group has no matching rows | Empty groups show 0 for a `count` built with `CASE WHEN … THEN 1 END`; for other aggregates, note NULL versus Omni's 0 |
+| Grouped parity for a filtered metric | Query the filtered metric together with an unfiltered one, grouped, on data where some group has no matching rows | Empty groups show 0 for `count`, `count_distinct`, and `sum` built with the predicate inside `expr`; a cross-view metric `filter` shows NULL where Omni shows 0 for those three aggregates |
 | Saved queries run | `mf query --saved-query <name>` | Rows return; `group_by` uses object syntax (`TimeDimension('metric_time', 'month')`, `Dimension('<entity>__<dim>')`), not the CLI form `metric_time__month` |
 
 > ✋ **STOP** — Do not write to a shared dbt branch without explicit user approval.
@@ -320,9 +321,9 @@ The precedence is schema/dbt, model extension, topic `fields:` override, then wo
 | dbt field is missing from combined output | Extension has `ignored: true` | Find that extension entry. Remove `ignored` only with user approval. |
 | Imported field retains Omni label, SQL, or filters | Extension key wins during merge | Remove only the conflicting extension key. dbt-only keys still fill in. |
 | `column "<dim>" not found` or `invalid identifier` at query time (DuckDB: `Binder Error`), but `mf validate-configs --skip-dw` passed | A measure `expr` names a semantic dimension | Use the physical column, or materialize the transform in the dbt model SQL. Run `mf validate-configs` without `--skip-dw`. |
-| A filtered count shows NULL for a group where Omni shows 0 | Metric `filter` drops the group before the join | Put the predicate in the count `expr`: `CASE WHEN <pred> THEN 1 END`. |
+| A filtered `count`, `count_distinct`, or `sum` shows NULL for a group where Omni shows 0 | Metric `filter` drops the group before the join | For a same-view predicate, put it inside `expr` (Step 6 table). For a cross-view predicate, report the difference. |
 | `mf query --explain`: `does not match any of the available group-by-items` on a metric `filter`, but `dbt parse` and `mf validate-configs` passed | The filtered dimension was not exported, usually dropped as `hidden: true` | Export the dimension. Step 4 keeps every dimension a kept measure filters on. |
-| Weekly totals differ between MetricFlow and Omni | Omni `week_start_day` is not Monday; MetricFlow uses `DATE_TRUNC('week')` | Add a custom granularity to the time spine (Week start day in FIELD-MAPPING.md) and group by `metric_time__<name>`. |
+| Weekly groupings differ between MetricFlow and Omni | Omni `week_start_day` is not Monday; MetricFlow `week` is `DATE_TRUNC('week')` | Add a custom granularity to the time spine (Week start day in FIELD-MAPPING.md) and group by `metric_time__<name>` instead of `metric_time__week`. |
 | `dbt parse`: `ParseJinjaObjectException` on `{{metric_time__month}}` | Saved query `group_by` used the CLI form | Use `"TimeDimension('metric_time', 'month')"`. |
 | `WARNING … fix_proxy_metrics: Metric <name> should not have an expr set if it's proxy from measures` on `dbt parse` | `create_metric: true` on a measure with a non-trivial `expr` | Ignore. Validation and results are unaffected. |
 | `Invalid name 'day' - names cannot match reserved time granularity keywords` | Dimension named after a granularity | Rename the dimension and set `expr` to the column. |
