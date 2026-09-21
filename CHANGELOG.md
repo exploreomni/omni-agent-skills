@@ -6,6 +6,15 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.14.1] - 2026-09-21
+
+### omni-integrations
+
+**Fixed**
+- **`omni-to-dbt-metricflow` — filter dependencies survive the hidden-field drop.** Step 4 now adds each kept measure's filter and `sql` dependencies in every scope, including dimensions that are `hidden: true` in Omni. Before, a view or topic export could drop a hidden dimension that a measure filters on; `dbt parse` and `mf validate-configs` pass, and only `mf query --explain` fails.
+- **`omni-to-dbt-metricflow` — week start day.** New note: MetricFlow has no per-model week start (ISO Monday on every adapter). FIELD-MAPPING.md documents the custom-granularity time-spine column for an Omni `week_start_day`, with the shift per weekday. Omni's own weekly results are unchanged after fallback.
+- **`omni-to-dbt-metricflow` — empty-group `average`.** Corrects the zero-versus-NULL note: Omni returns NULL for a filtered `average` of an empty group, same as MetricFlow. Only `sum` and `count_distinct` differ.
+
 ## [1.14.0] - 2026-09-16
 
 ### omni-integrations

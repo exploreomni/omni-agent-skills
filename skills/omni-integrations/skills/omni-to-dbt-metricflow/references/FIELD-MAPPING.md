@@ -57,6 +57,42 @@ dimensions:
       time_granularity: day
 ```
 
+### Week start day
+
+Omni `week_start_day` (model or topic) has no MetricFlow equivalent. Standard `week` grain is the adapter's `DATE_TRUNC('week', …)`, and MetricFlow standardizes on ISO weeks, so it is Monday on every warehouse ([metricflow #792](https://github.com/dbt-labs/metricflow/issues/792)). The documented answer is a custom granularity on the time spine (dbt 1.9+, [MetricFlow time spine](https://docs.getdbt.com/docs/build/metricflow-time-spine)); dbt Labs confirmed on [metricflow #820](https://github.com/dbt-labs/metricflow/issues/820) that this covers a non-Monday week start.
+
+```sql
+-- metricflow_time_spine.sql: Saturday-start week
+select cast(d as date) as date_day,
+       cast(date_trunc('week', cast(d as date) + interval 2 day) - interval 2 day as date) as week_sat
+from ...
+```
+
+| Omni `week_start_day` | shift |
+|---|---|
+| Sunday | 1 day |
+| Saturday | 2 days |
+| Friday | 3 days |
+| Thursday | 4 days |
+| Wednesday | 5 days |
+| Tuesday | 6 days |
+
+```yaml
+models:
+  - name: metricflow_time_spine
+    time_spine:
+      standard_granularity_column: date_day
+      custom_granularities:
+        - name: week_sat           # `week` is reserved; use a new name
+          column_name: week_sat
+    columns:
+      - name: date_day
+        granularity: day
+      - name: week_sat
+```
+
+Query with `--group-by metric_time__week_sat`; in a saved query use `"TimeDimension('metric_time', 'week_sat')"`. MetricFlow joins the fact rows to the spine on day and groups by the custom column. Custom granularities do not support offsets or period-over-period yet. Tell the user which weekly Omni measures this affects. Omni's weekly results do not change after fallback.
+
 Use the finest matching timeframe. `raw` and `date` map to `day`. Calendar parts such as `month_name` have no MetricFlow equivalent.
 
 For a same-view computed dimension, use a dbt expression.
