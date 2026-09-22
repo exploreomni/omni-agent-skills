@@ -140,7 +140,7 @@ An aggregate that carries a fact-side join key can stand in for the fact table w
 This applies when the relationship is an **inner join**. A relationship left at the default `always_left` is not served this way, and the query reads the fact table. Two ways to get a joined dimension served:
 
 - Where every fact row has a match, set `join_type: inner` on the relationship, or override it inside the topic that needs it.
-- Store the joined column in the aggregate and map it (`users.country: COUNTRY`). The table becomes a stored join result: it serves that column without a join, but a query that adds any other joined view, or a field of `users` the table does not map, reads the fact table. Build the table through the same join the model uses, with the same join type and `on_sql`; a table built with an inner join lacks the rows a left join keeps. Each column maps one field, and across a left join `users.id` is null where `order_items.user_id` is not, so store both keys if queries use both.
+- Store the joined column in the aggregate and map it (`users.country: COUNTRY`). The table becomes a stored join result: it serves that column without a join, but a query that adds any other joined view, or a field of `users` the table does not map, reads the fact table. Build the table through the same join the model uses, with the same join type and `on_sql`.
 
 If a left-join relationship has to be served from an aggregate table, ask Omni support.
 
