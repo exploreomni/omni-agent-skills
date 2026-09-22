@@ -37,7 +37,7 @@ Rules that decide whether the declaration is usable:
 
 - **Map form of `fields:`.** Each key is a field of the base view, or of a view it joins to when the table stores that column; each value is the column name in the aggregate table. A list form (positional) also exists; prefer the map.
 - **Time dimensions carry a timeframe** (`created_at[date]`, `created_at[month]`). The aggregate column must hold the expression Omni compiles that timeframe to, not a lookalike. For a timestamp column at day grain that is a day-truncated timestamp (`DATE_TRUNC('DAY', ...)`), not a `CAST(... AS DATE)`. Validation compares each mapped column's type family to the field's and reports a mismatch as a warning; a view with a warning is ignored for optimization.
-- **Leave `topic:` out.** The block accepts one, but a declaration describes the base view, not a topic. Without it, the table serves every topic built on that base view, composites included, and each topic's own access filters and `always_where` conditions are applied on top of the table. With it, the table is read as the result of that topic's query, those conditions included, so they are not applied again.
+- **Leave `topic:` out.** Describe the table against the base view only.
 - **Join keys.** To serve a query that groups by a dimension from a joined view (say `users.country`), the aggregate must contain the fact-side join key (`order_items.user_id` above). Omni then reads the aggregate and joins `users` live. Map the key as the **fact-side** field. Mapping the joined view's key instead (`users.id`), or as well, marks the table as a stored join result, and only the joined fields it lists are served.
 - **One `materialized_query` per view.** Several aggregate tables means several views; two views may point at the same physical table with different declarations.
 - **Testing without a warehouse table.** A view with a `sql:` block is accepted as the aggregate source, so you can prove a declaration on a branch before building the table. Replace `sql:` with `schema:`/`table_name:` once the table exists.
@@ -94,12 +94,13 @@ materialized_query:
 
 ## What a table can serve
 
-Beyond an exact repeat of its defining query, an aggregate table serves three kinds of query:
+Beyond an exact repeat of its defining query, an aggregate table serves the queries marked yes:
 
 | Query, relative to the table | Served | Notes |
 |---|---|---|
-| Coarser timeframe | yes | Day table serves `[week]`, `[month]`, `[quarter]`, `[year]`; month table serves `[month]`, `[quarter]`, `[year]`. Week comes only from day. When several tables fit, the coarsest wins. |
+| Coarser timeframe | yes | Day table serves `[week]`, `[month]`, `[quarter]`, `[year]`; month table serves `[month]`, `[quarter]`, `[year]`. Week comes only from day. When several tables fit, the one with the coarser date grain wins (a month table over a day table for `[quarter]`). See "When several tables fit" below. |
 | Filter on a column the table has | yes | Applied to the table's column. |
+| A dimension computed from columns the table has | yes | `UPPER(${status})`, a concatenation, or a `CASE` over mapped fields is computed from the table's columns; it does not need its own column. Two exceptions are listed below. |
 | Grouping by a dimension from a joined view the table lacks | yes, across an inner join | Needs the fact-side join key in the table. See "Joined views" below. |
 | A fact column the table lacks | no | The table cannot supply it. |
 | Finer timeframe than the table | no | Hour against a day table. |
@@ -114,14 +115,32 @@ Rollups depend on the aggregate type:
 | Sketch measures (HyperLogLog and similar) | yes, by merging sketches; see the guide |
 | `list` and the `_distinct_on` variants | not checked; assume no |
 
+### Computed dimensions that are not served
+
+Two shapes of computed dimension send the query to the fact table even though the table, or a join from it, supplies every input. Each has a workaround.
+
+- **A base-view dimension that references a joined view's field.** `order_items.city_state` defined as `${users.city} || ', ' || ${users.state}` is not served from an aggregate declared on `order_items`, even when `users` joins in across an inner join. Declare the same dimension on the joined view (`users.city_state`); it is then served like any other joined-view dimension.
+- **A flag whose sum the table stores.** When `is_complete` is `CASE WHEN ${status} = 'Complete' THEN 1 ELSE 0 END` and the table stores `SUM` of that expression, mapped to a `sum` measure with `sql: ${is_complete}`, a query that selects `is_complete` reads the fact table. The stored sum itself is still served. Write the measure with an equivalent expression that differs from the flag's definition, for example `sql: CASE WHEN ${status} = 'Complete' THEN 1 END` (no `ELSE`; `SUM` ignores nulls, so the total is the same). The table's SQL and mapping stay unchanged, and both the flag and the sum are served. Adding the flag as a stored `GROUP BY` column instead does not work: the flag is then served, but the sum by `status` is not.
+
+### When several tables fit
+
+When more than one aggregate table can serve a query, Omni prefers the table whose date grain is coarser. Among tables at the same date grain, size is not considered: a `(day, user_id)` table and a `(day, status)` table can both serve `[month]` by `count`, and either may be chosen, whatever their row counts. If the cost difference matters, keep one table per date grain, or pin same-grain tables to different filter values so that only one fits each query.
+
 ### Joined views
+
+What the table maps decides how it treats joins. There are two kinds:
+
+- **Base-view fields only** (the example above). Joins are added at query time on the fact-side keys the table stores, so one table serves every joined view reachable through them.
+- **Joined-view fields too** (a stored join result). The table was built through a join and maps columns of the joined view. It is used only when every field in the query is mapped, and no other join is added to it.
+
+Build an aggregate to cut the fact rows a join has to touch, not to remove the join. The first kind keeps every joined view available; the second serves one fixed set of fields.
 
 An aggregate that carries a fact-side join key can stand in for the fact table while the joined view is read live: a query for `users.country`, `order_items.count`, and `order_items.total_sale_price` reads `order_items_daily` and joins `users` on `USER_ID`. A filter on a joined view's field is handled the same way, selected or not.
 
 This applies when the relationship is an **inner join**. A relationship left at the default `always_left` is not served this way, and the query reads the fact table. Two ways to get a joined dimension served:
 
 - Where every fact row has a match, set `join_type: inner` on the relationship, or override it inside the topic that needs it.
-- Store the joined column in the aggregate and map it (`users.country: COUNTRY`). The table then serves that column without a join, and only the joined fields it lists.
+- Store the joined column in the aggregate and map it (`users.country: COUNTRY`). The table becomes a stored join result: it serves that column without a join, but a query that adds any other joined view, or a field of `users` the table does not map, reads the fact table. Build the table through the same join the model uses, with the same join type and `on_sql`; a table built with an inner join lacks the rows a left join keeps. Each column maps one field, and across a left join `users.id` is null where `order_items.user_id` is not, so store both keys if queries use both.
 
 If a left-join relationship has to be served from an aggregate table, ask Omni support.
 
@@ -140,7 +159,9 @@ omni query run --body '{
 #   -- Query rewritten to use materialized view "order_items_daily".
 ```
 
-No header means the fact table was used. Check the shape of the query against the table above before changing the declaration: a missing column, a non-additive measure, or a join that is not an inner join are the usual reasons.
+No header means the fact table was used. A result served from Omni's cache shows the original SQL without the header even when a fresh run would read the table, so check with `"cache": "SkipCache"` as above, or by rerunning without the cache in the workbook.
+
+Check the shape of the query against the tables above before changing the declaration. The usual reasons are a missing column, a non-additive measure, a join that is not an inner join, a stored join result asked for a field or join it does not hold, and the two computed dimensions under "Computed dimensions that are not served".
 
 ## Composite topics
 
