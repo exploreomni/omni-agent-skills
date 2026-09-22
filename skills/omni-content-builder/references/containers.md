@@ -17,6 +17,8 @@ In the [v2 documents API](documents-v2.md), `containers` is the layout tree — 
 
 ## The grid is 24 columns
 
+> **Where to place things:** put the main KPI / answering tile in the **upper-left** (viewers scan F/Z), establish visual hierarchy by size, keep ~3–5 charts per page, and use whitespace + tabs (multi-page) to separate question sets. See Omni's [Dashboarding Best Practices](https://docs.omni.co/guides/dashboards/dashboarding-best-practices).
+
 Tile widths are in 24ths: `w: 12` = half width, `w: 24` = full width, `w: 6` = quarter. A tile sized `w: 12` fills half the row; size accordingly or tiles render at unexpected widths.
 
 `gridPosition` = `{ x, y, w, h }`:

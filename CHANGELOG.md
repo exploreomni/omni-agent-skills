@@ -6,7 +6,7 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
-## [1.15.0] - 2026-09-21
+## [1.16.0] - 2026-09-21
 
 ### omni-integrations
 
@@ -14,6 +14,27 @@ Since 1.11.0 both plugins share one version, held in `versions.json` and stamped
 - **`omni-to-dbt-metricflow` — filter dependencies survive the drop list.** Step 4 is now three ordered passes: candidates, drops, dependencies. The dependency pass adds the primary key of every touched view and each kept measure's filter and `sql` dimensions, even when the drop pass removed them as `hidden: true` or as not selected by the topic. A measure whose dependency is filter-only, in a skipped view, or a cross-view expression is dropped and reported. Before, a view or topic export could drop a hidden dimension that a measure filters on; `dbt parse` and `mf validate-configs` pass, and only `mf query --explain` fails.
 - **`omni-to-dbt-metricflow` — same-view filters keep the group.** A same-view predicate now goes inside `expr` for every aggregate type (`count`: `THEN 1 END`, `sum`: `THEN <column> ELSE 0 END`, others: `THEN <column> END`), which is the SQL Omni generates itself, so the group stays present with the same value. The note on differences now states them exactly: only a cross-view metric `filter` differs, where the group is absent when queried alone and NULL when queried with other metrics, and Omni shows 0 for `count`, `count_distinct`, and `sum`. Step 9 tests a filtered metric alone and with an unfiltered one.
 - **`omni-to-dbt-metricflow` — week start day.** New note: MetricFlow has no per-model week start; its standard week is Monday on every adapter except Snowflake, where `DATE_TRUNC('week')` follows `WEEK_START`. FIELD-MAPPING.md documents a custom-granularity time-spine column for an Omni `week_start_day`, built from a fixed anchor date with dbt cross-db macros so it does not depend on the adapter's `DATE_TRUNC('week')` (Sunday on dbt-bigquery, `WEEK_START` on Snowflake). Omni's own weekly results are unchanged after fallback.
+
+## [1.15.0] - 2026-09-21
+
+### omni-analytics
+
+_Summary: four modeling features the skills did not cover — aggregate awareness (`materialized_query`), composite topics, templated filters (filter-only fields), and level of detail — each now has a reference in `omni-model-builder` with worked shapes checked against the current release, plus the query and explorer notes needed to use them. The content-builder skill gains dashboard design defaults from Omni's Dashboarding Best Practices guide. No command or flag changed._
+
+**Added**
+- **`omni-model-builder` — *Aggregate awareness*.** `references/aggregate-awareness.md`: declaring `materialized_query`, pinning a table to a filter value (a filter-only field included), what a table serves by timeframe and aggregate type, joined views, and confirming a rewrite with `planOnly`.
+- **`omni-model-builder` — *Composite topics*.** `references/composite-topics.md`: the `.composite_topic` file, when a cross-fact metric is a composite at all, `shared_views`, `shared_dimensions`, `shared_measures` and its limits, `unrelated_dimension_handling`, the two-lens `extends` pattern, query addressing, and how member queries use member-topic aggregate tables.
+- **`omni-model-builder` — *Templated filters*.** `references/templated-filters.md`: filter-only fields, `bind_to` (WHERE for dimensions, HAVING for measures), the Mustache tokens, four dynamic-field shapes (date basis, metric switcher, numeric threshold, section block with a default), query and control binding, validating through executed SQL.
+- **`omni-model-builder` — *Level of detail*.** `references/level-of-detail.md`: `fixed` / `always_include` / `always_exclude`, grain matching, the idempotent outer aggregate for `always_exclude`, header amounts across line detail against a composite with `repeat`, a per-query grain from a templated `fixed:` target, reuse through field-level `extends`.
+- **`omni-content-builder` — *Design defaults*.** A short section in `SKILL.md` (lead with the answer top-left, three to five charts per page, neutral palette with one accent, chart type by question, controls beside what they drive with action-oriented labels, a parent control to hide complexity, charts that read without hovering), stated as defaults that never override direction the user gives, with placement guidance in `containers.md` and the parent-control pattern in `controls.md` linked back to the guide.
+- **`omni-model-builder` — *Evals*.** Seven cases covering the four features: an aggregate table with a proven rewrite, a composite build, date-basis pins, a dynamic date switch, a many-side flag rolled up, a header amount across line detail, and a `fixed:` grain that is wrong on a second report.
+
+**Changed**
+- **`omni-model-builder` — SKILL.md.** Reach-for-it pointers for the four features, a `.composite_topic` file-type row, trigger terms in the skill description, `sql:` versus `query:` for rollup query views, and composite and view rows in the parameter tables.
+- **`omni-model-builder` — *Query views*.** `references/query-view-examples.md` gains a many-side rollup in both forms; `${view.field}` in a `sql:` block expands at save time and needs an aliased `FROM`, and a `sql:` query view has no automatic `count`.
+- **`omni-query` — *Date `BETWEEN`*.** The end of a date `BETWEEN` is exclusive (`>= start AND < end`), not inclusive as previously stated; a whole year ends on the first day of the next year. Number `BETWEEN` stays inclusive at both ends.
+- **`omni-query` — *Composite topics*.** Querying one (no `table`, `@`-prefixed addressing, per-member filters) and confirming an aggregate table served a query.
+- **`omni-model-explorer` — *Composite topics*.** What `get-topic` returns for one.
 
 ## [1.14.0] - 2026-09-16
 

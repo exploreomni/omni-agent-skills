@@ -269,7 +269,7 @@ Set **`config.hidden: true`** to keep a control out of the layout: it won't rend
 
 ## Parent controls (one control drives many)
 
-A **`MULTI_FIELD_SELECTION`** control sets several child `FIELD_SELECTION` controls at once — one button group swaps an entire row of KPIs to a named preset:
+This is the mechanical form of the **"hide complexity"** best practice ([Dashboarding Best Practices](https://docs.omni.co/guides/dashboards/dashboarding-best-practices)): coordinate many controls from one, keeping the dashboard clean. A **`MULTI_FIELD_SELECTION`** control sets several child `FIELD_SELECTION` controls at once — one button group swaps an entire row of KPIs to a named preset:
 
 ```jsonc
 "metric_set": { "config": {

@@ -64,6 +64,63 @@ dimensions:
     format: currency_2
 ```
 
+## Rolling a Many-Side Up to a Flag (both forms)
+
+"Users with at least one returned line" is a property of the user, so compute it once per user and join it one-to-one to `users`. Both forms below produce the same rows.
+
+**`sql:` with field references.** `${view.field}` resolves inside the block, but it is expanded at save time into `"order_items"."status"`, so the `FROM` must carry the view's reference name as its alias. Read the file back after saving and the references are gone; only `${order_items}` stays live. Validation does not catch a missing alias; run a query.
+
+```yaml
+# user_flags.query.view  (reference name: user_flags)
+sql: |
+  SELECT
+    ${order_items.user_id}                                                        AS "user_id",
+    MAX(CASE WHEN ${order_items.status} = 'Returned' THEN 'Y' ELSE 'N' END)       AS "has_return",
+    COUNT(*)                                                                      AS "line_count"
+  FROM ${order_items} AS "order_items"
+  GROUP BY 1
+
+dimensions:
+  user_id:
+    sql: '"user_id"'
+    primary_key: true
+  has_return:
+    sql: '"has_return"'
+  line_count:
+    sql: '"line_count"'
+```
+
+**`query:` from a topic.** The measures live on the line view and the binding is live: a change to `has_return` on `order_items` flows into the rollup on the next run. It needs a topic over the line view to run in.
+
+```yaml
+# order_items.view (addition)
+measures:
+  line_count:
+    aggregate_type: count
+  has_return:
+    sql: CASE WHEN ${status} = 'Returned' THEN 'Y' ELSE 'N' END
+    aggregate_type: max
+```
+
+```yaml
+# user_flags.view  (reference name: user_flags)
+query:
+  fields:
+    order_items.user_id: user_id
+    order_items.has_return: has_return
+    order_items.line_count: line_count
+  base_view: order_items
+  topic: order_items
+
+dimensions:
+  user_id:
+    primary_key: true
+  has_return: {}
+  line_count: {}
+```
+
+Either way the relationship is `one_to_one` from `users`, and a measure on `users` filters on `user_flags.has_return`. Prefer `query:` when the line view already carries the measures; prefer `sql:` when the rollup needs SQL the model cannot express or will later become a warehouse table.
+
 ## Mapping / lookup view (CLI stand-in for an Omni Input Table)
 
 To rebuild a **hardcoded key→label lookup** — e.g. a dashboard-defined dimension that remaps `territory` → a rep name (the kind of grouping/alias built in a BI tool's UI rather than the database), or any mapping that lives only in a dashboard (not in the database) — model it as **data joined on the key**, not a `CASE`. The maintainable ideal is an **Omni Input Table** (a writable table created/edited in the Omni UI — there is **no CLI command** for input tables under `connections`/`models`/`documents`). The **CLI-buildable equivalent** is a hardcoded `VALUES`/`UNION ALL` **query view** joined on the key:
