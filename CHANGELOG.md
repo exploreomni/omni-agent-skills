@@ -14,6 +14,7 @@ _Summary: corrections and additions to the aggregate awareness reference, from t
 
 **Fixed**
 - **`omni-model-builder` — *Choosing between aggregate tables*.** The reference said the coarsest table wins. Omni prefers the coarser date grain; tables at the same date grain are not ranked by size, so either may be chosen. The reference now says so and how to avoid overlapping tables.
+- **`omni-model-builder` — *Day and month parts*.** The reference said day-part timeframes are not served from a day table. A day table now serves day of week, day of month, day of year and day of quarter, and a day or month table serves month number, month name and quarter of year. Week of year and hour parts are not served from a day table.
 
 **Changed**
 - **`omni-model-builder` — *Computed dimensions*.** A dimension computed from mapped fields is served from the table. Two shapes are not: a base-view dimension over a joined view's fields (declare it on the joined view), and a flag whose sum the table stores (write the sum measure with an equivalent expression).

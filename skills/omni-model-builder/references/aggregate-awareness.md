@@ -104,7 +104,9 @@ Beyond an exact repeat of its defining query, an aggregate table serves the quer
 | Grouping by a dimension from a joined view the table lacks | yes, across an inner join | Needs the fact-side join key in the table. See "Joined views" below. |
 | A fact column the table lacks | no | The table cannot supply it. |
 | Finer timeframe than the table | no | Hour against a day table. |
-| Day-part timeframes (`day_of_week`, `day_of_month`, `day_of_year`) | no | Not served from a day table. |
+| Day parts (`day_of_week_num`, `day_of_week_name`, `day_of_month`, `day_of_year`, `day_of_quarter`) | yes, from a day table | Computed from the table's day column. |
+| Month parts (`month_num`, `month_name`, `quarter_of_year`) | yes, from a day or month table | |
+| `week_of_year`, `hour_of_day` | not from a day table | |
 
 Rollups depend on the aggregate type:
 
