@@ -132,8 +132,20 @@ omni scim groups-update <groupId> --body '{
 ## User Attributes
 
 ```bash
-# List attributes
+# List attributes (system + custom)
 omni user-attributes list
+
+# Create a custom attribute definition (CLI ≥ 1.4.0)
+omni user-attributes create --body '{
+  "name": "region",
+  "label": "Region",
+  "type": "String",
+  "description": "User region for row-level security filtering",
+  "default_value": "us-east"
+}'
+
+omni user-attributes update <id> --body '{ "default_value": "us-west" }'
+omni user-attributes delete <id>
 
 # Find the user by email before setting an attribute
 omni scim users-list --filter 'userName eq "user@company.com"'
@@ -153,10 +165,22 @@ User attributes work with `access_filters` in topics for row-level security.
 SCIM can set values only for attribute definitions that already exist. Use
 `omni user-attributes list` to confirm the requested attribute definition exists
 before setting a value, but do not use it as proof that a specific user's value
-changed. If the definition is missing, report that it must be created in
-Admin -> User Attributes before values can be assigned; do not keep retrying
-SCIM paths or claim the value was set from an empty `User attributes set: {}`
-response.
+changed. If the definition is missing, create it with `omni user-attributes
+create` (CLI ≥ 1.4.0) and confirm the create before assigning values; do not
+keep retrying SCIM paths or claim the value was set from an empty
+`User attributes set: {}` response.
+
+Managing definitions needs the **Manage User Attributes** permission; the naming
+and type rules are in `--help` and fail loudly. Two behaviors do not:
+
+- **`delete <id>` reaches past the definition, and the response does not say so.**
+  Every user value goes with it, embed SSO logins still passing the name fail
+  outright (an embed lockout), model SQL referencing it breaks, and a connection
+  selecting its environment by that name silently falls back to the default
+  connection. Search the model for the name and confirm with the user first.
+- **`Number` values are stored as strings**, and a JSON number past 2^53 - 1 is
+  silently rounded on the way in — a `default_value` of `9007199254740993` is
+  stored, and returned, as `"9007199254740992"`. Send large numbers as strings.
 
 When the user explicitly asks to set or update a user attribute, converge the
 user record with a SCIM update even if the initial user lookup already shows the
@@ -296,6 +320,27 @@ omni schedules recipients-get <scheduleId>
 omni schedules add-recipients <scheduleId> --body '{ "recipients": ["team@company.com"] }'
 ```
 
+> **`schedules update` is a full replacement, not a patch**, and it returns
+> `"success": true` either way. Any optional property you leave out is reset to
+> its default — filter values cleared, **the alert condition removed**,
+> `maxRowLimit` and the presentation flags back to defaults. `--help` lists
+> every property that resets.
+>
+> **You cannot round-trip `schedules get` into it.** The read shape is not the
+> write shape: the GET nests presentation options under `metadata` and
+> recipients under `destinations[]`, while the update body wants `subject`,
+> `maxRowLimit`, `recipients` and `destinationType` flat — feeding the GET
+> straight back 400s on `destinationType`. Build the body from
+> `omni schedules update --schema` and carry across every value you mean to
+> keep.
+
+**Email-only users** are the recipients that exist only to receive deliveries:
+`omni users list-email-only` / `create-email-only` / `create-email-only-bulk`,
+and `delete-email-only-bulk` (CLI ≥ 1.4.0). The bulk delete is **partially
+successful by design** — a 200 carries `deleted[]` alongside
+`notFound: {emails: [], userIds: []}`, so check those two arrays, not the
+status, before reporting it done.
+
 ## AI Credits
 
 Read and manage AI credit controls and usage (entity-group commands and usage reads require CLI ≥ 1.1.2). Org-level controls require the AI-admin permission; per-user controls and usage require manage-user-attributes; entity-group controls and usage require add/remove-users. Per-user and per-entity-group limits are also behind instance feature flags.
@@ -408,6 +453,10 @@ Check that: the response contains the target user, the user's
 `urn:omni:params:1.0:UserAttribute` object includes the requested attribute name,
 and the value exactly matches what you set. `omni user-attributes list` only
 verifies that the attribute definition exists.
+
+After a definition change (`user-attributes create` / `update` / `delete`),
+read it back with `omni user-attributes list` — `Number` defaults come back as
+strings, so compare them as strings.
 
 If the attribute is used for row-level security (`access_filters`), test it by running a query as the target user:
 
