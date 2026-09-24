@@ -1,0 +1,5 @@
+{
+  "_comment": "Routing accuracy floors for evals/ci/routing_eval.py. Unmeasured until someone runs `python3 evals/ci/routing_eval.py --update-baselines` once against main and commits the result — until then the gate is inert and CI only reports. Lower a floor deliberately, in a reviewed commit, or not at all.",
+  "min_overall": 0.0,
+  "skills": {}
+}

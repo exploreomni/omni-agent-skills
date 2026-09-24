@@ -11,6 +11,12 @@ The local `evals/` directory is intentionally thin: it loads local Omni/model
 credentials, substitutes instance-specific placeholders, materializes temporary
 BenchFlow tasks, and runs with-skill/baseline jobs.
 
+A BenchFlow run needs a live Omni instance and takes about twenty minutes, so it
+is not what gates a pull request. Two cheaper tiers do that — see
+[`ci/README.md`](ci/README.md): `ci/validate.py` (structural checks, no model
+calls, no credentials) and `ci/routing_eval.py` (does each eval question route to
+the skill that owns it). Run them before you run this one.
+
 ## Directory Layout
 
 ```text
@@ -28,6 +34,10 @@ evals/
   reset.sh               Best-effort Omni instance cleanup
   lib/
     benchflow_runner.py  Thin BenchFlow wrapper
+  ci/                    Tier 0/1 PR checks; see ci/README.md
+    validate.py          Structural validation, stdlib only
+    routing_eval.py      Skill-routing accuracy from the catalog alone
+    baselines.json       Routing accuracy floors CI gates on
   workspaces/            Generated tasks, jobs, trajectories; gitignored
 ```
 

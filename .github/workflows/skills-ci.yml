@@ -1,0 +1,87 @@
+name: Skills CI
+
+# Two cheap tiers that run on every PR. The full BenchFlow suite
+# (evals/runner.sh) is deliberately not here — it needs a live Omni instance
+# and runs for ~20 minutes, so it stays nightly / on demand.
+on:
+  pull_request:
+    paths:
+      - "skills/**"
+      - "agents/**"
+      - "rules/**"
+      - "evals/**"
+      - ".github/workflows/skills-ci.yml"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: skills-ci-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Tier 0 — structural validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Validate skills and eval files
+        run: python3 evals/ci/validate.py
+
+  routing:
+    name: Tier 1 — skill routing
+    needs: validate
+    runs-on: ubuntu-latest
+    # Forks cannot read secrets, so the eval would have no credential. Tier 0
+    # still gates those PRs; routing runs once a maintainer pushes the branch.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: python3 -m pip install --quiet -r evals/ci/requirements.txt
+
+      - name: Pick which skills to route
+        id: scope
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "args=" >> "$GITHUB_OUTPUT"
+            echo "Not a PR — routing every skill."
+            exit 0
+          fi
+          git fetch --quiet origin "${{ github.base_ref }}"
+          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" \
+            | grep -oP '^skills/\K[^/]+' | sort -u || true)
+          if [ -z "$CHANGED" ]; then
+            # An eval-harness or rules change can move routing for everything.
+            echo "args=" >> "$GITHUB_OUTPUT"
+            echo "No individual skill changed — routing every skill."
+            exit 0
+          fi
+          ARGS=""
+          for skill in $CHANGED; do ARGS="$ARGS --skill $skill"; done
+          echo "args=$ARGS" >> "$GITHUB_OUTPUT"
+          echo "Routing changed skills:$ARGS"
+
+      - name: Run routing eval
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python3 evals/ci/routing_eval.py ${{ steps.scope.outputs.args }} \
+            --skip-if-no-key \
+            --json-out routing-results.json
+
+      - name: Upload results
+        if: always() && hashFiles('routing-results.json') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: routing-results
+          path: routing-results.json

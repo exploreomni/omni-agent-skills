@@ -1,0 +1,2 @@
+# Tier 1 only. Tier 0 (validate.py) is stdlib.
+anthropic>=1.0
