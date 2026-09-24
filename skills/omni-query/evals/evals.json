@@ -217,6 +217,17 @@
         "The agent does not claim an unbounded raw query returns the entire table"
       ],
       "expected_skill": "omni-query"
+    },
+    {
+      "id": "19",
+      "question": "I want to understand what data the 'Revenue Overview' dashboard is querying. Show me the underlying query fields.",
+      "ground_truth": "Dashboard found by name, then get-queries used to retrieve the tile query definitions. Fields listed for each tile.",
+      "expected_behavior": [
+        "The agent calls omni documents get-queries with the dashboard identifier to retrieve query definitions",
+        "The agent lists the fields from the query objects \u2014 not just the dashboard name or description",
+        "The agent finds the dashboard identifier before calling get-queries, either by listing documents or using a known identifier"
+      ],
+      "expected_skill": "omni-query"
     }
   ]
 }

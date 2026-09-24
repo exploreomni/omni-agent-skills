@@ -27,6 +27,7 @@ SKILLS_DIR = ROOT / "skills"
 AGENTS_DIR = ROOT / "agents"
 RULES_DIR = ROOT / "rules"
 EVALS_DIR = ROOT / "evals"
+NEGATIVE_CASES_PATH = ROOT / "evals" / "ci" / "negative-cases.json"
 
 # Claude Code truncates skill descriptions past this; a longer one is silently
 # clipped mid-sentence, which usually takes the "use this when ..." half with it.
@@ -285,6 +286,75 @@ def check_eval_files(skills: list[str], env_keys: set[str], report: Report) -> i
     return total_cases
 
 
+def check_negative_cases(skills: list[str], env_keys: set[str], report: Report) -> int:
+    """Out-of-scope cases that must route to `none`.
+
+    These have no owning skill and no expected_behavior — they exist so tier 1
+    can see a description that gets greedier, not just one that gets weaker.
+    """
+    if not NEGATIVE_CASES_PATH.is_file():
+        report.warn("evals/ci/negative-cases.json", "missing; tier 1 cannot detect over-triggering")
+        return 0
+
+    try:
+        data = json.loads(NEGATIVE_CASES_PATH.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        report.error(rel(NEGATIVE_CASES_PATH), f"is not valid JSON: {exc}")
+        return 0
+
+    where_file = rel(NEGATIVE_CASES_PATH)
+    if not isinstance(data, dict):
+        report.error(where_file, "must be an object")
+        return 0
+    if str(data.get("version", "")) != "1":
+        report.error(where_file, f"unexpected schema version {data.get('version')!r}, expected \"1\"")
+
+    cases = data.get("cases")
+    if not isinstance(cases, list) or not cases:
+        report.error(where_file, "cases must be a non-empty list")
+        return 0
+
+    seen_ids: set[str] = set()
+    seen_questions: set[str] = set()
+    for position, case in enumerate(cases, 1):
+        where = f"{where_file} entry {position}"
+        if not isinstance(case, dict):
+            report.error(where, "case must be an object")
+            continue
+        case_id = case.get("id")
+        if not isinstance(case_id, str) or not case_id.strip():
+            report.error(where, "`id` must be a non-empty string")
+            continue
+        where = f"{where_file} case {case_id}"
+        for key in case:
+            if key not in ("id", "question", "kind"):
+                report.error(where, f"unknown key `{key}`")
+        if case_id in seen_ids:
+            report.error(where, "duplicate case id")
+        seen_ids.add(case_id)
+
+        question = case.get("question")
+        if not isinstance(question, str) or not question.strip():
+            report.error(where, "`question` must be a non-empty string")
+            continue
+        normalized = question.strip().lower()
+        if normalized in seen_questions:
+            report.error(where, "duplicate question")
+        seen_questions.add(normalized)
+
+        for placeholder in sorted(set(PLACEHOLDER_RE.findall(question))):
+            if placeholder not in env_keys:
+                report.error(where, f"uses {{{{{placeholder}}}}}, which is not a key in evals/eval-env.json")
+
+        # A negative case naming a real skill is almost always a mistake: it
+        # reads as in-scope work while being labelled out-of-scope.
+        for skill in skills:
+            if skill in question:
+                report.error(where, f"names the skill {skill!r}, so it is not out-of-scope")
+
+    return len(cases)
+
+
 def tokenize(description: str) -> set[str]:
     words = re.findall(r"[a-z0-9]+", description.lower())
     return {word for word in words if word not in STOPWORDS and len(word) > 2}
@@ -335,12 +405,14 @@ def main() -> int:
     check_agents_and_rules(report)
     env_keys = load_eval_env(report)
     total_cases = check_eval_files(skills, env_keys, report)
+    negative_cases = check_negative_cases(skills, env_keys, report)
     overlaps = check_description_overlap(descriptions, report)
 
     if args.json:
         print(json.dumps({
             "skills": skills,
             "cases": total_cases,
+            "negative_cases": negative_cases,
             "errors": report.errors,
             "warnings": report.warnings,
             "top_description_overlaps": [
@@ -349,7 +421,8 @@ def main() -> int:
         }, indent=2))
         return 1 if report.errors else 0
 
-    print(f"Checked {len(skills)} skills and {total_cases} eval cases.")
+    print(f"Checked {len(skills)} skills, {total_cases} eval cases, "
+          f"{negative_cases} out-of-scope cases.")
     if overlaps:
         a, b, score = overlaps[0]
         print(f"Closest description pair: {a} / {b} ({score:.0%} overlap)")
@@ -359,7 +432,8 @@ def main() -> int:
     for error in report.errors:
         print(f"ERROR {error}")
 
-    summary = [f"### Tier 0 — skill validation", "", f"{len(skills)} skills, {total_cases} eval cases."]
+    summary = ["### Tier 0 — skill validation", "",
+               f"{len(skills)} skills, {total_cases} eval cases, {negative_cases} out-of-scope cases."]
     if report.errors:
         summary += ["", "**Errors**", ""] + [f"- {item}" for item in report.errors]
     if report.warnings:
