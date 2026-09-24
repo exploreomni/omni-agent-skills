@@ -4,7 +4,7 @@ Complete reference for a tile's visualization config — the v2 `visConfig` enve
 
 ## Table of Contents
 
-- [Where the visualization config lives](#where-the-visualization-config-lives) — the #1 gotcha
+- [Where the visualization config lives](#where-the-visualization-config-lives)
 - [chartType Values](#charttype-values) — the authoritative enum
 - [chartType → visType → configType mapping](#charttype--vistype--configtype-mapping)
 - [Config Object: Cartesian Charts](#config-object-cartesian-charts) — line, column, bar, area, scatter, combo
@@ -49,23 +49,23 @@ A chart tile is driven by **one queryPresentation-level field**: the `visConfig`
 
 Set `prefersChart: true` to default the tile to chart (vs. table) view, and `automaticVis: false` so the renderer uses your explicit spec instead of deriving one. (On create, the server seed tile can flip tile `"1"`'s `automaticVis` back to `true` — read back and re-patch if it matters.)
 
-> **Read-back is flat — writes must be nested.** `v2-get` returns the inner vis config **flat**: the spec keys spread beside `visType`, with no `config` key. A patch that sends that flat shape back **silently keeps only `visType`** and drops the rest (flat-sent `markdownConfig`/`alignment` dropped; `config`-nested persisted). Misplaced *presentation*-level keys, by contrast, 400 loudly. Never round-trip a GET tile unchanged; re-nest the inner spec under `config` first. **This covers *any* write sourced from a GET payload — restoring/reverting/duplicating/moving a tile by copying it out of a snapshot and patching it back is also a round-trip** (the flat config gets dropped → "No chart available"). Verify the reverted tile — don't assume a restore is safe.
+> **Read and write share one shape.** `v2-get` / `v2-get-draft` return the inner config as `{ visType, config }`, so a tile read back can be written back unchanged — including restores, duplicates, and moves. A spec sent flat beside `visType` is also accepted and normalized under `config`. Misplaced *presentation*-level keys (`chartType` / `config` / `fields` at the tile top level) 400 loudly.
 
 **Failure modes:**
 
 | What you send | What happens |
 |--------------|--------------|
-| Inner spec **flat** inside `visConfig.visConfig` (no `config` key) | **Silently dropped** — only `visType` persists; the tile auto-renders or goes blank. |
+| Inner spec **flat** beside `visType` | Accepted — normalized under `config` on write. |
 | `chartType` / `config` / `fields` at the presentation top level (v1 shape) | **400** "Unrecognized key". |
 | `modelId` / `model_extension_id` inside `query` (or the v1 `query.visConfig` hint) | **Silently ignored/rewritten** — tile queries are server-anchored to the workbook model. Omit them. |
 | `query` missing required collection fields (`sorts`, `filters`, `calculations`, …) | **400** listing each missing field. |
 | `barColor` / `areaColor` / `stackedBarColor` | Rejected — not in the `chartType` enum. |
 
-**Verify after writing:** read the document back (`omni documents v2-get <identifier>` or `v2-get-draft`) and confirm the tile's `visConfig.chartType` is set and the flat inner `visConfig` contains more than just `visType`. If only `visType` survived, the write sent the flat shape — re-nest under `config` and retry.
+**Verify after writing:** read the document back (`omni documents v2-get <identifier>` or `v2-get-draft`) and confirm the tile's `visConfig.chartType` is set and `visConfig.visConfig.config` is non-empty.
 
 ## chartType Values
 
-These are the supported `chartType` values for building tiles with a structured inner `config`. Feature-flagged, deprecated, and non-config-driven viz types — e.g. the raw Vega code editor and interactive spreadsheets — are intentionally omitted. A stacked **column** is vertical; a stacked **bar** is horizontal.
+These are the supported `chartType` values for building tiles with a structured inner `config`. Three enum values are not authored through this skill: `code` (the raw Vega editor, `visType: "vegalite"`), `omni-spreadsheet`, and the deprecated `summaryValue`. A stacked **column** is vertical; a stacked **bar** is horizontal.
 
 | chartType | Family | Description |
 |-----------|--------|-------------|
@@ -97,6 +97,8 @@ These are the supported `chartType` values for building tiles with a structured 
 | `"sankey"` | Sankey | Sankey flow diagram |
 | `"map"` | Map | Point map (lat/lng) |
 | `"regionMap"` | Map | Choropleth / region map |
+| `"svgMap"` | Map | SVG region map (`visType: "svg-map"`) |
+| `"treemap"` | Treemap | Treemap (`visType: "treemap"`) |
 | `"markdown"` | Text | Markdown content tile |
 | `"omni-ai-summary-markdown"` | Text | AI-generated summary tile |
 | `"singleRecord"` | Detail | Single record viewer |
@@ -124,6 +126,8 @@ These are the supported `chartType` values for building tiles with a structured 
 | `sankey` | `sankey` | — | — | — |
 | `map` | `map` | — | — | — |
 | `regionMap` | `map` | — | — | — |
+| `svgMap` | `svg-map` | — | — | — |
+| `treemap` | `treemap` | — | — | — |
 | `markdown` | `omni-markdown` | — | — | — |
 | `singleRecord` | `single-record` | — | — | — |
 
@@ -323,13 +327,13 @@ A value-bearing field is `{ row, field: { name, pivotMap: {} }, label: { value }
 
 Top-level `KpiConfig` also takes `fontLabelSize?` / `fontBodySize?` / `fontKPISize?` and `dynamicFontSize?` (opt into container-query sizing of the big number) alongside `alignment` / `verticalAlignment` / `markdownConfig`.
 
-> The `comparison`/`progress` `field`/`comparison` objects nest a `SummaryValueConfig` (the same `{ field, label, … }` a number uses) plus `row`; the **exact nesting is easiest to get right by building the KPI in the UI and reading it back** (`omni documents v2-get`, re-nesting the flat inner spec under `config`). The colors here (`colorPositive`/`colorNegative`/`swapColors`) are the configuration-level way to recolor a delta **in a native KPI tile**; for a markdown *card*, the equivalent is the kebab `swap-colors` attribute (see [markdown-tiles.md](markdown-tiles.md)).
+> The `comparison`/`progress` `field`/`comparison` objects nest a `SummaryValueConfig` (the same `{ field, label, … }` a number uses) plus `row`; the **exact nesting is easiest to get right by building the KPI in the UI and reading it back** (`omni documents v2-get`). The colors here (`colorPositive`/`colorNegative`/`swapColors`) are the configuration-level way to recolor a delta **in a native KPI tile**; for a markdown *card*, the equivalent is the kebab `swap-colors` attribute (see [markdown-tiles.md](markdown-tiles.md)).
 
 > **⚠️ A malformed `markdownConfig` entry PERSISTS on write but CRASHES at render — the API won't catch it.** Two signatures, both from an incomplete value-field:
 > - **`Cannot read properties of undefined (reading 'name')`** — a `comparison` entry whose `comparison` (or `field`) is a bare `{ "row": "_second" }` with no `field: { name, pivotMap }`. The renderer reads `entry.config.comparison.field.name` → crash. The `comparison` value is a **full value-field**, not just a row pointer.
-> - **`Cannot read properties of undefined (reading 'row')`** — a `progress` entry with **no `comparison`** (the bar's max). The renderer reads `entry.config.comparison.row` → crash. Either supply a `comparison` value-field or don't use `progress`.
+> - **`Cannot read properties of undefined (reading 'row')`** — a `progress` entry with **no `comparison`** (the bar's max). The renderer reads `entry.config.comparison.row` → crash. Supply a `comparison` value-field when the query has a field for the bar's maximum (a target, a total). When it does not, leave `progress` out and show the value another way.
 >
-> **Every `markdownConfig` entry's `field` (and a `comparison`'s `comparison`) MUST be the complete `{ row, field: { name, pivotMap: {} }, label: { value } }`** — omitting `row`, `field.name`, or the wrapper crashes the tile. Reading the doc back shows the inner config **flat** (no `config` key), so re-nest under `config` before re-patching. Complete, render-safe card (value + sparkline + change-vs-prior, "lower is better" → add `"swapColors": true` to the comparison):
+> **Every `markdownConfig` entry's `field` (and a `comparison`'s `comparison`) MUST be the complete `{ row, field: { name, pivotMap: {} }, label: { value } }`** — omitting `row`, `field.name`, or the wrapper crashes the tile. Complete, render-safe card (value + sparkline + change-vs-prior, "lower is better" → add `"swapColors": true` to the comparison):
 >
 > ```jsonc
 > "markdownConfig": [
@@ -388,7 +392,7 @@ A complete, **render-verified** status KPI — label + value + change-vs-prior (
 7. **Sparkline `width`/`height` are fixed px, not responsive** (`%`→px; no container-fill) — match them across tiles you compare.
 8. **Snapshot (single-row) query → `number` sections only** (sparkline/comparison need ≥2 rows).
 9. **Native KPI canNOT threshold-recolor the *value*** — if you need a red-when-bad number, use a **markdown card** with a `color_class` calc instead (see [markdown-tiles.md](markdown-tiles.md)); everything else above a markdown card and native KPI do equally well.
-10. **Read-back is flat** — re-nest the inner config under `config` before re-writing (the `normalizeTile()` helper in [queryPresentations.md](queryPresentations.md)).
+10. **Read it back** — confirm `visConfig.visConfig.config.markdownConfig` persisted before publishing.
 
 ## Config Object: Pie / Donut
 
@@ -430,7 +434,7 @@ A complete, **render-verified** status KPI — label + value + change-vs-prior (
 
 `chartType: "funnel"`, `visType: "funnel"`, **no `configType`**.
 
-> **"No `configType`" ≠ "no `config` wrapper."** Funnel and sankey still write their inner spec **nested under `config`**: `visConfig.visConfig = { visType: "funnel", config: { value, color, orient, … } }`. They merely omit the `configType` discriminator *inside* `config` (that field only exists for the `"basic"` renderer). Authoring the inner spec **flat** (`{ visType, value, color, … }` with no `config`) silently drops everything but `visType` → the tile renders **"No chart available."** Same drop as the GET round-trip trap, but it also bites fresh funnel/sankey authoring.
+> **"No `configType`" ≠ "no `config` wrapper."** Funnel and sankey still carry their inner spec under `config`: `visConfig.visConfig = { visType: "funnel", config: { value, color, orient, … } }`. They merely omit the `configType` discriminator *inside* `config` (that field only exists for the `"basic"` renderer).
 
 | Field | Required | Description |
 |-------|----------|-------------|
@@ -463,7 +467,7 @@ A complete, **render-verified** status KPI — label + value + change-vs-prior (
 | `color` | Yes | The measure, `{field:{name}}` |
 | `center`, `zoom` | Recommended | Viewport (e.g. `[-98.35, 39.5]` / `3` for the US). Without it the map fits to data and may zoom into a single locality. |
 
-> Map specs are best captured by building one in the UI and reading it back (`omni documents v2-get`, re-nesting the flat inner spec under `config`).
+> Map specs are best captured by building one in the UI and reading it back (`omni documents v2-get`).
 
 > **Point maps auto-fit to the data's bounding box.** Set `center`/`zoom` to frame a region, but the map won't zoom *tighter* than the extent of your points — e.g. a US map of distribution centers spanning LA↔NY caps at a coast-to-coast frame; pushing `zoom` higher clips the edge points rather than enlarging the country. Tune `zoom` to taste (≈3.6–3.8 for the contiguous US) and accept that the data spread sets the floor.
 
@@ -769,9 +773,9 @@ For families not fully covered here (funnel, sankey, boxplot, map, regionMap, si
 omni documents v2-get <identifier>
 ```
 
-Each tile's `visConfig` shows the persisted `chartType`, `fields`, and inner `visConfig` — with the rendering spec **flattened beside `visType`** (no `config` key). To reuse it as a template, move every inner key except `visType` under a `config` key.
+Each tile's `visConfig` shows the persisted `chartType`, `fields`, and inner `visConfig` with the rendering spec under `config` — the same shape you write, so it can be reused as a template as is.
 
-> **Tip**: Build one reference dashboard in the UI with every chart type you need, read it back once, and reuse those (re-nested) `config` objects as templates.
+> **Tip**: Build one reference dashboard in the UI with every chart type you need, read it back once, and reuse those `config` objects as templates.
 
 ## resultConfig
 
@@ -779,7 +783,7 @@ Optional field on `queryPresentation` controlling result display independent of 
 
 ### Table display & conditional formatting
 
-**Table display + conditional formatting live in the omni-table's INNER config** (`visConfig.visConfig.config` on write — NOT `resultConfig`). Verify by building a conditionally-formatted table in the UI (or via Blobby) and reading it back with `omni documents v2-get` — the formatters come back under the inner `config`, and a config placed in `resultConfig` is silently ignored. The inner config carries: `tableType` (`"stretch"` fills the tile; default `"spreadsheet"` hugs left), `rowBanding` (`{enabled, bandSize}`), `hideIndexColumn`, `columnFormats` (`{ "<view.field>": { align: "left"|"right" } }`), and **`conditionalFormatters`**:
+**Table display + conditional formatting live in the omni-table's INNER config** (`visConfig.visConfig.config` on write — NOT `resultConfig`). Verify by building a conditionally-formatted table and reading it back: have a person build it in the UI when one is available, or build it via Blobby when you are working without the UI. Read it back with `omni documents v2-get` — the formatters come back under the inner `config`, and a config placed in `resultConfig` is silently ignored. The inner config carries: `tableType` (`"stretch"` fills the tile; default `"spreadsheet"` hugs left), `rowBanding` (`{enabled, bandSize}`), `hideIndexColumn`, `columnFormats` (`{ "<view.field>": { align: "left"|"right" } }`), and **`conditionalFormatters`**:
 
 ```jsonc
 // visConfig.visConfig = { visType: "omni-table", config: {
@@ -797,7 +801,7 @@ Optional field on `queryPresentation` controlling result display independent of 
 ] }
 ```
 
-`selection.type` may be `field`, `row`, or `cellRange`; **`selection` carries both `field` AND `target`** (same value for a field selection). **`automaticVis: true` is fine** — conditional formatting renders as long as the formatters are in this inner `config`, not `resultConfig` (where they're silently ignored). On write, nest the whole spec under `config` (GET flattens it).
+`selection.type` may be `field`, `row`, or `cellRange`; **`selection` carries both `field` AND `target`** (same value for a field selection). **`automaticVis: true` is fine** — conditional formatting renders as long as the formatters are in this inner `config`, not `resultConfig` (where they're silently ignored). The whole spec sits under `config`, on write and on read.
 
 ## aiConfig
 
@@ -814,7 +818,6 @@ Enables AI-generated descriptions/subtitles on tiles:
 
 | Mistake | Symptom | Fix |
 |---------|---------|-----|
-| Inner spec sent **flat** (no `config` key inside `visConfig.visConfig`) | Spec **silently dropped** — only `visType` persists; tile auto-renders or goes blank | Nest the spec under `visConfig.visConfig.config`; never round-trip the flat GET shape |
 | `chartType` / `config` / `fields` at the presentation top level (v1 shape) | **400** "Unrecognized key" | Move them into the `visConfig` envelope |
 | `modelId` / `model_extension_id` (or v1 `visConfig` hint) in the tile query | Silently ignored/rewritten | Remove — tile queries are server-anchored to the workbook model |
 | Query missing required collection fields | **400** listing each missing field | Include `sorts`, `filters`, `calculations`, `column_totals`, `row_totals`, `fill_fields`, `pivots`, `userEditedSQL` (empty fine) plus `table`, `fields`, and always send `limit`, `join_paths_from_topic_name` |
@@ -830,7 +833,7 @@ Enables AI-generated descriptions/subtitles on tiles:
 | Stack dimension not pivoted | Single un-split series | Add the `color.field` dimension to `query.pivots` |
 | Missing measure in query | Empty tile, no error | Every query must include at least one measure |
 | `regionMap` not shading | "No chart available" / blank map | Use `visType: "map"`, `regionType: "us-states"`/`"countries"`, a `sourceProperty` matching your field's values (`"NAME"`/`"CODE"`/iso codes), and `center`/`zoom` |
-| `chartType: "auto"` with empty config | "No chart available" | `auto` can't persist a render; populate a concrete spec (or build in UI and read back) |
+| `chartType: "auto"` with empty config | "No chart available" | `auto` can't persist a render; populate a concrete spec from the recipes in this file. When no recipe covers the chart, have it built in the UI and read the config back |
 | `aiContext`/`markdown` on AI-summary tile | Renders blank/wrong | Use `ai_context` + `showWarning` (snake_case) |
 
 ## Text & AI tiles
@@ -861,4 +864,4 @@ An empty inner `config: {}` is fine for tables.
 
 > **`chartType: "auto"` is not a persistable render** — a tile saved with `auto` + an empty `config` shows "No chart available", because `auto` only resolves to a concrete chart at render time from live results. To create an auto-styled tile, populate a concrete `chartType` + inner `config` (build it in the UI and read it back if unsure).
 
-> **Recommendation**: For an unfamiliar chart type, build it once in the UI, read it back with `omni documents v2-get`, and reuse the inner vis config — re-nested under `config` — as your template. That is the most reliable path to a correct config.
+> **Recommendation**: For an unfamiliar chart type, build it once in the UI, read it back with `omni documents v2-get`, and reuse the inner vis config as your template. That is the most reliable path to a correct config.

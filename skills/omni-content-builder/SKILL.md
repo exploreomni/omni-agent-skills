@@ -20,29 +20,29 @@ The mechanics here build a *correct* dashboard; for a *good* one, apply Omni's [
 - **Functional color, 90/10.** Neutral tones dominate; one accent for emphasis or status — not decoration.
 - **Match chart to question** — trend → line/area/bar; ranking → horizontal bar; part-to-whole → 100% stacked; correlation → scatter.
 - **Put controls next to what they drive,** with action-oriented labels ("Filter by Region", not "Region").
-- **Hide complexity behind a parent control** — coordinate many controls from one, children `config.hidden` (see [controls.md](references/controls.md#parent-controls-one-control-drives-many)).
+- **Hide complexity behind a parent control** — coordinate many controls from one, children left unplaced (see [controls.md](references/controls.md#parent-controls-one-control-drives-many)).
 - **Charts read without hovering.** A viewer should get the key insight from the chart itself; a tooltip is a detail, not the message.
 
 ## Known Issues & Safe Defaults
 
 - **Always run the full validation loop** — see [Validation Loops](#validation-loops) below. At minimum: validate the model, test every query via `omni query run`, check viz spec consistency, and verify the dashboard by reading the draft back and executing its queries **before publishing**.
-- **Never round-trip a `v2-get` tile back into a patch unchanged** — a GET returns the inner vis config *flat*, but a patch only persists it *nested under `config`*. Re-sending the flat shape — even for an unrelated edit like a rename — silently drops the vis config (KPI loses its number, charts lose `mark`/`series`, markdown goes blank). Always re-author the inner `visConfig` nested under `config`. See [references/documents-v2.md](references/documents-v2.md).
-  - **This applies to *any* write whose tile JSON came from a GET payload — not just edits.** Restoring, reverting, duplicating, or moving a tile by copying it out of a `v2-get`/snapshot and patching it back is *also* a round-trip: the inner config is flat and will be dropped (renders "No chart available"). A "restore to how it was" still needs the config re-nested. And **verify the specific tile you wrote** — re-read it (`v2-get`) and run its query to confirm the config persisted; if a visual/preview tool is available, you can also request a screenshot to confirm the render — *including reverts*; don't assume a restore is safe.
-- **Patches merge by key; only `containers` (and the `order` arrays) are full replacements.** To change one tile, send just that key. To delete a tile, set its key to `null` AND remove it from `order`. When you send `containers`, send the complete layout tree with your edit applied.
-- **A multi-tile `v2-create` only lays out the first tile** — the rest are stored but render nowhere until you author the full `containers` tree. See [references/containers.md](references/containers.md).
-- **Tile `"1"` on create merges over a server seed tile** — some seed properties (e.g. `automaticVis: true`) can win over what you sent. Read the document back and re-patch tile `"1"` if its exact fields matter.
+- **A tile reads back in the write shape.** `v2-get` / `v2-get-draft` return the inner vis config as `{ visType, config }`, so a tile can be edited and patched back as is — including restores, duplicates, and moves. Still **verify the specific tile you wrote**: re-read it and run its query before publishing. See [references/documents-v2.md](references/documents-v2.md).
+- **Patches merge by key; only `containers` (and the `order` arrays) are full replacements.** To change one tile, send just that key. To delete a tile, set its key to `null` AND remove it from `order`. When you send `containers`, send the complete layout tree with your edit applied; omit it to keep the layout and let the server auto-place added tiles.
+- **New tiles are auto-placed when a create or patch carries no `containers`** — every dashboard-eligible tile lands on the first page. Send `containers` only when you want to own the layout; then every tile you want visible must be referenced in it. See [references/containers.md](references/containers.md).
+- **Tile `"1"` on create merges over a server seed tile** — the seed's `automaticVis: true` wins over the `false` you send (tile `"2"` onward keep `false`). Re-patch tile `"1"` on a draft if it matters.
+- **A control is visible exactly where a container places it.** There is no `hidden` flag on the v2 contract — a patch carrying `config.hidden` is rejected. To hide a control, leave it out of every container; it keeps applying its value. See [references/controls.md](references/controls.md#hiding-a-control).
 - **Every tile `query` must include the full collection-field set** — `sorts`, `filters`, `calculations`, `column_totals`, `row_totals`, `fill_fields`, `pivots`, `userEditedSQL` (empty values are fine) alongside `table`, `fields`, `limit`, `join_paths_from_topic_name`. Omitting the schema-required ones is a 400 with per-field errors. Do **not** include `modelId` or `model_extension_id` — the server anchors tiles to the document's workbook model and silently rewrites any value you send.
 - **HARD RULE — never build a non-topic tile from handed-over SQL without an explicit user decision.** When the user hands you SQL (or a metric) and existing topics don't express it, you may **not** silently convert it to a non-topic / `userEditedSQL` tile. First apply the topic-first reflex (see `omni-query`): map each query's intent to a topic. If none fits, **stop and ask** whether to model it — extend a topic or create a new one (on a branch via `omni-model-builder`, validated, merged only with confirmation). Only build a non-topic / raw-SQL tile after the user has **explicitly chosen** that path (declined modeling, or it's a genuine one-off / `userEditedSQL` is required). Non-topic + Access Boost is never the default for handed-over SQL — it requires that explicit decision. This is the easiest thing to get wrong when "build a dashboard" starts from raw SQL.
 - **Non-topic / raw-SQL tiles → ask about the audience, then counsel Access Boost.** When a tile's query is non-topic — a populated `userEditedSQL` (raw-SQL tile) or a bare base-view query (no `join_paths_from_topic_name`) — it is **invisible to Viewer / Restricted Querier roles by default**. Before finalizing such content, **ask the user whether the dashboard's audience includes Restricted Queriers or Viewers**. If it does, **advise** (don't silently enable) **Access Boost**: it makes those tiles viewable *on the dashboard* (dashboard-only — not the underlying workbook) for chosen users/groups or the whole org — provided the org capability is enabled and the caller has Manager on the document. Because it loosens access controls, treat enabling it as a separate, explicitly-confirmed step: recommend the **narrowest scope** that satisfies the need (specific users/groups over org-wide) and get a clear go-ahead before it's applied. See the *Raw-SQL tiles* recipe in [references/queryPresentations.md](references/queryPresentations.md) and **`omni-admin`** → *Document Permissions* (which carries the full confirmation checklist and the commands/prerequisite).
-- **`--body` silently wins over shorthand flags** — if you pass `--body`, every promoted flag (`--name`, `--summary`, `--branch-id`, …) is ignored without warning. Put those fields inside the JSON body instead, or use flags alone with no `--body`.
+- **`--body` silently wins over shorthand flags** — if you pass `--body`, every promoted flag (`--name`, `--summary`, `--branch-id`, …) is ignored without warning. Put those fields inside the JSON body whenever the request has any other body content, which covers every create and patch. Use flags alone, with no `--body`, only when the flags are the whole request.
 - **Draft commands take the document identifier first, then the draft identifier**: `v2-get-draft <identifier> <draftIdentifier>` and `v2-patch-draft-by-identifier <identifier> <draftIdentifier>`.
 - **Classic-layout dashboards return 422 from every v2 endpoint** — "Upgrade the dashboard to the advanced layout before editing it through the API." There is no API fallback; ask the user to upgrade the layout in the Omni UI, then retry.
-- **The workbook model ID rotates on every draft → publish cycle** — each draft clones the workbook model (carrying extensions along), and publishing swaps the document to the clone. Never cache a workbook model ID; read it fresh from the draft's `workbookModelId` (`omni documents list-drafts <identifier>`) each time you need it.
+- **The workbook model ID rotates on every draft → publish cycle** — each draft clones the workbook model (carrying extensions along), and publishing swaps the document to the clone. Never cache a workbook model ID; read it fresh from `workbookModelId` on `v2-get-draft` (or `omni documents list-drafts <identifier>`) each time you need it.
 - **Interactive controls scope per-tile via `map`** — a field/timeframe switcher's `{"<tileKey>": false}` excludes that tile, exactly like a filter's. See [references/controls.md](references/controls.md).
 - **Markdown tiles need `automaticVis: false`** — otherwise the renderer auto-derives a chart and the tile is blank. See [references/visConfig.md](references/visConfig.md).
 - **Mustache: reference a *filter* under `filters`, not `controls`.** To caption a tile with a filter's current value (e.g. a date window), use **`{{filters.…summary}}`** — *not* `{{controls.<id>.…}}` (a filter is configured as a control but mustache routes it to `filters`; the `controls` namespace is for `FIELD_SELECTION`/picker/Top-N controls and renders **empty** for a filter). The `filters` key is **context-dependent**: `view.field` in a markdown-viz tile (resolved against the tile's own query, so one token works per-tile), the control `id` in a dashboard text tile. Full namespace/token map + scenarios in [references/mustache.md](references/mustache.md).
 - **`query.filters` needs the object form** — the relative-date shorthand (`"last 6 months"`) throws a 500; send `{type:"date", kind:"TIME_FOR_INTERVAL_DURATION", ui_type:"PAST", left_side, right_side}`. See [references/documents-v2.md](references/documents-v2.md).
-- **A tile with no real `visConfig` renders as "Item missing"** — the server seeds new tiles with `visConfig.visType: null` + `automaticVis: false`, which draws nothing. Every tile needs either an explicit `visConfig` (e.g. the table recipe in [references/visConfig.md](references/visConfig.md)) or `automaticVis: true` to auto-derive one. Layout is separate: a multi-tile `v2-create` lays out all tiles you pass in `order`, so "Item missing" is a vis-config gap, not a `containers` gap.
+- **A tile with no real `visConfig` renders as "Item missing"** — the server seeds new tiles with `visConfig.visType: null` + `automaticVis: false`, which draws nothing. Every tile needs either an explicit `visConfig` (e.g. the table recipe in [references/visConfig.md](references/visConfig.md)) or `automaticVis: true` to auto-derive one. Write an explicit `visConfig` when the user asked for a specific chart or formatting; use `automaticVis: true` when any sensible default will do. Layout is separate: a multi-tile `v2-create` lays out all tiles you pass in `order`, so "Item missing" is a vis-config gap, not a `containers` gap.
 - **Chart rendering**: Complex chart types may show "No chart available" if the inner config, `visType`, or `prefersChart` are misconfigured. If the user asks for a specific chart, include the complete chart-specific config from [references/visConfig.md](references/visConfig.md) nested under `visConfig.visConfig.config`. Use `chartType: "table"` only as a deliberate table fallback, not for requested charts.
 - **Every query must include at least one measure** — a query with only dimensions produces empty/nonsense tiles (e.g., just months with no data).
 - **Boolean filters may be silently dropped** when a `pivots` array is present (reported Omni bug). If boolean filters aren't applying, remove the pivot and test again.
@@ -94,7 +94,8 @@ omni documents v2-create --schema  # Body schema + example (add --depth 1 for an
 | Create document | `documents v2-create` |
 | Read document / draft state | `documents v2-get` / `v2-get-draft` |
 | Edit document (tiles, controls, layout, settings, rename) | `documents v2-patch-draft` (+ `v2-patch-draft-by-identifier`) |
-| Get the workbook model ID | `documents list-drafts` → `workbookModelId` (open a draft first) |
+| Get the workbook model ID | `workbookModelId` on `documents v2-get` (published) or `v2-get-draft` (that draft's); also on `documents list-drafts` |
+| Rename a document's identifier (slug) | `documents v2-update-identifier <identifier>` |
 | Publish a draft | `documents v2-publish-draft` |
 | Read or edit an **app** (HTML instead of a dashboard) | `documents v2-*-app` — alpha, CLI ≥ 1.2.2; see [references/documents-v2.md](references/documents-v2.md) |
 
@@ -119,7 +120,7 @@ Omni dashboards are built from **documents**. A document's v2 state is an envelo
 - **Layout** is the `containers` tree — a tile renders only where a container references it (see [references/containers.md](references/containers.md)).
 - Each document also has a **workbook model** (per-dashboard model customizations) — its ID is the `workbookModelId` on the document's draft record from `documents list-drafts`.
 
-A document is edited through **drafts**: `v2-patch-draft` creates a draft and applies your patch; the published document is untouched until `v2-publish-draft`. `v2-get` returns the current draft state if a draft exists, else the published state. Drafts can also be bound to a **model branch** (see [references/branch-bound-drafts.md](references/branch-bound-drafts.md)).
+A document is edited through **drafts**: `v2-patch-draft` creates a draft and applies your patch; the published document is untouched until `v2-publish-draft`. `v2-get` returns the published state; `v2-get-draft` returns a draft's. Drafts can also be bound to a **model branch** (see [references/branch-bound-drafts.md](references/branch-bound-drafts.md)).
 
 ## Build queries on a topic
 
@@ -141,7 +142,7 @@ omni documents v2-create <model-id> "Q1 Revenue Report"
 ```
 
 - `<model-id>` is the **shared** model; the server mints a per-document workbook model.
-- The document is **created and published immediately**. The response returns only `{identifier, name, description}` — when you need the workbook model ID, open a draft and read its `workbookModelId` from `omni documents list-drafts <identifier>`.
+- The document is **created and published immediately**. The response returns only `{identifier, name, description}`; `omni documents v2-get <identifier>` then returns the envelope, including `workbookModelId`.
 - `--folder-id` omitted → the document lands in the creator's personal "My documents" (requires personal-content permission). Pass a folder ID to place it in a shared folder.
 
 ### Create Document with Queries and Visualizations
@@ -200,12 +201,12 @@ omni documents v2-create --body '{
 > **The rendering spec goes in `visConfig.visConfig.config`** (visType beside it, spec nested under `config`). `chartType` and `fields` sit at the outer `visConfig` level. Misplaced spec keys are silently dropped on write — see the round-trip warning in Known Issues. See [references/queryPresentations.md](references/queryPresentations.md) and [references/visConfig.md](references/visConfig.md) for the structures and per-chart-type configs.
 
 **Key points:**
-- Tile keys are strings `"1"`, `"2"`, … and must appear in `order` to be tabs; tiles also need a `containers` entry to **render** on the dashboard. A multi-tile create auto-lays-out only tile `"1"` — author `containers` for the rest ([references/containers.md](references/containers.md)).
+- Tile keys are strings `"1"`, `"2"`, … and must appear in `order` to be tabs. A create with no `containers` auto-places every tile; send `containers` to own the layout, and then every tile you want visible must be referenced in it ([references/containers.md](references/containers.md)).
 - `prefersChart` must be `true` to render a chart; set `automaticVis: false` when you author an explicit vis config.
 - The `query` needs the full collection-field set (see Known Issues) and **no `modelId`**.
 - `controls` and `settings` slices can be included in the same create body — see [Dashboard Filters & Controls](#dashboard-filters--controls).
 
-**To learn the exact structure for a chart type**, build a reference dashboard in the Omni UI and read it back with `omni documents v2-get <identifier>` — remembering that the inner config reads back *flat* and must be re-nested under `config` before reuse.
+**To learn the exact structure for a chart type**, build a reference dashboard in the Omni UI and read it back with `omni documents v2-get <identifier>` — the tiles read back in the write shape, ready to reuse.
 
 ### Rename Document
 
@@ -244,12 +245,12 @@ Only published documents can be duplicated. Draft documents return 404.
 
 Edits go through the **draft flow** — the published dashboard is untouched until you publish, so validation happens before anything goes live:
 
-1. **Read** the current state: `omni documents v2-get <identifier> > doc.json`.
+1. **Read** the current state: `omni documents v2-get <identifier> > doc.json` (published state; if a draft already exists, read it with `v2-get-draft`).
 2. **Author the patch** — patches **merge by key**, so send only the slices you're changing:
-   - **Add a tile**: new key in `queryPresentations.data` + append it to `order` (+ a `containers` tile stack so it renders).
-   - **Edit a tile**: send just that key — and **re-author its inner vis config nested under `config`** (never echo the flat GET shape back).
+   - **Add a tile**: new key in `queryPresentations.data` + append it to `order` (auto-placed if the patch carries no `containers`; otherwise add its tile stack to the tree you send).
+   - **Edit a tile**: send just that key, with the complete tile (a tile read back can be sent back as is).
    - **Delete a tile**: set its key to `null` and remove it from `order` (and its stack from `containers`).
-   - **Layout**: `containers` is a full replacement — send the whole tree with your edit applied.
+   - **Layout**: `containers` is a full replacement — send the whole tree with your edit applied, or omit it to keep the layout.
 3. **Create the draft + apply**: `omni documents v2-patch-draft <identifier> --body @patch.json` (or `--body - < patch.json`) — capture `draftIdentifier` from the response. Include a `summary` in the body for the audit trail.
    > Prefer `--body @file` for these bodies: it needs no shell quoting, keeps the patch diffable, and **validates the JSON client-side** — a malformed patch fails immediately with the byte offset instead of a server-side `400`.
 4. **Validate the draft** — `omni documents v2-get-draft <identifier> <draftIdentifier>`, run the affected queries (see [Validation Loops](#validation-loops)). Iterate with `omni documents v2-patch-draft-by-identifier <identifier> <draftIdentifier> --body …`.
@@ -283,7 +284,7 @@ Push custom dimensions and measures to a specific dashboard by writing to its wo
 ```bash
 omni documents v2-patch-draft <identifier> --summary "add workbook field"   # creates the draft
 omni documents list-drafts <identifier>
-# → use the draft record's "workbookModelId" — that IS the model you write YAML to
+# → use the draft record's "workbookModelId" (also on v2-get-draft) — that IS the model you write YAML to
 ```
 
 > **Note**: The workbook model (which extends the shared model) is what you pass to `omni models yaml-create`. Each draft has its **own** clone of it, and the ID **changes on every draft → publish cycle** — always read it fresh from `list-drafts`; never reuse a cached value.
@@ -308,7 +309,7 @@ omni models yaml-create <draftWorkbookModelId> --body '{
 
 v2 tile queries carry **no `modelId`** — the server anchors each tile to the draft's workbook model, so the field just has to exist in that model before the tile references it. The order is fixed:
 
-1. **`documents v2-create`** (or use the existing document) — provisions the workbook model.
+1. **`documents v2-create`** — provisions the workbook model. Skip this step when the document already exists; its workbook model is already there.
 2. **`documents v2-patch-draft <identifier>`** — open the draft (a `--summary`-only patch is enough to create it).
 3. **`documents list-drafts <identifier>`** → the draft's `workbookModelId`.
 4. **`models yaml-create <draftWorkbookModelId>` with `mode: "extension"`** → add the field (above).
@@ -378,13 +379,15 @@ omni documents v2-create --body '{
 - **Every filter MUST include `fieldName`** with the fully qualified field name (no timeframe bracket for date filters), or it won't bind to any column.
 - To learn exact shapes, build filters in the Omni UI and read them back with `omni documents v2-get` — the `controls` slice is directly reusable in a patch.
 
+**Model it or control it?** A dashboard filter or control lives in one document and is scoped per tile through `map`. Put the filter in the **model** instead, as a filter-only field (`omni-model-builder` → `references/templated-filters.md`), when the same filter should follow the topic into every workbook and dashboard, when one control must drive several columns or a measure threshold (`bind_to`), or when a control must switch which column or measure a field uses (a templated `CASE`). The dashboard then binds an ordinary filter control to that field (`fieldName: <view>.<field>`) and needs no `map`, because the model already decided what it applies to. Keep it a dashboard control when the behavior is specific to one document, when viewers should pick the field themselves (`FIELD_SELECTION`, `FIELD_PICKER`), or when you cannot change the shared model. A **Restricted Querier** cannot branch or edit the shared model, but a filter-only field is a `.view` extension, so it can still go in this document's **workbook model** (see [Updating a Dashboard's Model](#updating-a-dashboards-model)) when the modeled form is worth having for one dashboard; otherwise a dashboard control is the right tool.
+
 ## Document Settings
 
 `settings` is a shallow-merged object: `crossfilterEnabled` (click a value in one tile to filter the others), `facetFilters`, `refreshInterval` (seconds, `null` disables), `runQueriesOn` (`"current-page"` / `"all-pages"` / `null`), and `customText` (`{queryError, queryNoResults}` overrides). Patch only the keys you're changing.
 
 ## Layout (containers)
 
-The `containers` tree decides where tiles and controls render: a reserved `"filter-bar"` stack, then one `page` container per page, each holding a 24-column `grid` of tile stacks with `gridPosition {x,y,w,h}`. **Safe default on create: omit `containers`** and let the server lay out tile `"1"`, then author the full tree when you add more tiles. When editing, `containers` is a **full replacement** — round-trip the existing array with your change applied. Multi-page dashboards, page switchers, grouped bands, in-tile controls, and sizing rules: [references/containers.md](references/containers.md).
+The `containers` tree decides where tiles and controls render: a reserved `"filter-bar"` stack, then one `page` container per page, each holding a 24-column `grid` of tile stacks with `gridPosition {x,y,w,h}`. **Safe default: omit `containers`** and let the server auto-place every tile (on create and on later patches); author the tree only when you need a specific arrangement. When you do send it, `containers` is a **full replacement** — round-trip the existing array with your change applied. Multi-page dashboards, page switchers, grouped bands, in-tile controls, and sizing rules: [references/containers.md](references/containers.md).
 
 ## URL Patterns
 
@@ -428,7 +431,7 @@ Every dashboard build or update must be validated **before publishing** — brok
 
 1. **Find the dashboard** — use `omni-content-explorer` or `omni documents list` to locate it
 2. **Read its current state** — `omni documents v2-get <identifier>`
-3. **Author the patch** — merge-by-key edits to `queryPresentations`/`controls`/`settings`; full `containers` tree if layout changes; re-author inner vis configs nested under `config`
+3. **Author the patch** — merge-by-key edits to `queryPresentations`/`controls`/`settings`; full `containers` tree only if the layout changes
 4. **Validate changes** — run new/modified queries via `omni query run`; check viz specs against the consistency rules
 5. **Patch the draft** — `omni documents v2-patch-draft <identifier> --body …` (with a `summary`)
 6. **Verify the draft** — `v2-get-draft`, then `get-queries` + `query run` on modified tiles

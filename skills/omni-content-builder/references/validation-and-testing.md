@@ -53,7 +53,7 @@ Before assembling `queryPresentations`, check each tile's viz configuration agai
 | Rule | What to check |
 |------|---------------|
 | `prefersChart` must be `true` for charts | If `false` or omitted, Omni renders a table regardless of other viz settings |
-| Spec lives in `visConfig.visConfig.config` on WRITE | The rendering spec must be nested under `config` inside the inner `visConfig` when you send it. **It reads back flat** (spec fields beside `visType`) — never round-trip the flat GET shape; a flat-sent spec is silently dropped |
+| Spec lives in `visConfig.visConfig.config` | The rendering spec sits under `config` inside the inner `visConfig`, on write and on read |
 | `chartType` and `fields` sit at the outer `visConfig` level | `visConfig: { chartType, fields, version, visConfig: {…} }` — not at the tile's top level |
 | `visType` must match chart category | `"omni-kpi"` for KPI, `"basic"` for cartesian/pie/heatmap/boxplot, `"funnel"`/`"sankey"`/`"map"` for those, `"omni-table"` for tables |
 | `chartType` must be a valid enum value | e.g. `table`, `kpi`, `line`/`lineColor`, `column`/`columnStacked`, `bar`/`barStacked`, `area`/`areaStacked`, `point`/`pointColor`, `pie`, `heatmap`, `boxplot`, `funnel`, `sankey`, `map`, `regionMap`. **NOT** `barColor`/`areaColor`/`stackedBarColor`/`scatter` |
@@ -84,8 +84,8 @@ omni documents v2-get <identifier>                           # published state
 Check that:
 - **Tile count matches**: the length of `queryPresentations.order` AND the set of keys in `queryPresentations.data` both match what you expect — check both agree with each other.
 - No `queryPresentations.data` entries have null or missing `query` objects.
-- Each tile you wrote read back with a non-empty inner vis config (it reads back *flat* — that's expected; see Step 3).
-- Every tile in `order` is referenced by a `containers` stack — stored-but-unplaced tiles render nowhere.
+- Each tile you wrote read back with a non-empty `visConfig.visConfig.config`.
+- Every tile in `order` is referenced by a `containers` stack. Tiles added without `containers` are auto-placed; a tile missing from a layout you sent yourself renders nowhere.
 
 **4b. Execute the dashboard's queries to verify they run:**
 
@@ -104,7 +104,7 @@ omni query run --body '{
 }'
 ```
 
-For tiles that exist only on the draft, take the query object from the `v2-get-draft` readback and run it with `modelId` set to the draft's `workbookModelId` (from `omni documents list-drafts <identifier>`).
+For tiles that exist only on the draft, take the query object from the `v2-get-draft` readback and run it with `modelId` set to that response's `workbookModelId`.
 
 For every tile, print or record a concrete verification line with the tile name,
 query status, and row count. Use **`cache_metadata.num_rows`** for the row count

@@ -119,7 +119,7 @@ A markdown KPI with a fixed `font-size:40px` headline number **clips horizontall
 - Size the number in `cqw` (1cqw = 1% of the container's width) with a `clamp()` floor/cap: `font-size:clamp(16px,15cqw,40px);…;white-space:nowrap`. `15cqw` ≈ 25px in a ~165px six-across card (fits a 10-char value), grows to the 40px cap on wide/full-width cards, and shrinks gracefully when cards reflow.
 - **Omni's markdown renderer supports container queries** — inline `container-type` and the `cqw` unit both pass the sanitizer and render. (`<style>` blocks work too.) Prefer `cqw` over `vw`: `vw` tracks the *viewport*, so when cards reflow to full-width at narrow widths the number turns tiny in a wide card; `cqw` tracks the card and stays correctly sized at every breakpoint.
 - Anchor the edit on `font-weight:800` — in these KPI cards only the headline number is weight 800 (labels are 700), so it uniquely identifies the value line across all the size variants (36/38/40px, colored or class-driven).
-- **This is a markdown-tile edit, so it is subject to the round-trip trap** (see [visConfig.md](visConfig.md)) — re-author the inner spec as `visConfig.visConfig = { visType:"omni-markdown", config:{ version:1, markdown:"…" } }`. Sending the GET's *flat* `{version,markdown,visType}` back silently drops `markdown` and the tile renders blank — a blank tile here is the flat shape, not the `cqw`.
+- The inner spec is `visConfig.visConfig = { visType:"omni-markdown", config:{ version:1, markdown:"…" } }`, and it reads back in that same shape, so a tile from `v2-get-draft` can be edited and patched back as is. Read it back after writing and confirm `config.markdown` persisted.
 
 ## A markdown KPI card that follows a metric picker
 

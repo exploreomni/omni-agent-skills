@@ -6,6 +6,23 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.16.0] - 2026-09-21
+
+### omni-analytics
+
+_Summary: `omni-content-builder` was re-checked against the current documents v2 API. Four things it warned about now behave differently, some missing options were added, and the skill now recommends one path wherever it used to list two. No command or flag changed._
+
+**Changed**
+- **`omni-content-builder` — *Reading a tile's chart config*.** A tile's chart config now reads back in the same shape you write it. The warnings about a flattened read, and the `normalizeTile()` helper, are gone. After writing a tile, read it back and check that its `config` is not empty.
+- **`omni-content-builder` — *Hiding a control*.** `hidden` is no longer accepted in a patch. A control shows wherever a container places it, so hide one by leaving it out of every container.
+- **`omni-content-builder` — *Where new tiles go*.** When a create or patch has no `containers`, every new tile is placed on the first page automatically. Send `containers` to place tiles yourself. This replaces the old note that only the first tile was laid out.
+- **`omni-content-builder` — *What a read returns*.** `v2-get` returns the published document, and drafts come from `v2-get-draft`. Both include `modelId` and `workbookModelId`. `branchId` is accepted only on the patch that creates a draft. `v2-update-identifier` is now in the command tables.
+- **`omni-content-builder` — *Newly documented options*.** Tile types (`foreign` replaces `app`, and a `linked` tile needs `sourceQueryPresentationKey`), the `treemap` and `svgMap` charts, percent stacking (`stack_percentage`, not `normalize`), filter metadata, `FIELD_PICKER` field order, four more layout items (spacer, divider, placeholder, text), stack and grid options, the page `breakpoint`, the 15-page limit, and length caps on names and subtitles. One unverified claim about inline filters was removed.
+- **`omni-content-builder` — *Model a filter, or add a control*.** A new paragraph on when a filter belongs in the model as a filter-only field rather than on the dashboard as a control.
+- **`omni-content-builder` — *One recommended path*.** Wherever the skill named two ways to do something, it now says which to use and when. For example, `list-drafts` is the lookup for a draft's workbook model id, and fields go in the JSON body whenever a request has one.
+- **`omni-api-conventions` rule — *`--schema` and the API*.** `--schema` describes the installed CLI build, which can lag the API. When it disagrees with a doc, keep the CLI current and confirm with a live call.
+- **`omni-content-builder` — *Evals*.** Six cases updated and three added: hiding a control by placement, adding a tile without `containers`, and renaming a tile read from a draft.
+
 ## [1.15.0] - 2026-09-21
 
 ### omni-analytics
