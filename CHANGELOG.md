@@ -6,6 +6,17 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.16.0] - 2026-09-24
+
+### omni-analytics
+
+_Summary: `omni-query` and `omni-content-explorer` both documented `omni documents get-queries`, and neither description said which one owns "what does this tile actually query" — so the same request could reach either. The boundary is now stated in both descriptions: content-explorer locates and organizes content, omni-query explains and extracts what a query does. No command or flag changed._
+
+**Changed**
+- **`omni-query` — *Description*.** Now claims inspecting the query definition behind a dashboard tile. Paid for within the description length budget by dropping "or workbook" from the adjacent extract-data phrase; the description sits at 1007 of 1024 characters.
+- **`omni-content-explorer` — *Description*.** Now says explicitly that it locates and organizes content, and points at `omni-query` for a tile's fields, filters, and sorts — which is what its own `get-queries` note already said in the body.
+- **Evals.** The `omni-content-explorer` case that asked for a dashboard's underlying query fields moves to `omni-query` (case 19). It called `get-queries` and duplicated an existing `omni-query` case, so two near-identical prompts carried opposite `expected_skill` labels.
+
 ## [1.15.0] - 2026-09-21
 
 ### omni-analytics

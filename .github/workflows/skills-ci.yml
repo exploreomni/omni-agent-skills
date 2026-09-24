@@ -49,33 +49,29 @@ jobs:
       - name: Install dependencies
         run: python3 -m pip install --quiet -r evals/ci/requirements.txt
 
-      - name: Pick which skills to route
-        id: scope
+      # On a PR, compare the branch's catalog against the base branch's and gate
+      # on regressions. Every case runs against both catalogs, not just the
+      # changed skills' cases: a description edit in one skill can pull another
+      # skill's prompts across, and scoping to changed skills would hide exactly
+      # that. On main there is nothing to compare against, so score against the
+      # floors in baselines.json instead.
+      - name: Choose mode
+        id: mode
         run: |
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch --quiet origin "${{ github.base_ref }}"
+            echo "args=--compare-to origin/${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
+            echo "Paired against origin/${{ github.base_ref }}."
+          else
             echo "args=" >> "$GITHUB_OUTPUT"
-            echo "Not a PR — routing every skill."
-            exit 0
+            echo "Absolute, scored against baselines.json."
           fi
-          git fetch --quiet origin "${{ github.base_ref }}"
-          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" \
-            | grep -oP '^skills/\K[^/]+' | sort -u || true)
-          if [ -z "$CHANGED" ]; then
-            # An eval-harness or rules change can move routing for everything.
-            echo "args=" >> "$GITHUB_OUTPUT"
-            echo "No individual skill changed — routing every skill."
-            exit 0
-          fi
-          ARGS=""
-          for skill in $CHANGED; do ARGS="$ARGS --skill $skill"; done
-          echo "args=$ARGS" >> "$GITHUB_OUTPUT"
-          echo "Routing changed skills:$ARGS"
 
       - name: Run routing eval
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          python3 evals/ci/routing_eval.py ${{ steps.scope.outputs.args }} \
+          python3 evals/ci/routing_eval.py ${{ steps.mode.outputs.args }} \
             --skip-if-no-key \
             --json-out routing-results.json
 
