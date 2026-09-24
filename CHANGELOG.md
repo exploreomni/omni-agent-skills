@@ -6,6 +6,15 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.16.0] - 2026-09-21
+
+### omni-integrations
+
+**Changed**
+- **`omni-to-dbt-metricflow` — filter dependencies survive the drop list.** Step 4 is now three ordered passes: candidates, drops, dependencies. The dependency pass adds the primary key of every touched view and each kept measure's filter and `sql` dimensions, even when the drop pass removed them as `hidden: true` or as not selected by the topic. A measure whose dependency is filter-only, in a skipped view, or a cross-view expression is dropped and reported. Before, a view or topic export could drop a hidden dimension that a measure filters on; `dbt parse` and `mf validate-configs` pass, and only `mf query --explain` fails.
+- **`omni-to-dbt-metricflow` — same-view filters keep the group.** A same-view predicate now goes inside `expr` for every aggregate type (`count`: `THEN 1 END`, `sum`: `THEN <column> ELSE 0 END`, others: `THEN <column> END`), which is the SQL Omni generates itself, so the group stays present with the same value. The note on differences now states them exactly: only a cross-view metric `filter` differs, where the group is absent when queried alone and NULL when queried with other metrics, and Omni shows 0 for `count`, `count_distinct`, and `sum`. Step 9 tests a filtered metric alone and with an unfiltered one.
+- **`omni-to-dbt-metricflow` — week start day.** New note: MetricFlow has no per-model week start; its standard week is Monday on every adapter except Snowflake, where `DATE_TRUNC('week')` follows `WEEK_START`. FIELD-MAPPING.md documents a custom-granularity time-spine column for an Omni `week_start_day`, built from a fixed anchor date with dbt cross-db macros so it does not depend on the adapter's `DATE_TRUNC('week')` (Sunday on dbt-bigquery, `WEEK_START` on Snowflake). Omni's own weekly results are unchanged after fallback.
+
 ## [1.15.0] - 2026-09-21
 
 ### omni-analytics
