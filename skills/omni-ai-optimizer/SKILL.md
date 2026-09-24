@@ -495,8 +495,7 @@ omni skills update <skillId> --body '{ "body": "…" }'
 omni skills delete <skillId>
 ```
 
-- **`list` is scoped to the caller.** An org admin sees every skill in the organization; anyone else sees only their own, and `--creator-id` narrows within that. An empty list from a non-admin key is not evidence that no skill holds a handle — `create` still 409s on a handle held by someone else's skill.
-- **`--q` searches, `--identifier` matches.** `--q` (CLI ≥ 1.4.0) is a case-insensitive substring search over name, handle and description, up to 200 characters, with `%` and `_` as wildcards; `--identifier` is an exact handle match. Both narrow within what the caller can already see and combine with the other filters rather than replacing them, so a search still cannot surface another user's skill.
+- **`list` is scoped to the caller.** An org admin sees every skill in the organization; anyone else sees only their own, and `--creator-id` / `--q` narrow within that — neither widens it. An empty list from a non-admin key is not evidence that no skill holds a handle — `create` still 409s on a handle held by someone else's skill.
 - **`list` never returns `body`.** Read a skill's instructions with `get`, not from the list.
 - **`description` is what the agent chooses between skills on**, so write it the way you would a good `ai_context` line: what the skill is for and when it applies.
 - `delete` is a soft delete: the skill vanishes from every read and its handle is free to reuse.

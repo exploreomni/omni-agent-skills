@@ -178,9 +178,8 @@ Read that transcript from the CLI rather than sending the user to the UI:
 omni ai conversation-detail <conversationId> --compact
 ```
 
-- **Eval conversations do not appear in `omni ai conversations-list`** — this command is the only way to read one, and the id only ever comes from `runs-get`.
-- A **user-scoped** token reads only conversations it owns, which for an eval run means the user who created the run. Reading someone else's eval transcripts needs an **organization API key**. Either way the caller needs at least QUERIER on the run's model, the same gate as the eval API.
-- **Assistant text is retained for 30 days.** An older conversation still returns, but with only its user turns — so a run whose rationale you may need to cite should be summarized while it is fresh, not left to be re-read later.
+- **Assistant text is retained for 30 days**, and an older conversation still returns 200 — with only its user turns. A rationale you may need to cite should be summarized while the run is fresh, not left to be re-read later.
+- Eval conversations never appear in `omni ai conversations-list`, so the id only ever comes from `runs-get`, and a user-scoped token reads only runs it created (an **organization API key** reads another user's).
 
 ## A/B comparison: branch vs main
 
