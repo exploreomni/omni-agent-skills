@@ -71,16 +71,20 @@ Add one whenever a description grows a new claim. `--no-negatives` skips them.
 ### Paired vs absolute
 
 **Paired (`--compare-to REF`)** builds the catalog twice — once from the working
-tree, once from a git ref — runs every case against both, and reports what *this
-change* moved: regressions (passed on base, fails on head), fixes, and cases
-where the pick changed without changing the outcome. It exits non-zero on any
-regression.
+tree, once from a git ref — runs every case against both, and reports observed
+differences: regressions (passed on base, fails on head), fixes, and cases
+where the pick changed without changing the outcome. Identical catalogs are
+routed once, with the results reused for head. Otherwise, apparent regressions
+are rerun against both catalogs with at least nine fresh samples each. Only a
+base-pass/head-fail result in both rounds exits non-zero. Unconfirmed flips are
+reported as unstable; observed fixes are reported without confirmation.
 
-This is what CI runs on a pull request, and it is the more trustworthy signal.
-Scores drift run to run — four identical runs on `main` scored 89.2 / 89.2 /
-92.3 / 89.2 — so an absolute number moving by a case or two says very little. A
-paired comparison runs both catalogs in the same job, minutes apart, on the same
-model, which cancels most of that.
+This is what CI runs on a pull request. Scores drift run to run — four identical
+runs on `main` scored 89.2 / 89.2 / 92.3 / 89.2. Independent model calls still
+vary when run in the same job. Confirmation reduces false alarms but is not a
+statistical significance test and can still miss or falsely report a regression.
+Initial scores and confirmation votes are kept separately in the JSON artifact;
+token accounting includes confirmation calls and excludes reused results.
 
 Note that every case runs against both catalogs, not just the changed skills'
 cases. A description edit in one skill can pull another skill's prompts across,
@@ -92,7 +96,8 @@ compare against.
 
 Defaults: `claude-sonnet-5`, 3 samples per case, majority vote, 8 concurrent
 requests. The catalog is a cached system prefix, so after the first call it is
-nearly all cache reads. An absolute run is ~$0.06; paired is roughly double.
+nearly all cache reads. An absolute run is ~$0.06; paired is roughly double,
+plus confirmation calls for any apparent regressions.
 
 | Flag | Effect |
 |---|---|
@@ -100,7 +105,7 @@ nearly all cache reads. An absolute run is ~$0.06; paired is roughly double.
 | `--samples N` | Samples per case (default 3). Cases that pass on a split vote are reported separately — routing that unstable is worth a look. |
 | `--no-negatives` | Skip the out-of-scope cases. |
 | `--model` | Also `ROUTING_EVAL_MODEL`. |
-| `--json-out PATH` | Full per-case results, including every individual vote and which catalog produced it. |
+| `--json-out PATH` | Initial and confirmation results, including every vote, catalog, and any result reuse. |
 | `--update-baselines` | Record this run's scores as the gate (absolute mode only). |
 | `--skip-if-no-key` | Exit 0 rather than fail when no credential is present (CI uses this for forks). |
 
@@ -137,3 +142,11 @@ on a PR, absolute on `main`. Tier 1 is skipped on fork PRs, which cannot read
 
 Tier 0 is a required status check. Tier 1 reports but does not block, pending
 enough runs to know how often a transient API failure turns into a red check.
+
+### Harness regression tests
+
+Run without credentials or model calls:
+
+```bash
+python3 -m unittest discover -s evals/ci -p 'test_*.py'
+```

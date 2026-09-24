@@ -303,6 +303,9 @@ def check_negative_cases(skills: list[str], env_keys: set[str], report: Report) 
         return 0
 
     where_file = rel(NEGATIVE_CASES_PATH)
+    if not isinstance(data, dict):
+        report.error(where_file, "must be an object")
+        return 0
     if str(data.get("version", "")) != "1":
         report.error(where_file, f"unexpected schema version {data.get('version')!r}, expected \"1\"")
 
@@ -313,12 +316,16 @@ def check_negative_cases(skills: list[str], env_keys: set[str], report: Report) 
 
     seen_ids: set[str] = set()
     seen_questions: set[str] = set()
-    for case in cases:
-        case_id = str(case.get("id", "?"))
-        where = f"{where_file} case {case_id}"
+    for position, case in enumerate(cases, 1):
+        where = f"{where_file} entry {position}"
         if not isinstance(case, dict):
             report.error(where, "case must be an object")
             continue
+        case_id = case.get("id")
+        if not isinstance(case_id, str) or not case_id.strip():
+            report.error(where, "`id` must be a non-empty string")
+            continue
+        where = f"{where_file} case {case_id}"
         for key in case:
             if key not in ("id", "question", "kind"):
                 report.error(where, f"unknown key `{key}`")

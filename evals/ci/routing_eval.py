@@ -18,9 +18,9 @@ Two modes:
 
   * Paired (`--compare-to REF`) — builds the catalog twice, once from the
     working tree and once from a git ref, runs every case against both, and
-    reports what *this change* moved. Gates on regressions. This is what CI
-    runs on a pull request: a paired comparison cancels most of the run-to-run
-    noise that makes an absolute score hard to read.
+    reports observed differences. Gates on regressions reproduced in a fresh
+    confirmation pass. Identical catalogs share results so sampling noise
+    cannot create a regression when the router inputs have not changed.
   * Absolute (default) — one catalog, scored against the floors in
     `baselines.json`. This is what CI runs on `main`.
 
@@ -261,6 +261,33 @@ def run_all(client, model: str, catalogs: list[Catalog], cases: list[Case],
         ))
 
 
+def run_paired(client, model: str, base: Catalog, head: Catalog, cases: list[Case],
+               samples: int, concurrency: int) -> tuple[list[dict], list[dict]]:
+    if base.system == head.system and base.choices == head.choices:
+        print("Identical catalogs: routing once and reusing results for head.")
+        results = run_all(client, model, [base], cases, samples, concurrency)
+        reused = [dict(r, catalog=head.label, reused_from=base.label,
+                       input_tokens=0, output_tokens=0, cached_input_tokens=0)
+                  for r in results]
+        return results + reused, []
+
+    results = run_all(client, model, [base, head], cases, samples, concurrency)
+    index = {(r["catalog"], r["skill"], r["case_id"]): r for r in results}
+    candidates = [case for case in cases
+                  if index[(base.label, case.skill, case.case_id)]["passed"]
+                  and not index[(head.label, case.skill, case.case_id)]["passed"]]
+    confirmation = []
+    if candidates:
+        # Fresh votes, not pooled with the votes that selected the candidates.
+        # This reduces false alarms; it is not a statistical significance test.
+        confirmation_samples = max(9, samples)
+        print(f"Confirming {len(candidates)} apparent regression(s) with "
+              f"{confirmation_samples} fresh samples per catalog.")
+        confirmation = run_all(client, model, [base, head], candidates,
+                               confirmation_samples, concurrency)
+    return results, confirmation
+
+
 def floor2(score: float) -> float:
     """Round a score *down* to 2dp.
 
@@ -367,11 +394,13 @@ def report_absolute(results: list[dict], args, baselines: dict) -> tuple[int, li
     return 0, summary
 
 
-def report_paired(results: list[dict], args, base_label: str, head_label: str) -> tuple[int, list[str]]:
+def report_paired(results: list[dict], args, base_label: str, head_label: str,
+                  confirmation: list[dict]) -> tuple[int, list[str]]:
     index = {(r["catalog"], r["skill"], r["case_id"]): r for r in results}
+    confirmed = {(r["catalog"], r["skill"], r["case_id"]): r for r in confirmation}
     keys = sorted({(r["skill"], r["case_id"]) for r in results})
 
-    regressions, fixes, churn = [], [], []
+    regressions, unstable, fixes, churn = [], [], [], []
     base_passed = head_passed = 0
     for skill, case_id in keys:
         base = index[(base_label, skill, case_id)]
@@ -379,7 +408,10 @@ def report_paired(results: list[dict], args, base_label: str, head_label: str) -
         base_passed += base["passed"]
         head_passed += head["passed"]
         if base["passed"] and not head["passed"]:
-            regressions.append((skill, case_id, base, head))
+            check_base = confirmed[(base_label, skill, case_id)]
+            check_head = confirmed[(head_label, skill, case_id)]
+            target = regressions if check_base["passed"] and not check_head["passed"] else unstable
+            target.append((skill, case_id, base, head))
         elif head["passed"] and not base["passed"]:
             fixes.append((skill, case_id, base, head))
         elif base["majority"] != head["majority"]:
@@ -399,8 +431,9 @@ def report_paired(results: list[dict], args, base_label: str, head_label: str) -
             print(f"  {skill} case {case_id}: {base['majority']} -> {head['majority']} "
                   f"(expected {head['expected']})")
 
-    describe(regressions, "Regressions (passed on base, fails on head)")
-    describe(fixes, "Fixes (failed on base, passes on head)")
+    describe(regressions, "Confirmed regressions (base passes and head fails in both rounds)")
+    describe(unstable, "Unconfirmed regressions (unstable; not gating)")
+    describe(fixes, "Observed fixes (not confirmed)")
     describe(churn, "Changed pick, same outcome")
 
     summary = [
@@ -414,18 +447,33 @@ def report_paired(results: list[dict], args, base_label: str, head_label: str) -
         f"| head | {head_passed}/{total} ({head_passed / total:.0%}) |",
         f"| net | {head_passed - base_passed:+d} |",
     ]
-    for rows, heading in ((regressions, "Regressions"), (fixes, "Fixes"), (churn, "Changed pick, same outcome")):
+    summary += ["", "Scores above are from the initial pass. Apparent regressions are checked "
+                "with fresh votes on both catalogs; confirmation reduces noise but does not "
+                "establish statistical significance."]
+    if any(r.get("reused_from") for r in results):
+        summary += ["", "Catalogs are identical; head reuses base results."]
+    for rows, heading in ((regressions, "Confirmed regressions"),
+                          (unstable, "Unconfirmed regressions (not gating)"),
+                          (fixes, "Observed fixes (not confirmed)"),
+                          (churn, "Changed pick, same outcome")):
         if rows:
             summary += ["", f"**{heading}**", ""] + [
                 f"- `{skill}` case {case_id}: `{base['majority']}` → `{head['majority']}` "
                 f"(expected `{head['expected']}`)"
                 for skill, case_id, base, head in rows
             ]
+    if confirmation:
+        summary += ["", "**Confirmation votes**", ""]
+    for row in confirmation:
+        detail = (f"Confirmation `{row['catalog']}` / `{row['skill']}` case {row['case_id']}: "
+                  f"{', '.join(row['picks'])}")
+        print(detail)
+        summary.append(f"- {detail}")
 
     if regressions:
-        print(f"\n{len(regressions)} case(s) regressed against {base_label}.")
+        print(f"\n{len(regressions)} confirmed regression(s) against {base_label}.")
         return 1, summary
-    print(f"\nNo regressions against {base_label}.")
+    print(f"\nNo confirmed regressions against {base_label}.")
     return 0, summary
 
 
@@ -445,6 +493,8 @@ def main() -> int:
     parser.add_argument("--skip-if-no-key", action="store_true",
                         help="Exit 0 instead of failing when no Anthropic credential is available")
     args = parser.parse_args()
+    if args.samples < 1 or args.concurrency < 1:
+        parser.error("--samples and --concurrency must be positive")
 
     if args.compare_to and args.update_baselines:
         print("ERROR: --update-baselines records absolute scores; drop --compare-to", file=sys.stderr)
@@ -490,7 +540,7 @@ def main() -> int:
     catalogs = [head]
     base_label = None
     if args.compare_to:
-        base_label = args.compare_to
+        base_label = "base" if args.compare_to == "head" else args.compare_to
         base_skills = discover_skills_at(args.compare_to)
         catalogs.insert(0, build_catalog(base_label, base_skills, ref=args.compare_to))
         added = sorted(set(all_skills) - set(base_skills))
@@ -501,19 +551,23 @@ def main() -> int:
             print(f"Skills removed by this change: {', '.join(removed)}")
 
     client = anthropic.Anthropic()
-    calls = len(cases) * args.samples * len(catalogs)
+    identical = (len(catalogs) == 2 and catalogs[0].system == head.system
+                 and catalogs[0].choices == head.choices)
+    calls = len(cases) * args.samples * (1 if identical else len(catalogs))
     print(f"Routing {len(cases)} cases x {args.samples} samples x {len(catalogs)} catalog(s) "
-          f"= {calls} calls on {args.model} (concurrency {args.concurrency})...")
+          f"= {calls} initial calls on {args.model} (concurrency {args.concurrency})...")
 
-    results = run_all(client, args.model, catalogs, cases, args.samples, args.concurrency)
-
+    confirmation = []
     if args.compare_to:
-        exit_code, summary = report_paired(results, args, base_label, "head")
+        results, confirmation = run_paired(client, args.model, catalogs[0], head,
+                                          cases, args.samples, args.concurrency)
+        exit_code, summary = report_paired(results, args, base_label, "head", confirmation)
     else:
+        results = run_all(client, args.model, catalogs, cases, args.samples, args.concurrency)
         baselines = load_baselines()
         exit_code, summary = report_absolute(results, args, baselines)
 
-    line = cost_line(results, args.model)
+    line = cost_line(results + confirmation, args.model)
     print(f"\n{line}")
     summary += ["", line]
 
@@ -524,6 +578,7 @@ def main() -> int:
             "samples": args.samples,
             "compare_to": args.compare_to,
             "results": results,
+            "confirmation_results": confirmation,
         }, indent=2) + "\n", encoding="utf-8")
 
     if args.update_baselines:

@@ -33,6 +33,9 @@ jobs:
       - name: Validate skills and eval files
         run: python3 evals/ci/validate.py
 
+      - name: Test eval harness
+        run: python3 -m unittest discover -s evals/ci -p 'test_*.py'
+
   routing:
     name: Tier 1 — skill routing
     needs: validate
