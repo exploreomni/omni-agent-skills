@@ -1,6 +1,6 @@
 {
   "name": "omni-integrations",
-  "version": "1.16.0",
+  "version": "1.17.0",
   "description": "Integration skills for connecting Omni Analytics with external data platforms — Snowflake Semantic Views, Databricks Metric Views, dbt MetricFlow, and more.",
   "author": {
     "name": "Omni Analytics",
