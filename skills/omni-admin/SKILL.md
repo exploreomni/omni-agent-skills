@@ -178,8 +178,9 @@ and type rules are in `--help` and fail loudly. Two behaviors do not:
   outright (an embed lockout), model SQL referencing it breaks, and a connection
   selecting its environment by that name silently falls back to the default
   connection. Search the model for the name and confirm with the user first.
-- **`Number` values are stored as strings.** Send anything past 2^53 - 1 as a
-  string or it loses precision before Omni sees it.
+- **`Number` values are stored as strings**, and a JSON number past 2^53 - 1 is
+  silently rounded on the way in — a `default_value` of `9007199254740993` is
+  stored, and returned, as `"9007199254740992"`. Send large numbers as strings.
 
 When the user explicitly asks to set or update a user attribute, converge the
 user record with a SCIM update even if the initial user lookup already shows the
@@ -319,19 +320,26 @@ omni schedules recipients-get <scheduleId>
 omni schedules add-recipients <scheduleId> --body '{ "recipients": ["team@company.com"] }'
 ```
 
-> **`schedules update` is a full replacement, not a patch**, and it reports
-> success either way. Any optional property you leave out is reset to its
-> default — filter values cleared, **the alert condition removed** — so change
-> one property by reading the schedule with `omni schedules get <scheduleId>`,
-> editing that field, and sending the whole configuration back. `--help` lists
+> **`schedules update` is a full replacement, not a patch**, and it returns
+> `"success": true` either way. Any optional property you leave out is reset to
+> its default — filter values cleared, **the alert condition removed**,
+> `maxRowLimit` and the presentation flags back to defaults. `--help` lists
 > every property that resets.
+>
+> **You cannot round-trip `schedules get` into it.** The read shape is not the
+> write shape: the GET nests presentation options under `metadata` and
+> recipients under `destinations[]`, while the update body wants `subject`,
+> `maxRowLimit`, `recipients` and `destinationType` flat — feeding the GET
+> straight back 400s on `destinationType`. Build the body from
+> `omni schedules update --schema` and carry across every value you mean to
+> keep.
 
 **Email-only users** are the recipients that exist only to receive deliveries:
 `omni users list-email-only` / `create-email-only` / `create-email-only-bulk`,
 and `delete-email-only-bulk` (CLI ≥ 1.4.0). The bulk delete is **partially
-successful by design** — an identifier matching no email-only user comes back
-under `notFound` while the rest of the request still deletes, so read `notFound`
-before reporting it done.
+successful by design** — a 200 carries `deleted[]` alongside
+`notFound: {emails: [], userIds: []}`, so check those two arrays, not the
+status, before reporting it done.
 
 ## AI Credits
 
