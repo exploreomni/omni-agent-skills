@@ -27,6 +27,7 @@ import argparse
 import json
 import os
 import sys
+import math
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -178,6 +179,16 @@ def run_case(client, model: str, system: list[dict], choices: list[str], case: C
     }
 
 
+def floor2(score: float) -> float:
+    """Round a score *down* to 2dp.
+
+    A floor has to be reachable by the run that produced it. Plain round() can
+    round up — 9/11 becomes a 0.82 gate that 9/11 then fails — so every recorded
+    baseline truncates instead.
+    """
+    return math.floor(score * 100) / 100
+
+
 def load_baselines() -> dict:
     if not BASELINES_PATH.is_file():
         return {"min_overall": 0.0, "skills": {}}
@@ -315,13 +326,13 @@ def main() -> int:
         # leave the rest — and the overall gate — as they were, or one
         # `--skill x --update-baselines` would wipe every other floor.
         baselines.setdefault("skills", {}).update(
-            {skill: round(score, 2) for skill, score in scores.items()}
+            {skill: floor2(score) for skill, score in scores.items()}
         )
         if partial:
             print(f"\nPartial run ({', '.join(sorted(selected))}); left min_overall at "
                   f"{float(baselines.get('min_overall', 0.0)):.0%}.")
         else:
-            baselines["min_overall"] = round(overall, 2)
+            baselines["min_overall"] = floor2(overall)
         baselines["skills"] = dict(sorted(baselines["skills"].items()))
         BASELINES_PATH.write_text(json.dumps(baselines, indent=2) + "\n", encoding="utf-8")
         print(f"Wrote baselines to {BASELINES_PATH.relative_to(ROOT)}. Commit it so CI can gate on it.")

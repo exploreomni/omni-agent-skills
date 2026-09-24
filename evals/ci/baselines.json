@@ -5,12 +5,12 @@
     "omni-admin": 1.0,
     "omni-ai-eval": 1.0,
     "omni-ai-optimizer": 1.0,
-    "omni-content-builder": 0.82,
+    "omni-content-builder": 0.81,
     "omni-content-explorer": 0.75,
     "omni-embed": 1.0,
-    "omni-model-builder": 0.92,
+    "omni-model-builder": 0.91,
     "omni-model-explorer": 0.75,
-    "omni-query": 0.89
+    "omni-query": 0.88
   },
   "model": "claude-sonnet-5",
   "samples": 3
