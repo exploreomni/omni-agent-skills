@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Stamp the version from versions.json into every plugin manifest.
 
-versions.json is the single source of truth. Manifests are generated from it,
-so a PR changes one line instead of ten fields across six files.
+versions.json is the single source of truth. Generate the manifests from it
+and commit them in the same release PR; CI only checks that they match.
 
   stamp_versions.py            rewrite the manifests
   stamp_versions.py --check    exit 1 if any manifest is out of date

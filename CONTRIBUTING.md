@@ -205,34 +205,21 @@ above; CI only propagates the number you chose.
 { "version": "1.11.0" }
 ```
 
-Bumping a release means editing that one line. On merge to `main`, the `stamp`
-job in `.github/workflows/versions.yml` writes it into all ten version fields
-across the six manifests and opens or refreshes a PR from
-`automation/stamp-versions`. Review and merge that PR to publish the manifest
-update. The workflow never pushes directly to protected `main`.
-
-The generated branch is replaced on subsequent stamping runs; do not edit it
-manually. The workflow uses the built-in `GITHUB_TOKEN` with contents,
-pull-request, and Actions write permissions, and explicitly dispatches Versions
-and Skills CI on the generated branch so its required checks run. No extra PAT
-or branch-protection bypass is needed. Repository settings must allow GitHub
-Actions to create pull requests.
-
-To retry stamping, manually run Versions against `main`. Running Versions on
-another branch performs only the version guard, never stamping. If main advances
-while a stamp PR is open, another run refreshes the PR from the latest main.
-
-To stamp locally — never required, but handy before cutting a release:
+For a release, edit `versions.json`, then generate and verify the manifest
+versions before committing:
 
 ```bash
-.github/scripts/stamp_versions.py          # rewrite manifests
-.github/scripts/stamp_versions.py --check  # report drift, change nothing
+python3 .github/scripts/stamp_versions.py          # rewrite manifests
+python3 .github/scripts/stamp_versions.py --check  # verify they match
 ```
 
-A PR may leave the manifests alone entirely. What it may not do is hand-write a
-version that disagrees with `versions.json`: the `guard` job fails the PR if a
-manifest is touched and does not match. That is the check that keeps the ten
-fields from drifting apart again.
+Commit `versions.json`, the generated manifests, and the changelog entry in the
+same release PR. After rebasing across another release, choose the next version
+and run the stamp script again.
+
+The required `guard` job checks every manifest on every PR, including a PR that
+changes only `versions.json`. CI only validates: it does not commit changes or
+open a follow-up PR. One release PR contains the complete version update.
 
 **Both plugins share one version** as of 1.11.0. They ship from the same repo at
 the same commit — `omni-analytics` installs from the repo root and
