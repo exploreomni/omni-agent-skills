@@ -18,6 +18,10 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  # The action authenticates to the Claude GitHub App by exchanging an Actions
+  # OIDC token. Without this it fails with "Unable to get
+  # ACTIONS_ID_TOKEN_REQUEST_URL" before it ever reads the prompt.
+  id-token: write
 
 concurrency:
   group: sync-cli-changes
@@ -146,8 +150,7 @@ jobs:
         if: steps.guard.outputs.proceed == 'true'
         id: sync
         with:
-          use_claude_code_app: true
-          direct_prompt: |
+          prompt: |
             Omni CLI release ${{ steps.release.outputs.tag }} was published.
 
             Follow the procedure in `.claude/agents/sync-cli-changes.md` to bring this

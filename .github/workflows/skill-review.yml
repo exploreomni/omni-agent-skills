@@ -50,7 +50,6 @@ jobs:
         if: steps.changed-files.outputs.files != ''
         uses: anthropics/claude-code-action@bbfaf8e1ffe3e688f7ab65ceee78de241e24a238 # v1
         with:
-          use_claude_code_app: true
           track_progress: true
           include_fix_links: false
 
