@@ -5,26 +5,33 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   # A PR may leave the manifests untouched — the stamp job below fills them in
   # after merge. What it may not do is hand-write a version that disagrees with
   # versions.json, which is how the ten fields drifted apart before.
   guard:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+      - name: Test version PR automation
+        run: python3 .github/scripts/test_version_pr.py
       - name: Reject hand-edited versions
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
+          if [ -z "$BASE_SHA" ]; then
+            git fetch origin main
+            BASE_SHA=origin/main
+          fi
           CHANGED=$(git diff --name-only "$BASE_SHA"...HEAD -- \
             '.claude-plugin/*.json' '.cursor-plugin/*.json' \
             'skills/omni-integrations/.claude-plugin/*.json' \
@@ -40,20 +47,20 @@ jobs:
           python3 .github/scripts/stamp_versions.py --check
 
   stamp:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    concurrency:
+      group: version-stamp-pr
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Stamp manifests from versions.json
-        run: |
-          set -euo pipefail
-          python3 .github/scripts/stamp_versions.py
-          if git diff --quiet; then
-            echo "Manifests already match versions.json."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- '*.json'
-          git commit -m "chore: stamp manifests from versions.json"
-          git push origin HEAD:main
+        with:
+          fetch-depth: 0
+      - name: Open or update version stamp PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash .github/scripts/open_version_pr.sh

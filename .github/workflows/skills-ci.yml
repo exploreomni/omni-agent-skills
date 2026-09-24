@@ -11,6 +11,11 @@ on:
       - "rules/**"
       - "evals/**"
       - ".github/workflows/skills-ci.yml"
+      - ".github/workflows/versions.yml"
+      - ".github/scripts/**"
+      - ".claude-plugin/**"
+      - ".cursor-plugin/**"
+      - "versions.json"
   push:
     branches: [main]
   workflow_dispatch:
