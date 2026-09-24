@@ -34,9 +34,9 @@ be confirmed with `omni … --help` or `omni … --schema`.
    body shape you have not seen in `--schema`.
 4. **Write the docs.** See below.
 5. **Add a CHANGELOG entry** under a new version heading, matching the style of
-   the entries above it, and set that version in `versions.json`. Leave the
-   plugin manifests alone: CI stamps them on merge (CONTRIBUTING.md →
-   *Versioning and Changelog*).
+   the entries above it, and set that version in `versions.json`. Run
+   `python3 .github/scripts/stamp_versions.py` and include the generated
+   manifests in the same PR (CONTRIBUTING.md → *Versioning and Changelog*).
 6. **Open the PR** on the branch the workflow passes you, with the title it
    gives you.
 
@@ -67,6 +67,7 @@ guessing: description edits move which requests reach the skill.
 - Every command name and argument order appears in `omni <command> --help`.
 - Every documented body field appears in `omni <command> --schema`.
 - No file still references a command that no longer exists.
+- `python3 .github/scripts/stamp_versions.py --check` passes.
 - Markdown is intact: table separator rows, closed code fences, working relative links.
 
 ## Writing the PR
