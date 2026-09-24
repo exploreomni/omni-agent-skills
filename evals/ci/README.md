@@ -69,16 +69,28 @@ Useful flags:
 
 ### Baselines
 
-`baselines.json` holds an overall floor and a per-skill floor. It ships
-unmeasured — the gate is inert until someone runs
+`baselines.json` holds an overall floor and a per-skill floor, recorded from a
+full run on `main` (65 cases x 3 samples, `claude-sonnet-5`): **89.2% overall**.
+Re-record with
 
 ```bash
 python3 evals/ci/routing_eval.py --update-baselines
 ```
 
-against `main` and commits the result. **Do that once before trusting the
-gate.** A partial run (`--skill x --update-baselines`) merges only the skills it
-ran and leaves `min_overall` alone.
+A partial run (`--skill x --update-baselines`) merges only the skills it ran and
+leaves `min_overall` alone.
+
+Four skills sit at a 100% floor, so one flipped case fails them. That is
+deliberate — majority-of-3 makes a spurious flip unlikely — but relax a floor if
+it proves noisy in practice.
+
+The seven cases that misroute today are not all bugs in the descriptions. Two
+(`omni-content-builder` 9 and 10) are multi-skill tasks whose `depends_on` names
+exactly the skill the router picked. Three more are the same underlying
+question — "show me the query behind this dashboard tile" — labelled
+`omni-query` in two cases and `omni-content-explorer` in another, which no
+description can satisfy both ways. Worth settling the labels before reading
+those three as routing failures.
 
 Gate on the floors rather than on per-case perfection: repeated identical
 requests are not deterministic, and sampling parameters are not available on
