@@ -207,9 +207,20 @@ above; CI only propagates the number you chose.
 
 Bumping a release means editing that one line. On merge to `main`, the `stamp`
 job in `.github/workflows/versions.yml` writes it into all ten version fields
-across the six manifests and commits the result, so a PR carries its actual
-change rather than ten lines of bookkeeping that conflict with every other PR in
-flight.
+across the six manifests and opens or refreshes a PR from
+`automation/stamp-versions`. Review and merge that PR to publish the manifest
+update. The workflow never pushes directly to protected `main`.
+
+The generated branch is replaced on subsequent stamping runs; do not edit it
+manually. The workflow uses the built-in `GITHUB_TOKEN` with contents,
+pull-request, and Actions write permissions, and explicitly dispatches Versions
+and Skills CI on the generated branch so its required checks run. No extra PAT
+or branch-protection bypass is needed. Repository settings must allow GitHub
+Actions to create pull requests.
+
+To retry stamping, manually run Versions against `main`. Running Versions on
+another branch performs only the version guard, never stamping. If main advances
+while a stamp PR is open, another run refreshes the PR from the latest main.
 
 To stamp locally — never required, but handy before cutting a release:
 
