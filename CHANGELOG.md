@@ -6,6 +6,26 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.17.0] - 2026-09-24
+
+### omni-analytics
+
+_Summary: sync skills with Omni CLI v1.4.0. The release renames the eight document **app** commands (`documents v2-get-app` → `get-app`, and so on — paths and payloads unchanged), adds `user-attributes create` / `update` / `delete`, `users delete-email-only-bulk` and `skills list --q`, removes `dashboards get-filters` / `update-filters`, and syncs the API spec, which newly documents `schedules update` as a full replacement, `ai conversation-detail` as the way to read an eval run's conversation, and `documents v2-get` accepting a draft's own identifier. 245 commands, up from 243. Every behavior below was checked against the released 1.4.0 binary with `--help` and `--schema`._
+
+**Added**
+- **`omni-admin` — *User attribute definitions*.** `omni user-attributes create` / `update <id>` / `delete <id>`, replacing the old instruction to send the user to Admin → User Attributes when a definition is missing: the `name` and `label` rules (`name` is what model SQL and embed SSO reference, no `omni_` prefix, no `Omni` label, reserved connection labels rejected), `Number` values stored as strings and losing precision past 2^53 - 1 unless sent as a string, `update` keeping omitted fields and being unable to change `type` or undo `multiple_values`, and what `delete` takes with it — every user value, embed SSO logins that still pass the name (an embed lockout), model SQL that references it, and connection-environment selection, which silently falls back to the default connection. Plus a definition read-back in *Verification After Changes*.
+- **`omni-admin` — *Email-only users*.** The `users list-email-only` / `create-email-only` / `create-email-only-bulk` family beside Schedules, where these recipients are used, and the new `users delete-email-only-bulk`: up to 100 per call by `emails`, `userIds`, or a mix, removed from every schedule they receive, with unmatched identifiers returned under `notFound` while the rest of the request still deletes.
+- **`omni-ai-eval` — *Reading a judged conversation*.** `omni ai conversation-detail <conversationId>` reads the transcript behind a `results[].agentic_job.conversation_id`, so a failure rationale no longer has to be chased through the UI. Eval conversations never appear in `ai conversations-list`; a user-scoped token reads only its own (an org API key reads another user's), QUERIER on the run's model is required either way, and **assistant text is retained for 30 days** — an older conversation returns only its user turns.
+- **`omni-ai-optimizer` — `skills list --q`.** Free-text search over name, handle and description (case-insensitive substring, 200 characters, `%` and `_` wildcards), against `--identifier`'s exact handle match. Both narrow within what the caller can already see.
+
+**Changed**
+- **`omni-content-builder` — app commands lost their `v2-` prefix.** `documents v2-get-app`, `v2-get-draft-app`, `v2-get-main-draft-app`, `v2-put-app`, `v2-put-app-auto-draft`, `v2-patch-app`, `v2-patch-app-auto-draft` and `v2-remove-app` are now `get-app` … `remove-app`; arguments, paths and payloads are unchanged. SKILL.md's command table and `references/documents-v2.md` use the new names, with a note that 1.2.2–1.3.1 spell them with the prefix. The rest of the `documents v2-*` surface (`v2-create`, `v2-patch-draft`, `v2-publish-draft`, `v2-remove-dashboard`, …) keeps its prefix.
+- **`omni-content-builder` — `v2-get` on a draft identifier.** Passing a draft's own identifier reads that draft; the response carries `draftOf`, naming the published document — the way to build the `<identifier> <draftIdentifier>` pair when only the draft identifier is known.
+- **`omni-admin` — `schedules update` is a full replacement.** Any optional property left out is reset to its default rather than kept: `filterConfig` values cleared, `fanOut` false, **the alert condition removed** (`conditionType`, `conditionQueryMapKey`), plus `queryIdentifierMapKey`, `maxRowLimit`, `textBody`, `filename`, `containerPages` and the paper and layout options. `timezoneOverride` is the one exception. Change one property by reading the schedule with `schedules get` and sending the whole configuration back.
+
+**Removed**
+- **`dashboards get-filters` / `dashboards update-filters` are gone from the CLI.** No skill, agent, or rule referenced them, so nothing in this repo changed; noted here because a caller's own scripts will now get an unknown-command error.
+
 ## [1.16.0] - 2026-09-24
 
 ### omni-analytics

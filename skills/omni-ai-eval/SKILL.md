@@ -160,7 +160,7 @@ Poll with backoff (e.g. 5s, 10s, 20s) until the run's `status` is terminal — `
 | `error_reason` | Set when the underlying agentic job failed |
 | `cost` / `scoring_cost` | LLM cost (USD) for the answer vs. for judging it |
 | `timing_ms` | Total **AI time** in ms — all LLM processing and tool calls (matches the "AI time" column in the UI), not wall-clock duration |
-| `agentic_job.conversation_id` | Open this chat to read the judge's full verdict, confidence, and rationale |
+| `agentic_job.conversation_id` | The conversation behind the answer — read it for the judge's full verdict, confidence, and rationale |
 
 **Overall accuracy = the pass rate** (mean of `score` across results). Report it with the per-prompt breakdown, and for any failure, point to the `conversation_id` so the user can read *why* the judge failed it — that rationale is where the actionable signal lives.
 
@@ -169,8 +169,18 @@ Eval run "Baseline on main" — 9/12 passed (75.0%)
   ✗ "Revenue by quarter"        — judge: summed a row-limited result as a total
   ✗ "Top products this year"    — judge: date filter used calendar instead of fiscal year
   ✗ "Churn rate by segment"     — agentic job FAILED (error_reason)
-  (open each conversation_id for the full rationale)
+  (omni ai conversation-detail <conversation_id> for the full rationale)
 ```
+
+Read that transcript from the CLI rather than sending the user to the UI:
+
+```bash
+omni ai conversation-detail <conversationId> --compact
+```
+
+- **Eval conversations do not appear in `omni ai conversations-list`** — this command is the only way to read one, and the id only ever comes from `runs-get`.
+- A **user-scoped** token reads only conversations it owns, which for an eval run means the user who created the run. Reading someone else's eval transcripts needs an **organization API key**. Either way the caller needs at least QUERIER on the run's model, the same gate as the eval API.
+- **Assistant text is retained for 30 days.** An older conversation still returns, but with only its user turns — so a run whose rationale you may need to cite should be summarized while it is fresh, not left to be re-read later.
 
 ## A/B comparison: branch vs main
 

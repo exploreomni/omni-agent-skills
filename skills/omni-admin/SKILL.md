@@ -132,8 +132,20 @@ omni scim groups-update <groupId> --body '{
 ## User Attributes
 
 ```bash
-# List attributes
+# List attributes (system + custom)
 omni user-attributes list
+
+# Create a custom attribute definition (CLI ≥ 1.4.0)
+omni user-attributes create --body '{
+  "name": "region",
+  "label": "Region",
+  "type": "String",
+  "description": "User region for row-level security filtering",
+  "default_value": "us-east"
+}'
+
+omni user-attributes update <id> --body '{ "default_value": "us-west" }'
+omni user-attributes delete <id>
 
 # Find the user by email before setting an attribute
 omni scim users-list --filter 'userName eq "user@company.com"'
@@ -153,10 +165,38 @@ User attributes work with `access_filters` in topics for row-level security.
 SCIM can set values only for attribute definitions that already exist. Use
 `omni user-attributes list` to confirm the requested attribute definition exists
 before setting a value, but do not use it as proof that a specific user's value
-changed. If the definition is missing, report that it must be created in
-Admin -> User Attributes before values can be assigned; do not keep retrying
-SCIM paths or claim the value was set from an empty `User attributes set: {}`
-response.
+changed. If the definition is missing, create it with `omni user-attributes
+create` (CLI ≥ 1.4.0) and confirm the create before assigning values; do not
+keep retrying SCIM paths or claim the value was set from an empty
+`User attributes set: {}` response.
+
+Managing definitions (all three need the **Manage User Attributes** permission):
+
+- **`create`** — `name`, `label`, and `type` (`String` or `Number`) are required.
+  `name` is what model SQL and embed SSO URLs reference: it must be unique in the
+  org, start with a letter, hold only letters, numbers and underscores, and must
+  not start with `omni_`. `label` is UI-only, must be unique among custom
+  attributes, must not start with `Omni`, and must not be one of the reserved
+  connection labels (Host, Password, Database, Port, Schema, Connection Name).
+  `Number` values are **stored as strings** — send anything past the JSON safe
+  integer range (2^53 - 1) as a string or it loses precision before Omni sees it.
+- **`update <id>`** — omitted fields keep their current values. `type` is not in
+  the body at all, so a type change means a new attribute; a `multiple_values`
+  attribute cannot be turned back into a single-valued one. For a multi-valued
+  attribute, `default_value` is an array — an empty array clears the default, and
+  is rejected for a single-valued attribute.
+- **`delete <id>`** — **destructive beyond the definition, and nothing in the
+  response says so.** Every value users hold for the attribute goes with it, and
+  then: any embed SSO login still passing that attribute name fails outright,
+  locking out embed users until those URLs stop sending it; model SQL referencing
+  the name breaks; and a connection that picks its environment by that attribute
+  stops resolving one, so those users silently query the default connection.
+  Before deleting, search the model for the name and confirm with the user that
+  no embed URL or connection environment uses it.
+
+The `id` for `update` / `delete` comes from `omni user-attributes list` — custom
+attributes carry a UUID and `system: false`; system attributes (`omni_user_id`,
+`omni_user_email`, …) have an empty `id` and cannot be changed.
 
 When the user explicitly asks to set or update a user attribute, converge the
 user record with a SCIM update even if the initial user lookup already shows the
@@ -296,6 +336,28 @@ omni schedules recipients-get <scheduleId>
 omni schedules add-recipients <scheduleId> --body '{ "recipients": ["team@company.com"] }'
 ```
 
+> **`schedules update` is a full replacement, not a patch.** Sending only the
+> property you want to change silently resets every optional property you left
+> out to its default: `filterConfig` (filter values cleared), `fanOut` (false,
+> unless the org always personalizes deliveries), `conditionType` and
+> `conditionQueryMapKey` (**the alert condition is removed**),
+> `queryIdentifierMapKey`, `maxRowLimit`, `textBody`, `filename`,
+> `containerPages` (pdf/png fall back to the dashboard's first page, csv/xlsx to
+> every tile), and the paper and layout options. The one exception is
+> `timezoneOverride`, which is kept. To change one property, read the schedule
+> with `omni schedules get <scheduleId>`, edit that field in the returned
+> configuration, and send the whole thing back. Changes apply to future runs
+> only — a run already in flight is unaffected.
+
+**Email-only users** are the recipients who exist only to receive deliveries:
+`omni users list-email-only` (filter with `--email`), `users create-email-only
+<email>`, `users create-email-only-bulk <emails>`, and — CLI ≥ 1.4.0 —
+`users delete-email-only-bulk`, which deletes up to 100 of them by `emails`,
+`userIds`, or a mix, and removes them from every schedule they receive. It is
+**partially successful by design**: an identifier belonging to a real user or to
+nobody comes back under `notFound` while the rest of the request still deletes,
+so read `notFound` before reporting the deletion done.
+
 ## AI Credits
 
 Read and manage AI credit controls and usage (entity-group commands and usage reads require CLI ≥ 1.1.2). Org-level controls require the AI-admin permission; per-user controls and usage require manage-user-attributes; entity-group controls and usage require add/remove-users. Per-user and per-entity-group limits are also behind instance feature flags.
@@ -408,6 +470,11 @@ Check that: the response contains the target user, the user's
 `urn:omni:params:1.0:UserAttribute` object includes the requested attribute name,
 and the value exactly matches what you set. `omni user-attributes list` only
 verifies that the attribute definition exists.
+
+After a definition change (`user-attributes create` / `update` / `delete`),
+read the definitions back with `omni user-attributes list` and check the
+attribute's `name`, `type`, `multiple_values`, and `default_value` — a create
+returns the stored record, and `Number` defaults come back as strings.
 
 If the attribute is used for row-level security (`access_filters`), test it by running a query as the target user:
 
