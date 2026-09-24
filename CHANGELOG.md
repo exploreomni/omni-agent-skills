@@ -6,6 +6,23 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.15.1] - 2026-09-22
+
+### omni-analytics
+
+_Summary: corrections and additions to the aggregate awareness reference, from testing it against real aggregate tables. It now says which computed dimensions are not served and how to work around each, how Omni chooses between tables that both fit, what changes when a table stores joined-view columns, and how to keep a cached result from hiding a rewrite._
+
+**Fixed**
+- **`omni-model-builder` — *Choosing between aggregate tables*.** The reference said the coarsest table wins. Omni prefers the coarser date grain; tables at the same date grain are not ranked by size, so either may be chosen. The reference now says so and how to avoid overlapping tables.
+- **`omni-model-builder` — *Day and month parts*.** The reference said day-part timeframes are not served from a day table. A day table now serves day of week, day of month, day of year and day of quarter, and a day or month table serves month number, month name and quarter of year. Week of year and hour parts are not served from a day table.
+
+**Changed**
+- **`omni-model-builder` — *Computed dimensions*.** A dimension computed from mapped fields is served from the table. Two shapes are not: a base-view dimension over a joined view's fields (declare it on the joined view), and a flag whose sum the table stores (write the sum measure with an equivalent expression).
+- **`omni-model-builder` — *Joined views*.** A table that maps joined-view columns is used only when every field in the query is mapped, and takes no other joins. It must be built through the model's join, with the same join type and `on_sql`.
+- **`omni-model-builder` — *Confirming a query uses the table*.** A cached result shows the SQL without the rewrite header, so check with the cache skipped. The list of usual reasons now covers stored join results and the two computed-dimension cases.
+- **`omni-model-builder` — *Declaring an aggregate table*.** The `topic:` rule is now the instruction alone: leave it out and describe the table against the base view.
+- **`omni-model-builder` — *Evals*.** Two cases: a base-view dimension over joined fields, and a stored flag sum.
+
 ## [1.15.0] - 2026-09-21
 
 ### omni-analytics

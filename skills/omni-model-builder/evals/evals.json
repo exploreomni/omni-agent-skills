@@ -164,6 +164,32 @@
         "The agent does not merge without explicit confirmation"
       ],
       "expected_skill": "omni-model-builder"
+    },
+    {
+      "id": "13",
+      "question": "order_items_daily is an aggregate table declared with materialized_query on order_items (it maps created_at[date], user_id, status, count and total_sale_price; users joins on user_id with an inner join). A new dimension order_items.city_state (${users.city} || ', ' || ${users.state}) is added, and dashboards by city_state and month read the fact table instead of the aggregate. Make them use the aggregate.",
+      "ground_truth": "The agent confirms the fact-table read with a planOnly query using cache SkipCache (no 'Query rewritten to use materialized view' header). It identifies the cause as a base-view dimension that references a joined view's fields, which is not served from the aggregate, and moves the dimension to the joined view (users.city_state) rather than adding a CITY_STATE column to the aggregate table or mapping users fields into materialized_query. It re-plans the query and shows the rewrite header before reporting.",
+      "expected_behavior": [
+        "The agent works on a branch",
+        "The agent plans the query with planOnly and SkipCache and reads the SQL header before and after the change",
+        "The agent names the cause: a base-view dimension over a joined view's fields is not served from the aggregate",
+        "The agent declares the dimension on the joined view instead of storing it in the aggregate or mapping joined-view fields",
+        "The agent does not merge without explicit confirmation"
+      ],
+      "expected_skill": "omni-model-builder"
+    },
+    {
+      "id": "14",
+      "question": "An aggregate table stores SUM(CASE WHEN status = 'Complete' THEN 1 ELSE 0 END) AS COMPLETE_COUNT by status and user_id, mapped in materialized_query to order_items.complete_count (sql: ${is_complete}, aggregate_type: sum). is_complete is CASE WHEN ${status} = 'Complete' THEN 1 ELSE 0 END, and status is mapped. Queries by status and complete_count use the aggregate, but any query that selects is_complete reads the fact table. Get both served from the aggregate.",
+      "ground_truth": "The agent confirms both behaviors with planOnly queries using cache SkipCache. It rewrites complete_count with an equivalent expression that differs from the flag's definition, such as CASE WHEN ${status} = 'Complete' THEN 1 END (no ELSE; SUM ignores nulls), leaving the aggregate table's SQL and mapping unchanged. It does not add is_complete as a stored GROUP BY column, which makes the sum by status unservable. It re-plans both query shapes and shows the rewrite header for each before reporting.",
+      "expected_behavior": [
+        "The agent works on a branch",
+        "The agent plans both query shapes with planOnly and SkipCache before and after the change",
+        "The agent changes the measure's sql to an equivalent expression that is not ${is_complete} or the flag's exact CASE",
+        "The agent does not store is_complete as a GROUP BY column of the aggregate",
+        "The agent does not merge without explicit confirmation"
+      ],
+      "expected_skill": "omni-model-builder"
     }
   ]
 }
