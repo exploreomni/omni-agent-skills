@@ -8,6 +8,7 @@ This file contains agent-specific operating instructions for this repository. Fo
 - Keep edits scoped to the requested workflow and the repository's current patterns.
 - Use `rg`/`rg --files` for repository searches.
 - Respect dirty worktrees. Do not revert changes you did not make.
+- Keep an addition proportional to a mistake that has actually happened. A line in a doc for a mistake nobody has made yet beats a CI check for it.
 
 ## Repository Routing
 
