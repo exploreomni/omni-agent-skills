@@ -11,13 +11,20 @@ This file contains agent-specific operating instructions for this repository. Fo
 
 ## Repository Routing
 
-- New general Omni skills go under `skills/`.
-- New integration-specific skills go under `skills/omni-integrations/skills/`.
-- Agent definitions live in `agents/`.
-- Cursor rules live in `rules/`.
-- Evals for a skill live under `skills/<skill-name>/evals/`; the root `evals/` directory contains runner tooling.
+Every file in this repo is one of the nouns below. Each noun has one place in the tree and one job at runtime, so the folder tells you where a change goes and who will see it.
 
-Skills and agents are auto-discovered from their directories. Do not add manifest registration for individual skills or agents.
+| Noun | Lives at | Job at runtime | Never holds |
+|---|---|---|---|
+| Skill | `skills/<name>/SKILL.md` (general) or `skills/omni-integrations/skills/<name>/SKILL.md` (integration) | Loaded when a request matches its `description`, which is the routing signal | Agent orchestration or Cursor rule content |
+| Reference | `skills/<name>/references/*.md` | Read only when `SKILL.md` points at it, so it costs nothing until needed | Constraints the skill needs on every run; those go near the top of `SKILL.md` |
+| Agent | `agents/<name>.md` | Delegated to for multi-step work; orchestrates skills | CLI examples, API payloads, or duplicated skill steps |
+| Maintenance agent | `.claude/agents/<name>.md` | Run by a GitHub workflow or by hand during a release; plugin users never load it | User-facing workflows |
+| Rule | `rules/<name>.mdc` | Cursor only, applied by glob or always-on without loading a skill | Workflow steps; Claude Code users never see rules |
+| Eval case | `skills/<name>/evals/evals.json`, plus out-of-scope prompts in `evals/ci/negative-cases.json` | Run by CI and the BenchFlow suite; never distributed | Content an agent should read while working |
+| Eval tooling | `evals/` | Contributor tooling; part of neither plugin | Skill or agent content |
+| Version | `versions.json` | Stamped into the plugin manifests by `.github/scripts/stamp_versions.py` | Hand edits to the manifests |
+
+Skills, agents, and rules are auto-discovered from their directories. Do not add manifest registration for individual skills or agents.
 
 ## Command and Content Rules
 
@@ -32,4 +39,4 @@ Skills and agents are auto-discovered from their directories. Do not add manifes
 - Add or update BenchFlow eval cases when query-related behavior changes.
 - If distributed skill or agent behavior changes, update the affected plugin versions and `CHANGELOG.md` in the same PR.
 - After changing `versions.json`, run `python3 .github/scripts/stamp_versions.py` and commit the generated manifests in that same PR. CI checks them; it does not create a follow-up PR.
-- Documentation-only changes to `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, `CHANGELOG.md`, `evals/`, or `references/` usually do not need a version bump unless they change agent runtime behavior.
+- Documentation-only changes to `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, `CHANGELOG.md`, `evals/`, or a skill's `references/` usually do not need a version bump unless they change agent runtime behavior.
