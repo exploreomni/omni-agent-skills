@@ -66,7 +66,7 @@ The full control catalog (`type` values from the `CONTROL_TYPE` enum):
 | `TOP_N` | — | control | override a dimension's dynamic top-N limit |
 | `PERIOD_OVER_PERIOD` | — | control | add prior-period comparison columns (dashboard-only) |
 
-All carry `id` + optional `label`/`description` — **except `PERIOD_OVER_PERIOD`**, which carries only `id` + its own fields. There is no `hidden` on the v2 contract — visibility is placement (see [Hiding a control](#hiding-a-control)).
+All carry `id` + optional `label`/`description` — **except `PERIOD_OVER_PERIOD`**, which carries only `id` + its own fields. A control config has no `hidden` on the v2 contract — visibility is placement (see [Hiding a control](#hiding-a-control)).
 
 ### Date filter
 

@@ -31,6 +31,7 @@ The annotated shapes below exist for the **gotchas**; for the field-level detail
 {
   "modelId": "<SHARED model id>",          // required on create; echoed on GET (immutable)
   "workbookModelId": "<per-doc model id>",  // GET only, read-only; per draft — never cache it
+  "draftOf": { "identifier": "…" },         // GET of a draft's own identifier only; read-only
   "name": "…",
   "description": "…",
   "queryPresentations": {                   // the tiles (queries + their viz)
@@ -77,7 +78,7 @@ For anything non-trivial, write the body to a file and pass `--body "$(cat body.
 
 ### The server anchors tiles to the workbook model
 
-On create, the server mints a per-document **workbook** model extending the shared `modelId` you pass. Tile queries carry **no `modelId`** — reads never expose one, and a `modelId` or `model_extension_id` you send in a tile query is **silently rewritten** to the workbook model, so omit them. The workbook model id is returned as `workbookModelId` on `v2-get` (the published document's) and `v2-get-draft` (that draft's), and on `documents list-drafts`. It **rotates**: each draft clones the workbook model (extensions carried along), and publishing swaps the document to the clone, so the id changes after **every** publish. Never cache it; read it fresh each time. Both `modelId` and `workbookModelId` are echoed so a GET body round-trips through PATCH — sending the same values is a no-op, a different value is rejected.
+On create, the server mints a per-document **workbook** model extending the shared `modelId` you pass. Tile queries carry **no `modelId`** — reads never expose one, and a `modelId` or `model_extension_id` you send in a tile query is **silently rewritten** to the workbook model, so omit them. The workbook model id is returned as `workbookModelId` on `v2-get` (the published document's) and `v2-get-draft` (that draft's), and on `documents list-drafts`. It **rotates**: each draft clones the workbook model (extensions carried along), and publishing swaps the document to the clone, so the id changes after **every** publish. Never cache it; read it fresh each time. Both `modelId` and `workbookModelId` are echoed so a GET body round-trips through PATCH — sending the same values is a no-op, a different value is rejected. `draftOf` round-trips the same way: echoing it is a no-op, and naming a different document is a 409.
 
 Since the binding is server-owned on the PATCH surface, changing a tile's query-model binding goes through the dedicated draft-scoped commands (CLI ≥ 1.1.2): `v2-bind-query-model <identifier> <draftIdentifier> <queryKey>` (body carries the `queryModelId` — see `--schema`) and `v2-unbind-query-model` (no body; keeps the tile's query). The `queryModelId` must be a live query model layered on this draft's workbook model and not already bound to another tile — a query model is dedicated to a single query. A LINKED tile inherits its query model from its source and can't be bound directly. Because each draft re-clones its query models, bind against a draft you have already read.
 
@@ -172,7 +173,7 @@ A tile `query.filters` value must be a **filter object**, not the relative-date 
 
 (String/number: `{ "kind": "EQUALS", "type": "string", "values": ["…"] }`.)
 
-### 5. `hidden` is not part of the contract
+### 5. Controls have no `hidden` flag
 
 A filter or control is visible exactly where a container places it (filter bar, a page, a tile). The server derives visibility from placement on every write, reads never include a `hidden` key, and a patch whose control config carries `hidden` is rejected with a 400 naming the control. To hide a control, leave it out of every container; it keeps applying its value. (See [controls.md](controls.md).)
 

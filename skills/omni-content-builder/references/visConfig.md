@@ -576,7 +576,7 @@ Dimension on y-axis, measure on x-axis. Note `_dependentAxis: "x"` and `series[]
 
 ### Stacked Column Chart (Vertical)
 
-`_stack: "stack"` with a **pivoted** color dimension — the query must include `"pivots": ["order_items.status"]`. For horizontal, use `chartType: "barStacked"` with `_dependentAxis: "x"` and `series[].xAxis: "x"`. For 100% stacking, use `columnStackedPercentage` with `color._stack: "normalize"`.
+`_stack: "stack"` with a **pivoted** color dimension — the query must include `"pivots": ["order_items.status"]`. For horizontal, use `chartType: "barStacked"` with `_dependentAxis: "x"` and `series[].xAxis: "x"`. For 100% stacking, use `columnStackedPercentage` with `color._stack: "stack_percentage"`.
 
 ```json
 "visConfig": {
