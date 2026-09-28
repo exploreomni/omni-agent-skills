@@ -18,17 +18,6 @@
       "expected_skill": "omni-content-explorer"
     },
     {
-      "id": "2",
-      "question": "I want to understand what data the 'Revenue Overview' dashboard is querying. Show me the underlying query fields.",
-      "ground_truth": "Dashboard found by name, then get-queries used to retrieve the tile query definitions. Fields listed for each tile.",
-      "expected_behavior": [
-        "The agent calls omni documents get-queries with the dashboard identifier to retrieve query definitions",
-        "The agent lists the fields from the query objects \u2014 not just the dashboard name or description",
-        "The agent finds the dashboard identifier before calling get-queries, either by listing documents or using a known identifier"
-      ],
-      "expected_skill": "omni-content-explorer"
-    },
-    {
       "id": "3",
       "question": "Add the label 'finance' to the dashboard with identifier '{{EVAL_DASHBOARD_LABEL}}', then show me all dashboards with that label.",
       "ground_truth": "Label added to the document. Documents are listed with labels included and filtered to dashboards that have the 'finance' label. Links provided for each.",

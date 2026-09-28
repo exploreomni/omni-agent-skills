@@ -1,0 +1,91 @@
+name: Skills CI
+
+# Two cheap tiers that run on every PR. The full BenchFlow suite
+# (evals/runner.sh) is deliberately not here — it needs a live Omni instance
+# and runs for ~20 minutes, so it stays nightly / on demand.
+on:
+  pull_request:
+    paths:
+      - "skills/**"
+      - "agents/**"
+      - "rules/**"
+      - "evals/**"
+      - ".github/workflows/skills-ci.yml"
+      - ".github/workflows/versions.yml"
+      - ".github/scripts/**"
+      - ".claude-plugin/**"
+      - ".cursor-plugin/**"
+      - "versions.json"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: skills-ci-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Tier 0 — structural validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Validate skills and eval files
+        run: python3 evals/ci/validate.py
+
+      - name: Test eval harness
+        run: python3 -m unittest discover -s evals/ci -p 'test_*.py'
+
+  routing:
+    name: Tier 1 — skill routing
+    needs: validate
+    runs-on: ubuntu-latest
+    # Forks cannot read secrets, so the eval would have no credential. Tier 0
+    # still gates those PRs; routing runs once a maintainer pushes the branch.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: python3 -m pip install --quiet -r evals/ci/requirements.txt
+
+      # On a PR, compare the branch's catalog against the base branch's and gate
+      # on regressions. Every case runs against both catalogs, not just the
+      # changed skills' cases: a description edit in one skill can pull another
+      # skill's prompts across, and scoping to changed skills would hide exactly
+      # that. On main there is nothing to compare against, so score against the
+      # floors in baselines.json instead.
+      - name: Choose mode
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch --quiet origin "${{ github.base_ref }}"
+            echo "args=--compare-to origin/${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
+            echo "Paired against origin/${{ github.base_ref }}."
+          else
+            echo "args=" >> "$GITHUB_OUTPUT"
+            echo "Absolute, scored against baselines.json."
+          fi
+
+      - name: Run routing eval
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python3 evals/ci/routing_eval.py ${{ steps.mode.outputs.args }} \
+            --skip-if-no-key \
+            --json-out routing-results.json
+
+      - name: Upload results
+        if: always() && hashFiles('routing-results.json') != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: routing-results
+          path: routing-results.json

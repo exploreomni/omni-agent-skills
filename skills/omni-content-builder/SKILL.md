@@ -96,7 +96,7 @@ omni documents v2-create --schema  # Body schema + example (add --depth 1 for an
 | Edit document (tiles, controls, layout, settings, rename) | `documents v2-patch-draft` (+ `v2-patch-draft-by-identifier`) |
 | Get the workbook model ID | `documents list-drafts` → `workbookModelId` (open a draft first) |
 | Publish a draft | `documents v2-publish-draft` |
-| Read or edit an **app** (HTML instead of a dashboard) | `documents v2-*-app` — alpha, CLI ≥ 1.2.2; see [references/documents-v2.md](references/documents-v2.md) |
+| Read or edit an **app** (HTML instead of a dashboard) | `documents get-app` / `put-app` / `patch-app` / `remove-app` (+ the draft and auto-draft forms) — alpha, CLI ≥ 1.4.0; see [references/documents-v2.md](references/documents-v2.md) |
 
 A handful of **document-management** operations have no v2 form — they aren't alternatives to the v2 build path, just the only command for that job: `documents list` / `list-drafts` (find documents and drafts), `documents discard-draft` (abandon a draft), `documents delete` / `move` / `duplicate` (lifecycle), `documents get-queries` (extract a tile's runnable query for validation), `dashboards download` / `download-status`, and `models yaml-create` / `validate` (model writes).
 

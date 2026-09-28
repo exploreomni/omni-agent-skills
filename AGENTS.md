@@ -31,4 +31,5 @@ Skills and agents are auto-discovered from their directories. Do not add manifes
 - Validate behavior-changing skill or agent updates against a real Omni instance before marking the work ready.
 - Add or update BenchFlow eval cases when query-related behavior changes.
 - If distributed skill or agent behavior changes, update the affected plugin versions and `CHANGELOG.md` in the same PR.
+- After changing `versions.json`, run `python3 .github/scripts/stamp_versions.py` and commit the generated manifests in that same PR. CI checks them; it does not create a follow-up PR.
 - Documentation-only changes to `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, `CHANGELOG.md`, `evals/`, or `references/` usually do not need a version bump unless they change agent runtime behavior.

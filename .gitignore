@@ -20,3 +20,6 @@ evals/eval-env.local.json
 evals/.env.local
 
 evals/report.html
+
+# Tier 1 routing results, written by CI.
+routing-results.json

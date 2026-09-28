@@ -1,0 +1,7 @@
+{
+  "_comment": "Routing accuracy floors for evals/ci/routing_eval.py. Reset by the PR that added out-of-scope cases and moved a case between skills: the previous floors were recorded against different case counts (omni-content-explorer 4 -> 3, omni-query 18 -> 19) and knew nothing about the (negative) group, so they no longer meant what they said. Re-record with `python3 evals/ci/routing_eval.py --update-baselines` against main and commit the result. Until then the absolute gate is inert; pull requests are gated on regressions against the base branch instead, which does not depend on these numbers.",
+  "min_overall": 0.0,
+  "skills": {},
+  "model": "claude-sonnet-5",
+  "samples": 3
+}

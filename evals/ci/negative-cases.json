@@ -1,0 +1,66 @@
+{
+  "_comment": "Out-of-scope prompts for evals/ci/routing_eval.py. Every one of these should route to `none`. The skill eval sets in skills/*/evals/ only contain prompts that DO belong to a skill, so on their own they can only detect a skill that stops attracting its own work — they are blind to a description that gets greedier and starts claiming prompts it should not. The `hard` cases deliberately share vocabulary with the skills (dashboard, revenue, model, query, semantic layer) while targeting another tool entirely; those are where over-triggering shows up first.",
+  "version": "1",
+  "cases": [
+    {
+      "id": "n1",
+      "question": "Refactor this Python function to use a dict comprehension instead of the for loop.",
+      "kind": "unrelated"
+    },
+    {
+      "id": "n2",
+      "question": "Set up a GitHub Action that runs pytest on every pull request.",
+      "kind": "unrelated"
+    },
+    {
+      "id": "n3",
+      "question": "Summarize the key decisions from this meeting transcript.",
+      "kind": "unrelated"
+    },
+    {
+      "id": "n4",
+      "question": "The unit test in src/auth.py is failing after my last commit. Can you fix it?",
+      "kind": "unrelated"
+    },
+    {
+      "id": "n5",
+      "question": "Explain the difference between a star schema and a snowflake schema.",
+      "kind": "conceptual"
+    },
+    {
+      "id": "n6",
+      "question": "What's the right index to add to the orders table in Postgres to speed up this join?",
+      "kind": "conceptual"
+    },
+    {
+      "id": "n7",
+      "question": "Create a Tableau dashboard showing revenue by region.",
+      "kind": "hard"
+    },
+    {
+      "id": "n8",
+      "question": "Write a dbt model that unions our staging tables and adds a surrogate key.",
+      "kind": "hard"
+    },
+    {
+      "id": "n9",
+      "question": "Why is our Snowflake warehouse spend up 40% this month? Break it down by warehouse.",
+      "kind": "hard"
+    },
+    {
+      "id": "n10",
+      "question": "Add a metric for weekly active users to our Cube semantic layer.",
+      "kind": "hard"
+    },
+    {
+      "id": "n11",
+      "question": "Our Looker instance is timing out on the explore page. Where should I start debugging?",
+      "kind": "hard"
+    },
+    {
+      "id": "n12",
+      "question": "Export the contents of this Google Sheet to CSV and clean up the header row.",
+      "kind": "hard"
+    }
+  ]
+}
