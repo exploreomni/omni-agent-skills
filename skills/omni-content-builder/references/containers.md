@@ -73,7 +73,7 @@ A **dashboard text tile** is **not** a `queryPresentation` — it's a content-it
 | Item | Keys |
 |---|---|
 | `query` | `as`: `chart` / `result` / `ai` / `metadata`; `format`: `name` / `subtitle` / `description` (only with `as: "metadata"`, or `subtitle` / `description` with `as: "ai"`); `detachedContent` = local text rendered instead of the query value |
-| `filter` | optional `appearance`: `{ "control": "buttonToggle" \| "dropdown", "display": "inline" \| "popover" }` |
+| `filter` | optional `appearance`: `{ "control": "buttonToggle" \| "dropdown", "display": "inline" \| "popover" }`. `control` applies to string filters with single or multiple selection; a `number` filter ignores it and shows the number editor |
 | `inline-text` | `content`; `appearance`: `{ "as": "inline" \| "tooltip" }`; `textAlign`: `start` / `center` / `end` |
 | `inline-spacer` | `size` (px along the stack axis, default 16; in a grid the size comes from `gridPosition`) |
 | `inline-divider` | `direction`: `horizontal` / `vertical`; `thickness`: 1 / 2 / 4; `color`: `border1` / `border4` / `text1` / `text4`; `align`: `start` / `center` / `end` |

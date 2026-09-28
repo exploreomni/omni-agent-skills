@@ -202,6 +202,7 @@ Each shape below is a `controls.data.<id>.config` body. Common optional metadata
 - **Every filter MUST include `fieldName`** — fully qualified (e.g. `"users.state"`) — or it won't bind to any column. Date filters take **no timeframe bracket** (`order_items.created_at`, not `created_at[month]`).
 - Configs read back from UI-built dashboards also carry `topic` and `base_view` (see the date-filter example above). Keep `topic`; `base_view` is accepted for compatibility and ignored — the topic is the source of truth.
 - `config.type` values include `"string"`, `"number"`, `"date"`, `"boolean"`, `"null"`, `"by_query"`, `"user_attribute"`, `"composite"`. Common shapes are below; for the **filter-value shapes** of any type (incl. `composite` / `user_attribute` / `by_query` and the per-`kind` enums), see omni-query's [filter-expressions.md](../../omni-query/references/filter-expressions.md). When still unsure, build the filter in the Omni UI and read it back — `omni documents v2-get <identifier>` returns a `controls` slice you can copy directly into a patch.
+- **`filterControlType` must match `config.type`.** `singleValueEquals` and `multiValueEquals` are for `string` filters only; `singleDay` and `timeframe` are for `date` filters only. The API doesn't check the pairing. On a `number` filter, `singleValueEquals` drops every value a viewer picks in the filter bar, so only the saved default ever applies and a required filter never clears. For buttons or a dropdown on a number field, see [Single select on a number field](#single-select-on-a-number-field).
 
 ### String dropdown
 
@@ -212,6 +213,30 @@ Each shape below is a `controls.data.<id>.config` body. Common optional metadata
   "values": []        // default selection: [] = none (show all); ["complete"] pre-selects
 }
 ```
+
+### Single select on a number field
+
+Single and multiple selection (buttons, dropdown) exist only for string fields. For a number field with a handful of values (a version, a reply number), add a text copy in the model and filter on that:
+
+```yaml
+dimensions:
+  version_select:
+    sql: TO_CHAR(${version})       # Snowflake; use your warehouse's cast to text
+    label: Version (Select)
+    filter_single_select_only: true
+    order_by_field: version        # without this, choices sort as text: 10, 11, 2
+```
+
+```jsonc
+"config": {
+  "type": "string", "kind": "EQUALS", "values": ["1"],
+  "fieldName": "orders.version_select", "label": "Version",
+  "filterControlType": "singleValueEquals"
+},
+"map": { "1": "orders.version_select" }   // every map entry points at the text copy
+```
+
+Place it with `"appearance": { "control": "buttonToggle" }` or `"dropdown"`. With `settings.facetFilters: true`, the choices narrow when other filters change. A pick that is no longer among them stays applied and returns no rows until the viewer picks again.
 
 ### Boolean toggle
 
