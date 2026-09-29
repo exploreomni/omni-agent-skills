@@ -52,7 +52,7 @@ omni scim users-create --schema   # Print a command's args, flags, body schema +
 
 - For create operations, first try the requested create. If the API returns a conflict because the resource already exists, look it up and verify it exactly matches the requested state before reporting success.
 - Prefer read-after-write checks that inspect the specific created or changed resource, not just a successful status response.
-- Use the role names returned by Omni permission APIs (`VIEWER`, `EXPLORER`, `EDITOR`, `MANAGER`) when updating content access.
+- Use the content role names the permission APIs take (`NO_ACCESS`, `VIEWER`, `EXPLORER`, `EDITOR`, `MANAGER`, `OWNER`) when updating content access. `OWNER` can be granted only to users.
 
 ## Connections
 
@@ -194,8 +194,8 @@ Before deciding where a model or content change goes, run `omni whoami whoami --
 ## Document Permissions
 
 ```bash
-# Check effective permissions for a user (userId required)
-omni documents get-permissions <documentId> --user-id <userId>
+# Document settings, plus one user's permits when --user-id (a membership id) is given
+omni documents get-permissions <documentId> --user-id <membershipId>
 
 # List document access principals
 omni documents access-list <documentId>
@@ -208,12 +208,12 @@ omni documents add-permits <documentId> --body '{
 
 # Add direct access for a user
 omni documents add-permits <documentId> --body '{
-  "userIds": ["user-uuid"],
+  "userIds": ["<membershipId>"],
   "role": "EDITOR"
 }'
 ```
 
-`role` is one of `NO_ACCESS`, `VIEWER`, `EDITOR`, `MANAGER`.
+`role` is one of `NO_ACCESS`, `VIEWER`, `EXPLORER`, `EDITOR`, `MANAGER` or `OWNER`, and `OWNER` can be granted only to users. `userIds` are membership ids, not user ids; [model-roles.md](references/model-roles.md) shows how to look one up.
 
 ### Access Boost
 
@@ -224,10 +224,10 @@ omni documents add-permits <documentId> --body '{
 **⚠️ Confirm before boosting — it loosens access controls.** Access Boost deliberately exposes content that restricted roles can't otherwise see, and non-topic / raw-SQL tiles bypass topic-scoped governance (access filters, `always_where`) — so boosting can surface data those controls would normally withhold. **Do not apply Access Boost autonomously or as a reflexive fix for "they can't see it."** First:
 1. **Understand what the document exposes** — what data the boosted tiles show, at what grain, and whether any of it is sensitive.
 2. **Confirm intent with the requester** — that they really mean to grant *these specific* Viewer / Restricted Querier users or groups visibility into that content. State the implication back to them and get an explicit go-ahead before running the command.
-3. **Prefer the narrowest scope** — boost specific users/groups (`add-permits`) over the org-wide `organizationAccessBoost`; reach for org-wide only when that's explicitly what's wanted.
+3. **Prefer the narrowest scope** — boost specific users/groups (`add-permits`) over `organizationAccessBoost`, which boosts everyone in the organization on this document; use it only when that's explicitly what's wanted.
 4. **Note the governance interaction** — model access grants still apply unless a grant sets `access_boostable: true`; don't treat that as a safety net, confirm intent regardless.
 
-**Prerequisite (org capability, not in the CLI):** the org must have `allowsDocumentAccessBoost` enabled (and `allowsMemberToProvisionAccessBoost` for non-admins to grant it). This is an instance/admin setting — if it's off, the document-level flags below are silently cleared. It's a gate; it does **not** itself turn Access Boost on anywhere.
+**Prerequisite (org capability, not in the CLI):** the org must have `allowsDocumentAccessBoost` enabled (on by default), and `allowsMemberToProvisionAccessBoost` (off by default) for non-admins to grant it. These are organization settings. When boost is off, or the caller isn't allowed to grant it, a request that sets `accessBoost` or `organizationAccessBoost` to `true` is rejected with 403. It's a gate; it does **not** itself turn Access Boost on anywhere.
 
 Once you've confirmed intent, there are two activation levers, both **scoped to a single document**:
 
@@ -246,19 +246,22 @@ omni documents update-permission-settings <documentId> --body '{
 }'
 ```
 
-`update-permission-settings` (PUT) also carries the document's other toggles — `canDownload`, `canDrill`, `canSchedule`, `canUpload`, `canUseDashboardAi`, `canUseTimezoneOverride`, `canViewWorkbook`, `requirePullRequestToPublish`. Note `organizationAccessBoost` boosts the org-default principal on **this** document only — it is not an org-wide switch.
+`update-permission-settings` (PUT) also carries the document's other toggles — `canAnalyze`, `canDownload`, `canDrill`, `canDuplicate`, `canRequestAccess`, `canSaveSpreadsheets`, `canSchedule`, `canUpload`, `canUseDashboardAi`, `canUseTimezoneOverride`, `canViewWorkbook`, `requirePullRequestToPublish`. Note `organizationAccessBoost` boosts the org-default principal on **this** document only — it is not an org-wide switch.
 
 ## Folder Permissions
 
 ```bash
-# Get
+# Get all permits (needs MANAGER on the folder), or one user's with --user-id <membershipId>
 omni folders get-permissions <folderId>
 
-# Set
+# Grant
 omni folders add-permissions <folderId> --body '{
-  "permissions": [{ "type": "group", "id": "group-uuid", "access": "view" }]
+  "userGroupIds": ["group-uuid"],
+  "role": "VIEWER"
 }'
 ```
+
+The body matches documents `add-permits`: `role`, membership-id `userIds` and/or `userGroupIds`, and an optional `accessBoost`. `update-permissions` changes existing permits, `revoke-permissions` removes them, and `update-permission-settings` sets the folder's `organizationRole` and `organizationAccessBoost`.
 
 ## Schedules
 
@@ -346,8 +349,8 @@ Check that: the group exists with the expected `displayName`, and `members` arra
 # After setting document permissions, verify the principal and role
 omni documents access-list <documentId>
 
-# For a specific user, also check effective permissions
-omni documents get-permissions <documentId> --user-id <userId>
+# For a specific user, also check their permits (--user-id takes a membership id)
+omni documents get-permissions <documentId> --user-id <membershipId>
 
 # After setting folder permissions, verify
 omni folders get-permissions <folderId>

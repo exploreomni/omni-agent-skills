@@ -94,7 +94,7 @@
       "question": "Build a query for monthly revenue with a trailing 3-month moving average. If you're unsure of the calc shape, use the AI helper to draft it.",
       "ground_truth": "Monthly revenue plus a trailing-3-month moving average column, returned from a single omni query run.",
       "expected_behavior": [
-        "The agent first calls omni ai generate-query with --run-query=false to obtain the AST for the moving average",
+        "To draft the calc, the agent uses an agentic job (omni ai job-submit) and lifts the calculation from the job's generate_query action, or builds it from the skill's trailing-average pattern",
         "The resulting sql_expression uses OMNI_FX_AVERAGE wrapping OMNI_OFFSET_MULTI with operands (field, -2, 0, 3, 1)",
         "The calc_name is included in query.fields",
         "The agent then runs the query and reports actual moving-average values"

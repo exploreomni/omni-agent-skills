@@ -94,7 +94,7 @@ omni query run --body '{
 
 ### Filters
 
-Each `query.filters` entry maps a field name to a typed object such as `{ "type": "string", "kind": "EQUALS", "values": ["California"] }`, and a boolean filter uses `is_negative` with no `kind` or `values`. An object with the wrong properties for its type is silently ignored, so confirm that the filter bound in `summary.display_sql` (with `cache: "SkipCache"`) or by a changed row count. Operators by type are in [query-parameters.md](references/query-parameters.md#filters), and every filter type is in [filter-expressions.md](references/filter-expressions.md).
+Each `query.filters` entry maps a field name to a typed object such as `{ "type": "string", "kind": "EQUALS", "values": ["California"] }`, and a boolean filter uses `is_negative` with no `kind` or `values`. An object with the wrong properties for its type is silently ignored, so confirm that the filter bound in `summary.display_sql` (with `cache: "SkipCache"`) or by a changed row count. Every filter type and its operators are in [filter-expressions.md](references/filter-expressions.md).
 
 ### Table Calculations
 
@@ -110,7 +110,7 @@ Request options such as `resultType`, `cache`, `userId`, `branchId`, and `planOn
 
 ## Handling and Validating Results
 
-> **`omni query run` streams NDJSON — it is NOT one JSON object.** In JSON mode (pass `-o json` when parsing — a human default from `config set-format` or `OMNI_OUTPUT_FORMAT` applies even when piped, and prints a table instead) the CLI prints **multiple JSON objects, one per line**: first a `{"jobs_submitted":{…}}` line, then one or more `{"job_id":…,"status":"COMPLETE","summary":{…}}` job lines (and, with `resultType`, the result payload). A naive `json.loads(entire_stdout)` throws `JSONDecodeError: Extra data`. **Don't write a single-object parser** — iterate lines and pick the one you need, or slurp with `jq -s` / read the **last** non-empty line. `--compact` puts each object on one tidy line.
+> **`omni query run` streams NDJSON — it is NOT one JSON object.** In JSON mode (pass `-o json` when parsing — a human default from `config set-format` or `OMNI_OUTPUT_FORMAT` applies even when piped, and prints a table instead) the CLI prints **multiple JSON objects, one per line**: first a `{"jobs_submitted":{…}}` line, then one or more `{"job_id":…,"status":"COMPLETE","summary":{…}}` job lines, then a `{"remaining_job_ids":[…],"timed_out":…}` line. (With `resultType` set, stdout is only the result payload; see below.) A naive `json.loads(entire_stdout)` throws `JSONDecodeError: Extra data`. **Don't write a single-object parser** — iterate lines and pick the one with `job_id`, or slurp with `jq -s`. `--compact` puts each object on one tidy line.
 
 Default response: base64-encoded Apache Arrow table. Arrow results are binary — you cannot parse individual row data from the raw response. The row count is at **`cache_metadata.num_rows`** (not `summary.row_count`). The `summary` object holds validation metadata: `invalid_calculations`, `missing_fields`, `display_sql` (the compiled SQL), `omni_sql_parse_failed`. (`--schema` won't show any of this — it describes the request body only; response shape comes from a live response. See the [`omni-api-conventions`](../../rules/omni-api-conventions.mdc) rule.)
 
@@ -195,7 +195,7 @@ For complex analysis, chain queries:
 
 ## Linking to Results
 
-Queries are ephemeral — there is no persistent URL for a query result. To give the user a shareable link:
+A query result has no URL of its own. `--workbook` returns a link to an unsaved workbook that runs the same query, created as the user the query ran as ([request-options.md](references/request-options.md)). To give the user a saved, shareable link:
 
 - **For existing dashboards**: `{OMNI_BASE_URL}/dashboards/{identifier}` (the `identifier` comes from the document API response)
 - **For new analysis**: Create a document via `omni-content-builder` with the query as a `queryPresentation`, then share `{OMNI_BASE_URL}/dashboards/{identifier}`
