@@ -161,7 +161,7 @@ The child inherits `aggregate_type` and the whole `level_of_detail` block and ov
 ## Verifying what a LOD does
 
 - **See the compiled SQL without running it:** `omni query run --body '{"query":{...},"planOnly":true}'` returns `summary.display_sql`. A `fixed:` measure shows an intermediate `GROUP BY (query dims, "$lod_grain_key_0")`; a header measure mixed with a line measure compiles to `UNION ALL` grouping sets discriminated by a flag column.
-- **See what `extends` resolves to:** `omni models yaml-get <model> --mode combined --fully-resolved true --filename <view>`. Without `--fully-resolved true` you are reading the authored layer, not what runs.
+- **See what `extends` resolves to:** `omni models yaml-get <model> --mode combined --fully-resolved true --file-name <view>`. `--fully-resolved true` shows what runs; without it you see only the authored layer.
 - **Check the number two ways:** the same measure at the fixed grain and one grain coarser must reconcile (the coarser total equals the sum of the finer values). A `max` outer aggregate on `fixed:` fails this test; a `sum` outer aggregate on `always_exclude` fails it by orders of magnitude.
 
 ## Related references

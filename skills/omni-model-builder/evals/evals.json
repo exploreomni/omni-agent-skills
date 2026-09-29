@@ -164,6 +164,73 @@
         "The agent does not merge without explicit confirmation"
       ],
       "expected_skill": "omni-model-builder"
+    },
+    {
+      "id": "13",
+      "question": "Our order_items_open topic uses always_where_filters to exclude cancelled lines (status is not Cancelled). We built the warehouse table ORDER_ITEMS_OPEN_DAILY from that topic's query: one row per created day and user_id, with the order count and the sale-price total, and no status column. Make Omni serve that topic's day-grain-or-coarser queries from it.",
+      "ground_truth": "On a branch, a view for ORDER_ITEMS_OPEN_DAILY carries a materialized_query with a fields map for order_items.created_at[date], order_items.user_id, order_items.count and the sale-price sum, base_view order_items, and topic: order_items_open, because the table holds the topic's always condition but not the status column it tests. The agent does not add or map a status column. It says that with topic: declared, Omni treats the topic's always conditions as already in the table without checking, so the table must stay built with exactly that condition and be rebuilt if it changes, and that a topic without the condition reads the fact table. It validates the branch and confirms with a planOnly SkipCache query on order_items_open that display_sql carries the rewrite header.",
+      "expected_behavior": [
+        "The agent works on a branch",
+        "The materialized_query declares topic: order_items_open, with base_view order_items and a fields map for created_at[date], user_id, count and the sale-price sum",
+        "The agent does not map a status column or change the table to add one",
+        "The agent states that the topic's always conditions are treated as already in the table and are not checked, so the table must be built with exactly that condition and rebuilt when it changes",
+        "The agent validates the branch and confirms with a planOnly SkipCache query on order_items_open that display_sql carries the rewrite header",
+        "The agent does not merge without explicit confirmation"
+      ],
+      "expected_skill": "omni-model-builder"
+    },
+    {
+      "id": "14",
+      "question": "The open_vs_all composite topic has members sales_all and sales_open (sales_open excludes cancelled lines with always_where_filters on status) and shared dimensions reporting_date and status. We built the warehouse table OPEN_VS_ALL_DAILY from the composite's own query: one row per day and status, with each member's sale-price total. Make Omni serve the composite's monthly queries from it.",
+      "ground_truth": "On a branch, a view for OPEN_VS_ALL_DAILY carries a materialized_query with topic: open_vs_all, a base_view (order_items), and a named fields map using the composite's field names: @_shared_dimensions_.reporting_date[date], @_shared_dimensions_.status, and each member's total as @sales_all.order_items.total_sale_price and @sales_open.order_items.total_sale_price. It keeps status in the table because sales_open's always condition tests it. It does not use a positional fields list. The agent validates the branch with no materialized_query warning and confirms with a planOnly SkipCache month query on open_vs_all, asking for both members' totals, that display_sql carries the rewrite header. It notes that a query must include both members to use the table.",
+      "expected_behavior": [
+        "The agent works on a branch",
+        "The materialized_query declares topic: open_vs_all and a base_view",
+        "The fields map uses @_shared_dimensions_ names for reporting_date (with a date timeframe) and status, and @sales_all / @sales_open names for the member totals, in the map form of `fields`",
+        "Status stays mapped because sales_open's always condition tests it",
+        "The agent validates the branch and confirms with a planOnly SkipCache month query on open_vs_all, with both members' totals, that display_sql carries the rewrite header",
+        "The agent does not merge without explicit confirmation"
+      ],
+      "expected_skill": "omni-model-builder"
+    },
+    {
+      "id": "15",
+      "question": "order_items has a purchase_sequence dimension: ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at). We built ORDER_ITEMS_DAILY_SEQ with one row per day, user_id, status and purchase_sequence, plus the item count and the sale-price total. Declare it as an aggregate table so the first-purchase tiles are fast.",
+      "ground_truth": "The agent does not map purchase_sequence. It explains that the table stores the sequence computed over every row, so a query that filters rows (by status, for example) reads the stored number without renumbering and returns wrong first-purchase results with no error. It offers to declare the table without the window field (day, user_id, status, count, sale-price total) so other queries use it, and says first-purchase queries keep reading the fact table. Any declaration is made on a branch, validated, and confirmed with a planOnly SkipCache query.",
+      "expected_behavior": [
+        "The agent does not put purchase_sequence (a window-function field) in materialized_query",
+        "The agent explains that a filtered query would read the stored all-rows sequence and return wrong results without an error",
+        "The agent offers a declaration without the window field, so other queries can use the table",
+        "Any change is made on a branch and validated",
+        "The agent does not merge without explicit confirmation"
+      ],
+      "expected_skill": "omni-model-builder"
+    },
+    {
+      "id": "16",
+      "question": "order_items has total_shipping_fees, a sum_distinct_on measure keyed on order_id. The ORDER_ITEMS_DAILY aggregate table already serves our sales tiles; it stores day, status and order_id, the item count, the sale-price total and the shipping-fee total. Add total_shipping_fees to its materialized_query so the shipping tiles use the table too.",
+      "ground_truth": "The agent does not add the sum_distinct_on measure to materialized_query. It explains that mapping any *_distinct_on measure makes validation warn and Omni stop using the table for every query, including the sales tiles it serves now, and that queries with the measure read the fact table. It leaves the existing declaration as it is and, if it touched the branch, validates it with no materialized_query warning.",
+      "expected_behavior": [
+        "The agent does not map total_shipping_fees (a *_distinct_on measure)",
+        "The agent explains that the mapping would stop Omni from using the table for every query, including the sales tiles",
+        "The agent says queries with the measure read the fact table",
+        "The existing declaration stays unchanged",
+        "The agent does not merge without explicit confirmation"
+      ],
+      "expected_skill": "omni-model-builder"
+    },
+    {
+      "id": "17",
+      "question": "The orders_after_launch topic has always_where_sql: ${order_items.created_at} > TIMESTAMP '2025-10-01 00:00:00'. Declare ORDER_ITEMS_DAILY (one row per day and status, with the item count and the sale-price total) as an aggregate table, and make this topic's monthly tiles use it.",
+      "ground_truth": "The agent declares the table on a branch and flags the topic's condition before relying on the table: a > comparison against a midnight timestamp is compared with the selected month when the query is rewritten to use the table, so October would be left out. It asks which boundary was meant and rewrites the condition with >= (for example >= TIMESTAMP '2025-10-01 00:00:00'), then confirms with a planOnly SkipCache month query on orders_after_launch that display_sql carries the rewrite header, and compares the monthly rows with the fact table.",
+      "expected_behavior": [
+        "The agent works on a branch and declares the table with a day timeframe mapping",
+        "The agent flags the > midnight comparison in always_where_sql as returning wrong months from the table",
+        "The agent rewrites the boundary as >= or < after confirming which boundary was meant",
+        "The agent confirms the rewrite with a planOnly SkipCache query and compares the result with the fact table",
+        "The agent does not merge without explicit confirmation"
+      ],
+      "expected_skill": "omni-model-builder"
     }
   ]
 }
