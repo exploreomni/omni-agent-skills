@@ -7,7 +7,7 @@ The `omni documents v2-*` commands are the **only** surface for creating, readin
 | Command | Purpose |
 |---|---|
 | `v2-create` | Create + publish a document live |
-| `v2-get <identifier>` | Read the **published** state — draft edits never appear here; read a draft with `v2-get-draft`, or pass the draft's own identifier to read that draft |
+| `v2-get <identifier>` | Read the **published** state, without draft edits. To read a draft, use `v2-get-draft` or pass the draft's own identifier |
 | `v2-get-draft <identifier> <draftIdentifier>` | Read a draft's state |
 | `v2-patch-draft <identifier>` | Create a draft (optionally branch-bound) and apply a patch |
 | `v2-patch-draft-by-identifier <identifier> <draftIdentifier>` | Patch an existing draft |
@@ -25,11 +25,11 @@ The `omni documents v2-*` commands are the **only** surface for creating, readin
 
 ## Envelope
 
-The annotated shapes below exist for the **gotchas**; for the field-level detail (every key, its type, which are required) run `omni documents v2-create --schema` (`--depth 1` for a top-level overview, `--field queryPresentations.data` to drill into a tile). `--schema` describes what the **installed CLI build** knows, so keep the CLI current. When this doc and `--schema` disagree on a field, treat it as a version gap: confirm with a live write and read-back rather than trusting either side.
+The annotated shapes below show behaviors that `--schema` can't. For field-level detail (every key, its type, which are required), run `omni documents v2-create --schema` (`--depth 1` for a top-level overview, `--field queryPresentations.data` for a tile). `--schema` reflects the **installed CLI release**, so keep the CLI current. When this doc and `--schema` disagree on a field, treat it as a version difference and confirm with a live write and a read-back.
 
 ```jsonc
 {
-  "modelId": "<SHARED model id>",          // required on create; echoed on GET (immutable)
+  "modelId": "<SHARED model id>",          // required on create; returned on GET; can't be changed
   "workbookModelId": "<per-doc model id>",  // GET only, read-only; per draft — never cache it
   "draftOf": { "identifier": "…" },         // GET of a draft's own identifier only; read-only
   "name": "…",
@@ -74,11 +74,11 @@ For anything non-trivial, write the body to a file and pass `--body "$(cat body.
 - `containers` is a **full replacement** of the layout tree (send the whole tree, with your edit applied). Omit it to keep the current layout and let the server auto-place any tiles you add (behavior 3 below).
 - A `queryPresentations` patch is capped at **48 entries**.
 
-> **Send only the tiles you changed.** A full GET body does round-trip through PATCH, but every tile you send is re-validated and counts against the 48-entry cap. Because patch merges by key, send only the new or edited tiles in `data` (plus the full `order`, and `containers` only when you are changing the layout) — untouched tiles are preserved.
+> **Send only the tiles you changed.** A full GET body is accepted as a PATCH, but every tile you send is validated again and counts against the 48-entry cap. Because a patch merges by key, send only the new or edited tiles in `data`, plus the full `order`, and `containers` only when you change the layout. Tiles you leave out are kept.
 
 ### The server anchors tiles to the workbook model
 
-On create, the server mints a per-document **workbook** model extending the shared `modelId` you pass. Tile queries carry **no `modelId`** — reads never expose one, and a `modelId` or `model_extension_id` you send in a tile query is **silently rewritten** to the workbook model, so omit them. The workbook model id is returned as `workbookModelId` on `v2-get` (the published document's) and `v2-get-draft` (that draft's), and on `documents list-drafts`. It **rotates**: each draft clones the workbook model (extensions carried along), and publishing swaps the document to the clone, so the id changes after **every** publish. Never cache it; read it fresh each time. Both `modelId` and `workbookModelId` are echoed so a GET body round-trips through PATCH — sending the same values is a no-op, a different value is rejected. `draftOf` round-trips the same way: echoing it is a no-op, and naming a different document is a 409.
+On create, the server mints a per-document **workbook** model extending the shared `modelId` you pass. Tile queries carry **no `modelId`** — reads never expose one, and a `modelId` or `model_extension_id` you send in a tile query is **rewritten** to the workbook model with no warning, so omit them. The workbook model id is returned as `workbookModelId` by `v2-get` (the published document's), by `v2-get-draft` (that draft's), and by `documents list-drafts`. It **changes**: each draft copies the workbook model (extensions included), and publishing switches the document to that copy, so the id is different after **every** publish. Don't cache it; read it each time. Reads include `modelId` and `workbookModelId` so that a GET body can be sent back as a PATCH: the same values change nothing, and a different value is rejected. `draftOf` works the same way; naming a different document returns 409.
 
 Since the binding is server-owned on the PATCH surface, changing a tile's query-model binding goes through the dedicated draft-scoped commands (CLI ≥ 1.1.2): `v2-bind-query-model <identifier> <draftIdentifier> <queryKey>` (body carries the `queryModelId` — see `--schema`) and `v2-unbind-query-model` (no body; keeps the tile's query). The `queryModelId` must be a live query model layered on this draft's workbook model and not already bound to another tile — a query model is dedicated to a single query. A LINKED tile inherits its query model from its source and can't be bound directly. Because each draft re-clones its query models, bind against a draft you have already read.
 
@@ -140,13 +140,13 @@ These are reproducible behaviors — code against them.
 
 ### 1. The inner vis config has one shape on read and write
 
-`v2-get` and `v2-get-draft` return each tile's inner vis config as `{ "visType": …, "config": { …spec } }` — the same shape you write — so a tile read back can be edited and patched back as is, including for renames, restores, and duplicates:
+`v2-get` and `v2-get-draft` return each tile's inner vis config as `{ "visType": …, "config": { …spec } }`, the same shape you write, so a tile read back can be edited and patched back as is, including for renames, restores, and duplicates:
 
 ```jsonc
 "visConfig": { "visType": "omni-kpi", "config": { "markdownConfig": [...], "alignment": "left" } }
 ```
 
-A spec sent **flat** beside `visType` (the shape older reads returned) is also accepted and normalized under `config` on write. Author nested; still read the tile back after writing and confirm `visConfig.visConfig.config` is non-empty.
+A spec sent **flat** beside `visType` (the shape older reads returned) is also accepted and moved under `config` on write. Write it nested, and read the tile back afterwards to confirm `visConfig.visConfig.config` is non-empty.
 
 ### 2. Per-tile `map` scopes both filters and interactive controls
 
@@ -156,7 +156,7 @@ A `map` exclusion (`{ "<tileKey>": false }`) or remap (`{ "<tileKey>": "<field>"
 
 `v2-create`, and every patch that carries **no `containers`**, auto-places each new dashboard-eligible tile on the first page (csv / dataset / query-view / dbt tabs are stored but not placed). Containers created this way are removed when their tile is deleted. When you send `containers`, it fully defines the layout and nothing is auto-placed — tiles it doesn't reference are stored but render nowhere. On a workbook-only document (no layout yet) tiles are stored without placement. (See [containers.md](containers.md).)
 
-Related: tile `"1"` in a create body **merges over the server's seed tile**, and the seed's `automaticVis: true` wins over the `false` you send, while tile `"2"` onward keep `false`. If tile `"1"`'s `automaticVis` matters, re-patch it on a draft after create.
+Related: tile `"1"` in a create body **is merged into the server's seed tile**, which keeps `automaticVis: true` even when you send `false`; tiles `"2"` onward keep `false`. If tile `"1"`'s `automaticVis` matters, patch it again on a draft after create.
 
 ### 4. `query.filters` needs the object form, not the shorthand string
 
@@ -173,9 +173,9 @@ A tile `query.filters` value must be a **filter object**, not the relative-date 
 
 (String/number: `{ "kind": "EQUALS", "type": "string", "values": ["…"] }`.)
 
-### 5. Controls have no `hidden` flag
+### 5. A control is hidden by leaving it unplaced
 
-A filter or control is visible exactly where a container places it (filter bar, a page, a tile). The server derives visibility from placement on every write, reads never include a `hidden` key, and a patch whose control config carries `hidden` is rejected with a 400 naming the control. To hide a control, leave it out of every container; it keeps applying its value. (See [controls.md](controls.md).)
+A filter or control is shown only where a container places it (the filter bar, a page, a tile). To hide one, leave it out of every container; it keeps applying its value. (See [controls.md](controls.md).)
 
 ## Running queries to verify tiles
 

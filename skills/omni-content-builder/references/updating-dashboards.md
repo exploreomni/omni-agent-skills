@@ -43,7 +43,7 @@ omni documents v2-patch-draft-by-identifier <identifier> <draftIdentifier> --bod
 omni documents v2-publish-draft <identifier>
 ```
 
-Publishes the **main** draft only. Publishing swaps the document to the draft's workbook model — the workbook model id changes; if you need it afterwards, read the id for the place you will write to. These are two different models, not two ways to get one id: `v2-get` returns the **published** document's workbook model, and each new draft has its own clone, read from `list-drafts` or that draft's `v2-get-draft`.
+Publishes the **main** draft only. Publishing switches the document to the draft's workbook model, so the workbook model id changes. `v2-get` returns the **published** document's workbook model; each new draft has its own copy, returned by `list-drafts` and by that draft's `v2-get-draft`. Read the id of the model you are about to write to.
 
 ## Merge-by-key semantics
 
@@ -95,7 +95,7 @@ All go in a patch body, alongside a `summary`: `v2-patch-draft` for the first pa
 }
 ```
 
-**Rename a tab** — a tab is a tile; its label is the tile's `name`. Send the complete tile with the new `name`; the tile you read back is already the write shape.
+**Rename a tab** — a tab is a tile; its label is the tile's `name`. Send the complete tile with the new `name`; the tile you read back is already in the shape you write.
 
 **Reorder tabs** — send the full `order` array; it replaces wholesale: `{"queryPresentations": {"order": ["3", "1", "2"]}}`. Verify by readback.
 
@@ -119,7 +119,7 @@ When `--body` is present, the CLI **silently ignores every shorthand flag** (`--
 |---|---|---|
 | 400 | Unrecognized top-level key | clean per-key message, e.g. `"Unrecognized key: filterConfig"` |
 | 400 | Tile query missing collection fields | per-field errors; `sorts`, `filters`, `calculations`, `column_totals`, `row_totals`, `fill_fields`, `pivots`, `userEditedSQL` are required (empty values fine) alongside `table` and `fields` — and always send `limit` and `join_paths_from_topic_name` too |
-| 400 | `hidden` on a filter/control config | "controls.data[…].config carries `hidden` … not supported" — visibility is placement; remove the key and place or unplace the control via `containers` |
+| 400 | `hidden` on a filter/control config | "controls.data[…].config carries `hidden` … not supported" — remove the key; place or unplace the control through `containers` |
 | 404 | Nonexistent document | |
 | 404 | `v2-publish-draft` with no **main** draft | `"Document draft does not exist"` — including when only a *branch-bound* draft exists ([branch-bound-drafts.md](branch-bound-drafts.md)) |
 | 404 | Patching a draft identifier as if it were published | plain not-found |
@@ -139,7 +139,7 @@ omni documents discard-draft <identifier>     # targets the MAIN draft
 
 ## See also
 
-- [documents-v2.md](documents-v2.md) — envelope, tile shape, round-trip behaviors
+- [documents-v2.md](documents-v2.md) — envelope, tile shape, read and write behaviors
 - [containers.md](containers.md) — authoring the layout tree
 - [validation-and-testing.md](validation-and-testing.md) — validating the draft before publishing
 - [branch-bound-drafts.md](branch-bound-drafts.md) — drafts bound to a model branch

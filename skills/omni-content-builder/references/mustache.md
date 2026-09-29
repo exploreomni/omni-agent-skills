@@ -39,7 +39,7 @@ KPI tile text components (`markdownConfig` of type `"number"`/`"text"`) are mark
 
 ## control vs filter — the decision
 
-> **Step 0 — read the entry's `type` before you write the token.** The thing you're referencing is in `controls.data` either way, so the key name doesn't tell you the namespace; its **`config.type`** does. Look it up in the document's `controls.data` when you have the document JSON. When you only have the rendered tile, or the keys do not match what you expect, put `{{inspect}}` in the tile body and read the live template context. Do one of these first:
+> **Before writing the token, check the entry's `config.type`.** Filters and controls are both stored in `controls.data`, so the key name doesn't tell you the namespace; **`config.type`** does. With the document JSON, look it up in `controls.data`. With only the rendered tile, or when the keys don't match what you expect, put `{{inspect}}` in the tile body and read the template context. Then:
 > - `type` is `date`/`string`/`number`/`boolean`/`null`/`by_query`/`user_attribute`/`composite` → it's a **filter** → `{{filters.<view>.<field>.…}}`
 > - `type` is `FIELD_SELECTION`/`FIELD_PICKER`/`TOP_N`/`PARENT`/`MULTI_FIELD_FILTER`/`DYNAMIC_FILTER` → it's an **interactive control** → `{{controls.<id>.…}}`
 >

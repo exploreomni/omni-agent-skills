@@ -44,8 +44,8 @@ Every chart queryPresentation requires: `name`, `prefersChart: true`, a `visConf
 
 - **`order` replaces wholesale** — whenever you send it, send the complete array.
 - **A single patch can touch at most 48 `data` entries** — batch larger rewrites into multiple patches on the same draft.
-- **Tile `"1"` on create merges over a server seed tile** — the seed's `automaticVis: true` wins over the `false` you send (tile `"2"` onward keep `false`). Re-patch tile `"1"` on a draft if it matters.
-- **A create or patch with no `containers` auto-places every new tile** — send `containers` only when you want to own the layout.
+- **Tile `"1"` on create is merged into a server seed tile**, which keeps `automaticVis: true` even when you send `false` (tiles `"2"` onward keep `false`). If it matters, patch tile `"1"` again on a draft.
+- **A create or patch with no `containers` auto-places every new tile** — send `containers` only to set the layout yourself.
 
 ## Where the visualization config lives (read this first)
 
@@ -66,16 +66,16 @@ A chart is defined by **one queryPresentation-level field**: the `visConfig` env
 - `chartType` and `fields` sit at the **outer** `visConfig` level. They are **no longer top-level presentation keys** — the v1 top-level `chartType`/`fields`/`config` are unknown keys and 400.
 - The renderer (`visType`) and the rendering spec live in the **inner** `visConfig`, with the spec under `config`.
 
-> **Read and write share one shape.** `v2-get` / `v2-get-draft` return the inner config as `{ visType, config }` — exactly what you write — so a tile read back can be patched back unchanged. A spec sent flat beside `visType` (the shape older reads returned) is also accepted and normalized under `config`.
+> **Reads return the shape you write.** `v2-get` / `v2-get-draft` return the inner config as `{ visType, config }`, so a tile read back can be patched back unchanged. A spec sent flat beside `visType` (the shape older reads returned) is also accepted and moved under `config`.
 
-Misplaced keys fail **loudly** — tile bodies are strict (`additionalProperties: false`), so unknown or misplaced top-level keys return a clean 400:
+Misplaced keys are rejected: tile bodies are strict (`additionalProperties: false`), so an unknown or misplaced top-level key returns a 400:
 
 | What you send | What happens |
 |---|---|
 | Top-level `chartType`, `fields`, or `config` on the presentation (v1 shape) | **400** "Unrecognized key" |
 | `modelId` / `model_extension_id` inside `query` | **Silently rewritten** — the server re-anchors the tile to the document's workbook model (a sent shared-model id reads back as the workbook model). Omit them. |
 | `query` missing any required collection field | **400** listing each missing field |
-| Inner vis spec sent **flat** beside `visType` | Accepted — normalized under `config` on write |
+| Inner vis spec sent **flat** beside `visType` | Accepted and moved under `config` on write |
 
 Set `automaticVis: false` whenever you author an explicit vis config — otherwise the renderer may derive its own chart instead of using your spec.
 
@@ -232,7 +232,7 @@ The most reliable way to learn the exact inner config for a chart family (especi
 omni documents v2-get <identifier>
 ```
 
-Returns the full envelope — `queryPresentations` (`data` keyed map + `order`), `controls`, `containers`, `settings`, plus `modelId` and `workbookModelId`. Each tile includes `topicName`, the `visConfig` envelope, and the full `query` object, all in the write shape — copy a tile's `visConfig` straight into a create/patch body when recreating or templating dashboards. (`v2-get` is the published state; a draft's tiles come from `v2-get-draft`.)
+Returns the full envelope: `queryPresentations` (`data` keyed map + `order`), `controls`, `containers`, `settings`, plus `modelId` and `workbookModelId`. Each tile includes `topicName`, the `visConfig` envelope, and the full `query` object in the shape you write, so a tile's `visConfig` can be copied into a create or patch body to recreate or template a dashboard. (`v2-get` is the published state; a draft's tiles come from `v2-get-draft`.)
 
 ## Caveats When Reusing queryPresentations
 
@@ -606,4 +606,4 @@ All line, column/bar, area, scatter, and combo charts use this structure:
 | Point map | `"map"` | `"map"` | — | — | — |
 | Region map | `"regionMap"` | `"map"` | — | — | — |
 
-> For funnel, sankey, map, region map, heatmap, and boxplot, the inner `config` field names are best confirmed by building the chart once in the Omni UI and reading it back (`omni documents v2-get`; the inner spec reads back in the write shape) — see [visConfig.md](visConfig.md) for the known shapes.
+> For funnel, sankey, map, region map, heatmap, and boxplot, the inner `config` field names are best confirmed by building the chart once in the Omni UI and reading it back (`omni documents v2-get` returns the inner spec in the shape you write) — see [visConfig.md](visConfig.md) for the known shapes.

@@ -49,13 +49,13 @@ A chart tile is driven by **one queryPresentation-level field**: the `visConfig`
 
 Set `prefersChart: true` to default the tile to chart (vs. table) view, and `automaticVis: false` so the renderer uses your explicit spec instead of deriving one. (On create, the server seed tile can flip tile `"1"`'s `automaticVis` back to `true` — read back and re-patch if it matters.)
 
-> **Read and write share one shape.** `v2-get` / `v2-get-draft` return the inner config as `{ visType, config }`, so a tile read back can be written back unchanged — including restores, duplicates, and moves. A spec sent flat beside `visType` is also accepted and normalized under `config`. Misplaced *presentation*-level keys (`chartType` / `config` / `fields` at the tile top level) 400 loudly.
+> **Reads return the shape you write.** `v2-get` / `v2-get-draft` return the inner config as `{ visType, config }`, so a tile read back can be written back unchanged, including for restores, duplicates, and moves. A spec sent flat beside `visType` is also accepted and moved under `config`. Misplaced *presentation*-level keys (`chartType` / `config` / `fields` at the tile top level) return a 400.
 
 **Failure modes:**
 
 | What you send | What happens |
 |--------------|--------------|
-| Inner spec **flat** beside `visType` | Accepted — normalized under `config` on write. |
+| Inner spec **flat** beside `visType` | Accepted and moved under `config` on write. |
 | `chartType` / `config` / `fields` at the presentation top level (v1 shape) | **400** "Unrecognized key". |
 | `modelId` / `model_extension_id` inside `query` (or the v1 `query.visConfig` hint) | **Silently ignored/rewritten** — tile queries are server-anchored to the workbook model. Omit them. |
 | `query` missing required collection fields (`sorts`, `filters`, `calculations`, …) | **400** listing each missing field. |
@@ -331,9 +331,9 @@ Top-level `KpiConfig` also takes `fontLabelSize?` / `fontBodySize?` / `fontKPISi
 
 > **⚠️ A malformed `markdownConfig` entry PERSISTS on write but CRASHES at render — the API won't catch it.** Two signatures, both from an incomplete value-field:
 > - **`Cannot read properties of undefined (reading 'name')`** — a `comparison` entry whose `comparison` (or `field`) is a bare `{ "row": "_second" }` with no `field: { name, pivotMap }`. The renderer reads `entry.config.comparison.field.name` → crash. The `comparison` value is a **full value-field**, not just a row pointer.
-> - **`Cannot read properties of undefined (reading 'row')`** — a `progress` entry with **no `comparison`** (the bar's max). The renderer reads `entry.config.comparison.row` → crash. Supply a `comparison` value-field when the query has a field for the bar's maximum (a target, a total). When it does not, leave `progress` out and show the value another way.
+> - **`Cannot read properties of undefined (reading 'row')`** — a `progress` entry with **no `comparison`** (the bar's max). The renderer reads `entry.config.comparison.row` and crashes. Supply a `comparison` value-field when the query has a field for the bar's maximum (a target, a total). When it does not, leave `progress` out and show the value another way.
 >
-> **Every `markdownConfig` entry's `field` (and a `comparison`'s `comparison`) MUST be the complete `{ row, field: { name, pivotMap: {} }, label: { value } }`** — omitting `row`, `field.name`, or the wrapper crashes the tile. Complete, render-safe card (value + sparkline + change-vs-prior, "lower is better" → add `"swapColors": true` to the comparison):
+> **Every `markdownConfig` entry's `field` (and a `comparison`'s `comparison`) must be the complete `{ row, field: { name, pivotMap: {} }, label: { value } }`** — omitting `row`, `field.name`, or the wrapper crashes the tile. A complete card that renders (value, sparkline, and change versus the prior period; for "lower is better", add `"swapColors": true` to the comparison):
 >
 > ```jsonc
 > "markdownConfig": [
@@ -434,7 +434,7 @@ A complete, **render-verified** status KPI — label + value + change-vs-prior (
 
 `chartType: "funnel"`, `visType: "funnel"`, **no `configType`**.
 
-> **"No `configType`" ≠ "no `config` wrapper."** Funnel and sankey still carry their inner spec under `config`: `visConfig.visConfig = { visType: "funnel", config: { value, color, orient, … } }`. They merely omit the `configType` discriminator *inside* `config` (that field only exists for the `"basic"` renderer).
+> **Funnel and sankey still nest their spec under `config`:** `visConfig.visConfig = { visType: "funnel", config: { value, color, orient, … } }`. They only leave out the `configType` field inside `config`, which exists only for the `"basic"` renderer.
 
 | Field | Required | Description |
 |-------|----------|-------------|
@@ -773,7 +773,7 @@ For families not fully covered here (funnel, sankey, boxplot, map, regionMap, si
 omni documents v2-get <identifier>
 ```
 
-Each tile's `visConfig` shows the persisted `chartType`, `fields`, and inner `visConfig` with the rendering spec under `config` — the same shape you write, so it can be reused as a template as is.
+Each tile's `visConfig` shows the persisted `chartType`, `fields`, and inner `visConfig` with the rendering spec under `config`, the same shape you write, so it can be reused as a template as is.
 
 > **Tip**: Build one reference dashboard in the UI with every chart type you need, read it back once, and reuse those `config` objects as templates.
 
@@ -783,7 +783,7 @@ Optional field on `queryPresentation` controlling result display independent of 
 
 ### Table display & conditional formatting
 
-**Table display + conditional formatting live in the omni-table's INNER config** (`visConfig.visConfig.config` on write — NOT `resultConfig`). Verify by building a conditionally-formatted table and reading it back: have a person build it in the UI when one is available, or build it via Blobby when you are working without the UI. Read it back with `omni documents v2-get` — the formatters come back under the inner `config`, and a config placed in `resultConfig` is silently ignored. The inner config carries: `tableType` (`"stretch"` fills the tile; default `"spreadsheet"` hugs left), `rowBanding` (`{enabled, bandSize}`), `hideIndexColumn`, `columnFormats` (`{ "<view.field>": { align: "left"|"right" } }`), and **`conditionalFormatters`**:
+**Table display and conditional formatting go in the omni-table's inner config** (`visConfig.visConfig.config`); a config placed in `resultConfig` is ignored with no error. To confirm a setup, build a conditionally formatted table (in the UI, or with Blobby when no UI is available) and read it back with `omni documents v2-get`: the formatters come back under the inner `config`. The inner config carries: `tableType` (`"stretch"` fills the tile; default `"spreadsheet"` hugs left), `rowBanding` (`{enabled, bandSize}`), `hideIndexColumn`, `columnFormats` (`{ "<view.field>": { align: "left"|"right" } }`), and **`conditionalFormatters`**:
 
 ```jsonc
 // visConfig.visConfig = { visType: "omni-table", config: {
@@ -801,7 +801,7 @@ Optional field on `queryPresentation` controlling result display independent of 
 ] }
 ```
 
-`selection.type` may be `field`, `row`, or `cellRange`; **`selection` carries both `field` AND `target`** (same value for a field selection). **`automaticVis: true` is fine** — conditional formatting renders as long as the formatters are in this inner `config`, not `resultConfig` (where they're silently ignored). The whole spec sits under `config`, on write and on read.
+`selection.type` may be `field`, `row`, or `cellRange`; **`selection` carries both `field` and `target`** (same value for a field selection). With **`automaticVis: true`**, conditional formatting still renders as long as the formatters are in this inner `config`. The whole spec sits under `config`, on write and on read.
 
 ## aiConfig
 
@@ -864,4 +864,4 @@ An empty inner `config: {}` is fine for tables.
 
 > **`chartType: "auto"` is not a persistable render** — a tile saved with `auto` + an empty `config` shows "No chart available", because `auto` only resolves to a concrete chart at render time from live results. To create an auto-styled tile, populate a concrete `chartType` + inner `config` (build it in the UI and read it back if unsure).
 
-> **Recommendation**: For an unfamiliar chart type, build it once in the UI, read it back with `omni documents v2-get`, and reuse the inner vis config as your template. That is the most reliable path to a correct config.
+> **Recommendation**: For an unfamiliar chart type, build it once in the UI, read it back with `omni documents v2-get`, and reuse the inner vis config as your template.

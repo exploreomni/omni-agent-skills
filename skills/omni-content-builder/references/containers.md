@@ -78,11 +78,11 @@ A **dashboard text tile** is **not** a `queryPresentation` — it's a content-it
 | `inline-spacer` | `size` (px along the stack axis, default 16; in a grid the size comes from `gridPosition`) |
 | `inline-divider` | `direction`: `horizontal` / `vertical`; `thickness`: 1 / 2 / 4; `color`: `border1` / `border4` / `text1` / `text4`; `align`: `start` / `center` / `end` |
 | `placeholder` | a wire-frame slot with no content: `placeholderType` (`query` / `control` / `filter` / `text`), `label`, `description` |
-| `text` | `id` = UUID of a rich-text block (UI-authored; not minted by hand) |
+| `text` | `id` = UUID of a rich-text block created in the UI; don't generate one |
 
 Every content-item accepts `instanceKey`, `padding`, `preset`, and a `style` object with sizing keys (`width`, `height`, `minWidth`, `minHeight`, `maxWidth`, `maxHeight`, `aspectRatio`, `fillSpace`). On a `stack` or `grid` those sizing keys sit at the **top level** (as `fillSpace: true` does in the tile-stack example), while `style` is a preset **name** such as `"tile"`.
 
-Stack options beyond `direction` / `gap` / `padding` / `style`: `align` (`flex-start`, `flex-end`, `center`, `stretch`), `justify` (`flex-start`, `flex-end`, `center`, `space-between`), `wrap` (`nowrap` / `wrap`), `mobileBehavior` (`stack` flips a row to a column, `wrap` keeps the row and wraps, `keep` freezes the desktop arrangement, `hide` hides it on mobile), and `metadata.locked` (children can't be dragged, reordered, or resized in the editor). A `grid` takes `mobileBehavior` `keep` / `hide` and `metadata.locked`. A grid child's `x + w` must not exceed 24.
+Stack options beyond `direction` / `gap` / `padding` / `style`: `align` (`flex-start`, `flex-end`, `center`, `stretch`), `justify` (`flex-start`, `flex-end`, `center`, `space-between`), `wrap` (`nowrap` / `wrap`), `mobileBehavior` (`stack` turns a row into a column, `wrap` keeps the row and wraps it, `keep` keeps the desktop arrangement, `hide` hides it on mobile), and `metadata.locked` (children can't be dragged, reordered, or resized in the editor). A `grid` takes `mobileBehavior` `keep` / `hide` and `metadata.locked`. A grid child's `x + w` must not exceed 24.
 
 ## Grouping tiles into a movable band
 

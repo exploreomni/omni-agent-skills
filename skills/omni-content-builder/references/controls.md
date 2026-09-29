@@ -14,7 +14,7 @@ In the [v2 documents API](documents-v2.md), `controls.data` holds dashboard filt
 - [`map` — per-tile scoping](#map--per-tile-scoping) — exclude/include tiles, field overrides
 - [Config shapes](#config-shapes) — filter and interactive-control config by type
 - [More filter config shapes](#more-filter-config-shapes)
-- [Hiding a control](#hiding-a-control) — placement decides
+- [Hiding a control](#hiding-a-control) — by placement
 - [Parent controls (one control drives many)](#parent-controls-one-control-drives-many)
 - [Control vs. content-item — and syncing a filter across pages](#control-vs-content-item--and-syncing-a-filter-across-pages)
 - [Mustache control tokens (in markdown/text tiles)](#mustache-control-tokens-in-markdowntext-tiles)
@@ -66,7 +66,7 @@ The full control catalog (`type` values from the `CONTROL_TYPE` enum):
 | `TOP_N` | — | control | override a dimension's dynamic top-N limit |
 | `PERIOD_OVER_PERIOD` | — | control | add prior-period comparison columns (dashboard-only) |
 
-All carry `id` + optional `label`/`description` — **except `PERIOD_OVER_PERIOD`**, which carries only `id` + its own fields. A control config has no `hidden` on the v2 contract — visibility is placement (see [Hiding a control](#hiding-a-control)).
+All carry `id` + optional `label`/`description` — **except `PERIOD_OVER_PERIOD`**, which carries only `id` + its own fields. Whether a control is visible depends on its placement (see [Hiding a control](#hiding-a-control)).
 
 ### Date filter
 
@@ -127,7 +127,7 @@ Binds to tiles whose query uses that timeframed field.
 }
 ```
 
-> Unlike `FIELD_SELECTION` (which *swaps* one field), a field picker **adds** its selected `values` to a tile's query — so it has no existing-field-overlap requirement and applies to the tiles it's mapped to. `isDimension` hints whether each option is a dimension; `values` is the live selection. Optional `fieldOrder` (`"query"`, the default, or `"control"`) says who owns column order: with `"control"`, picked fields are reordered to match `values` even when the query already had them.
+> Unlike `FIELD_SELECTION` (which *swaps* one field), a field picker **adds** its selected `values` to a tile's query, so the tile's query doesn't need to contain any of those fields already; the picker applies to the tiles it's mapped to. `isDimension` marks whether each option is a dimension; `values` is the current selection. Optional `fieldOrder` sets column order: `"query"` (the default) keeps the query's order, and `"control"` reorders the picked fields to match `values`, including fields the query already had.
 >
 > **Known cosmetic bug:** a field picker's chip renders with the string-filter verb — e.g. `is Category,Order Count` — because it falls through to the string-EQUALS summary instead of having its own. Functionality is unaffected (the fields are added correctly).
 
@@ -197,10 +197,10 @@ Binds to tiles whose query uses that timeframed field.
 
 ## More filter config shapes
 
-Each shape below is a `controls.data.<id>.config` body. Common optional metadata across filter types: `label`; `description` (info-icon tooltip); `required: true` (a value must be set before the dashboard runs) with `requiredScope` (`"dashboard"` blocks every tile, `"tiles"` only the tiles the filter is connected to; a filter saved without it behaves as `"dashboard"`); `filterControlType` (string: `multiValueEquals` / `singleValueEquals`; date: `timeframe` / `singleDay`); `topic`; and `watchedContainerIds` (`[]` = don't auto-apply to new queries). There is no `hidden` (see below). Rules:
+Each shape below is a `controls.data.<id>.config` body. Common optional metadata across filter types: `label`; `description` (info-icon tooltip); `required: true` (a value must be set before the dashboard runs) with `requiredScope` (`"dashboard"` blocks every tile, `"tiles"` only the tiles the filter is connected to; a filter saved without it behaves as `"dashboard"`); `filterControlType` (string: `multiValueEquals` / `singleValueEquals`; date: `timeframe` / `singleDay`); `topic`; and `watchedContainerIds` (`[]` = don't auto-apply to new queries). Rules:
 
 - **Every filter MUST include `fieldName`** — fully qualified (e.g. `"users.state"`) — or it won't bind to any column. Date filters take **no timeframe bracket** (`order_items.created_at`, not `created_at[month]`).
-- Configs read back from UI-built dashboards also carry `topic` and `base_view` (see the date-filter example above). Keep `topic`; `base_view` is accepted for compatibility and ignored — the topic is the source of truth.
+- Configs read back from UI-built dashboards also carry `topic` and `base_view` (see the date-filter example above). Keep `topic`; `base_view` is accepted and ignored.
 - `config.type` values include `"string"`, `"number"`, `"date"`, `"boolean"`, `"null"`, `"by_query"`, `"user_attribute"`, `"composite"`. Common shapes are below; for the **filter-value shapes** of any type (incl. `composite` / `user_attribute` / `by_query` and the per-`kind` enums), see omni-query's [filter-expressions.md](../../omni-query/references/filter-expressions.md). When still unsure, build the filter in the Omni UI and read it back — `omni documents v2-get <identifier>` returns a `controls` slice you can copy directly into a patch.
 - **`filterControlType` must match `config.type`.** `singleValueEquals` and `multiValueEquals` are for `string` filters only; `singleDay` and `timeframe` are for `date` filters only. The API doesn't check the pairing. On a `number` filter, `singleValueEquals` drops every value a viewer picks in the filter bar, so only the saved default ever applies and a required filter never clears. For buttons or a dropdown on a number field, see [Single select on a number field](#single-select-on-a-number-field).
 
@@ -272,7 +272,7 @@ Place it with `"appearance": { "control": "buttonToggle" }` or `"dropdown"`. Wit
 
 ### Filter that applies but isn't shown
 
-A filter with a value that is **placed in no container** keeps applying to its tiles but has no UI — the server marks it hidden from its placement. Useful for hardcoded filters viewers shouldn't change. (Omni recommends model **access filters** over hidden dashboard filters for data restriction.) Don't send `hidden` (see below).
+A filter with a value that is **placed in no container** keeps applying to its tiles but has no UI. Use it for a fixed filter that viewers shouldn't change. (To restrict data, Omni recommends model **access filters** over hidden dashboard filters.)
 
 ```jsonc
 "config": {
@@ -287,13 +287,12 @@ Filters do **not** auto-apply to SQL-mode tiles — use templated (dynamic) filt
 
 ## Hiding a control
 
-Visibility is **placement**. A control is shown exactly where a container places it (the filter bar, a page, a tile). A control in `controls.data` that no container references is hidden: it still holds live state, still applies its value, and still feeds `{{controls.<id>.summary}}`. The server derives the stored flag from placement on every write, so:
+A control is shown only where a container places it: the filter bar, a page, or a tile. A control in `controls.data` that no container references is hidden, but it keeps its state, still applies its value, and still feeds `{{controls.<id>.summary}}`.
 
-- **To hide a control**, remove its content-item from every container and leave it in `controls.data` / `order`. Unplaced controls are not auto-placed (verified on create and on patch).
+- **To hide a control**, remove its content-item from every container and leave it in `controls.data` / `order`. Unplaced controls are not auto-placed on create or on patch.
 - **To show it again**, add a `{ "type": "filter" | "control", "id": … }` content-item for it.
-- **Don't send `hidden`.** A patch whose control config carries `hidden` (directly or inside a composite filter) is rejected with a 400 naming the control; reads never include the key.
 
-**In the editor (UI).** Hidden controls collect in a collapsible **HIDDEN CONTROLS** tray pinned to the top of the canvas — collapsed it shows just a count (`▸ HIDDEN CONTROLS (5)`), expanded it lists each so an author can still edit and set values. The UI's **Edit Control → Settings → "Hide this control when viewing the dashboard"** is the same state. A hidden control is invisible to viewers but its **value still applies**, and can be set via scheduled deliveries, embeds, and the URL param **`?c--<controlId>=<value>`** (`&editControl=<controlId>` opens its edit panel).
+**In the editor (UI).** Hidden controls collect in a collapsible **HIDDEN CONTROLS** tray at the top of the canvas (collapsed, it shows a count such as `▸ HIDDEN CONTROLS (5)`), where an author can still edit them and set values. The UI setting **Edit Control → Settings → "Hide this control when viewing the dashboard"** produces the same state. Viewers don't see a hidden control, but its **value still applies**, and it can be set through scheduled deliveries, embeds, and the URL parameter **`?c--<controlId>=<value>`** (`&editControl=<controlId>` opens its edit panel).
 
 ## Parent controls (one control drives many)
 
@@ -312,8 +311,8 @@ This is the mechanical form of the **"hide complexity"** best practice ([Dashboa
 ```
 
 - `selectionMap` is `{ "<childControlId>": { "<parentValue>": "<childFieldValue>" } }` — picking a parent option pushes the mapped value into each child.
-- Place **only the parent** in a container; leave the children unplaced so they stay invisible.
-- The unplaced children feed markdown tiles via `{{controls.<childId>.summary}}` (see [markdown-tiles.md](markdown-tiles.md)), so one parent click re-labels a whole row of KPI cards. The cards follow `.summary` (no field-swap needed); if a child's `config.field` is a real measure other tiles share, scope it with all-`false` child `map`s so it can't bleed into them.
+- Place **only the parent** in a container; leave the children unplaced so they stay hidden.
+- The unplaced children feed markdown tiles through `{{controls.<childId>.summary}}` (see [markdown-tiles.md](markdown-tiles.md)), so one click on the parent relabels a whole row of KPI cards. The cards read `.summary`, so no field swap is needed. If a child's `config.field` is a measure that other tiles also use, give the child a `map` with every tile set to `false` so it doesn't change them.
 
 ### A parent's Mapping tab is moot
 
