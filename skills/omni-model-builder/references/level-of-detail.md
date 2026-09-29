@@ -4,6 +4,22 @@ Docs: [Level of detail](https://docs.omni.co/modeling/dimensions/parameters/leve
 
 `level_of_detail` computes an aggregate at a grain **independent of the query's grouping**, then makes it available to your query. It is available on **dimensions** and **measures**. If you know Tableau LOD expressions, `fixed` / `always_include` / `always_exclude` map to `FIXED` / `INCLUDE` / `EXCLUDE`.
 
+## Contents
+
+- [Grouping strategies](#grouping-strategies)
+- [Authoring: `aggregate_type` lives inside `level_of_detail`](#authoring-aggregate_type-lives-inside-level_of_detail)
+- [Dimension LOD vs. measure LOD](#dimension-lod-vs-measure-lod)
+- [When to use each grain](#when-to-use-each-grain)
+- [Grain matching: `fixed:` has to name the grain the report actually uses](#grain-matching-fixed-has-to-name-the-grain-the-report-actually-uses)
+- [`always_exclude`: adapts, tolerates over-listing, needs `max`](#always_exclude-adapts-tolerates-over-listing-needs-max)
+- [Where to define it: cross-view lists belong in the topic](#where-to-define-it-cross-view-lists-belong-in-the-topic)
+- [Header amounts across line detail: LOD or composite](#header-amounts-across-line-detail-lod-or-composite)
+- [A grain chosen per query](#a-grain-chosen-per-query)
+- [Reusing an exclusion list across measures](#reusing-an-exclusion-list-across-measures)
+- [Related: `omni_dimensionalize()`](#related-omni_dimensionalize)
+- [Verifying what a LOD does](#verifying-what-a-lod-does)
+- [Related references](#related-references)
+
 ## Grouping strategies
 
 | Form | Grain of the aggregate | Empty list |

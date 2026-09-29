@@ -6,6 +6,19 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.20.0] - 2026-09-29
+
+### omni-analytics
+
+_Summary: four skills get shorter SKILL.md files, following Anthropic's skill-authoring guidance: a SKILL.md body under about 5k tokens and 500 lines, every reference linked from SKILL.md, and a table of contents on references over 100 lines. Whole sections move word for word into references, and a few rules that were stated twice are now stated once. No guidance changes. `omni-to-dbt-metricflow` and `omni-to-snowflake-semantic-view` wait for their open PRs._
+
+**Changed**
+- **`omni-query` — *A shorter SKILL.md*.** About 10.6k to 5.0k tokens (499 to 208 lines). Query parameters, raw SQL, request options, result handling and AI query generation move into their own references; table calculations and job results move into the references that already covered them.
+- **`omni-model-builder` — *A shorter SKILL.md*.** About 10.1k to 6.4k tokens (519 to 304 lines). Model layers, SQL dialect, post-merge checks, topic-scoped definitions, troubleshooting, writing topics and query views move into references. Five long references open with a table of contents.
+- **`omni-admin` — *A shorter SKILL.md*.** About 6.7k to 4.7k tokens (521 to 402 lines). Model roles, AI credits, color palettes, uploads, and cache and validation move into references; the section headings other skills cite stay in SKILL.md.
+- **`omni-ai-optimizer` — *A shorter SKILL.md*.** About 6.5k to 5.2k tokens (512 to 397 lines). The context-window rules, `ai_context` templating and agent skills move into references.
+- **`omni-to-databricks-metric-views` — *Finding sections*.** `FIELD-MAPPING.md` opens with a table of contents.
+
 ## [1.17.0] - 2026-09-24
 
 ### omni-analytics

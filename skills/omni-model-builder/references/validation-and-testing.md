@@ -79,6 +79,6 @@ omni models yaml-get <modelId> --file-name your_view.view --branch-id <branchId>
 
 ```
 
-Confirm your new fields are listed in the response. If they're missing, the YAML write may have silently failed (e.g., wrong `fileName`, malformed YAML string) — or the view may live in an offloaded schema that `yaml-get` doesn't surface. Before concluding a view doesn't exist, run the lazy-load fallback (see SKILL.md → "Fallback: View Missing from yaml-get").
+Confirm your new fields are listed in the response. If they're missing, the YAML write may have silently failed (e.g., wrong `fileName`, malformed YAML string) — or the view may live in an offloaded schema that `yaml-get` doesn't surface. Before concluding a view doesn't exist, run the lazy-load fallback (see [Fallback: View Missing from yaml-get](troubleshooting.md#fallback-view-missing-from-yaml-get)).
 
 > **Confirm you didn't create a duplicate.** `success: true` means accepted, not that it hit the intended file (see SKILL.md → Step 1). Re-list files and check the same view name doesn't now exist at two paths (e.g. `MARTS/foo.view` and `foo.view`); if it does, delete the stray one (empty `yaml`) and re-write with the full-path key.

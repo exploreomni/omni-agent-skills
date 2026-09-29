@@ -2,6 +2,22 @@
 
 ---
 
+## Contents
+
+- [Dimensions](#dimensions)
+  - [Standard string/number dimension](#standard-stringnumber-dimension)
+  - [Date / timestamp dimension](#date--timestamp-dimension)
+  - [Dimension group (`type: time` with `timeframes`) → one dimension per timeframe](#dimension-group-type-time-with-timeframes--one-dimension-per-timeframe)
+  - [Group dimension → `CASE WHEN` expression](#group-dimension--case-when-expression)
+  - [Bin dimension → `CASE WHEN` range expression](#bin-dimension--case-when-range-expression)
+  - [Duration dimension → `DATEDIFF` expression](#duration-dimension--datediff-expression)
+  - [Boolean (`type: yesno`) → BOOLEAN dimension](#boolean-type-yesno--boolean-dimension)
+- [Measures](#measures)
+  - [Standard measure](#standard-measure)
+  - [Count / count distinct](#count--count-distinct)
+  - [Derived / composed measure → use `MEASURE()`](#derived--composed-measure--use-measure)
+  - [Filtered measure → `FILTER (WHERE ...)`](#filtered-measure--filter-where-)
+
 ## Dimensions
 
 ### Standard string/number dimension
