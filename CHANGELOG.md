@@ -6,6 +6,29 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.20.0] - 2026-10-01
+
+### omni-analytics
+
+_Summary: corrections and additions to the aggregate awareness reference, from testing it against real aggregate tables. It now says which computed dimensions are served, how Omni chooses between tables that both fit, what changes when a table stores joined-view columns, that tables serve queries through left joins, how to keep a cached result from hiding a rewrite, and when to declare the topic a table was built from, including a composite topic. It also corrects the default `yaml-get` mode and several flags and examples elsewhere in the skill._
+
+**Fixed**
+- **`omni-model-builder` — *Choosing between aggregate tables*.** The reference said the coarsest table wins. Omni prefers the table with the fewest grouping columns, then the coarser date grain, then the table defined first; row counts are not considered. The reference now says so and how to avoid overlapping tables.
+- **`omni-model-builder` — *Day and month parts*.** The reference said day-part timeframes are not served from a day table. A day table now serves day of week, day of month, day of year and day of quarter, and a day or month table serves month number, month name and quarter of year. Week of year and hour parts are not served from a day table.
+- **`omni-model-builder` — *Reading back YAML*.** The skill said `yaml-get` returns the extension layer by default. It returns the combined result; read with `--mode extension` to see only your changes. The other `--mode` values are `staged`, `merged` and `fully-resolved`. A shared extension model synced to git stores only the extension layer.
+- **`omni-model-builder` — *Flags and examples*.** The division example is `a / NULLIF(b, 0)`. `yaml-get` and `get-schemas` both take `--branch-id`. The level-of-detail example uses `--file-name`. The topic-scoped ratio example quotes its `sql` and drops `aggregate_type: number`, which is not an aggregate type. The skill now links the three example files.
+
+**Changed**
+- **`omni-model-builder` — *Computed dimensions*.** A dimension computed from mapped fields is served from the table, and so is a base-view dimension that uses a joined view's field, under the joined-view rules.
+- **`omni-model-builder` — *Joined views*.** A table that maps joined-view columns is used only when every field in the query is mapped, and takes no other joins. It must be built through the same join the model uses, or the declared topic's, with the same join type and `on_sql`. A table serves queries through left joins with the same rows as the fact table; a measure on the joined view, or a count through a full or right join, reads the fact table. ClickHouse models need `sql_preamble: SET join_use_nulls = 1;`.
+- **`omni-model-builder` — *Confirming a query uses the table*.** A cached result shows the SQL without the rewrite header, so check with the cache skipped. The list of usual reasons now covers measures on a joined view and stored join results.
+- **`omni-model-builder` — *Declaring the topic a table was built from*.** Declare `topic:` for a table that maps joined-view columns built through a join only that topic defines, or one that holds the topic's always conditions without the columns they test. With `topic:`, those conditions are assumed to be in the table and are not checked. Access filters are still applied on read, so their fields must be reachable from the table. A topic whose always conditions use a user attribute turns the table off for every query, even when the tested field is stored; leave `topic:` out for such a topic.
+- **`omni-model-builder` — *A table built from a composite's query*.** Declare the composite as the table's `topic:` and map its fields by their composite names. It serves rollups and filters on the stored shared dimensions when the query includes every member, and reads each member's part under that member's always conditions.
+- **`omni-model-builder` — *Pinning a table to a filter value*.** Pin a field of the base view or of any view it joins, including through a left join.
+- **`omni-model-builder` — *Query views scoped to a topic*.** The rule appeared in two sections. It stays under *Topic-Scoped View Definitions*, and *Query Views* links to it.
+- **`omni-model-builder` — *Finding sections*.** `aggregate-awareness.md`, `composite-topics.md` and `modelParameters.md` open with a table of contents.
+- **`omni-model-builder` — *Evals*.** Two cases: a table built from a topic's query without the column its always condition tests, and a table built from a composite's query.
+
 ## [1.19.0] - 2026-10-01
 
 ### omni-integrations

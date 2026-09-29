@@ -4,6 +4,16 @@ A composite topic joins two or more topics on dimensions they share, so one quer
 
 Docs: [Composite topics](https://docs.omni.co/modeling/topics/composite-topics) · Guide: [Thin dimensional spine for multi-fact event analysis](https://docs.omni.co/guides/patterns/thin-dimension-spine), the established alternative when the facts share only a date or a key
 
+## Contents
+
+- [Is it a composite? The cardinality test](#is-it-a-composite-the-cardinality-test)
+- [The file](#the-file)
+- [Same fact, two lenses](#same-fact-two-lenses)
+- [Shared measures](#shared-measures)
+- [Topic-specific dimensions: `unrelated_dimension_handling`](#topic-specific-dimensions-unrelated_dimension_handling)
+- [Querying a composite](#querying-a-composite)
+- [Aggregate tables and composites](#aggregate-tables-and-composites)
+
 ## Is it a composite? The cardinality test
 
 A metric that aggregates one fact and filters on another is not automatically a composite. How the summed fact reaches the filter table decides the shape:
@@ -151,4 +161,4 @@ The `@` is required in query field specs and filter keys (a spec without it is r
 
 ## Aggregate tables and composites
 
-Each member query of a composite is matched against its member topic's aggregate tables on its own, so a table declared on a member topic's base view serves that member's query under the same rules as a regular query, including `filters:` pins: two members can read two different pinned tables. Declare aggregate tables on the base views, with no `topic:` in the declaration. See [aggregate-awareness.md](aggregate-awareness.md).
+Each member query of a composite is matched against its member topic's aggregate tables on its own, so a table declared on a member topic's base view serves that member's query under the same rules as a regular query, including `filters:` pins: two members can read two different pinned tables. Declare those tables on the base views, with no `topic:`. A table built from the composite's own query declares the composite as its `topic:` instead; see [aggregate-awareness.md](aggregate-awareness.md#composite-topics).

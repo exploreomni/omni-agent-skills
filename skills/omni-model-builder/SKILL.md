@@ -56,7 +56,7 @@ omni connections list
 # → e.g. "bigquery", "postgres", "snowflake", "databricks"
 ```
 
-Use dialect-appropriate functions in your SQL (e.g. `SAFE_DIVIDE` for BigQuery, `NULLIF(a/b)` for Postgres/Snowflake).
+Use dialect-appropriate functions in your SQL (e.g. `SAFE_DIVIDE` for BigQuery, `a / NULLIF(b, 0)` for Postgres/Snowflake).
 
 > **Creating a *new* SHARED model (rare).** Most work is on an existing model — but if you do create one with `omni models create`, the body is `{ modelKind: "SHARED", connectionId }` (no `baseModelId`; it inherits the connection's schema views + assumed relationships — run `omni models create --schema` for the full field list). **Footgun: create takes `modelName`, update takes `name`.** Passing `name` on create is silently ignored and the model is named from the connection — then you'd have to `omni models update <id> --body '{"name":"…"}'` to fix it. Pass **`modelName`** on create and skip the rename.
 
@@ -271,17 +271,17 @@ Result: `created_at` inherits its type from the schema layer (DATE with automati
 
 **Key insight**: If your extension defines a dimension but there's no schema layer base dimension to provide type information, Omni can't infer granularities or types. Trigger a schema refresh to auto-generate the schema layer first.
 
-**Reading back what you wrote — `--mode`.** `yaml-get` returns your **extension** layer by default — just the deltas you authored, *not* the auto-generated base columns. To see the **fully-composed** result (schema base + your extension merged), read with `--mode combined`:
+**Reading back what you wrote — `--mode`.** `yaml-get` returns the **combined** result by default: the schema base merged with your extension. To see only the deltas you authored, without the auto-generated base columns, read with `--mode extension`:
 
 ```bash
-# What you authored (deltas only) — default
+# What you authored (deltas only)
 omni models yaml-get <modelId> --file-name your_view.view --branch-id <branchId> --mode extension
 
-# What the model actually resolves to (schema + extension merged)
+# What the model actually resolves to (schema + extension merged) — the default
 omni models yaml-get <modelId> --file-name your_view.view --branch-id <branchId> --mode combined
 ```
 
-Use `extension` to confirm *what you changed*, and `combined` to confirm *what the model resolves to*. When the model is git-integrated, the **combined** output mirrors what's written to the repository — which is why committed `*.view.yaml` files carry the schema-layer `table_name:` and base columns, while the extension layer holds only your deltas. (Other `--mode` values: `staged`, `merged`, `history`.)
+Use `extension` to confirm *what you changed*, and `combined` to confirm *what the model resolves to*. When the model is git-integrated, the **combined** output mirrors what's written to the repository — which is why committed `*.view.yaml` files carry the schema-layer `table_name:` and base columns, while the extension layer holds only your deltas. For a shared extension model synced to git, the files hold only the extension layer, what `--mode extension` returns. Other `--mode` values: `staged` returns the branch model only; `merged` returns the branch merged with the shared model, in the same form as `extension`; `fully-resolved` returns `combined` with the `extends` chain expanded (the same as `--mode combined --fully-resolved true`).
 
 ### Dimension Parameters
 
@@ -342,7 +342,7 @@ omni models yaml-get <modelId> --include-schemas PUBLIC
 **Rules for `--include-schemas`:**
 - Accepts exactly **one schema name** per call — commas are rejected. Load schemas one at a time.
 - The response will contain only views from that schema; relationships to other schemas are preserved.
-- To scope to a branch, add `--branch-id <id>` to `yaml-get` or `--branch-id <id>` to `get-schemas` (flag names differ per command).
+- To scope to a branch, add `--branch-id <id>` to `yaml-get` or `get-schemas`.
 
 If the schema isn't in the `get-schemas` list at all, the connection likely doesn't have access or the schema isn't synced — check with a Connection Admin.
 
@@ -476,7 +476,7 @@ See `references/topic-scoped-views.md` for a full pattern gallery (label overrid
 
 **Joining the same view multiple ways** (e.g., ARR at Start / Current / End): Use `extends:` inside the topic's `views:` block to create named aliases, each with its own `on_sql` in `relationships:`. Each alias inherits all base view fields and can override labels independently. For a full YAML example, see `references/topic-scoped-views.md`.
 
-**Topic-scoped query views:** A query view can also be defined inside a topic's `views:` block, scoping it to that topic only. Same primary key rules apply (`primary_key: true` or `custom_compound_primary_key_sql`). Include a `relationships:` entry and a `joins:` entry for the new view — see Query Views section above, and `references/topic-scoped-views.md` for a complete example.
+**Topic-scoped query views:** A query view can also be defined inside a topic's `views:` block, scoping it to that topic only. Same primary key rules apply (`primary_key: true` or `custom_compound_primary_key_sql`). Include a `relationships:` entry and a `joins:` entry for the new view — see [Query Views](#query-views), and `references/topic-scoped-views.md` for a complete example.
 
 ## Query Views
 
@@ -492,7 +492,7 @@ Both options work with either a `query:` block (field-mapped virtual table) or a
 
 > If the user is unsure which field is unique, ask before writing the view. A query view without a primary key will trigger a "Joins fan out the data without a primary key" error when joined. See: https://community.omni.co/t/why-am-i-getting-the-error-joins-fan-out-the-data-without-a-primary-key/37
 
-Query views can also be defined inline within a topic's `views:` block, scoping the virtual table to that topic only. See `references/topic-scoped-views.md` for an example.
+To scope a query view to one topic, see [Topic-Scoped View Definitions](#topic-scoped-view-definitions).
 
 **`sql:` versus `query:` for a rollup.** Field references (`${view.field}`) work inside a `sql:` block, but Omni expands them once, when the file is saved, into alias-qualified columns, so the `FROM` must be aliased to the view's reference name (`FROM ${order_items} AS "order_items"`). Validation does not catch a missing alias; a query does. The `query:` form (`fields:` mapping view fields and measures to column names, plus `base_view` and `topic`) compiles through the model on every run, so later changes to those fields flow through. A `sql:` query view gets no automatic `count` measure; declare one if it is needed. Examples in `references/query-view-examples.md`.
 

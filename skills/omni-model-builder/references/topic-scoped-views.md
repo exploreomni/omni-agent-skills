@@ -1,7 +1,5 @@
 # Topic-Scoped View Definitions — Extended Examples
 
-> **Note for contributors:** This file is a YAML example gallery for human reference. It is not loaded at agent runtime. All procedural guidance and directives live in `SKILL.md` under "Writing Relationships → Topic-Scoped View Definitions."
-
 See [Topic views parameter](https://docs.omni.co/modeling/topics/parameters/views.md) for the full reference.
 
 ## Controlling View Display Order
@@ -78,8 +76,7 @@ views:
   order_items:
     measures:
       revenue_per_user:
-        sql: ${total_revenue} / NULLIF(${users.count}, 0)
-        aggregate_type: number
+        sql: "${total_revenue} / NULLIF(${users.count}, 0)"
         format: currency_2
         label: Revenue per User
 

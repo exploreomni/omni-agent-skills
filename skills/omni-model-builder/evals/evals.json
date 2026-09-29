@@ -164,6 +164,34 @@
         "The agent does not merge without explicit confirmation"
       ],
       "expected_skill": "omni-model-builder"
+    },
+    {
+      "id": "13",
+      "question": "Our order_items_open topic uses always_where_filters to exclude cancelled lines (status is not Cancelled). We built the warehouse table ORDER_ITEMS_OPEN_DAILY from that topic's query: one row per created day and user_id, with the order count and the sale-price total, and no status column. Make Omni serve that topic's day-grain-or-coarser queries from it.",
+      "ground_truth": "On a branch, a view for ORDER_ITEMS_OPEN_DAILY carries a materialized_query with a fields map for order_items.created_at[date], order_items.user_id, order_items.count and the sale-price sum, base_view order_items, and topic: order_items_open, because the table holds the topic's always condition but not the status column it tests. The agent does not add or map a status column. It says that with topic: declared, Omni treats the topic's always conditions as already in the table without checking, so the table must stay built with exactly that condition and be rebuilt if it changes, and that a topic without the condition reads the fact table. It validates the branch and confirms with a planOnly SkipCache query on order_items_open that display_sql carries the rewrite header.",
+      "expected_behavior": [
+        "The agent works on a branch",
+        "The materialized_query declares topic: order_items_open, with base_view order_items and a fields map for created_at[date], user_id, count and the sale-price sum",
+        "The agent does not map a status column or change the table to add one",
+        "The agent states that the topic's always conditions are treated as already in the table and are not checked, so the table must be built with exactly that condition and rebuilt when it changes",
+        "The agent validates the branch and confirms with a planOnly SkipCache query on order_items_open that display_sql carries the rewrite header",
+        "The agent does not merge without explicit confirmation"
+      ],
+      "expected_skill": "omni-model-builder"
+    },
+    {
+      "id": "14",
+      "question": "The open_vs_all composite topic has members sales_all and sales_open (sales_open excludes cancelled lines with always_where_filters on status) and shared dimensions reporting_date and status. We built the warehouse table OPEN_VS_ALL_DAILY from the composite's own query: one row per day and status, with each member's sale-price total. Make Omni serve the composite's monthly queries from it.",
+      "ground_truth": "On a branch, a view for OPEN_VS_ALL_DAILY carries a materialized_query with topic: open_vs_all, a base_view (order_items), and a named fields map using the composite's field names: @_shared_dimensions_.reporting_date[date], @_shared_dimensions_.status, and each member's total as @sales_all.order_items.total_sale_price and @sales_open.order_items.total_sale_price. It keeps status in the table because sales_open's always condition tests it. It does not use a positional fields list. The agent validates the branch with no materialized_query warning and confirms with a planOnly SkipCache month query on open_vs_all, asking for both members' totals, that display_sql carries the rewrite header. It notes that a query must include both members to use the table.",
+      "expected_behavior": [
+        "The agent works on a branch",
+        "The materialized_query declares topic: open_vs_all and a base_view",
+        "The fields map uses @_shared_dimensions_ names for reporting_date (with a date timeframe) and status, and @sales_all / @sales_open names for the member totals, in the map form of `fields`",
+        "Status stays mapped because sales_open's always condition tests it",
+        "The agent validates the branch and confirms with a planOnly SkipCache month query on open_vs_all, with both members' totals, that display_sql carries the rewrite header",
+        "The agent does not merge without explicit confirmation"
+      ],
+      "expected_skill": "omni-model-builder"
     }
   ]
 }
