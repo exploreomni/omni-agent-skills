@@ -8,6 +8,7 @@ Every dashboard build or update must include validation before and after creatio
 - [Step 2: Test Every Query via Execution](#step-2-test-every-query-via-execution)
 - [Step 3: Validate Viz Spec Consistency](#step-3-validate-viz-spec-consistency)
 - [Step 4: Validate the Draft Before Publishing](#step-4-validate-the-draft-before-publishing)
+- [Optional: check the render in a browser](#optional-check-the-render-in-a-browser)
 - [Validation Checklist Summary](#validation-checklist-summary)
 
 ## Step 1: Validate the Model
@@ -129,6 +130,20 @@ Using `"resultType": "csv"` makes it easy to spot-check that the data looks reas
 **4c. If any query fails:** the draft has a broken tile. Fix it with one corrected `omni documents v2-patch-draft-by-identifier <identifier> <draftIdentifier>` at most; if that also fails, `omni documents discard-draft <identifier>` and report the blocker — the published dashboard was never touched. Do not enter an open-ended repair loop, and do not publish a draft with a known-broken tile.
 
 **4d. Publish, then spot-check:** after `v2-publish-draft`, a final `omni documents v2-get <identifier>` confirms the published state matches the validated draft.
+
+## Optional: check the render in a browser
+
+When a browser is reachable, a visual check is a valid last step after the API checks above. It adds to them; it never replaces them. A dashboard PNG from `omni dashboards download` ([downloads.md](downloads.md)) is the same check without a browser.
+
+An Omni dashboard page never goes idle: it keeps connections open, so a tool that waits for the network to go quiet, such as a "network idle" load state or a screenshot that waits for the page to settle, times out. Work around it:
+
+- **Wait for the page, not the network.** Load the page, then check the DOM in short, separate reads a few seconds apart, up to a fixed limit such as 60 seconds, instead of waiting for a load event.
+- **Wait until no tile is still loading.** A tile that is re-running its query keeps showing its previous result, with only a small loading indicator in its corner, so values read too early are stale. Reload after any change, and treat the page as settled only when no element matching `[aria-busy=true]`, `[class*=pulse]`, `[class*=loading]` or `[class*=spinner]` has a nonzero height.
+- **Read values from the DOM where you can.** A tile's rendered text (KPIs, markdown, tables) is the `innerText` of its `[data-tile-identifier]` element, and filter-bar controls are `[data-filter-kind]` elements. Charts draw on a canvas, so their values are not in the DOM; compare those with the tile's query results instead. These selectors come from the current app and can change; when one finds nothing, fall back to the PNG.
+- **Set filter values through the URL** for a filter-dependent check, and reload, rather than changing them interactively.
+- **Navigate pages by URL.** A page is at `/dashboards/<identifier>/<pageId>`. A draft opens in edit mode, where clicking a page tab opens its settings instead of switching pages, so use the URL there too.
+- **When the screenshot tool times out,** capture the browser window at the operating-system level instead. The window has to be visible on screen: a covered or background window stops painting and captures blank. Background tabs also slow page timers to about once a minute, so don't wait with timers inside the page.
+- **Stop at the limit.** If the page hasn't settled by then, report which tiles are still loading, and rely on the PNG and the per-tile query results.
 
 ## Validation Checklist Summary
 

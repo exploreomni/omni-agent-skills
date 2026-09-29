@@ -89,7 +89,7 @@ omni documents v2-create --body '{
 - The `query` needs the full collection-field set (see *Known Issues & Safe Defaults* in SKILL.md) and **no `modelId`**.
 - `controls` and `settings` slices can be included in the same create body — see [controls.md](controls.md#filters-and-controls-in-a-create-body).
 
-**To learn the exact structure for a chart type**, build a reference dashboard in the Omni UI and read it back with `omni documents v2-get <identifier>`. Tiles come back in the shape you write, so they can be reused as is.
+**To learn the exact structure for a chart type**, start from the recipes in [visConfig.md](visConfig.md). For a chart type with no recipe, find an existing dashboard that uses it (`omni documents list`, or the `omni-content-explorer` skill) and read it back with `omni documents v2-get <identifier>`; tiles come back in the shape you write, so they can be reused as is. If no dashboard uses it, ask the user for one.
 
 ## Rename Document
 
@@ -135,10 +135,3 @@ Only published documents can be duplicated. Draft documents return 404.
 5. **Create document** — single `omni documents v2-create` with `queryPresentations` + `controls` + `settings` in one body (add `containers` only to set the layout yourself)
 6. **Verify the dashboard** — read it back with `omni documents v2-get`, confirm all tiles are present and placed, then run each tile's query via `omni documents get-queries` + `omni query run` to verify no broken tiles
 7. **Share the link** — return `{OMNI_BASE_URL}/dashboards/{identifier}` to the user (only after verification passes)
-8. **Refine in UI** — fine chart styling and pixel-level layout tweaks are still easiest in the Omni UI
-
-### UI-First (Hybrid Approach)
-
-1. **Prepare the Model** — use `omni-model-builder` for shared fields, or the workbook-model flow in [workbook-model.md](workbook-model.md) for dashboard-specific fields
-2. **Build in UI** — add tiles, choose viz types, arrange the grid, set filters
-3. **Iterate via API** — read the structure back with `v2-get`, update model fields, extract queries for reuse

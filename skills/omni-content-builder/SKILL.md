@@ -97,7 +97,7 @@ omni documents v2-create --schema  # Body schema + example (add --depth 1 for an
 | Publish a draft | `documents v2-publish-draft` |
 | Read or edit an **app** (HTML instead of a dashboard) | `documents get-app` / `put-app` / `patch-app` / `remove-app` (+ the draft and auto-draft forms) — alpha, CLI ≥ 1.4.0; see [references/documents-v2.md](references/documents-v2.md) |
 
-A handful of **document-management** operations have no v2 form — they aren't alternatives to the v2 build path, just the only command for that job: `documents list` / `list-drafts` (find documents and drafts), `documents discard-draft` (abandon a draft), `documents delete` / `move` / `duplicate` (lifecycle), `documents get-queries` (extract a tile's runnable query for validation), `dashboards download` / `download-status`, and `models yaml-create` / `validate` (model writes).
+A handful of **document-management** operations have no v2 form — they aren't alternatives to the v2 build path, just the only command for that job: `documents list` / `list-drafts` (find documents and drafts), `documents discard-draft` (abandon a draft), `documents delete` / `move` / `duplicate` (lifecycle), `documents get-queries` (extract a tile's runnable query for validation), `dashboards download` / `download-status`, `documents upgrade-layout` (move a classic-layout dashboard to the advanced layout; it publishes, so confirm first), and `models yaml-create` / `validate` (model writes).
 
 ## Dashboard Architecture
 
@@ -146,7 +146,7 @@ Filters and interactive controls share one envelope slice: `controls: {data, ord
 - **Filter shapes** (date / string / number / boolean, required) and **interactive controls** (field/timeframe switchers) are documented with examples in [references/controls.md](references/controls.md).
 - `map` scopes a control per tile: `{"<tileKey>": false}` excludes a tile, `{"<tileKey>": "<fieldName>"}` remaps it — for both filters and interactive switchers.
 - **Every filter MUST include `fieldName`** with the fully qualified field name (no timeframe bracket for date filters), or it won't bind to any column.
-- To learn exact shapes, build filters in the Omni UI and read them back with `omni documents v2-get` — the `controls` slice is directly reusable in a patch.
+- To reuse a filter from an existing dashboard, read it back with `omni documents v2-get`; its `controls` slice can go into a patch as is.
 
 **Model it or control it?** Model a filter as a filter-only field when every workbook and dashboard on the topic should get it, when one control drives several columns or a measure threshold, or when a control switches which column or measure a field uses. Otherwise use a dashboard control. The full criteria, including what a Restricted Querier can do: [references/controls.md](references/controls.md#model-it-or-control-it).
 
@@ -183,7 +183,7 @@ Every build or update must be validated **before publishing**: broken tiles, bad
 3. **Check each viz spec**: `prefersChart: true`, the spec under `visConfig.visConfig.config`, and a `chartType` that matches its `visType` and `configType`.
 4. **Verify the draft before publishing**: read it back with `v2-get-draft`, run each tile's query (`omni documents get-queries` + `omni query run`), and report each tile's status and row count.
 
-What to check in each response, the full viz-spec table, and the checklist: [references/validation-and-testing.md](references/validation-and-testing.md).
+What to check in each response, the full viz-spec table, the checklist, and an optional browser check for when a browser is reachable (the page never goes idle, so it has its own waiting rules): [references/validation-and-testing.md](references/validation-and-testing.md).
 
 ## Dashboard Downloads
 

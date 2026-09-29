@@ -2,7 +2,7 @@
 
 Edits go through the **v2 draft flow**: read the published state, author a merge-by-key patch, apply it to a draft, validate the draft, publish. The published dashboard is untouched until `v2-publish-draft` — a bad draft is discarded with zero impact.
 
-> **Advanced layout only.** Classic-layout dashboards return **422** from the v2 endpoints: *"This document uses the classic dashboard layout, which the documents API does not support. Upgrade the dashboard to the advanced layout before editing it through the API."* There is no API fallback — ask the user to upgrade the layout in the Omni UI, then retry.
+> **Advanced layout only.** Classic-layout dashboards return **422** from the v2 endpoints: *"This document uses the classic dashboard layout, which the documents API does not support. Upgrade the dashboard to the advanced layout before editing it through the API."* To fix it, run `omni documents upgrade-layout <identifier>`, then retry. On a published dashboard it publishes the new layout immediately, so confirm with the user first; if a draft exists it returns 409, and `clearExistingDraft: true` discards that draft, so never pass it without asking.
 
 ## Contents
 
@@ -133,7 +133,7 @@ When `--body` is present, the CLI **silently ignores every shorthand flag** (`--
 | 404 | Nonexistent document | |
 | 404 | `v2-publish-draft` with no **main** draft | `"Document draft does not exist"` — including when only a *branch-bound* draft exists ([branch-bound-drafts.md](branch-bound-drafts.md)) |
 | 404 | Patching a draft identifier as if it were published | plain not-found |
-| 422 | Classic dashboard layout | exact message above; no API fallback — upgrade in the UI |
+| 422 | Classic dashboard layout | exact message above; after the user confirms, `omni documents upgrade-layout <identifier>` (see above), then retry |
 
 ## Failure handling
 

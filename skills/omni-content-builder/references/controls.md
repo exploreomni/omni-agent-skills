@@ -333,7 +333,7 @@ A **control** lives once in `controls.data[id]` — it owns the config **and the
 { "type": "filter", "id": "order_created_filter", "instanceKey": "fbar-order-created-p2" }
 ```
 
-- **UI path:** **Duplicate page** does exactly this — it deep-clones the page's containers + content-items, regenerating `instanceKey`s but **preserving each content-item's `id`**, so the copy's filters reference the same controls (synced). Build the sidebar on one page, duplicate, then swap the copy's content tiles.
+- **In the UI**, **Duplicate page** produces the same result: it deep-clones the page's containers + content-items, regenerating `instanceKey`s but **preserving each content-item's `id`**, so the copy's filters reference the same controls (synced).
 - **Not** via independent drag/add: dragging a filter **moves** its single placement (no copy), and there's no UI affordance to place an already-placed control a second time. The filter-bar's duplicate-rejection is **bar-scoped only**, so you *can* drag a filter out of the bar into a page sidebar — but just that one placement.
 - **Filter-bar contrast:** in the (global, every-page) filter bar, **one** placement covers all pages. Per-page sidebars need **one placement per page**, all reusing the same control id.
 

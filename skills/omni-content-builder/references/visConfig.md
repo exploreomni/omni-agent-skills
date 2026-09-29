@@ -22,7 +22,7 @@ Complete reference for a tile's visualization config — the v2 `visConfig` enve
 - [Common Mistakes](#common-mistakes)
 - [Safe Defaults](#safe-defaults)
 
-> **Important**: The visualization config schema is not fully documented in Omni's public API docs. The cartesian structures below (axis, color, series, mark) are derived from Omni's visualization parser schema and cross-checked by reading dashboards back via `omni documents v2-get`. For uncommon chart types (funnel, sankey, map, boxplot, single-record), **always verify** by building a reference chart in the UI and reading it back before relying on these examples.
+> **Important**: The visualization config schema is not fully documented in Omni's public API docs. The cartesian structures below (axis, color, series, mark) are derived from Omni's visualization parser schema and cross-checked by reading dashboards back via `omni documents v2-get`. For uncommon chart types (funnel, sankey, map, boxplot, single-record), **always verify** by reading back an existing dashboard that uses the chart type before relying on these examples.
 
 ## Where the visualization config lives
 
@@ -327,7 +327,7 @@ A value-bearing field is `{ row, field: { name, pivotMap: {} }, label: { value }
 
 Top-level `KpiConfig` also takes `fontLabelSize?` / `fontBodySize?` / `fontKPISize?` and `dynamicFontSize?` (opt into container-query sizing of the big number) alongside `alignment` / `verticalAlignment` / `markdownConfig`.
 
-> The `comparison`/`progress` `field`/`comparison` objects nest a `SummaryValueConfig` (the same `{ field, label, … }` a number uses) plus `row`; the **exact nesting is easiest to get right by building the KPI in the UI and reading it back** (`omni documents v2-get`). The colors here (`colorPositive`/`colorNegative`/`swapColors`) are the configuration-level way to recolor a delta **in a native KPI tile**; for a markdown *card*, the equivalent is the kebab `swap-colors` attribute (see [markdown-tiles.md](markdown-tiles.md)).
+> The `comparison`/`progress` `field`/`comparison` objects nest a `SummaryValueConfig` (the same `{ field, label, … }` a number uses) plus `row`; the **exact nesting is easiest to get right by reading back an existing KPI tile** (`omni documents v2-get`) and reusing it. The colors here (`colorPositive`/`colorNegative`/`swapColors`) are the configuration-level way to recolor a delta **in a native KPI tile**; for a markdown *card*, the equivalent is the kebab `swap-colors` attribute (see [markdown-tiles.md](markdown-tiles.md)).
 
 > **⚠️ A malformed `markdownConfig` entry PERSISTS on write but CRASHES at render — the API won't catch it.** Two signatures, both from an incomplete value-field:
 > - **`Cannot read properties of undefined (reading 'name')`** — a `comparison` entry whose `comparison` (or `field`) is a bare `{ "row": "_second" }` with no `field: { name, pivotMap }`. The renderer reads `entry.config.comparison.field.name` → crash. The `comparison` value is a **full value-field**, not just a row pointer.
@@ -467,7 +467,7 @@ A complete, **render-verified** status KPI — label + value + change-vs-prior (
 | `color` | Yes | The measure, `{field:{name}}` |
 | `center`, `zoom` | Recommended | Viewport (e.g. `[-98.35, 39.5]` / `3` for the US). Without it the map fits to data and may zoom into a single locality. |
 
-> Map specs are best captured by building one in the UI and reading it back (`omni documents v2-get`).
+> To capture a map spec, read back an existing dashboard with a map tile (`omni documents v2-get`) and reuse its config.
 
 > **Point maps auto-fit to the data's bounding box.** Set `center`/`zoom` to frame a region, but the map won't zoom *tighter* than the extent of your points — e.g. a US map of distribution centers spanning LA↔NY caps at a coast-to-coast frame; pushing `zoom` higher clips the edge points rather than enlarging the country. Tune `zoom` to taste (≈3.6–3.8 for the contiguous US) and accept that the data spread sets the floor.
 
@@ -767,7 +767,7 @@ Set `prefersChart: false` on the tile; the inner `config` is an empty object.
 
 ## Discovering Config for Advanced Chart Types
 
-For families not fully covered here (funnel, sankey, boxplot, map, regionMap, singleRecord), build the chart in the Omni UI and read it back:
+For families not fully covered here (funnel, sankey, boxplot, map, regionMap, singleRecord), read back an existing dashboard that uses the chart:
 
 ```bash
 omni documents v2-get <identifier>
@@ -775,7 +775,7 @@ omni documents v2-get <identifier>
 
 Each tile's `visConfig` shows the persisted `chartType`, `fields`, and inner `visConfig` with the rendering spec under `config`, the same shape you write, so it can be reused as a template as is.
 
-> **Tip**: Build one reference dashboard in the UI with every chart type you need, read it back once, and reuse those `config` objects as templates.
+> **Tip**: When the organization already has dashboards with the chart types you need, read them back once and reuse those `config` objects as templates.
 
 ## resultConfig
 
@@ -783,7 +783,7 @@ Optional field on `queryPresentation` controlling result display independent of 
 
 ### Table display & conditional formatting
 
-**Table display and conditional formatting go in the omni-table's inner config** (`visConfig.visConfig.config`); a config placed in `resultConfig` is ignored with no error. To confirm a setup, build a conditionally formatted table (in the UI, or with Blobby when no UI is available) and read it back with `omni documents v2-get`: the formatters come back under the inner `config`. The inner config carries: `tableType` (`"stretch"` fills the tile; default `"spreadsheet"` hugs left), `rowBanding` (`{enabled, bandSize}`), `hideIndexColumn`, `columnFormats` (`{ "<view.field>": { align: "left"|"right" } }`), and **`conditionalFormatters`**:
+**Table display and conditional formatting go in the omni-table's inner config** (`visConfig.visConfig.config`); a config placed in `resultConfig` is ignored with no error. To confirm a setup, write the table on a draft and read it back with `omni documents v2-get-draft`: the formatters come back under the inner `config`. The inner config carries: `tableType` (`"stretch"` fills the tile; default `"spreadsheet"` hugs left), `rowBanding` (`{enabled, bandSize}`), `hideIndexColumn`, `columnFormats` (`{ "<view.field>": { align: "left"|"right" } }`), and **`conditionalFormatters`**:
 
 ```jsonc
 // visConfig.visConfig = { visType: "omni-table", config: {
@@ -833,7 +833,7 @@ Enables AI-generated descriptions/subtitles on tiles:
 | Stack dimension not pivoted | Single un-split series | Add the `color.field` dimension to `query.pivots` |
 | Missing measure in query | Empty tile, no error | Every query must include at least one measure |
 | `regionMap` not shading | "No chart available" / blank map | Use `visType: "map"`, `regionType: "us-states"`/`"countries"`, a `sourceProperty` matching your field's values (`"NAME"`/`"CODE"`/iso codes), and `center`/`zoom` |
-| `chartType: "auto"` with empty config | "No chart available" | `auto` can't persist a render; populate a concrete spec from the recipes in this file. When no recipe covers the chart, have it built in the UI and read the config back |
+| `chartType: "auto"` with empty config | "No chart available" | `auto` can't persist a render; populate a concrete spec from the recipes in this file. When no recipe covers the chart, copy the config from an existing dashboard that uses it (`v2-get`) |
 | `aiContext`/`markdown` on AI-summary tile | Renders blank/wrong | Use `ai_context` + `showWarning` (snake_case) |
 
 ## Text & AI tiles
@@ -864,4 +864,4 @@ An empty inner `config: {}` is fine for tables.
 
 > **`chartType: "auto"` is not a persistable render** — a tile saved with `auto` + an empty `config` shows "No chart available", because `auto` only resolves to a concrete chart at render time from live results. To create an auto-styled tile, populate a concrete `chartType` + inner `config` (build it in the UI and read it back if unsure).
 
-> **Recommendation**: For an unfamiliar chart type, build it once in the UI, read it back with `omni documents v2-get`, and reuse the inner vis config as your template.
+> **Recommendation**: For an unfamiliar chart type, find an existing dashboard that uses it, read it back with `omni documents v2-get`, and reuse the inner vis config as your template.

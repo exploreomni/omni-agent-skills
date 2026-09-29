@@ -226,7 +226,7 @@ A stacked **column** is vertical; a stacked **bar** is horizontal — Omni disti
 
 ## Discovering the Full Structure from Existing Dashboards
 
-The most reliable way to learn the exact inner config for a chart family (especially the less common ones) is to build it once in the Omni UI and read it back:
+To learn the exact inner config for a chart family (especially the less common ones), read back an existing dashboard that uses it:
 
 ```bash
 omni documents v2-get <identifier>
@@ -606,4 +606,4 @@ All line, column/bar, area, scatter, and combo charts use this structure:
 | Point map | `"map"` | `"map"` | — | — | — |
 | Region map | `"regionMap"` | `"map"` | — | — | — |
 
-> For funnel, sankey, map, region map, heatmap, and boxplot, the inner `config` field names are best confirmed by building the chart once in the Omni UI and reading it back (`omni documents v2-get` returns the inner spec in the shape you write) — see [visConfig.md](visConfig.md) for the known shapes.
+> For funnel, sankey, map, region map, heatmap, and boxplot, start from the known shapes in [visConfig.md](visConfig.md), and confirm the inner `config` field names by reading back an existing dashboard that uses the chart (`omni documents v2-get` returns the inner spec in the shape you write).

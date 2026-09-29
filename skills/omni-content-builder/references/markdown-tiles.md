@@ -64,7 +64,7 @@ Computes the percent change itself (`current / comparison − 1`) and picks the 
 > - `<Sparkline>`: `show-axis` ✅ — `showAxis` ❌
 > - `<comparison>` (and `<single-value>`/`<progress>`): `description-before` / `description-after` ✅ — `descriptionBefore` / `descriptionAfter` ❌
 >
-> Tag names are case-insensitive (`<ChangeArrow>` = `<changearrow>`); **attribute names are not** — always kebab-case. (You can't tell from `query run` — a stripped attribute is a *render* behaviour; verify in the UI or a dashboard PNG.) This is why a swapped delta "didn't work" with `swapColors` but works with `swap-colors`.
+> Tag names are case-insensitive (`<ChangeArrow>` = `<changearrow>`); **attribute names are not** — always kebab-case. (You can't tell from `query run` — a stripped attribute is a *render* behaviour; verify with a dashboard PNG from `omni dashboards download`, or in a browser when one is reachable.) This is why a swapped delta "didn't work" with `swapColors` but works with `swap-colors`.
 
 ### Worked KPI card (label + value + delta + sparkline)
 
@@ -105,7 +105,7 @@ The query is just `[orders.created_at[month], orders.total_revenue]` sorted asce
 
 A separate `color_class` calc recolours the *value* by threshold (*level*) while `arrow_class` colours the glyph by *direction*; the CSS `::before` supplies the ↓/↑ glyph so the span body stays empty. Query sorted **ascending** so `_last` = latest and `OMNI_PERCENT_CHANGE_FROM_PREVIOUS` compares it to the prior month.
 
-> **These are still markdown-viz tiles**, so the blank-tile and round-trip rules elsewhere in this file apply: keep `automaticVis:false` + `prefersChart:false`, and re-author the inner spec nested under `config` on write. The components render in normal dashboard markdown tiles (not only AI-summary tiles). As always, **you cannot confirm the render from `query run`** — download a dashboard PNG (`omni dashboards download` → `download-status` → `download-file`) or check in the UI.
+> **These are still markdown-viz tiles**, so the blank-tile and round-trip rules elsewhere in this file apply: keep `automaticVis:false` + `prefersChart:false`, and re-author the inner spec nested under `config` on write. The components render in normal dashboard markdown tiles (not only AI-summary tiles). As always, **you cannot confirm the render from `query run`** — download a dashboard PNG (`omni dashboards download` → `download-status` → `download-file`), or check it in a browser when one is reachable (see [validation-and-testing.md](validation-and-testing.md#optional-check-the-render-in-a-browser)).
 
 > **The export catch-22 — one throwing tile fails the WHOLE dashboard render.** A markdown tile that throws at render (an undefined value handed to a component, a bad token) shows "Chart unavailable" *and* fails the PNG/PDF export with the generic `"Job failed to render."`. Two consequences: (1) a render-job failure is **not** automatically a service outage — it's often a single bad tile; confirm by exporting a known-good dashboard. (2) Verify an **unfamiliar component** as a **one-tile** dashboard export first, so a crash is isolated. Fetch the image with `omni dashboards download-file <id> <jobId>`.
 
