@@ -1,5 +1,19 @@
 # Omni → MetricFlow Field Mapping
 
+## Contents
+
+- [Entities and View Mapping](#entities-and-view-mapping)
+- [Dimensions](#dimensions)
+- [Dimension Overrides and Measures](#dimension-overrides-and-measures)
+- [Aggregations](#aggregations)
+- [Same-View Filter → Predicate Inside `expr`](#same-view-filter--predicate-inside-expr)
+- [Cross-View Filter → Atomic Measure Plus Simple Metric](#cross-view-filter--atomic-measure-plus-simple-metric)
+- [Filter Operators](#filter-operators)
+- [Ratio and Derived Metrics](#ratio-and-derived-metrics)
+- [Topic Extras](#topic-extras)
+- [Unsupported Constructs](#unsupported-constructs)
+- [Adapt to your project](#adapt-to-your-project)
+
 Use the effective Omni `combined` YAML. Do not export fields with dbt provenance comments.
 
 Worked example. The examples below use an e-commerce model: Omni view `omni_dbt_ecomm__order_items` backed by dbt model `order_items`, joined to `omni_dbt_ecomm__users` on `user_id`. Replace the view, model, column, and entity names with your own.

@@ -48,22 +48,9 @@ Use `-o json` for structured Omni output. Use `-o human` for tables.
 
 ## Known Issues & Safe Defaults
 
-- Select the spec already used by the dbt project. Legacy and flattened dbt 1.12 specs both compile into manifests that Omni imports.
-- dbt 1.12.4 emits no deprecation warning for the legacy spec. `dbt-autofix deprecations --semantic-layer` (dbt-autofix 0.22.6, checked with `--help`) can convert it. Read [YAML-REFERENCE.md](./references/YAML-REFERENCE.md) before converting a project.
-- MetricFlow measure, metric, and saved-query names are project-wide. Step 8 checks the dbt project for every name before writing and asks the user how to resolve a match.
 - A dimension name cannot be a time-granularity keyword (`day`, `week`, `month`, `quarter`, `year`, `hour`, `minute`, `second`). Rename it (`day_dt` with `expr: day`) or `dbt parse` fails validation.
-- MetricFlow has no per-model week start. Its standard `week` is Monday on every adapter except Snowflake, where `DATE_TRUNC('week')` follows the `WEEK_START` session parameter (Monday by default). If the Omni model or topic sets `week_start_day` to a day other than Monday, weekly grain served by MetricFlow will not match Omni. First read the project's time spine YAML (`models:` entry with a `time_spine:` key) for an existing `custom_granularities` entry that starts the week on the Omni day, and reuse it. Only if none exists, add one (see Week start day in [FIELD-MAPPING.md](./references/FIELD-MAPPING.md)). Omni's own weekly results do not change after fallback, because Omni still applies `week_start_day`.
-- A MetricFlow dimension `expr` never feeds a measure. A measure `expr` reads the physical column. Materialize a transform in dbt model SQL or inline it in each measure.
-- A metric `filter` drops a group with no matching rows: the group is absent when the metric is queried alone and NULL when it is queried with other metrics. For a same-view predicate on any aggregate, put the predicate inside `expr` (Step 6); the group then stays present with the same value as Omni.
-- Saved-query `group_by` uses object syntax (`TimeDimension('metric_time', 'month')`); the CLI form `metric_time__month` fails `dbt parse`.
-- Qualify filters as `<entity>__<dimension>`, such as `user_id__state`. Do not use the semantic-model name. Use `IS TRUE` for booleans and `TimeDimension` for fixed-date filters.
-- A measure `expr` is written against dbt model columns. It is not written against an Omni dimension override.
-- If a referenced Omni dimension has a model-layer `sql` override, stop and show it. Move the override to dbt, inline it only with a plan to remove the Omni override in the fallback step, or skip the measure. Never inline it silently.
-- Re-import merges fields key by key. Model-extension keys win. dbt-only keys fill in. Provenance comments are added even when a key is masked.
-- A model-extension field with `ignored: true` does not appear in combined output. This is the supported way to hide an imported dbt field.
-- The Omni branch isolates the Omni-side change; the dbt environment only decides which dbt Git branch gets compiled. The production/default environment compiles the default dbt branch and ignores `--dbt-git-branch`. Use it when the dbt YAML is merged. Bind a non-production environment only while the YAML is still on an unmerged dbt branch.
-- Omni compiles the manifest from the configured Git branch. Push that dbt branch before `dbt-sync`.
-- `omni models refresh` rebuilds the schema model from the database and also runs the dbt sync. With no filters it is a hard refresh of every schema. Scope it: `--hard-refresh false --schemas <schema> --tables <table,...>` reloads only those objects (wildcards such as `sales_*` are allowed) and leaves the rest of the schema model untouched. A soft refresh is additive: it does not remove dropped objects. On a branch, `dbt-sync` alone recompiles the manifest without a database scan.
+
+Converting a legacy spec: [YAML-REFERENCE.md](./references/YAML-REFERENCE.md). Week start, the dbt environment for each case, and scoped refreshes: [FIELD-MAPPING.md](./references/FIELD-MAPPING.md#week-start-day) and [FALLBACK-TO-DBT.md](./references/FALLBACK-TO-DBT.md#dbt-environment-sync-and-refresh).
 
 ## Workflow
 
@@ -158,23 +145,7 @@ Inline `${view.column}` only when every reference is in the same view. Do not ma
 
 #### Dimension override checkpoint
 
-Inspect the extension and combined definitions before mapping a measure. A dimension can be overridden at the model layer:
-
-```yaml
-# Model extension
-dimensions:
-  sale_price:
-    sql: '"SALE_PRICE" * 0.95'
-```
-
-The same dbt expression means two different things on the two sides:
-
-| Where | `expr: sale_price * 0.95` reads | Result |
-|---|---|---|
-| dbt (MetricFlow) | the raw column `sale_price` | `SUM(sale_price * 0.95)` |
-| Omni, after import | the Omni dimension `sale_price`, because the importer rewrites column names in `expr` to same-named dimensions | `SUM("SALE_PRICE" * 0.95 * 0.95)` |
-
-The dbt measure must use dbt model columns. The export must not silently inherit the Omni override.
+Inspect the extension and combined definitions before mapping a measure. A dimension can be overridden at the model layer, and on import Omni reads a column name in a measure `expr` as the same-named Omni dimension: [FIELD-MAPPING.md](./references/FIELD-MAPPING.md#dimension-overrides-and-measures). The dbt measure must use dbt model columns. The export must not silently inherit the Omni override.
 
 > ✋ **STOP** — If a referenced dimension has a model-layer `sql` override, show the override and select one option:
 >
@@ -200,18 +171,11 @@ Apply the Step 5 dimension-override checkpoint before writing every measure expr
 
 Do not use the same name for different atomic and user-facing definitions. A count with no SQL uses `expr: 1`.
 
-**Missing groups and NULL.** A metric `filter` removes non-matching rows before aggregation. A group with no matching rows is then absent when the metric is queried alone, and NULL when the metric is queried with other metrics at a grouped grain. Omni keeps the group in both cases: 0 for `count`, `count_distinct`, and `sum`, and NULL for `average`, `min`, `max`, `median`, and `percentile`. For a same-view predicate, put it inside `expr` as in the table: every row is scanned, the group stays present, and the value matches Omni. A cross-view predicate cannot go inside `expr`; keep the metric `filter` and report both differences to the user (the missing group, and NULL where Omni has 0 for `count`, `count_distinct`, and `sum`). Do not add `fill_nulls_with` to a metric that must come back into Omni: the importer rejects it (`UnsupportedFeature`).
+**Missing groups and NULL.** A metric `filter` drops groups with no matching rows, where Omni keeps them. Put a same-view predicate inside `expr`; for a cross-view predicate, keep the metric `filter` and report both differences to the user. Do not add `fill_nulls_with` to a metric that must come back into Omni. Details: [FIELD-MAPPING.md](./references/FIELD-MAPPING.md#cross-view-filter--atomic-measure-plus-simple-metric).
 
 #### Filter syntax
 
-| Omni filter | MetricFlow form |
-|---|---|
-| categorical or numeric field | `{{ Dimension('entity__dimension') }}` |
-| boolean true | `{{ Dimension('entity__is_returned') }} IS TRUE` |
-| fixed date | `{{ TimeDimension('entity__created_at', 'day') }} >= '2024-01-01'` |
-| semantic-model prefix | Wrong. `sem_users__state` must be `user_id__state`. |
-
-Use the entity of the filtered view. For a relationship `${orders.user_id} = ${users.id}`, the entity is `user_id`, so a user-state filter is `user_id__state`, not `sem_users__state`.
+Translate filters with the entity of the filtered view (`user_id__state`, never `sem_users__state`): operators and examples in [FIELD-MAPPING.md](./references/FIELD-MAPPING.md#filter-operators).
 
 Skip and report `sum_distinct_on`, `average_distinct_on`, `median_distinct_on`, `percentile_distinct_on`, `list`, templated SQL, filter-only fields, cross-view expressions, unsupported joins, relative time filters, period-over-period logic, and unsupported metric filters.
 
@@ -227,25 +191,7 @@ Store `ai_context` and synonyms in `config.meta` as `omni_*` values for referenc
 
 MetricFlow names are project-wide: a measure name, a metric name, and a saved-query name must each be unique across every file, and one dbt model can have only one semantic model. Before you write, search the project for each name you plan to emit.
 
-```bash
-# Names: match block style (- name: x) and inline flow-map style (- { name: x, ... }).
-rg -n "name:\s*['\"]?(total_sale_price|sale_price_average|order_item_id)\b" models/
-# Semantic models on the same dbt model: legacy ref() with either quote style, and the flattened `semantic_model:` key on the models[] entry.
-rg -n "model:\s*ref\(['\"]order_items['\"]\)" models/
-rg -n -B1 -A3 "^\s*-\s*name:\s*['\"]?order_items\b" models/ | rg -n "semantic_model:"
-```
-
-The flattened spec attaches the semantic model to the `models:` entry, so the second search alone misses it. Treat a `semantic_model:` hit under the target model as an existing semantic model.
-
-For every hit, show the user the existing definition next to the Omni definition and ask how to handle it. Do not choose for them.
-
-| Situation | Options to offer |
-|---|---|
-| Semantic model already exists for the same `ref()` | Extend it (default). Never add a second one. |
-| Same-named measure or metric with the **same** aggregation and expression | Reuse it. Do not write a duplicate. |
-| Same-named measure or metric with a **different** definition | Rename the export (suggest `<name>_omni`), replace the dbt definition (only if the user owns it), or skip the field. |
-| Same-named dimension or entity with a different `expr` | Rename or skip. A renamed entity must be renamed on both sides of the join. |
-| Name matches a column on the dbt model | Skip. Omni skips a dbt measure or metric whose name matches an existing dimension (`ConflictsWithExistingDimension`). |
+Search for each name with the commands in [NAME-CHECK.md](./references/NAME-CHECK.md), including the flattened spec's `semantic_model:` key. For every hit, show the user the existing definition next to the Omni definition and ask how to handle it. Do not choose for them. Offer the options for each case in [NAME-CHECK.md](./references/NAME-CHECK.md#options-for-each-match): extend an existing semantic model, reuse an identical definition, rename, replace (only a definition the user owns), or skip.
 
 Also check the Omni side: an exported name that already exists as a **model-layer** field in Omni is masked key by key when the sync brings it back (Step 10 explains how to remove that override). Tell the user which exported names will be masked.
 
@@ -276,13 +222,7 @@ Successfully validated the semantics of built manifest (ERRORS: 0, ...)
 
 `mf query --metrics <metric> --group-by metric_time__month --explain` produces SQL and works without warehouse credentials. Run it for each new filter pattern. Fix parse or validation errors before handoff.
 
-Static checks do not prove that the numbers match. Run these comparisons against the warehouse and show the user the values side by side:
-
-| Check | How | What must match |
-|---|---|---|
-| Result parity for a transformed measure | `mf query --metrics <metric> --group-by <entity>__<dimension>` and the same grouping in Omni (`omni query run`) | Every group value, for any measure whose dimension carried an Omni override |
-| Grouped parity for a filtered metric | Query the filtered metric alone, then together with an unfiltered one, grouped, on data where some group has no matching rows | With the predicate inside `expr`, the empty group is present in both queries: 0 for `count`, `count_distinct`, `sum`, NULL for the others. With a cross-view metric `filter`, the group is absent alone and NULL together; report it |
-| Saved queries run | `mf query --saved-query <name>` | Rows return; `group_by` uses object syntax (`TimeDimension('metric_time', 'month')`, `Dimension('<entity>__<dim>')`), not the CLI form `metric_time__month` |
+Static checks do not prove that the numbers match. Run the comparisons in [PARITY-CHECKS.md](./references/PARITY-CHECKS.md) against the warehouse (a transformed measure, a filtered metric alone and with an unfiltered one, each saved query) and show the user the values side by side.
 
 > ✋ **STOP** — Do not write to a shared dbt branch without explicit user approval.
 
@@ -292,45 +232,11 @@ After the dbt YAML is merged, Omni brings it in on the next schema refresh or db
 
 This skill owns only the dbt-specific steps. Branch creation, YAML read-modify-write, validation, test queries, and shipping follow **`omni-model-builder`** (Safe Development Workflow, Steps 0–3). Install the `omni-analytics` plugin to get it. Read [FALLBACK-TO-DBT.md](./references/FALLBACK-TO-DBT.md) for the full sequence with the dbt-specific differences.
 
-1. **Branch** — `omni-model-builder` Step 0. First run `omni whoami whoami --model-id <modelId>` to make sure you can branch. Use a unique branch name. Do not delete a branch you did not create.
-2. **dbt environment (this skill)** — if the dbt YAML is merged to the default dbt branch, keep the production environment; the Omni branch already isolates your change. If the YAML is still on an unmerged dbt branch, list the environments, show them to the user, and ask which one to bind (see "Choose the dbt environment" in [FALLBACK-TO-DBT.md](./references/FALLBACK-TO-DBT.md) for the selection rule). Bind it together with that Git branch and read it back: `branch-dbt-get` must show the requested Git branch before you sync. The production environment ignores `--dbt-git-branch`. Do not create an environment without user approval.
-3. **Sync (this skill)** — run `dbt-sync` on the branch and poll the job to `COMPLETED` or `FAILED`. The status response has only `job_id`, `job_type`, and `status`. Read failures in the IDE dbt Sync page. If the warehouse tables behind the exported views also changed, run a targeted soft refresh instead: `omni models refresh <modelId> --hard-refresh false --schemas <schema> --tables <table,...>` (`--branch-id` is required when the connection has branch-based schema refresh enabled and rejected when it does not; without it the refresh writes to the shared schema model, so ask the user first). Never run an unfiltered refresh for this step: it reloads every schema and pulls every warehouse change into the branch.
-4. **Find the override** — `omni-model-builder` Step 1 read-modify-write, with two dbt-branch differences: read and write the view with `--mode merged` (not `extension`), and reuse the flat returned key (`omni_dbt_ecomm__order_items.view`). Also read the topic file for a topic-scoped `fields:` override.
-5. **Remove only the override** that must yield to dbt. Also remove a dimension override that an imported measure depends on (Step 5 checkpoint). Write the complete file back.
-6. **Check** — `omni-model-builder` Step 2: `models validate` on the branch and one branch query on the field. Then confirm the dbt provenance comment in `--mode combined`. Re-sync only if the dbt manifest changed.
-7. **Ship** — `omni-model-builder` Step 3 (`git-get` → `commit` and PR, or `merge-branch`). Ask the user before either path.
-
-```bash
-omni connections dbt-environments-list <connectionId>
-omni models branch-dbt <modelId> <branchName> <nonProdDbtEnvId> --dbt-git-branch <git-branch>
-omni models branch-dbt-get <modelId> <branchName>
-omni models dbt-sync <modelId> --branch-id <branchId>
-omni models refresh <modelId> --hard-refresh false --schemas <schema> --tables <table,...> [--branch-id <branchId>]
-omni models jobs-get-status <jobId>
-```
-
-The precedence is schema/dbt, model extension, topic `fields:` override, then workbook model. Higher layers win per key. A dbt-only description or `sql` fills in when the extension has no matching key.
+Ask the user before either way of shipping. On a dbt branch, read and write the view with `--mode merged` and reuse the flat returned key; remove only the override that must yield to dbt, and write the complete file back.
 
 ## Troubleshooting
 
-| Symptom | Cause | Action |
-|---|---|---|
-| MetricFlow cannot resolve a filter | Wrong qualifier | Use `entity__dimension`. Run `mf query --explain`. |
-| `dbt-sync` fails with no detail in `jobs-get-status` | The Git branch was not applied (production environment ignores `--dbt-git-branch`), or the dbt project does not compile | Check `branch-dbt-get`. For an unmerged dbt branch, bind a non-production environment. Read the IDE dbt Sync page for compile errors. |
-| Branch write succeeds but changes nothing | Used `mode: extension` | Read and write the flat branch file key with `mode: merged`. |
-| dbt field is missing from combined output | Extension has `ignored: true` | Find that extension entry. Remove `ignored` only with user approval. |
-| Imported field retains Omni label, SQL, or filters | Extension key wins during merge | Remove only the conflicting extension key. dbt-only keys still fill in. |
-| `column "<dim>" not found` or `invalid identifier` at query time (DuckDB: `Binder Error`), but `mf validate-configs --skip-dw` passed | A measure `expr` names a semantic dimension | Use the physical column, or materialize the transform in the dbt model SQL. Run `mf validate-configs` without `--skip-dw`. |
-| A filtered metric shows NULL, or omits a group, where Omni shows the group | Metric `filter` drops the group before aggregation | For a same-view predicate, put it inside `expr` (Step 6 table). For a cross-view predicate, report the difference. |
-| `mf query --explain`: `does not match any of the available group-by-items` on a metric `filter`, but `dbt parse` and `mf validate-configs` passed | The filtered dimension was not exported, usually dropped as `hidden: true` | Export the dimension. Step 4 keeps every dimension a kept measure filters on. |
-| Weekly groupings differ between MetricFlow and Omni | Omni `week_start_day` is not Monday; MetricFlow `week` is Monday (Snowflake: `WEEK_START`) | Add a custom granularity to the time spine (Week start day in FIELD-MAPPING.md) and group by `metric_time__<name>` instead of `metric_time__week`. |
-| `dbt parse`: `ParseJinjaObjectException` on `{{metric_time__month}}` | Saved query `group_by` used the CLI form | Use `"TimeDimension('metric_time', 'month')"`. |
-| `WARNING … fix_proxy_metrics: Metric <name> should not have an expr set if it's proxy from measures` on `dbt parse` | `create_metric: true` on a measure with a non-trivial `expr` | Ignore. Validation and results are unaffected. |
-| `Invalid name 'day' - names cannot match reserved time granularity keywords` | Dimension named after a granularity | Rename the dimension and set `expr` to the column. |
-| Measure applies a discount twice | dbt expr and Omni dimension both transform it | Move logic to dbt, remove the Omni dimension override in Step 10, or skip the measure. |
-| dbt parse reports a mapping error after append | Existing YAML lacked trailing newline | Check `tail -c1 <file> | xxd`; add a newline before appending. |
-| Query result is base64 Arrow | `resultType` was omitted or nested under `query` | Put `"resultType": "json"` at the top level. |
-| Legacy spec warning is expected | Assumed dbt 1.12 always warns | dbt 1.12.4 did not warn. Use the project format. |
+Symptoms, causes and fixes for sync, query, parse and parity problems: [TROUBLESHOOTING.md](./references/TROUBLESHOOTING.md).
 
 ## Critical Rules
 
@@ -351,23 +257,7 @@ The precedence is schema/dbt, model extension, topic `fields:` override, then wo
 
 ## Export Handoff Checklist
 
-Before handing off an Omni-to-dbt export, report these facts:
-
-- the export scope (fields, view, or topic) and the dbt model for each exported view;
-- the selected YAML shape;
-- every primary and foreign entity;
-- the aggregate time dimension;
-- each atomic measure and its user-facing metric;
-- every filter qualifier and fixed-date `TimeDimension`;
-- each model-layer dimension override and the selected option;
-- every field skipped and its reason;
-- the semantic-model and metrics file paths;
-- `dbt parse` status;
-- `mf validate-configs` status (say whether warehouse checks ran);
-- the `mf query --explain` result for new filter patterns; and
-- the grouped parity results (transformed measures, filtered counts) and each saved-query run.
-
-For Step 10, also report the dbt environment, resolved Git branch, exact merged file key, removed extension keys, validation result, query result, and whether promotion is still pending.
+Before handing off an export, report the facts listed in [HANDOFF-CHECKLIST.md](./references/HANDOFF-CHECKLIST.md), including parity results and, for Step 10, whether promotion is still pending.
 
 ## Scope Boundaries
 
@@ -386,9 +276,6 @@ Do not treat a successful background job as proof of the intended merged output.
 
 ## Reference
 
-- [FIELD-MAPPING.md](./references/FIELD-MAPPING.md)
-- [YAML-REFERENCE.md](./references/YAML-REFERENCE.md)
-- [FALLBACK-TO-DBT.md](./references/FALLBACK-TO-DBT.md)
 - [dbt semantic models](https://docs.getdbt.com/docs/build/semantic-models)
 - [MetricFlow commands](https://docs.getdbt.com/docs/build/metricflow-commands)
 - [Omni dbt semantic layer](https://docs.omni.co/integrations/dbt/semantic-layer)

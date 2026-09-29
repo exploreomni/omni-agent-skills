@@ -1,5 +1,13 @@
 # Query View Examples
 
+## Contents
+
+- [Option 1 — Single Primary Key (query: block)](#option-1--single-primary-key-query-block)
+- [Option 2 — Compound Primary Key (query: block)](#option-2--compound-primary-key-query-block)
+- [Raw SQL Variant](#raw-sql-variant)
+- [Rolling a Many-Side Up to a Flag (both forms)](#rolling-a-many-side-up-to-a-flag-both-forms)
+- [Mapping / lookup view (CLI stand-in for an Omni Input Table)](#mapping--lookup-view-cli-stand-in-for-an-omni-input-table)
+
 ## Option 1 — Single Primary Key (query: block)
 
 ```yaml

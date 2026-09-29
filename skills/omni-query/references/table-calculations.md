@@ -4,12 +4,43 @@ Complete reference for authoring the `calculations[]` array in an Omni query spe
 
 ## Contents
 
+- [Table Calculations](#table-calculations) — minimum calc, common requests mapped to operators, and generating calcs with an agentic job
+
 1. [Wire shape](#1-wire-shape) — the `calc_name` + `sql_expression` object shape
 2. [The AST: `SerializedSqlExpr`](#2-the-ast-serializedsqlexpr) — node types (`call`, `field`, literals)
 3. [Operator namespaces](#3-operator-namespaces) — `Omni.*` and `SqlStdOperatorTable.*`
 4. [Canonical examples](#4-canonical-examples) — ratio, % of total, running total, chained, CASE, moving average, IFS/concat, pivot totals, DATEDIF, SUM_IF, VLOOKUP
 5. [Validation rules and gotchas](#5-validation-rules-and-gotchas) — `calc_name` in `fields`, `swallow_errors`, pivot/limit
 6. [Authoring strategy](#6-authoring-strategy) — template → compose → harvest-from-agentic-job order
+
+## Table Calculations
+
+Post-query computed columns (running totals, % of total, ratios, conditionals). Authored as AST objects in `calculations[]`. The query API requires the parsed AST — it does **not** accept the workbook-frontend `{name, formula}` shape.
+
+Minimum calc — one `calculations[]` entry (its `calc_name` must also be in `query.fields`):
+
+```json
+{ "calc_name": "calc_pct", "label": "% of Total", "format": "0.0%",
+  "sql_expression": { "type": "call", "operator": "Omni.OMNI_PERCENT_OF_TOTAL",
+    "operands": [{ "type": "field", "field_name": "orders.total_revenue", "for_calc": true }] } }
+```
+
+**The #1 gotcha:** `calc_name` must also appear in `query.fields` (and the outer `queryPresentation.fields` for dashboard tiles). A calc defined in `calculations[]` but absent from `fields` is computed but never rendered.
+
+The five quick-template operators (each takes one `field` operand with `for_calc: true`):
+`Omni.OMNI_PERCENT_OF_TOTAL`, `Omni.OMNI_PERCENT_OF_PREVIOUS`, `Omni.OMNI_PERCENT_CHANGE_FROM_PREVIOUS`, `Omni.OMNI_RUNNING_TOTAL`, `Omni.OMNI_RANK`.
+
+Use `omni query run` with a hand-authored or copied AST when you already know the calc shape. **To *generate* anything non-trivial — table calculations, period-over-period, multi-step analysis — prefer the agentic path (`omni ai job-submit`):** it authors calcs that `generate-query` silently drops (e.g. month-over-month % change). To get a *reusable* AST out of an agentic job, lift the structured query / `calculations` from the job's **`actions[].generate_query`** result (not the `resultSummary`, and not a `userEditedSQL`/SQL fallback), then **re-run *your assembled* query** with `swallow_errors:false` and **diff the values against the job's `csvResult`**. The job already executed the calc, so the re-run isn't re-proving the math — it's checking your *reshape* (a dropped/renamed field is the kind of translation failure that "it ran and returned rows" would miss; see [§6 Authoring strategy](#6-authoring-strategy)). Reserve `generate-query` for simple deterministic single queries, and for shape-only drafting where query execution isn't permitted.
+
+Query tasks are read-only unless the user explicitly asks to change the model. If a field appears missing, inspect topics/dashboard queries and use the right model/topic/branch or report the missing-field blocker — don't create branches, add measures, or edit YAML just to make a query work. (And don't satisfy a calc request with client-side math or an existing model field like `users.tier_label` — build and validate the table calc; see *Known Issues & Safe Defaults* in [SKILL.md](../SKILL.md#known-issues--safe-defaults).)
+
+Common requests → operator (exact AST + per-recipe gotchas in the reference — don't hand-improvise):
+- **% of total** → `OMNI_PERCENT_OF_TOTAL` · **running total** → `OMNI_RUNNING_TOTAL` (sort time **ascending**, don't reverse outside Omni) · **MoM % change** → `OMNI_PERCENT_CHANGE_FROM_PREVIOUS` (not `omni_period_pivot`/`LAG`) · **trailing N-avg** → `OMNI_FX_AVERAGE` over `OMNI_OFFSET_MULTI`
+- **pivot row-total** → `OMNI_FX_SUM` + `OMNI_PIVOT_OFFSET` (`outside_pivot:true`, numeric `limit`) · **tier labels** → `OMNI_FX_IFS` (not `CASE`/a model field) · **SUMIF** → `OMNI_FX_SUM_IF` · **VLOOKUP** → `OMNI_FX_VLOOKUP` (if a string lookup 400s `No referenced query…`, fall back to `OMNI_FX_SUM_IF`) · **date diff** → `OMNI_FX_DATEDIF` (`[date]` operands)
+
+For the exact JSON AST per recipe, the full operator catalog (`Omni.*` / `SqlStdOperatorTable.*`), node types, validation rules, and the unfamiliar-calc round-trip strategy, see the sections below.
+
+At execution, calcs compile into an outer `SELECT` wrapping the base aggregation; window-style operators emit `... OVER (...)` there, so the shared data model never needs window functions to support them. In pivoted queries, template operators auto-partition by the pivot column for per-segment series; set `outside_pivot: true` and wrap an aggregator around `OMNI_PIVOT_OFFSET` for a row-summary that sweeps across pivot columns.
 
 ## 1. Wire shape
 
@@ -660,7 +691,7 @@ Constructing arbitrary ASTs from scratch is brittle. Pragmatic order of operatio
 
 1. **Try a named template operator first** for the five canonical cases (`OMNI_PERCENT_OF_TOTAL`, `OMNI_PERCENT_OF_PREVIOUS`, `OMNI_PERCENT_CHANGE_FROM_PREVIOUS`, `OMNI_RUNNING_TOTAL`, `OMNI_RANK`) — single `field` operand with `for_calc: true`.
 2. **Compose from primitives** (`OMNI_FX_PLUS`/`MINUS`/`MULTIPLY`/`SAFE_DIVIDE`, `SqlStdOperatorTable.CASE`, `OMNI_FX_IFS`, aggregates) for arithmetic and conditional logic over selected fields.
-3. **Harvest the AST from an agentic job when unsure** — for any calc beyond simple arithmetic or template operators, prefer `omni ai job-submit <modelId> "<description of the calc> as a table calculation"` and lift the `calculations` from the result's `actions[].generate_query`, then validate with `omni query run` (see SKILL.md → *Table Calculations*). The agentic path authors calcs that `generate-query` silently drops; `omni ai generate-query <modelId> "<description>" --run-query=false` is the simple/shape-only fallback (it returns the parsed `sql_expression` directly, but for non-trivial calcs it can omit operators). Both reliably produce working operand shapes for less-common operators (`OFFSET_MULTI`, `IFS`, `XLOOKUP`, `TEXT`, AI functions); fall back to the UI + `omni documents get-queries <id>` only when the output is wrong (usually it isn't).
+3. **Harvest the AST from an agentic job when unsure** — for any calc beyond simple arithmetic or template operators, prefer `omni ai job-submit <modelId> "<description of the calc> as a table calculation"` and lift the `calculations` from the result's `actions[].generate_query`, then validate with `omni query run` (see [Table Calculations](#table-calculations) above). The agentic path authors calcs that `generate-query` silently drops; `omni ai generate-query <modelId> "<description>" --run-query=false` is the simple/shape-only fallback (it returns the parsed `sql_expression` directly, but for non-trivial calcs it can omit operators). Both reliably produce working operand shapes for less-common operators (`OFFSET_MULTI`, `IFS`, `XLOOKUP`, `TEXT`, AI functions); fall back to the UI + `omni documents get-queries <id>` only when the output is wrong (usually it isn't).
 4. **Always** add `calc_name` to `query.fields` (and the outer `queryPresentation.fields` for dashboard tiles).
 5. **Keep `swallow_errors: false` (the default) while authoring and validating** so a bad operand fails the query loudly with the real compile/eval message — instead of silently rendering `#ERROR!` cells you might read as data, a blank calc, or an engine bug (see §5.11). Only set `swallow_errors: true` deliberately on a *finalized* tile where per-cell resilience matters (one bad calc shouldn't break the whole table for viewers) — and even then, validate once with it `false` first.
 

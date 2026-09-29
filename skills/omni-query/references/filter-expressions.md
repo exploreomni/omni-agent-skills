@@ -24,6 +24,22 @@ Complete reference for the `filters` object in Omni query API calls (`query run`
 > ```
 > It returns a closed `oneOf` of **8 `type`s** — `string`, `number`, `date`, `boolean`, `null`, `composite`, `user_attribute`, `query` — each with its `kind`/`ui_type` enums and required props. It's the same `query.filters` shape `query run` consumes (verified by binding each), and it's future-proof.
 
+## Contents
+
+- [String filters (`type: "string"`)](#string-filters-type-string)
+- [Number filters (`type: "number"`)](#number-filters-type-number)
+- [Date filters (`type: "date"`)](#date-filters-type-date)
+- [Boolean filters (`type: "boolean"`)](#boolean-filters-type-boolean)
+- [Null filters (`type: "null"`)](#null-filters-type-null)
+- [Composite filters (same-field OR/AND) — `type: "composite"`](#composite-filters-same-field-orand--type-composite)
+- [User-attribute filters (row-level personalization) — `type: "user_attribute"`](#user-attribute-filters-row-level-personalization--type-user_attribute)
+- [Combining filters](#combining-filters)
+- [Deploying filters in a document → omni-content-builder](#deploying-filters-in-a-document--omni-content-builder)
+- [Filtering on measures (→ `HAVING`)](#filtering-on-measures--having)
+- [Two gotchas — always verify a filter *bound*](#two-gotchas--always-verify-a-filter-bound)
+- [Get the exact shape for free — harvest from an agentic job](#get-the-exact-shape-for-free--harvest-from-an-agentic-job)
+- [Complete query example](#complete-query-example)
+
 ## String filters (`type: "string"`)
 
 | `kind` | Meaning | Example value object |

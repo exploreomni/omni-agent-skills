@@ -7,21 +7,11 @@ description: Create, update, and manage Omni Analytics documents and dashboards 
 
 Create, update, and manage Omni documents, dashboards, and apps programmatically via the Omni CLI — document lifecycle, drafts, workbook models, filters, controls, and dashboard content.
 
-> **Tip**: Use `omni-model-explorer` to understand available fields and `omni-content-explorer` to find existing dashboards to modify or learn from.
-
-Documents are created and edited through the **v2 documents API** (`omni documents v2-*`) — an explicit envelope of `queryPresentations`, `controls`, `containers`, and `settings`, edited through a **draft → publish** flow. This is the only path for building, reading, or changing a document — never fall back to the v1 `documents create`/`get` commands (v1 `put`/`update` were removed in CLI 1.2.2). A few document-management operations (list, delete, move, duplicate, downloads) have no v2 form; see [Commands](#commands) below.
+Documents are created and edited through the **v2 documents API** (`omni documents v2-*`) — an explicit envelope of `queryPresentations`, `controls`, `containers`, and `settings`, edited through a **draft → publish** flow. This is the only path for building, reading, or changing a document — never fall back to the v1 `documents create`/`get` commands (v1 `put`/`update` were removed in CLI 1.2.2).
 
 ## Design defaults
 
-The mechanics here build a *correct* dashboard; for a *good* one, apply Omni's [Dashboarding Best Practices](https://docs.omni.co/guides/dashboards/dashboarding-best-practices). The bullets below are that guide's defaults for when nobody has said otherwise. **They never override direction you have been given**: a requested layout, chart type, palette, or control placement wins; so does the convention of an existing dashboard you are editing or an org theme in force. When a request conflicts with a default, follow the request and, at most, mention the default once. Without such direction, default to:
-
-- **Lead with the answer, top-left.** Put the main KPI / answering chart in the upper-left — viewers scan in an F/Z pattern.
-- **3–5 charts per page.** Beyond that, split across pages/tabs (see [containers.md](references/containers.md)).
-- **Functional color, 90/10.** Neutral tones dominate; one accent for emphasis or status — not decoration.
-- **Match chart to question** — trend → line/area/bar; ranking → horizontal bar; part-to-whole → 100% stacked; correlation → scatter.
-- **Put controls next to what they drive,** with action-oriented labels ("Filter by Region", not "Region").
-- **Hide complexity behind a parent control** — one control drives many; leave the child controls unplaced (see [controls.md](references/controls.md#parent-controls-one-control-drives-many)).
-- **Charts read without hovering.** A viewer should get the key insight from the chart itself; a tooltip is a detail, not the message.
+The mechanics here build a *correct* dashboard; for a *good* one, apply Omni's [Dashboarding Best Practices](https://docs.omni.co/guides/dashboards/dashboarding-best-practices). Its defaults apply when nobody has said otherwise. **They never override direction you have been given**: a requested layout, chart type, palette, or control placement wins; so does the convention of an existing dashboard you are editing or an org theme in force. When a request conflicts with a default, follow the request and, at most, mention the default once. The defaults: the answer top-left, 3–5 charts per page, functional color, the chart matched to the question, controls next to what they drive, a parent control for complexity, and charts that read without hovering. Each with its detail: [references/design-defaults.md](references/design-defaults.md).
 
 ## Known Issues & Safe Defaults
 
@@ -80,24 +70,9 @@ omni models yaml-create --help     # Writing model YAML
 omni documents v2-create --schema  # Body schema + example (add --depth 1 for an overview, --field PATH to drill in)
 ```
 
-> **Tip**: Use `-o json` to force structured output for programmatic parsing, or `-o human` for readable tables. The default is `auto` (human in a TTY, JSON when piped). `--compact` strips indentation for piping.
-
 ## Commands
 
-**Build and edit documents with the `documents v2-*` commands — always.** There is no situation where you reach back to the v1 `documents create`/`get` path to build, read, or change a document; the v2 draft flow covers all of it.
-
-| Operation | Command |
-|---|---|
-| Create document | `documents v2-create` |
-| Read document / draft state | `documents v2-get` / `v2-get-draft` |
-| Edit document (tiles, controls, layout, settings, rename) | `documents v2-patch-draft` (+ `v2-patch-draft-by-identifier`) |
-| Get the workbook model ID | `workbookModelId` on `documents v2-get` (published) or `v2-get-draft` (that draft's); also on `documents list-drafts` |
-| Rename a document's identifier (slug) | `documents v2-update-identifier <identifier>` |
-| Bind a tile to a query model, or unbind it | `documents v2-bind-query-model` / `v2-unbind-query-model` on a draft (CLI ≥ 1.1.2); see [references/documents-v2.md](references/documents-v2.md) |
-| Publish a draft | `documents v2-publish-draft` |
-| Read or edit an **app** (HTML instead of a dashboard) | `documents get-app` / `put-app` / `patch-app` / `remove-app` (+ the draft and auto-draft forms) — alpha, CLI ≥ 1.4.0; see [references/documents-v2.md](references/documents-v2.md) |
-
-A handful of **document-management** operations have no v2 form — they aren't alternatives to the v2 build path, just the only command for that job: `documents list` / `list-drafts` (find documents and drafts), `documents discard-draft` (abandon a draft), `documents delete` / `move` / `duplicate` (lifecycle), `documents get-queries` (extract a tile's runnable query for validation), `dashboards download` / `download-status`, `documents upgrade-layout` (move a classic-layout dashboard to the advanced layout; it publishes, so confirm first), and `models yaml-create` / `validate` (model writes).
+**Build and edit documents with the `documents v2-*` commands — always.** The command for each task, and the document-management commands that have no v2 form (list, discard a draft, delete, move, duplicate, downloads, layout upgrade): [references/documents-v2.md](references/documents-v2.md#commands-by-task).
 
 ## Dashboard Architecture
 
@@ -108,15 +83,13 @@ Omni dashboards are built from **documents**. A document's v2 state is an envelo
 - **Layout** is the `containers` tree — a tile renders only where a container references it (see [references/containers.md](references/containers.md)).
 - Each document also has a **workbook model** for per-dashboard model changes (see [references/workbook-model.md](references/workbook-model.md)).
 
-A document is edited through **drafts**: `v2-patch-draft` creates a draft and applies your patch; the published document is untouched until `v2-publish-draft`. `v2-get` returns the published state. `v2-get-draft` returns a draft's state, as does `v2-get` given the draft's own identifier (the response's `draftOf` names the document). Drafts can also be bound to a **model branch** (see [references/branch-bound-drafts.md](references/branch-bound-drafts.md)).
+A document is edited through **drafts**: `v2-patch-draft` creates a draft and applies your patch; the published document is untouched until `v2-publish-draft`. Which command reads the published state and which reads a draft: [references/documents-v2.md](references/documents-v2.md#commands). Drafts can also be bound to a **model branch** (see [references/branch-bound-drafts.md](references/branch-bound-drafts.md)).
 
 ## Build queries on a topic
 
 Build every tile's query **on a topic** whenever possible: set the query `table` to the topic's **base view** and pass `join_paths_from_topic_name: <topic>`, plus `topicName: <topic>` on the **presentation** (the presentation-level `topicName` is tile-specific — a standalone query has no equivalent). Joined-view fields then resolve through the topic's join map from the base view. For the full shape — how the join map reaches joined-view fields, the worked example, and verifying with `omni models get-topic` (`base_view_name`/`join_via_map`) — see **`omni-query`**'s *Build queries on a topic*.
 
-A tile **not** built on a topic still runs (a bare base-view query or a raw-SQL `userEditedSQL` tile uses the global `relationships` file), but restricted queriers and viewers can't see it; the two Known Issues rules above say when to ask and when to advise Access Boost. To author a raw-SQL tile and boost it end to end, see [references/queryPresentations.md](references/queryPresentations.md) → *Raw-SQL tiles*; for the boost commands and the org-level prerequisite, see **`omni-admin`** → *Document Permissions* (`add-permits` with `accessBoost`, or `update-permission-settings`).
-
-**Authoring limit (distinct from the visibility above):** if *you* are a Restricted Querier, you **can't author a non-topic / raw-SQL tile at all** — `QUERY_TOPICS` queries topics only — so **every tile you build must be topic-based**. The non-topic + Access-Boost path is only for a `QUERY_FULL_MODEL` author building for a restricted *audience*. (Check with `whoami`; see **`omni-admin`** → *Model Roles & Caller Access*.)
+A tile not built on a topic still runs, but restricted queriers and viewers can't see it, and a Restricted Querier can't author one, so every tile you build as a Restricted Querier must be topic-based. Access Boost and raw-SQL tiles: [references/queryPresentations.md](references/queryPresentations.md#tiles-not-built-on-a-topic).
 
 ## Document Management
 
@@ -148,11 +121,11 @@ Filters and interactive controls share one envelope slice: `controls: {data, ord
 - **Every filter MUST include `fieldName`** with the fully qualified field name (no timeframe bracket for date filters), or it won't bind to any column.
 - To reuse a filter from an existing dashboard, read it back with `omni documents v2-get`; its `controls` slice can go into a patch as is.
 
-**Model it or control it?** Model a filter as a filter-only field when every workbook and dashboard on the topic should get it, when one control drives several columns or a measure threshold, or when a control switches which column or measure a field uses. Otherwise use a dashboard control. The full criteria, including what a Restricted Querier can do: [references/controls.md](references/controls.md#model-it-or-control-it).
+**Model it or control it?** Whether a filter belongs in the model as a filter-only field or on the dashboard as a control, including what a Restricted Querier can do: [references/controls.md](references/controls.md#model-it-or-control-it).
 
 ## Document Settings
 
-`settings` is a shallow-merged object: `crossfilterEnabled` (click a value in one tile to filter the others), `facetFilters`, `refreshInterval` (seconds, `null` disables), `runQueriesOn` (`"current-page"` / `"all-pages"` / `null`), and `customText` (`{queryError, queryNoResults}` overrides). Patch only the keys you're changing.
+`settings` is a shallow-merged object; patch only the keys you're changing. The keys and their values: [references/documents-v2.md](references/documents-v2.md#settings).
 
 ## Layout (containers)
 
@@ -183,7 +156,7 @@ Every build or update must be validated **before publishing**: broken tiles, bad
 3. **Check each viz spec**: `prefersChart: true`, the spec under `visConfig.visConfig.config`, and a `chartType` that matches its `visType` and `configType`.
 4. **Verify the draft before publishing**: read it back with `v2-get-draft`, run each tile's query (`omni documents get-queries` + `omni query run`), and report each tile's status and row count.
 
-What to check in each response, the full viz-spec table, the checklist, and an optional browser check for when a browser is reachable (the page never goes idle, so it has its own waiting rules): [references/validation-and-testing.md](references/validation-and-testing.md).
+What to check in each response, the full viz-spec table, the checklist, and an optional browser check with its own waiting rules: [references/validation-and-testing.md](references/validation-and-testing.md).
 
 ## Dashboard Downloads
 
@@ -191,7 +164,7 @@ Downloads are asynchronous: start one with `omni dashboards download`, poll `dow
 
 ## Docs Reference
 
-- [Documents API](https://docs.omni.co/api/documents.md) · [Dashboard Downloads](https://docs.omni.co/api/dashboard-downloads.md) · [Query API](https://docs.omni.co/api/queries.md) · [Schedules API](https://docs.omni.co/api/schedules.md) · [Visualization Types](https://docs.omni.co/visualize-present/visualizations.md)
+Omni docs pages for documents, queries and charts: [references/docs-links.md](references/docs-links.md).
 
 ## Related Skills
 

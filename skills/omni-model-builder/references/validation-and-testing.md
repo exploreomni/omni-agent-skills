@@ -14,6 +14,10 @@ Check the response:
 - Common errors: broken column references, duplicate field names, invalid SQL syntax, missing join paths
 - If `auto_fix` is present, review the suggestion before applying
 
+## Triage validation errors
+
+**Triage validation errors — most aren't yours.** On a fresh/inherited model, blocking `not found` errors (missing table/view/column) usually mean a **stale schema**: run a **schema refresh** (`omni models refresh <modelId>`) first — it clears them; a `not found` that **persists after refresh** is real (connection lacks DB access, or a genuinely broken reference). For what remains, **baseline before your change** (or filter issues by `yaml_path`) and treat as blocking only the **new** errors referencing **your** changed files — report the pre-existing ones, don't chase them.
+
 ## Test new/modified fields with a query
 
 Run a query that exercises the fields you just created or modified:
@@ -79,6 +83,6 @@ omni models yaml-get <modelId> --file-name your_view.view --branch-id <branchId>
 
 ```
 
-Confirm your new fields are listed in the response. If they're missing, the YAML write may have silently failed (e.g., wrong `fileName`, malformed YAML string) — or the view may live in an offloaded schema that `yaml-get` doesn't surface. Before concluding a view doesn't exist, run the lazy-load fallback (see SKILL.md → "Fallback: View Missing from yaml-get").
+Confirm your new fields are listed in the response. If they're missing, the YAML write may have silently failed (e.g., wrong `fileName`, malformed YAML string) — or the view may live in an offloaded schema that `yaml-get` doesn't surface. Before concluding a view doesn't exist, run the lazy-load fallback (see [Fallback: View Missing from yaml-get](troubleshooting.md#fallback-view-missing-from-yaml-get)).
 
 > **Confirm you didn't create a duplicate.** `success: true` means accepted, not that it hit the intended file (see SKILL.md → Step 1). Re-list files and check the same view name doesn't now exist at two paths (e.g. `MARTS/foo.view` and `foo.view`); if it does, delete the stray one (empty `yaml`) and re-write with the full-path key.

@@ -6,6 +6,26 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.21.0] - 2026-10-09
+
+### omni-analytics
+
+_Summary: seven skills get shorter SKILL.md files, following Anthropic's skill-authoring guidance: a SKILL.md body under 5k tokens and 500 lines, every reference linked from SKILL.md, and a table of contents on references over 100 lines. Whole sections move word for word into references, and a few rules that were stated twice are now stated once. No guidance changes._
+
+**Changed**
+- **`omni-query` — *A shorter SKILL.md*.** About 10.6k to 4.9k tokens (499 to 206 lines). Query parameters, raw SQL, request options, result handling, AI query generation and the docs links move into their own references; table calculations and job results move into the references that already covered them.
+- **`omni-model-builder` — *A shorter SKILL.md*.** About 10.3k to 4.9k tokens (519 to 264 lines). Model layers, SQL dialect, post-merge checks, topic-scoped definitions, troubleshooting, writing topics, query views, the two ways to ship a branch, git-connected models, triage of validation errors, why the primary key matters, the dbt branch note and the docs links move into references, and sentences a reference already states are dropped. Five long references open with a table of contents.
+- **`omni-content-builder` — *A shorter SKILL.md*.** About 5.9k to 4.9k tokens (198 to 171 lines). The command table, the design defaults, the rules for tiles not built on a topic, document settings and the docs links move into references, and sentences a reference already states are dropped. Known Issues is unchanged.
+- **`omni-admin` — *A shorter SKILL.md*.** About 6.7k to 4.9k tokens (521 to 405 lines). Model roles, AI credits, color palettes, uploads, and cache and validation move into references; the section headings other skills cite stay in SKILL.md.
+- **`omni-ai-optimizer` — *A shorter SKILL.md*.** About 6.5k to 4.8k tokens (512 to 392 lines). The context-window rules, `ai_context` templating, agent skills and the docs links move into references.
+
+### omni-integrations
+
+**Changed**
+- **`omni-to-dbt-metricflow` — *A shorter SKILL.md*.** About 8.1k to 4.9k tokens (390 to 277 lines). Troubleshooting, the name-check searches and options, the parity checks and the handoff checklist move into references, and three notes on dbt environments, pushing before a sync and scoped refreshes move into `FALLBACK-TO-DBT.md`. Step 10 keeps its safety rules and points to the full sequence there, and Known Issues entries that Critical Rules or a reference already state are dropped. `FIELD-MAPPING.md`, `YAML-REFERENCE.md` and `FALLBACK-TO-DBT.md` open with a table of contents.
+- **`omni-to-snowflake-semantic-view` — *A shorter SKILL.md*.** 732 to 288 lines (about 5.3k to 2.7k tokens). The connectivity options, the field mapping (dimensions, measures and filter-only fields) and the output YAML structure move into new references: `CONNECTIVITY.md`, `FIELD-MAPPING.md` and `YAML-REFERENCE.md`.
+- **`omni-to-databricks-metric-views` — *Finding sections*.** `FIELD-MAPPING.md` opens with a table of contents.
+
 ## [1.20.0] - 2026-10-01
 
 ### omni-analytics

@@ -1,5 +1,16 @@
 # Make Omni Fall Back to the dbt Definition
 
+## Contents
+
+- [How the Sync Works](#how-the-sync-works)
+- [dbt environment, sync and refresh](#dbt-environment-sync-and-refresh)
+- [Layer Precedence and Merge Behavior](#layer-precedence-and-merge-behavior)
+- [Branch Procedure](#branch-procedure)
+- [Worked example: before and after](#worked-example-before-and-after)
+- [Importer Support Matrix](#importer-support-matrix)
+- [Verification Checklist](#verification-checklist)
+- [Adapt to your project](#adapt-to-your-project)
+
 Use this procedure after the exported YAML is in dbt. Omni brings the dbt semantic layer in on schema refresh or dbt sync, but an Omni model-layer field with the same name still wins. This procedure removes that override so the dbt definition shows through. Work on an Omni branch. Do not promote without user confirmation.
 
 Worked example. The examples below use an e-commerce model: Omni view `omni_dbt_ecomm__order_items` backed by dbt model `order_items`, joined to `omni_dbt_ecomm__users` on `user_id`. Replace the view, model, column, and entity names with your own.
@@ -24,6 +35,12 @@ omni models jobs-get-status <jobId>
 ```
 
 `jobs-get-status` returns only `job_id`, `job_type: "dbt_sync"`, and `status`. Poll until the job reaches a terminal status. A default environment ignores `--dbt-git-branch`. The sync job then fails with no detail in `jobs-get-status`. Inspect sync failures on the IDE dbt Sync page. The CLI has no command that reports those issues.
+
+## dbt environment, sync and refresh
+
+- The Omni branch isolates the Omni-side change; the dbt environment only decides which dbt Git branch gets compiled. The production/default environment compiles the default dbt branch and ignores `--dbt-git-branch`. Use it when the dbt YAML is merged. Bind a non-production environment only while the YAML is still on an unmerged dbt branch.
+- Omni compiles the manifest from the configured Git branch. Push that dbt branch before `dbt-sync`.
+- `omni models refresh` rebuilds the schema model from the database and also runs the dbt sync. With no filters it is a hard refresh of every schema. Scope it: `--hard-refresh false --schemas <schema> --tables <table,...>` reloads only those objects (wildcards such as `sales_*` are allowed) and leaves the rest of the schema model untouched. A soft refresh is additive: it does not remove dropped objects. On a branch, `dbt-sync` alone recompiles the manifest without a database scan.
 
 ## Layer Precedence and Merge Behavior
 
