@@ -1,6 +1,6 @@
 # Advanced ai_context Templating
 
-These apply to `ai_context` at the **model, topic, and view levels only**.
+These apply to `ai_context` on the **model, topics, views and sample queries**.
 
 ## Personalize with user attributes
 
@@ -13,7 +13,7 @@ ai_context: |
   and account.region = {{omni_attributes.region}}.
 ```
 
-> **Caveat**: Not supported in dimension or measure `ai_context` — there the value is used verbatim, un-substituted. Field references and filter conditions are also unsupported and raise a validation warning.
+> **Caveat**: Not supported in dimension or measure `ai_context` — there the value is used verbatim, un-substituted. The filter and field references that work in SQL, such as `{{ filters.view.field.value }}`, `{{ view.field.in_query }}` and `{{# view.field.filter }}` sections, are not supported in any `ai_context` and raise a validation warning.
 
 ## Target specific model tiers with omni_llm
 

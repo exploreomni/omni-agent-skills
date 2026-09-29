@@ -49,25 +49,7 @@ users.created_at[year]      — Yearly
 
 ## Filters
 
-`query.filters` is a map of **`fieldName` → a typed filter object** — the shape Omni's UI emits (verified against a live dashboard's `filterConfig` and end-to-end via `query run`):
-
-```json
-"filters": {
-  "users.state":            { "type": "string", "kind": "EQUALS",       "values": ["California", "New York"] },
-  "products.category":      { "type": "string", "kind": "CONTAINS",      "values": ["Jeans"] },
-  "order_items.sale_price": { "type": "number", "kind": "GREATER_THAN",  "values": [100] },
-  "order_items.created_at": { "type": "date",   "kind": "BEFORE",        "values": ["2024-01-01"] },
-  "order_items.shipped_at": { "type": "date",   "kind": "TIME_FOR_INTERVAL_DURATION", "ui_type": "PAST", "left_side": "12 months ago", "right_side": "12 months" },
-  "order_items.is_shipped": { "type": "boolean", "is_negative": false }
-}
-```
-
-- **`type`** — `string` / `number` / `date` / `boolean`. **Boolean filters use `is_negative`** (`false` = is true, `true` = is false), *not* `kind`/`values` (+ optional `treat_nulls_as_false`).
-- **`kind`** (operator, for string/number/date) — string: `EQUALS`, `CONTAINS`, `STARTS_WITH`, `ENDS_WITH`, `IS_EMPTY`, `SQL_LIKE`; number: `EQUALS`, `GREATER_THAN`, `LESS_THAN`, `BETWEEN`; date: `BEFORE`, `ON_OR_AFTER`, `BETWEEN`, `TIME_FOR_INTERVAL_DURATION`/`TIME_FOR_UNIT_DURATION` (rolling windows), `IS_ON_DAY_OF_WEEK`, … (`QUERY_OFFSET` references another query).
-- **`values`** — array of operands: a single value, a list (multi-select `EQUALS`), or `[lo, hi]` for `BETWEEN`. Date **rolling windows** use `left_side`/`right_side` + `ui_type` (e.g. `PAST`) instead of `values`.
-- **Verify the filter actually bound.** A filter object with the wrong properties for its type (e.g. `kind`/`values` on a `boolean`, which needs `is_negative`) is **silently ignored** — the query returns `COMPLETE` but the filter never reaches the SQL. Confirm via `cache:"SkipCache"` → `summary.display_sql` (the `WHERE`), or that the row count actually changes. The exact `kind`/`ui_type`/boolean enums live in `omni documents v2-create --schema` (under the filter objects); see also [references/filter-expressions.md](filter-expressions.md).
-
-> **Do NOT use the bare-string shorthand** (`"order_items.status": "complete"`, `"last 90 days"`, `"not null"`). The query API rejects it — `400 "Unable to parse data stream"` as of August 2026, `500 "Cannot use 'in' operator to search for 'query_id' in <value>"` on older builds. The typed object above is the reliable form. *(Reproduced on current Omni for value, date, null-string, number, and boolean forms.)*
+`query.filters` maps each field name to a typed filter object: `type`, then `kind` and `values`, or `is_negative` for a boolean. Every filter type, its operators, the bare-string forms the API rejects, and how to confirm a filter reached the SQL are in [filter-expressions.md](filter-expressions.md).
 
 ## Pivots
 

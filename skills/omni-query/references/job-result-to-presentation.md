@@ -20,7 +20,7 @@ The query object inside a job result is **not directly usable** as a dashboard `
 
 - **Always strip `userEditedSQL`** — it makes the tile a non-topic query, so it bypasses **all** model controls (object-level access grants, row-level access filters, and `always_where`) and is invisible to restricted roles in a dashboard. The `${Order Items}` topic-name token it contains also fails outside the job execution context.
 - **When `calculations[]` is non-empty**, stripping `userEditedSQL` is sufficient — the structured calc renders correctly.
-- **When `calculations[]` is empty**, Blobby authored the calc as inline SQL. The parsed AST is available in `csvResultFields` (at `result` level, not inside `result["query"]`) and can be reconstructed as a proper `calculations[]` entry. Fields whose top-level expr operator is an aggregate (`SUM`, `COUNT`, etc.) cannot be reconstructed as table calcs — add them to the model as filtered measures instead.
+- **When `calculations[]` is empty**, Blobby authored the calc as inline SQL. The parsed AST is available in `csvResultFields` (at `result` level, not inside `result["query"]`) and can be reconstructed as a proper `calculations[]` entry. Fields whose top-level expr operator is an aggregate (`SUM`, `COUNT`, etc.) cannot be reconstructed as table calcs — they need filtered measures in the model, which `omni-model-builder` adds when the user asks for a model change.
 
 For the complete transformation algorithm, discriminator logic, field-ref injection, aggregate-skip handling, and sanity-check approach, see the sections below.
 

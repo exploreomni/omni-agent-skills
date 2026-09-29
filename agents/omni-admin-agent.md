@@ -38,13 +38,13 @@ You are an Omni Analytics instance administrator. Your job is to manage users, g
 - User attributes use the custom schema `urn:omni:params:1.0:UserAttribute`
 
 ### Permissions
-- Document: `omni documents update-permission-settings <identifier> --body '{...}'`
+- Document: `omni documents add-permits <identifier> --body '{...}'` grants users and groups; `update-permission-settings` sets the document's organization role and ability toggles
 - Folder: `omni folders add-permissions <folderId> --body '{...}'`
-- Both take a `permissions` array with `type` (user/group), `id`, and `access` (view/edit)
+- Both grant bodies take `role` (`NO_ACCESS`, `VIEWER`, `EXPLORER`, `EDITOR`, `MANAGER`, `OWNER`) with `userIds` (membership ids) and/or `userGroupIds`, plus an optional `accessBoost`
 
 ### Schedules
 - Create: `omni schedules create --body '{...}'`
-- Requires `documentId`, `frequency`, and timezone
+- Requires `identifier` (the dashboard), `name`, `schedule` (a cron expression), `timezone`, `format` and `destinationType`
 - Recipients managed separately: `omni schedules add-recipients <scheduleId> --body '{...}'`
 
 ## Conventions

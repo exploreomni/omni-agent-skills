@@ -154,7 +154,7 @@ There is also a model-level [`sample_queries`](https://docs.omni.co/modeling/mod
 
 ## Advanced ai_context Templating
 
-Model, topic, and view `ai_context` can insert the current user's attribute values (`{{omni_attributes.<attribute_name>}}`), scope a passage to an AI model tier (`omni_llm`) or to the agent reading it (`omni_agent`), and reuse text defined once in `constants` (`@{constant_name}`). Dimension and measure `ai_context` does not substitute attribute values; the placeholder text is used as written. Syntax and examples: [references/ai-context-templating.md](references/ai-context-templating.md).
+Model, topic, view and sample-query `ai_context` can insert the current user's attribute values (`{{omni_attributes.<attribute_name>}}`), scope a passage to an AI model tier (`omni_llm`) or to the agent reading it (`omni_agent`), and reuse text defined once in `constants` (`@{constant_name}`). Dimension and measure `ai_context` does not substitute attribute values; the placeholder text is used as written. Syntax and examples: [references/ai-context-templating.md](references/ai-context-templating.md).
 
 ## Curating Fields with ai_fields
 
