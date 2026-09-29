@@ -18,6 +18,8 @@ In the [v2 documents API](documents-v2.md), `controls.data` holds dashboard filt
 - [Parent controls (one control drives many)](#parent-controls-one-control-drives-many)
 - [Control vs. content-item — and syncing a filter across pages](#control-vs-content-item--and-syncing-a-filter-across-pages)
 - [Mustache control tokens (in markdown/text tiles)](#mustache-control-tokens-in-markdowntext-tiles)
+- [Filters and controls in a create body](#filters-and-controls-in-a-create-body)
+- [Model it or control it?](#model-it-or-control-it) — a filter-only field in the model vs a dashboard control
 - [See also](#see-also)
 
 ## `map` — per-tile scoping
@@ -350,6 +352,46 @@ A markdown tile can react to a **control's** current selection. These tokens are
 > **Namespace gotcha.** `{{controls.<id>}}` resolves only against **dashboard controls** (`controls.data`). A control embedded in a tile's `query.controls[]` is invisible to the template (every token returns empty) **and** renders in the HIDDEN CONTROLS tray. Drive markdown from a dashboard control, not a tile-embedded one.
 
 This is the basis of the dynamic-caption and metric-switch patterns documented in [markdown-tiles.md](markdown-tiles.md) and [mustache.md](mustache.md).
+
+## Filters and controls in a create body
+
+Include `controls` in a `v2-create` body (or patch it in later; controls merge by key like tiles):
+
+```bash
+omni documents v2-create --body '{
+  "modelId": "your-shared-model-id",
+  "name": "Filtered Dashboard",
+  "controls": {
+    "data": {
+      "date_filter": {
+        "config": {
+          "type": "date", "kind": "TIME_FOR_INTERVAL_DURATION", "ui_type": "PAST",
+          "left_side": "6 months ago", "right_side": "6 months",
+          "fieldName": "order_items.created_at",
+          "topic": "order_items", "base_view": "order_items",
+          "label": "Date Range"
+        },
+        "map": {}
+      },
+      "state_filter": {
+        "config": {
+          "type": "string", "kind": "EQUALS",
+          "fieldName": "users.state",
+          "topic": "order_items", "base_view": "order_items",
+          "label": "State", "values": []
+        },
+        "map": {}
+      }
+    },
+    "order": ["date_filter", "state_filter"]
+  },
+  "queryPresentations": { … }
+}'
+```
+
+## Model it or control it?
+
+A dashboard filter or control belongs to one document and is scoped to tiles through `map`. Model the filter instead, as a filter-only field (`omni-model-builder` → `references/templated-filters.md`), when every workbook and dashboard on the topic should get the same filter, when one control must drive several columns or a measure threshold (`bind_to`), or when a control must switch which column or measure a field uses (a templated `CASE`). The dashboard then binds an ordinary filter control to that field (`fieldName: <view>.<field>`) with no `map`, because the model defines what the filter applies to. Keep a dashboard control when the behavior is specific to one document, when viewers should pick the field themselves (`FIELD_SELECTION`, `FIELD_PICKER`), or when you cannot change the shared model. A **Restricted Querier** cannot branch or edit the shared model, but a filter-only field is a `.view` extension, so it can go in this document's **workbook model** (see [workbook-model.md](workbook-model.md)) when one dashboard needs the modeled form; otherwise use a dashboard control.
 
 ## See also
 

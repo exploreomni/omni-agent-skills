@@ -2,6 +2,14 @@
 
 Every dashboard build or update must include validation before and after creation. Broken tiles, bad field references, and misconfigured viz specs are silent failures — the dashboard renders but tiles show "Chart unavailable" or "No data" with no API-level error. The v2 draft flow gives you a critical safety net: **nothing goes live until `v2-publish-draft`**, so validate the draft first — a bad draft is discarded with zero impact.
 
+## Contents
+
+- [Step 1: Validate the Model](#step-1-validate-the-model)
+- [Step 2: Test Every Query via Execution](#step-2-test-every-query-via-execution)
+- [Step 3: Validate Viz Spec Consistency](#step-3-validate-viz-spec-consistency)
+- [Step 4: Validate the Draft Before Publishing](#step-4-validate-the-draft-before-publishing)
+- [Validation Checklist Summary](#validation-checklist-summary)
+
 ## Step 1: Validate the Model
 
 Before building any queries, confirm the underlying model is healthy:

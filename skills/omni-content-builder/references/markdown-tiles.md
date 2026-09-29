@@ -4,6 +4,14 @@ Patterns for **markdown viz tiles** (`chartType: "markdown"`, `visType: "omni-ma
 
 > **Recipe source for advanced markdown vizzes — [docs.omni.co/showcase](https://docs.omni.co/showcase).** Working CSS/mustache for things no native chart type gives you: **symmetric funnel** (clip-path trapezoids + step-conversion labels — more informative than the built-in echarts funnel), **conditional-color KPI** (CASE calc → class name → `<style>`), **table with tiny inline bars**, **gauges/thermometer**, **dumbbell plot**, **waffle/square-fill** charts. For a "stages as rows" viz (funnel, tiny-bar table) shape the query with `transposed_measures` (see `omni-query`) so stages become `measure_value` rows, or compute step ratios as their own measures and read them via `result._first`.
 
+## Contents
+
+- [Native data components — `<Sparkline>` and `<ChangeArrow>`](#native-data-components--sparkline-and-changearrow)
+- [Sizing markdown tiles (heights) — they clip easily](#sizing-markdown-tiles-heights--they-clip-easily)
+- [Responsive KPI headline numbers — scale font to the *card*, not the viewport](#responsive-kpi-headline-numbers--scale-font-to-the-card-not-the-viewport)
+- [A markdown KPI card that follows a metric picker](#a-markdown-kpi-card-that-follows-a-metric-picker)
+- [Data-driven funnel (proportional widths, no table calc)](#data-driven-funnel-proportional-widths-no-table-calc)
+
 ## Native data components — `<Sparkline>` and `<ChangeArrow>`
 
 Omni's markdown renderer ships two **publicly documented** data components that draw inline visualizations from the tile's query results — **prefer them over hand-rolled equivalents.** A KPI "big number + sparkline + up/down delta" card needs **no table calculations and no CSS `<div>` bar tricks**: `<Sparkline>` draws the trend and `<ChangeArrow>` computes and colors the delta. (A `spark_h = metric/MAX(metric)` calc in a `{{#result}}` loop, or a `mom_pct`/`mom_dir` CASE-class arrow, just re-implements these — more fragily.)

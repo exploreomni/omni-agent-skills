@@ -2,6 +2,18 @@
 
 The `omni documents v2-*` commands are the **only** surface for creating, reading, and editing documents — an explicit envelope of `queryPresentations`, `controls`, `containers`, and `settings`, edited through a **draft → publish** flow. Never fall back to the v1 `documents create`/`get` path (v1 `put`/`update` were removed in CLI 1.2.2). A few document-management operations (list, delete, move, duplicate, discard-draft, get-queries, downloads) have no v2 form and are the only command for that job — see the command list in [SKILL.md](../SKILL.md). Always read your result back with `v2-get` / `v2-get-draft` and verify.
 
+## Contents
+
+- [Commands](#commands)
+- [Envelope](#envelope)
+- [Tile (queryPresentation) shape](#tile-querypresentation-shape)
+- [Apps (alpha, CLI ≥ 1.4.0)](#apps-alpha-cli--140)
+- [Behaviors to design around](#behaviors-to-design-around)
+- [Running queries to verify tiles](#running-queries-to-verify-tiles)
+- [Branch-bound drafts](#branch-bound-drafts)
+- [Error map](#error-map)
+- [See also](#see-also)
+
 ## Commands
 
 | Command | Purpose |

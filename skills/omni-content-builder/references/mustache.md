@@ -9,7 +9,7 @@ How dashboard text/markdown tiles interpolate `{{...}}` tokens — the namespace
 - [The engine](#the-engine)
 - [Two contexts — *where* decides what you get](#two-contexts--where-decides-what-you-get)
 - [control vs filter — the decision](#control-vs-filter--the-decision)
-- [The keying gotcha (`view.field` vs `id`)](#the-keying-gotcha-viewfield-vs-id)
+- [The keying gotcha — filter keying flips by tile kind](#the-keying-gotcha--filter-keying-flips-by-tile-kind)
 - [Token reference by namespace](#token-reference-by-namespace)
 - [Scenarios](#scenarios)
 - [Pitfalls](#pitfalls)

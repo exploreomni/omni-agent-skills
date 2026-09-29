@@ -2,6 +2,20 @@
 
 In the [v2 documents API](documents-v2.md), `containers` is the layout tree — it decides where each tile renders and which controls are visible. If a tile (or control) is not referenced by a container, it does not appear, even though it exists and runs. This is the single most common reason a v2 dashboard looks empty.
 
+## Contents
+
+- [Top-level shape](#top-level-shape)
+- [The grid is 24 columns](#the-grid-is-24-columns)
+- [A tile stack](#a-tile-stack)
+- [Other content-items and container options](#other-content-items-and-container-options)
+- [Grouping tiles into a movable band](#grouping-tiles-into-a-movable-band)
+- [Multi-page dashboards](#multi-page-dashboards)
+- [The Filter Bar](#the-filter-bar)
+- [Control placement (filters vs interactive controls)](#control-placement-filters-vs-interactive-controls)
+- [Content-item `padding` (and the switcher-alignment trick)](#content-item-padding-and-the-switcher-alignment-trick)
+- [Common pitfalls](#common-pitfalls)
+- [See also](#see-also)
+
 ## Top-level shape
 
 ```jsonc

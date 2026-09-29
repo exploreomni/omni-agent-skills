@@ -4,6 +4,16 @@ Edits go through the **v2 draft flow**: read the published state, author a merge
 
 > **Advanced layout only.** Classic-layout dashboards return **422** from the v2 endpoints: *"This document uses the classic dashboard layout, which the documents API does not support. Upgrade the dashboard to the advanced layout before editing it through the API."* There is no API fallback — ask the user to upgrade the layout in the Omni UI, then retry.
 
+## Contents
+
+- [The five-step loop](#the-five-step-loop)
+- [Merge-by-key semantics](#merge-by-key-semantics)
+- [Recipes](#recipes)
+- [The `--body` vs flags gotcha](#the---body-vs-flags-gotcha)
+- [Errors](#errors)
+- [Failure handling](#failure-handling)
+- [See also](#see-also)
+
 ## The five-step loop
 
 **Step 1 — Read** the current state:

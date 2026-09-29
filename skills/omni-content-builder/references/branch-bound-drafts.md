@@ -70,7 +70,7 @@ This sets expectations and names the one action that finishes the job (merge + p
 
 ## Workbook-model fields on a draft
 
-> The general flow — `omni models yaml-create <workbookModelId>` with `"mode": "extension"`, YAML body with no `views:` wrapper — lives in *Updating a Dashboard's Model* in SKILL.md. This section covers what changes on a draft.
+> The general flow — `omni models yaml-create <workbookModelId>` with `"mode": "extension"`, YAML body with no `views:` wrapper — is in [workbook-model.md](workbook-model.md). This section covers what changes on a draft.
 
 **Each draft has its own copy of the workbook model**, with a different id from the published document's. Read it from the draft's record in `list-drafts` (`workbookModelId`); that call needs only the published document's identifier and also shows each draft's branch. A `v2-get-draft` response carries the same field. Then:
 
