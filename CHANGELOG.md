@@ -10,7 +10,10 @@ Since 1.11.0 both plugins share one version, held in `versions.json` and stamped
 
 ### omni-analytics
 
-_Summary: `omni-content-builder` was re-checked against the current documents v2 API. Four things it warned about now behave differently, some missing options were added, and the skill now recommends one path wherever it used to list two. No command or flag changed._
+_Summary: `omni-content-builder` was re-checked against the current documents v2 API. Four things it warned about now behave differently, some missing options were added, and the skill now recommends one path wherever it used to list two. The check that runs each tile's query now reads its row count from JSON output. No command or flag changed._
+
+**Fixed**
+- **`omni-content-builder` — *Checking each tile's query*.** The validation reference ran each tile's query with `"resultType": "csv"`, whose output is only the CSV, and then read the row count from `cache_metadata.num_rows`, which that output does not have. The check now runs with `-o json`, which keeps the job envelope, and a CSV run is a separate spot-check of the data.
 
 **Changed**
 - **`omni-content-builder` — *Reading a tile's chart config*.** A tile's chart config now reads back in the same shape you write it. The warnings about a flattened read, and the `normalizeTile()` helper, are gone. After writing a tile, read it back and check that its `config` is not empty.

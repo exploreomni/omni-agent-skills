@@ -35,8 +35,10 @@ omni query run --body '{
     "limit": 10,
     "join_paths_from_topic_name": "order_items"
   }
-}'
+}' -o json
 ```
+
+`-o json` keeps the job envelope that the checks below read. In the human format, `query run` prints a formatted table without it.
 
 (Standalone `query run` bodies take a `modelId`; **tile** queries inside v2 documents must not — the server anchors tiles to the document's workbook model.)
 
@@ -108,9 +110,8 @@ Works on v2 documents; the returned queries include the workbook `modelId`, so t
 ```bash
 # For each query returned, execute it
 omni query run --body '{
-  "query": <query-object-from-get-queries>,
-  "resultType": "csv"
-}'
+  "query": <query-object-from-get-queries>
+}' -o json
 ```
 
 For tiles that exist only on the draft, take the query object from the `v2-get-draft` readback and run it with `modelId` set to that response's `workbookModelId`.
@@ -120,7 +121,7 @@ query status, and row count. Use **`cache_metadata.num_rows`** for the row count
 (`summary.row_count` does not exist). Do not leave post-build verification as silent
 command output.
 
-Using `"resultType": "csv"` makes it easy to spot-check that the data looks reasonable (correct columns, non-empty rows, expected value ranges).
+To spot-check the data itself (correct columns, non-empty rows, expected value ranges), run the query again with `"resultType": "csv"` beside `query`. That run prints only the CSV, with no `cache_metadata` or `remaining_job_ids`, so take each tile's status and row count from the JSON run.
 
 **What to check:**
 - Every tile's query executes without error
@@ -157,5 +158,5 @@ An Omni dashboard page never goes idle: it keeps connections open, so a tool tha
 | Pre-build | Viz specs are internally consistent | Check against the rules above |
 | Pre-publish | Draft has all expected tiles | `v2-get-draft` — `order` length and `data` keys both match |
 | Pre-publish | All tile queries execute | `omni documents get-queries` + `omni query run` each |
-| Pre-publish | Data looks correct | Spot-check CSV output for reasonableness |
+| Pre-publish | Data looks correct | Spot-check a `"resultType": "csv"` run |
 | Post-publish | Published state matches the draft | `omni documents v2-get <identifier>` |
