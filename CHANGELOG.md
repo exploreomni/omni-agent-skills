@@ -6,6 +6,27 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.20.0] - 2026-09-29
+
+### omni-analytics
+
+_Summary: four skills get shorter SKILL.md files, following Anthropic's skill-authoring guidance: a SKILL.md body under about 5k tokens and 500 lines, every reference linked from SKILL.md, and a table of contents on references over 100 lines. Whole sections move word for word into references, and a few rules that were stated twice are now stated once. Separately, statements found wrong along the way in `omni-admin`, its agent, `omni-ai-optimizer` and `omni-query` are fixed. `omni-to-dbt-metricflow` and `omni-to-snowflake-semantic-view` wait for their open PRs._
+
+**Fixed**
+- **`omni-admin` — *Content roles and permission bodies*.** Content roles are `NO_ACCESS`, `VIEWER`, `EXPLORER`, `EDITOR`, `MANAGER` and `OWNER`, and `OWNER` can be granted only to users. Folder `add-permissions` takes the same body as documents `add-permits` (`role`, `userIds`, `userGroupIds`, `accessBoost`); the skill showed a `permissions` array. `userIds` and `--user-id` take membership ids, and `get-permissions` works without `--user-id`.
+- **`omni-admin` — *Access Boost*.** When the organization has Access Boost off, or the caller isn't allowed to grant it, a request that turns boost on is rejected with 403; the skill said the flags were silently cleared. `update-permission-settings` also takes `canAnalyze`, `canDuplicate`, `canRequestAccess` and `canSaveSpreadsheets`.
+- **`omni-admin-agent` agent — *Permissions and schedules*.** Grants go through `add-permits` and `add-permissions` with `role` and ids, and a schedule needs `identifier`, `name`, `schedule`, `timezone`, `format` and `destinationType`.
+- **`omni-ai-optimizer` — *ai_context templating*.** Templating and constants also apply to sample-query `ai_context`, and the caveat names what raises a validation warning: the filter and field references that work in SQL.
+- **`omni-query` — *Reading results*.** With `resultType` set, stdout is only the result payload. Without it, the stream ends with a `remaining_job_ids` line, so parse the line with `job_id`. `--workbook` returns a link to an unsaved workbook that runs the query; the skill said a result had no URL.
+- **`omni-query` — *Missing measures and evals*.** A missing measure is reported and added with `omni-model-builder` only when the user asks for a model change, matching the skill's read-only rule. Eval case 6 expects an agentic job or the trailing-average pattern, as the skill recommends. The Filters section of `query-parameters.md` now links to `filter-expressions.md`, which covered all of it.
+
+**Changed**
+- **`omni-query` — *A shorter SKILL.md*.** About 10.6k to 5.0k tokens (499 to 208 lines). Query parameters, raw SQL, request options, result handling and AI query generation move into their own references; table calculations and job results move into the references that already covered them.
+- **`omni-model-builder` — *A shorter SKILL.md*.** About 10.1k to 6.4k tokens (519 to 304 lines). Model layers, SQL dialect, post-merge checks, topic-scoped definitions, troubleshooting, writing topics and query views move into references. Five long references open with a table of contents.
+- **`omni-admin` — *A shorter SKILL.md*.** About 6.7k to 4.7k tokens (521 to 402 lines). Model roles, AI credits, color palettes, uploads, and cache and validation move into references; the section headings other skills cite stay in SKILL.md.
+- **`omni-ai-optimizer` — *A shorter SKILL.md*.** About 6.5k to 5.2k tokens (512 to 397 lines). The context-window rules, `ai_context` templating and agent skills move into references.
+- **`omni-to-databricks-metric-views` — *Finding sections*.** `FIELD-MAPPING.md` opens with a table of contents.
+
 ## [1.17.0] - 2026-09-24
 
 ### omni-analytics

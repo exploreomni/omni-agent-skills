@@ -33,40 +33,17 @@ You need **Modeler** or **Connection Admin** permissions. Add `-o json` to any c
 
 ## Omni's Layered Modeling Architecture
 
-Omni uses a **layered approach** where each layer builds on top of the previous:
-
-1. **Schema Layer** — Auto-generated from your database. Reflects tables, views, columns, and their types. Kept in sync via schema refresh.
-2. **Shared Model Layer** — Your governed semantic model. Where you define dimensions, measures, joins, and topics that are reusable across the organization.
-3. **Workbook Model Layer** — Ad hoc extensions within individual workbooks. Used for experimental fields before promotion to shared model.
-4. **Branch Layer** — Intermediate development layer. Used when working in branches before merging changes to shared model.
-
-**Key concept**: The schema layer is the source of truth for table/column structure (refreshed when the database changes); all user-created content (dimensions, measures, relationships, topics) flows through the shared model layer. You build and modify it in **branches** (see "Safe Development Workflow" below) before merging back to the shared model.
+Omni composes a model from the schema layer (generated from the database), the shared model (governed fields, relationships, and topics), workbook models (ad hoc fields in one workbook), and branches, where shared-model changes are made before a merge: [model-layers.md](references/model-layers.md).
 
 ## Determine SQL Dialect
 
-Before writing any SQL expressions, confirm the dialect from the connection — don't guess from the connection name:
-
-```bash
-# 1. List models to find connectionId
-omni models list
-
-# 2. Look up the connection's dialect
-omni connections list
-# → find your connectionId and read the "dialect" field
-# → e.g. "bigquery", "postgres", "snowflake", "databricks"
-```
-
-Use dialect-appropriate functions in your SQL (e.g. `SAFE_DIVIDE` for BigQuery, `NULLIF(a/b)` for Postgres/Snowflake).
-
-> **Creating a *new* SHARED model (rare).** Most work is on an existing model — but if you do create one with `omni models create`, the body is `{ modelKind: "SHARED", connectionId }` (no `baseModelId`; it inherits the connection's schema views + assumed relationships — run `omni models create --schema` for the full field list). **Footgun: create takes `modelName`, update takes `name`.** Passing `name` on create is silently ignored and the model is named from the connection — then you'd have to `omni models update <id> --body '{"name":"…"}'` to fix it. Pass **`modelName`** on create and skip the rename.
-
-> **Deleting a model (CLI ≥ 1.2.2).** `omni models delete <modelId>` trashes a SHARED or shared-extension model **together with the workbooks, dashboards, and child extension models built on it** — confirm that blast radius with the user before running it. Requires **Connection Admin**. It does not delete branches: use `omni models delete-branch` for those.
+Before writing any SQL expression, look up the connection's dialect: find the model's `connectionId` with `omni models list`, then read its `dialect` from `omni connections list` (the connection name is not a reliable guide). `omni models delete` also trashes the workbooks, dashboards, and child extension models built on the model; confirm that with the user before running it. Commands, and creating a new SHARED model: [sql-dialect.md](references/sql-dialect.md).
 
 ## Schema Refresh: Syncing with Database Changes
 
 The **schema layer** is auto-generated from your database. When your database schema changes (new/deleted/renamed columns, type changes), refresh it to stay in sync: `omni models refresh <modelId>` (add `--branch-id <branchId>` to scope to a branch; requires **Connection Admin**).
 
-See `references/schema-refresh.md` for when to trigger, what it does and its side effects, the deleted/renamed-column impact-check workflow, and connection/credential error handling.
+See [schema-refresh.md](references/schema-refresh.md) for when to trigger, what it does and its side effects, the deleted/renamed-column impact-check workflow, and connection/credential error handling.
 
 ## Known Issues & Safe Defaults
 
@@ -151,7 +128,7 @@ omni models yaml-get <modelId> --file-name your_view.view --branch-id <branchId>
 
 > **Triage validation errors — most aren't yours.** On a fresh/inherited model, blocking `not found` errors (missing table/view/column) usually mean a **stale schema**: run a **schema refresh** (`omni models refresh <modelId>`) first — it clears them; a `not found` that **persists after refresh** is real (connection lacks DB access, or a genuinely broken reference). For what remains, **baseline before your change** (or filter issues by `yaml_path`) and treat as blocking only the **new** errors referencing **your** changed files — report the pre-existing ones, don't chase them.
 
-Spot-check that values look right (a `sum` isn't returning a `count`; booleans read true/false), and if a field references another view include fields from both to confirm the join resolves. See `references/validation-and-testing.md` for join-path testing, natural-language validation via `omni ai job-submit`, the full results checklist, and duplicate-file recovery.
+Spot-check that values look right (a `sum` isn't returning a `count`; booleans read true/false), and if a field references another view include fields from both to confirm the join resolves. See [validation-and-testing.md](references/validation-and-testing.md) for join-path testing, natural-language validation via `omni ai job-submit`, the full results checklist, and duplicate-file recovery.
 
 > **Window-shaped result columns are table calculations, not model fields.** A running total, moving average, period-over-period / MoM %, percent-of-total, or rank is computed **per query on the result set** — author it as a table calculation (`query.calculations[]`) per **`omni-query` → `references/table-calculations.md`**, not as a measure/dimension here. Only model an in-warehouse field when the window must span rows *outside* the result set.
 
@@ -182,21 +159,7 @@ omni models merge-branch <modelId> <branchName>
 
 #### After the merge — verify net-new topics and views (both paths)
 
-After the merge, Omni regenerates the default branch from its own (authoritative) model state — re-serializing to canonical form, and adding a normalization commit only when the merged git content *differs* from that state. Content authored through the Omni APIs is already canonical, so a clean merge often adds **no extra commit** — don't go hunting for one; verify by resolution instead. (A non-git merge promotes the branch into the shared model.) Either way — and **especially for net-new topics or views** — confirm the files resolve against the **production** model (no `--branch-id`):
-
-```bash
-# 1. Files resolve in production — the new view appears / the new topic resolves
-omni models get-views <modelId>                 # new view is listed
-omni models get-topic <modelId> <topicName>     # new topic resolves (base_view_name + join_via_map present)
-
-# 2. Production model validates — no blocking errors (any is_warning:false is blocking)
-omni models validate <modelId>
-
-# 3. Run at least one semantic query against the new topic/view
-omni query run --body '{"query":{"modelId":"<modelId>","table":"<base_view>","fields":["<base_view>.<field>"],"limit":10,"join_paths_from_topic_name":"<topicName>"}}'
-```
-
-In the query response, confirm `summary.missing_fields` is `[]` (and `summary.invalid_calculations` is empty — note it comes back as `{}`, not `[]`). A non-empty `missing_fields` means a field didn't resolve — the signature of a model file dropped or renamed during the merge. If anything is missing, re-author it through Omni; never patch it back by hand in git.
+After either path, confirm new topics and views resolve against the production model (no `--branch-id`): list the views, `get-topic` the topic, validate, and run a query whose `summary.missing_fields` is `[]`. If anything is missing, re-author it through Omni and never patch it by hand in git: [post-merge-verification.md](references/post-merge-verification.md).
 
 ## YAML File Types
 
@@ -236,56 +199,11 @@ measures:
 
 ### Understanding Schema Layer vs Extension Layer
 
-When you create a view, Omni separates **schema** (database structure) from **model** (your business logic):
-
-- **Schema layer**: Auto-generated base dimensions, one per column. Types come from the database. Read-only, synced via schema refresh.
-- **Extension layer**: Your custom YAML. Can override base dimensions, add new dimensions/measures, hide columns, add business logic.
-
-When both layers exist for a field with the same name, **your extension definition wins** but **type information comes from the schema layer**.
-
-**Example**: Table has columns `created_at` (DATE) and `revenue` (NUMERIC).
-
-```yaml
-# Schema layer (auto-generated)
-dimensions:
-  created_at: {}  # type: DATE, auto-generates timeframes
-  revenue: {}     # type: NUMERIC
-
-# Extension layer (your YAML)
-dimensions:
-  created_at:
-    label: "Order Created"
-    description: "When the order was placed"
-
-  revenue:
-    hidden: true  # Hide the raw column
-
-measures:
-  total_revenue:
-    sql: ${revenue}
-    aggregate_type: sum
-    format: currency_2
-```
-
-Result: `created_at` inherits its type from the schema layer (DATE with automatic week/month/year granularities) but gets your label. The raw `revenue` column is hidden, only exposed through the `total_revenue` measure.
-
-**Key insight**: If your extension defines a dimension but there's no schema layer base dimension to provide type information, Omni can't infer granularities or types. Trigger a schema refresh to auto-generate the schema layer first.
-
-**Reading back what you wrote — `--mode`.** `yaml-get` returns your **extension** layer by default — just the deltas you authored, *not* the auto-generated base columns. To see the **fully-composed** result (schema base + your extension merged), read with `--mode combined`:
-
-```bash
-# What you authored (deltas only) — default
-omni models yaml-get <modelId> --file-name your_view.view --branch-id <branchId> --mode extension
-
-# What the model actually resolves to (schema + extension merged)
-omni models yaml-get <modelId> --file-name your_view.view --branch-id <branchId> --mode combined
-```
-
-Use `extension` to confirm *what you changed*, and `combined` to confirm *what the model resolves to*. When the model is git-integrated, the **combined** output mirrors what's written to the repository — which is why committed `*.view.yaml` files carry the schema-layer `table_name:` and base columns, while the extension layer holds only your deltas. (Other `--mode` values: `staged`, `merged`, `history`.)
+Your extension YAML can override a schema-layer field of the same name, and the field keeps its schema-layer type; when a column has no schema-layer base dimension yet, refresh the schema first. Examples and `yaml-get --mode` read-back: [model-layers.md](references/model-layers.md#understanding-schema-layer-vs-extension-layer).
 
 ### Dimension Parameters
 
-See `references/modelParameters.md` for the complete list of 35+ dimension parameters, format values, and timeframes.
+See [modelParameters.md](references/modelParameters.md) for the complete list of 35+ dimension parameters, format values, and timeframes.
 
 Most common: `sql`, `label`, `description` (also used by Blobby), `primary_key` (unique key — critical for aggregations), `hidden` (hides from picker, still usable in SQL), `format` (`number_2`/`currency_2`/`percent_2`/`id`), `group_label`, `synonyms` (AI-matching aliases).
 Two gotchas: a raw column **auto-maps by name** (no `sql:` needed); there is **no `${TABLE}` construct** — `${TABLE}.column` errors `Column "__omni_scoped" not found` at validate/query time (reference fields via `${field}`/`${view.field}`).
@@ -293,8 +211,6 @@ Two gotchas: a raw column **auto-maps by name** (no `sql:` needed); there is **n
 ### Measure Parameters
 
 See `references/modelParameters.md` (24+ params, all 13 aggregate types) and `references/yaml-filter-syntax.md` (filter operators + measure-filter examples). **Prefer a measure `filters:` block** for filtered aggregates over `CASE WHEN`/`WHERE` in `sql` — keep `sql` focused on the value being aggregated:
-
-For level-of-detail aggregates (`fixed` / `always_include` / `always_exclude`, on dimensions and measures) see `references/level-of-detail.md`.
 
 ```yaml
 measures:
@@ -320,31 +236,11 @@ measures:
 
 ### Cross-View Fields in Views
 
-Cross-view fields (dimensions or measures whose `sql` references `${other_view.field}`) in a global view file are evaluated in every topic that exposes the host view. A global relationship can make the dependency reachable in topics that inherit the global join graph, but it does not override a topic's explicit/frozen `joins:` map. If that map omits the dependency, validation returns a blocking `field_broken_in_topic` issue and queries using the field fail to plan.
-
-**Placement follows intended availability and resolved join context, not field namespace.** Define the field in the topic's `views.<host_view>` block (see "Topic-Scoped View Definitions") when it is meaningful only in that topic or depends on a topic-specific, aliased, or frozen join. The field remains queryable as `<host_view>.<field>`; topic scoping limits where it is available, not the namespace the user requested.
-
-Use the global view file when the field is universally meaningful and its dependency resolves unambiguously in every topic that exposes the host view. Before choosing, list those topics and inspect each resolved `get-topic` `join_via_map` — not only the global relationships file — then validate the branch and query at least one topic for each distinct join context. Topics without explicit joins may inherit a global relationship; topics with explicit joins may exclude it.
+A field in a global view file whose `sql` references `${other_view.field}` is evaluated in every topic that exposes the host view, and is a blocking `field_broken_in_topic` issue in any topic whose explicit `joins:` leave that view out. Define it in the topic's `views.<host_view>` block when it applies to one topic or depends on a topic-specific join; before using the global file, check each exposing topic's `get-topic` `join_via_map`, then validate and query one topic per distinct join context: [topic-scoped-definitions.md](references/topic-scoped-definitions.md#cross-view-fields-in-views).
 
 ## Fallback: View Missing from yaml-get
 
-Before concluding that a view doesn't exist, always run this two-step check. `yaml-get` only returns views from currently-loaded schemas — views in offloaded or inactive schemas won't appear, but they're still available.
-
-```bash
-# 1. List all schemas the connection knows about (loaded, offloaded, and inactive)
-omni models get-schemas <modelId>
-# → {"schemas": ["ANALYTICS", "PUBLIC", "STAGING", ...]}
-
-# 2. If the target schema appears in the list, load it explicitly
-omni models yaml-get <modelId> --include-schemas PUBLIC
-```
-
-**Rules for `--include-schemas`:**
-- Accepts exactly **one schema name** per call — commas are rejected. Load schemas one at a time.
-- The response will contain only views from that schema; relationships to other schemas are preserved.
-- To scope to a branch, add `--branch-id <id>` to `yaml-get` or `--branch-id <id>` to `get-schemas` (flag names differ per command).
-
-If the schema isn't in the `get-schemas` list at all, the connection likely doesn't have access or the schema isn't synced — check with a Connection Admin.
+`yaml-get` only returns views from loaded schemas, so before concluding a view does not exist, run `omni models get-schemas <modelId>` and, if its schema is listed, `omni models yaml-get <modelId> --include-schemas <SCHEMA>` (one schema per call): [troubleshooting.md](references/troubleshooting.md#fallback-view-missing-from-yaml-get).
 
 ## Writing Topics
 
@@ -352,38 +248,11 @@ If the schema isn't in the `get-schemas` list at all, the connection likely does
 
 ### New topic vs extend an existing one
 
-When a query can't be answered by an existing topic, first check whether you should simply **extend** one rather than create a new one. Extending is usually right when the request's base view (the FROM) matches an existing topic's base view — e.g. add a relationship/join so a needed view becomes reachable, or add a field/label. **Create a new topic** when any of these is fundamentally different:
-
-- **Subject / object** — a different base view (FROM). What is the query fundamentally describing — orders? users? *time* (dates)? A different core entity warrants its own topic.
-- **Constraints** — conditions that are *always* applied (e.g. an `always_where` that excludes test users from order data). Different always-on filters → a different topic.
-- **Audience** — the same fields but different labels/terminology for a different consumer; jargon that differs by audience justifies a separate topic.
-
-Prompt the requestor when it's a judgment call, and build new topics on a branch (see the Safe Development Workflow above). Note that querying on a topic (vs a bare base view) is also what makes the result accessible to restricted queriers/viewers.
-
-See [Topics setup](https://docs.omni.co/modeling/topics/setup.md) for complete YAML examples with joins, fields, and ai_context, and [Topic parameters](https://docs.omni.co/modeling/topics/parameters.md) for all available options.
-
-Key topic elements:
-- `base_view` — the primary view for this topic
-- `joins` — nested structure for join chains (e.g., `users: {}` or `inventory_items: { products: {} }`)
-- `ai_context` — guides Blobby's field mapping (e.g., "Map 'revenue' → total_revenue")
-- `default_filters` — applied to all queries unless removed
-- `always_where_sql` — non-removable WHERE filter using a SQL expression (cannot be removed by users)
-- `always_where_filters` — non-removable WHERE filter using filter specifications (cannot be removed by users)
-- `always_having_sql` — non-removable HAVING filter using a SQL expression, applied after aggregation (cannot be removed by users)
-- `always_having_filters` — non-removable HAVING filter using filter specifications, applied after aggregation (cannot be removed by users)
-- `fields` — field curation: `[order_items.*, users.name, -users.internal_id]`
+Extending an existing topic is usually right when the request's base view matches its base view. Create a new topic when the subject (base view), always-applied constraints, or audience differ; ask the requestor when it is a judgment call, and build new topics on a branch. Criteria and key topic elements: [writing-topics.md](references/writing-topics.md).
 
 ### Filter Expressions for Topics
 
-When configuring `default_filters`, `always_where_filters`, or `always_having_filters` on a topic, use the YAML filter condition syntax — the same syntax used in measure filters. See `references/yaml-filter-syntax.md` for the complete reference.
-
-If the right filter configuration for a given use case isn't obvious, use the Omni AI CLI to search the docs:
-
-```bash
-omni ai search-omni-docs "how do I configure always_where_filters on a topic in Omni?"
-```
-
-Use targeted questions to get precise YAML examples for your specific filtering need before writing the model YAML.
+Topic `default_filters`, `always_where_filters`, and `always_having_filters` use the measure-filter condition syntax in [yaml-filter-syntax.md](references/yaml-filter-syntax.md); a docs-search tip is in [writing-topics.md](references/writing-topics.md#filter-expressions-for-topics).
 
 ### Composite topics
 
@@ -414,103 +283,19 @@ Getting `relationship_type` right prevents fanout and symmetric aggregate errors
 
 ### Topic-Scoped Relationships
 
-> **Before defining, check the global relationships file** for a join between the same two views in either direction. Same `on_sql` → redundant, use `joins:` only. Different `on_sql` → default to the extended views pattern below rather than a silent override. Confirm intent with the modeler.
-
-Use topic-scoped relationships for one-off joins not in the shared model, or joining the same table multiple times under different conditions.
-
-```yaml
-# .topic file
-relationships:
-  - join_from_view: order_items
-    join_to_view: users
-    on_sql: ${order_items.user_id} = ${users.id}
-    relationship_type: many_to_one
-    join_type: always_left
-
-joins:
-  users: {}
-```
-
-> **`joins` vs `relationships`:** `joins` declares which views are in the topic and their hierarchy; `relationships` defines the join conditions. A topic using only global relationships needs only `joins`. A topic with a one-off join needs both.
->
-> **Silent footgun — both are required, and omitting `joins` passes validation.** If you add the `relationships` entry but forget the view's `joins` entry, the model still **validates clean** (no error) — but the joined view's fields are silently **not exposed** in the topic (a query/markdown referencing them comes back empty). Don't trust `validate` for this; confirm the fields are actually exposed with `get-topic` (see [validation-and-testing.md](references/validation-and-testing.md)). (Topic file shapes vary: some list views under a `joins:` map, others as top-level `<view>: {}` entries — match the existing file's form.)
-
-#### Extended Views: Joining the Same Table Multiple Ways
-
-When the same table needs multiple joins (e.g., `users` as buyer and seller), use the **extended views** pattern — not `join_to_view_as`. Two variants:
-
-**Variant 1 — Global (reusable):** Create a standalone `.view` file with `extends:`, a role-descriptive name, and a `description:`. Define the relationship globally — any topic can then join it like any other view.
-
-**Variant 2 — Topic-scoped (inline):** Define the alias in the topic's `views:` block with its relationship in the same file. Use when the alias is not generally applicable in other topics.
-
-See `references/topic-scoped-relationships.md` for full YAML examples of both variants.
-
-> If you see a `relationship alias duplicates view name` error, this pattern is the fix.
+Topic-scoped relationships cover one-off joins and joining the same table more than once (the extended-views pattern, one `extends:` alias per role). Before defining one, check the global relationships file for a join between the same two views in either direction: the same `on_sql` needs only a `joins:` entry, and a different `on_sql` calls for the extended-views pattern once the modeler confirms intent. The view also needs its `joins:` entry, or its fields are not exposed although validation passes (check with `get-topic`): [topic-scoped-definitions.md](references/topic-scoped-definitions.md#topic-scoped-relationships) · examples: [topic-scoped-relationships.md](references/topic-scoped-relationships.md).
 
 ### Topic-Scoped View Definitions
 
-Topics can define or override views inline using a `views:` block — controlling `display_order`, overriding `label`, adding topic-specific filtered measures or derived dimensions, defining cross-view fields, and joining the same view multiple ways with per-alias conditions.
-
-> **Before adding any topic-scoped field to an existing view:**
-> 1. Read the view YAML (`omni models yaml-get`) and confirm the field doesn't already exist. If it does with the same definition, skip it.
-> 2. If a field with the same name exists but uses different SQL, this is an override. Confirm explicitly with the modeler — queries through this topic will use the topic-scoped definition; all other topics keep the shared one.
-
-```yaml
-# Example: display order + topic-specific filtered measure
-views:
-  order_items:
-    display_order: 0
-    measures:
-      us_revenue:
-        sql: ${sale_price}
-        aggregate_type: sum
-        format: currency_2
-        filters:
-          users.country:
-            is: US
-```
-
-See `references/topic-scoped-views.md` for a full pattern gallery (label overrides, derived dimensions, cross-view fields, multi-join lifecycle, topic-scoped query views).
-
-> **Cross-view fields in `views:` blocks:** Before writing `${view_name.field_name}` references, confirm every referenced view is declared in the topic's `joins:` block — the model validator throws errors for any reference to a view that isn't joined.
-
-**Joining the same view multiple ways** (e.g., ARR at Start / Current / End): Use `extends:` inside the topic's `views:` block to create named aliases, each with its own `on_sql` in `relationships:`. Each alias inherits all base view fields and can override labels independently. For a full YAML example, see `references/topic-scoped-views.md`.
-
-**Topic-scoped query views:** A query view can also be defined inside a topic's `views:` block, scoping it to that topic only. Same primary key rules apply (`primary_key: true` or `custom_compound_primary_key_sql`). Include a `relationships:` entry and a `joins:` entry for the new view — see Query Views section above, and `references/topic-scoped-views.md` for a complete example.
+A topic's `views:` block can set `display_order`, override labels, and add topic-only fields, aliases, and query views. Before adding a field there, read the view YAML: skip a field that already exists with the same definition, confirm with the modeler before overriding one with different SQL, and make sure every view a `${view.field}` reference names is in the topic's `joins:`. Rules: [topic-scoped-definitions.md](references/topic-scoped-definitions.md#topic-scoped-view-definitions) · examples: [topic-scoped-views.md](references/topic-scoped-views.md).
 
 ## Query Views
 
-Virtual tables defined by a saved query. A query view must have a primary key or it cannot be joined without producing fanout errors. **Before writing, confirm which field uniquely identifies each row — unless the primary key can be clearly inferred from the query itself and the involved views** (e.g. a query that selects `user_id` from a `users` view where `user_id` is the known primary key).
-
-There are two ways to define the primary key:
-
-**Option 1 — Single unique field:** Mark exactly one dimension `primary_key: true` in the `dimensions:` block.
-
-**Option 2 — Compound key:** When no single field is unique but a combination is, set `custom_compound_primary_key_sql: [field_a, field_b]` at the view level — no `primary_key: true` dimension needed.
-
-Both options work with either a `query:` block (field-mapped virtual table) or a `sql:` block (raw SELECT). In `sql:` blocks, use `${view_name}` to reference a view's underlying table rather than a hard-coded `CATALOG.SCHEMA.TABLE` path — it's preferred and stays correct if the table moves. See `references/query-view-examples.md` for complete YAML for each variant.
-
-> If the user is unsure which field is unique, ask before writing the view. A query view without a primary key will trigger a "Joins fan out the data without a primary key" error when joined. See: https://community.omni.co/t/why-am-i-getting-the-error-joins-fan-out-the-data-without-a-primary-key/37
-
-Query views can also be defined inline within a topic's `views:` block, scoping the virtual table to that topic only. See `references/topic-scoped-views.md` for an example.
-
-**`sql:` versus `query:` for a rollup.** Field references (`${view.field}`) work inside a `sql:` block, but Omni expands them once, when the file is saved, into alias-qualified columns, so the `FROM` must be aliased to the view's reference name (`FROM ${order_items} AS "order_items"`). Validation does not catch a missing alias; a query does. The `query:` form (`fields:` mapping view fields and measures to column names, plus `base_view` and `topic`) compiles through the model on every run, so later changes to those fields flow through. A `sql:` query view gets no automatic `count` measure; declare one if it is needed. Examples in `references/query-view-examples.md`.
+A query view needs a primary key (`primary_key: true` on one dimension, or `custom_compound_primary_key_sql`) or joins to it fan out; confirm which field is unique before writing unless the query makes it clear, and ask the user when they are unsure. Rules, including the `FROM` alias a `sql:` block with `${view.field}` references needs: [query-views.md](references/query-views.md) · examples: [query-view-examples.md](references/query-view-examples.md).
 
 ## Common Validation Errors
 
-| Error | Fix |
-|-------|-----|
-| "No view X" | Check view name spelling |
-| "No join path from X to Y" | Add a relationship |
-| "Duplicate field name" | Remove duplicate or rename (or suppress with `hidden: true` if one is auto-generated) |
-| "Invalid YAML syntax" | Check indentation (2 spaces, no tabs) |
-| Fanout / incorrect aggregations on joins | Add `primary_key: true` to the joined view — every view that participates in a join must have a primary key |
-| Column reference error (e.g., "Column `X` not found") | Check that the table exists and your Omni connection has access |
-| Duplicate view appeared at the repo root after an edit | You wrote with a bare `fileName` instead of the file's full path. Delete the stray root file (send empty `yaml` to it) and re-write using the exact `files` key, including its folder prefix (e.g. `MARTS/`) |
-
-## Troubleshooting: Model Out of Sync with Database
-
-If the model doesn't reflect the database (missing columns/tables, wrong types, broken references), trigger a schema refresh (see "Schema Refresh" above), then `omni models validate <modelId>`. Field-name collisions and broken column references are usually fixed with `hidden: true` or a rename (see "Common Validation Errors"); persistent missing tables mean the connection lacks access to that database/schema.
+Fixes for frequent validation errors (unknown view, no join path, duplicate field name, invalid YAML, fanout, column not found, a duplicate view at the repo root) and for a model out of sync with the database: [troubleshooting.md](references/troubleshooting.md#common-validation-errors).
 
 ## Docs Reference
 

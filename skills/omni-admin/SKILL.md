@@ -52,7 +52,7 @@ omni scim users-create --schema   # Print a command's args, flags, body schema +
 
 - For create operations, first try the requested create. If the API returns a conflict because the resource already exists, look it up and verify it exactly matches the requested state before reporting success.
 - Prefer read-after-write checks that inspect the specific created or changed resource, not just a successful status response.
-- Use the role names returned by Omni permission APIs (`VIEWER`, `EXPLORER`, `EDITOR`, `MANAGER`) when updating content access.
+- Use the content role names the permission APIs take (`NO_ACCESS`, `VIEWER`, `EXPLORER`, `EDITOR`, `MANAGER`, `OWNER`) when updating content access. `OWNER` can be granted only to users.
 
 ## Connections
 
@@ -185,52 +185,17 @@ and type rules are in `--help` and fail loudly. Two behaviors do not:
 When the user explicitly asks to set or update a user attribute, converge the
 user record with a SCIM update even if the initial user lookup already shows the
 requested value. This keeps the operation idempotent while still honoring the
-requested admin action. After the update, read back the same user and verify the
-value under `urn:omni:params:1.0:UserAttribute`.
+requested admin action.
 
 ## Model Roles & Caller Access
 
-### Determining what a caller can do — run before deciding where model/content changes live
-
-This is the canonical access check other skills defer to (e.g. `omni-content-builder` / `omni-model-builder` deciding whether a new field goes on a **branch** vs a **workbook model**). Run `omni whoami whoami --model-id <modelId>` and read `rolesByModel[<id>].permissions`. Gate on the **presence of permissions**, not the role *name* — names can be renamed custom roles and surface as internal codes (e.g. `QUERY_TOPICS`):
-
-| Permission (in `whoami`) | Capability |
-|---|---|
-| `QUERY_TOPICS` | query curated topics (Restricted Querier and up) |
-| `QUERY_FULL_MODEL` | full-model + SQL access — and the **observable proxy for "can create/use a branch"** (Querier, Modeler, Admin) |
-| `UPDATE` (shared-model-scoped) | **merge/promote** changes to the shared model (Modeler, Admin) |
-| `USE_WORKBOOKS` | create content (workbooks/dashboards). A **Viewer lacks this and cannot author at all.** |
-
-Decision shortcuts:
-- **Where should a new model field live?** `QUERY_FULL_MODEL` present → a **shared-model branch** (merge it yourself if you *also* have `UPDATE`, otherwise open a PR / request a merge — a Querier can branch and modify but not promote); `QUERY_FULL_MODEL` absent but `USE_WORKBOOKS` present (Restricted Querier) → the document's **workbook model** (extension). A Viewer can't author content, so they never reach this choice.
-- **What a Restricted Querier can change *in* the workbook model — view-scoped only:** add dimensions/measures to an **existing view** (extension mode) and edit **decorations** on existing fields (label/format/description/hidden/synonyms). They **cannot** modify a **topic** in any way (expose a field, change joins/topic config, create a topic) or change **access grants** / other governance — those need `QUERY_FULL_MODEL` on a shared-model branch. So don't plan a topic-scope, join, or grant change for a restricted querier's workbook model; it 403s mid-build and can leave the document half-modeled.
-- **What a Restricted Querier can *query* — topics only.** `QUERY_TOPICS` without `QUERY_FULL_MODEL` means every query they author must be **topic-based** (`table` = the topic's base view + `join_paths_from_topic_name`). A **bare base-view query** or a **raw-SQL `userEditedSQL`** tile needs `QUERY_FULL_MODEL` (full-model + SQL access) — so it isn't an option for a restricted-querier author; build every tile on a topic. (Distinct from *visibility*: even a Querier-authored non-topic tile is hidden from restricted/Viewer *audiences* unless Access-Boosted.)
-- A shared-model-scoped `whoami` does **not** list branch ability as its own entry — branch create/use is a separate capability granted to Querier+ — so use `QUERY_FULL_MODEL` as the proxy. (Holds for base roles; a custom role could grant one without the other — confirm when it matters.)
-
-### Assigning roles
-
-```bash
-# Roles are keyed by the MEMBERSHIP id, NOT the user id (a user id → 404 "Membership … not found").
-# Get it — yourself: whoami → user.membershipId · another user: scim users-list (its `id` IS the membershipId, see note below)
-omni users get-model-roles <membershipId> --model-id <modelId>
-omni users assign-model-role <membershipId> --body '{ "modelId": "<modelId>", "roleName": "<roleName>" }'
-
-# Group variants
-omni users user-groups-get-model-roles <groupId> --model-id <modelId>
-omni users user-groups-assign-model-role <groupId> --body '{ "modelId": "<modelId>", "roleName": "<roleName>" }'
-```
-
-> **Resolving *another* user's membershipId needs the org key.** `whoami → user.membershipId` is self-only. For someone else, `omni scim users-list --filter 'userName eq "them@company.com"'` returns the membership as its **`id`** (which is the membershipId — *not* the user's `user.id`). But the **SCIM API accepts only the org-level API key**: a user-scoped PAT/OAuth is rejected with *"User-scoped API keys are not allowed to access the SCIM API."* The `get`/`assign-model-role` calls above work with a user PAT — only this lookup needs the org key.
-
-- The body key is **`roleName`** (not `role`), and the path id is the **membership id** (a user id returns 404).
-- `roleName` is a **server-validated, instance-specific** string — base roles (e.g. `QUERY_TOPICS`, `QUERIER`, `CONNECTION_ADMIN`) **plus** any org custom roles. The valid set is **not** discoverable via `--schema` (the field is a bare string, no enum) or any list command; an unknown value returns `422 "Invalid role"`. Discover a valid code by reading `get-model-roles` on a membership that already holds the target role.
-- There is **no un-assign command** — to revert an override, re-assign the prior role.
+Before deciding where a model or content change goes, run `omni whoami whoami --model-id <modelId>` and decide from the permissions in `rolesByModel[<id>].permissions`, since a role can appear under a custom name or an internal code: `QUERY_FULL_MODEL` is the signal that the caller can create a branch, `UPDATE` that they can merge to the shared model (without it, open a PR or request a merge), and `USE_WORKBOOKS` that they can create content. A caller with `USE_WORKBOOKS` and no `QUERY_FULL_MODEL` (a Restricted Querier) can change only existing views in the document's workbook model and must build every tile on a topic, so do not plan topic, join, or access-grant changes for them. The full permission table, the decision rules, and the role-assignment commands (keyed by membership id, with the body key `roleName`) are in [references/model-roles.md](references/model-roles.md).
 
 ## Document Permissions
 
 ```bash
-# Check effective permissions for a user (userId required)
-omni documents get-permissions <documentId> --user-id <userId>
+# Document settings, plus one user's permits when --user-id (a membership id) is given
+omni documents get-permissions <documentId> --user-id <membershipId>
 
 # List document access principals
 omni documents access-list <documentId>
@@ -243,26 +208,26 @@ omni documents add-permits <documentId> --body '{
 
 # Add direct access for a user
 omni documents add-permits <documentId> --body '{
-  "userIds": ["user-uuid"],
+  "userIds": ["<membershipId>"],
   "role": "EDITOR"
 }'
 ```
 
-`role` is one of `NO_ACCESS`, `VIEWER`, `EDITOR`, `MANAGER`.
+`role` is one of `NO_ACCESS`, `VIEWER`, `EXPLORER`, `EDITOR`, `MANAGER` or `OWNER`, and `OWNER` can be granted only to users. `userIds` are membership ids, not user ids; [model-roles.md](references/model-roles.md) shows how to look one up.
 
 ### Access Boost
 
-**Access Boost** lets Viewer / Restricted Querier roles view a dashboard built on **non-topic content** — a raw-SQL (`userEditedSQL`) tile or a bare base-view query — which those roles otherwise can't see. (Model **access grants** still apply unless the grant sets `access_boostable: true`.)
+**Access Boost** lets Viewer / Restricted Querier roles view a dashboard built on **non-topic content** — a raw-SQL (`userEditedSQL`) tile or a bare base-view query — which those roles otherwise can't see.
 
 **Dashboard-only:** Access Boost lifts the restriction on the **dashboard** view of those tiles. It does **not** extend to the underlying **workbook** — a restricted role still can't open the workbook's non-topic or SQL tabs (or see the query behind the tile) regardless of Access Boost.
 
 **⚠️ Confirm before boosting — it loosens access controls.** Access Boost deliberately exposes content that restricted roles can't otherwise see, and non-topic / raw-SQL tiles bypass topic-scoped governance (access filters, `always_where`) — so boosting can surface data those controls would normally withhold. **Do not apply Access Boost autonomously or as a reflexive fix for "they can't see it."** First:
 1. **Understand what the document exposes** — what data the boosted tiles show, at what grain, and whether any of it is sensitive.
 2. **Confirm intent with the requester** — that they really mean to grant *these specific* Viewer / Restricted Querier users or groups visibility into that content. State the implication back to them and get an explicit go-ahead before running the command.
-3. **Prefer the narrowest scope** — boost specific users/groups (`add-permits`) over the org-wide `organizationAccessBoost`; reach for org-wide only when that's explicitly what's wanted.
+3. **Prefer the narrowest scope** — boost specific users/groups (`add-permits`) over `organizationAccessBoost`, which boosts everyone in the organization on this document; use it only when that's explicitly what's wanted.
 4. **Note the governance interaction** — model access grants still apply unless a grant sets `access_boostable: true`; don't treat that as a safety net, confirm intent regardless.
 
-**Prerequisite (org capability, not in the CLI):** the org must have `allowsDocumentAccessBoost` enabled (and `allowsMemberToProvisionAccessBoost` for non-admins to grant it). This is an instance/admin setting — if it's off, the document-level flags below are silently cleared. It's a gate; it does **not** itself turn Access Boost on anywhere.
+**Prerequisite (org capability, not in the CLI):** the org must have `allowsDocumentAccessBoost` enabled (on by default), and `allowsMemberToProvisionAccessBoost` (off by default) for non-admins to grant it. These are organization settings. When boost is off, or the caller isn't allowed to grant it, a request that sets `accessBoost` or `organizationAccessBoost` to `true` is rejected with 403. It's a gate; it does **not** itself turn Access Boost on anywhere.
 
 Once you've confirmed intent, there are two activation levers, both **scoped to a single document**:
 
@@ -281,19 +246,22 @@ omni documents update-permission-settings <documentId> --body '{
 }'
 ```
 
-`update-permission-settings` (PUT) also carries the document's other toggles — `canDownload`, `canDrill`, `canSchedule`, `canUpload`, `canUseDashboardAi`, `canUseTimezoneOverride`, `canViewWorkbook`, `requirePullRequestToPublish`. Note `organizationAccessBoost` boosts the org-default principal on **this** document only — it is not an org-wide switch.
+`update-permission-settings` (PUT) also carries the document's other toggles — `canAnalyze`, `canDownload`, `canDrill`, `canDuplicate`, `canRequestAccess`, `canSaveSpreadsheets`, `canSchedule`, `canUpload`, `canUseDashboardAi`, `canUseTimezoneOverride`, `canViewWorkbook`, `requirePullRequestToPublish`. Note `organizationAccessBoost` boosts the org-default principal on **this** document only — it is not an org-wide switch.
 
 ## Folder Permissions
 
 ```bash
-# Get
+# Get all permits (needs MANAGER on the folder), or one user's with --user-id <membershipId>
 omni folders get-permissions <folderId>
 
-# Set
+# Grant
 omni folders add-permissions <folderId> --body '{
-  "permissions": [{ "type": "group", "id": "group-uuid", "access": "view" }]
+  "userGroupIds": ["group-uuid"],
+  "role": "VIEWER"
 }'
 ```
+
+The body matches documents `add-permits`: `role`, membership-id `userIds` and/or `userGroupIds`, and an optional `accessBoost`. `update-permissions` changes existing permits, `revoke-permissions` removes them, and `update-permission-settings` sets the folder's `organizationRole` and `organizationAccessBoost`.
 
 ## Schedules
 
@@ -343,67 +311,15 @@ status, before reporting it done.
 
 ## AI Credits
 
-Read and manage AI credit controls and usage (entity-group commands and usage reads require CLI ≥ 1.1.2). Org-level controls require the AI-admin permission; per-user controls and usage require manage-user-attributes; entity-group controls and usage require add/remove-users. Per-user and per-entity-group limits are also behind instance feature flags.
-
-```bash
-# Org-level credit controls
-omni ai credit-controls-get
-omni ai credit-controls-update --body '{ ... }'   # run with --schema for the body shape
-
-# Per-user and per-entity-group limits
-omni ai credit-controls-users-list
-omni ai credit-controls-users-update --body '{ ... }'
-omni ai credit-controls-entity-groups-list
-omni ai credit-controls-entity-groups-update --body '{ ... }'
-
-# Usage for the current billing period (reads work even when controls editing is disabled)
-omni ai credit-usage-users-read --body '{ "userIds": ["<membershipId>"] }'
-omni ai credit-usage-entity-groups-read --body '{ ... }'
-```
-
-> **Gotcha**: `credit-usage-users-read` takes **membership ids** (the user's membership in this organization), not base user ids — an unknown id 404s the whole request, naming the offending id. At most 1000 ids per request, no duplicates; users with no usage report 0.
+The `omni ai credit-controls-*` commands read and update AI credit controls for the organization, for users, and for entity groups; the `omni ai credit-usage-*` commands read usage for the current billing period, and `credit-usage-users-read` takes membership ids. Required permissions, CLI versions, feature flags, and examples: [references/ai-credits.md](references/ai-credits.md).
 
 ## Color Palettes
 
-Custom chart color palettes for the organization (CLI ≥ 1.3.1). Writes need the **Manage Config** permission. Run `create` / `update` with `--schema` for the body; `type` is `discrete` (colors categories in order) or `continuous` (a gradient for numeric scales).
-
-```bash
-omni color-palettes list                 # custom palettes only; built-ins are not listed
-omni color-palettes get <paletteId>
-omni color-palettes create --body '{ "name": "Brand colors", "type": "discrete", "colors": ["#1f77b4", "#ff7f0e"] }'
-omni color-palettes update <paletteId> --body '{ "colors": ["#1f77b4", "#2ca02c"] }'
-omni color-palettes delete <paletteId>
-```
-
-- **Updates and deletes reach every chart that uses the palette.** An update recolors those charts in place; a delete makes them fall back to the org default palette. Neither reports which charts were affected.
-- The org's current default palette cannot be deleted, and names must be unique per `type`.
+`omni color-palettes` manages the organization's custom chart palettes (CLI ≥ 1.3.1); writes need the **Manage Config** permission. An update recolors every chart that uses the palette, a delete sends those charts back to the org default palette, and neither reports which charts changed. Examples and naming rules: [references/color-palettes.md](references/color-palettes.md).
 
 ## Uploads
 
-Manage CSV/spreadsheet uploads (the files users upload to query alongside warehouse data). `create` and `replace-data` are multipart file uploads: pass the CSV path with `--file` and the other fields as flags. Run either with `--schema` for the full field list. (On CLI < 1.2.0 these flags don't exist — the same fields go through `--body` as *multipart* fields, with file paths as the binary values.)
-
-```bash
-# List uploads — filter by connection or model, search by file name
-omni uploads list --connection-id <connectionId>
-omni uploads list --model-id <modelId> --search-term "forecast" --type csv
-
-# Upload a CSV into a model (--file and --model-id are required)
-omni uploads create --file ./forecast.csv --model-id <modelId>
-
-# Upload onto a branch, overriding the generated view name
-omni uploads create --file ./forecast.csv --model-id <modelId> \
-  --branch-name <branchName> --view-name forecast_v2
-
-# Replace the data behind an existing upload, keeping its id (CLI ≥ 1.1.2)
-omni uploads replace-data <uploadId> --file ./forecast_november.csv
-
-# Delete an upload
-omni uploads delete <uploadId>
-```
-
-`replace-data` fully replaces the upload's data while its id stays stable — views and document tabs reference the upload by id, so they serve the new data with no model or document changes. Column renames/removals may break content referencing the old columns, so compare headers before replacing. For `uploads list --model-id`: shared models return connection uploads; workbook models return their own uploads.
-
-> **Flags vs. `--body`**: `--file` takes a **path**, not file contents, and `--branch-id` / `--branch-name` are mutually exclusive. `--file` and `--model-id` are required on `create` (`--file` on `replace-data`) unless you supply the same fields through `--body`, which on these two commands carries **multipart fields** — binary values are still file paths, not inline data.
+`omni uploads` lists, creates, replaces, and deletes the CSV and spreadsheet files users upload to query alongside warehouse data; `create` and `replace-data` take the file path with `--file`. `replace-data` keeps the upload id, so views and document tabs serve the new data without model or document changes; compare headers first, because renamed or removed columns can break content that uses them. Flags, the `--body` form, and examples: [references/uploads.md](references/uploads.md).
 
 ## Verification After Changes
 
@@ -433,8 +349,8 @@ Check that: the group exists with the expected `displayName`, and `members` arra
 # After setting document permissions, verify the principal and role
 omni documents access-list <documentId>
 
-# For a specific user, also check effective permissions
-omni documents get-permissions <documentId> --user-id <userId>
+# For a specific user, also check their permits (--user-id takes a membership id)
+omni documents get-permissions <documentId> --user-id <membershipId>
 
 # After setting folder permissions, verify
 omni folders get-permissions <folderId>
@@ -451,8 +367,7 @@ omni scim users-list --filter 'userName eq "user@company.com"'
 
 Check that: the response contains the target user, the user's
 `urn:omni:params:1.0:UserAttribute` object includes the requested attribute name,
-and the value exactly matches what you set. `omni user-attributes list` only
-verifies that the attribute definition exists.
+and the value exactly matches what you set.
 
 After a definition change (`user-attributes create` / `update` / `delete`),
 read it back with `omni user-attributes list` — `Number` defaults come back as
@@ -478,40 +393,9 @@ omni schedules recipients-get <scheduleId>
 
 Check that: the created schedule id appears in the list and the returned fields match the requested `schedule` cron, `timezone`, `destinationType`, `content`, `format`, and dashboard `identifier`. If the list/get response shape is not parseable, report that schedule setting verification was inconclusive instead of silently treating an empty parser result as success. Always verify recipients with `recipients-get`.
 
-### Verification Checklist
-
-| Operation | Verify With | What to Check |
-|-----------|-------------|---------------|
-| Create/update user | `omni scim users-list --filter ...` | User exists, `active` status correct |
-| Create/update group | `omni scim groups-list` | Group exists, members list correct |
-| Set document permissions | `omni documents get-permissions` | Access level and target correct |
-| Set folder permissions | `omni folders get-permissions` | Access level and target correct |
-| Set user attribute | `omni scim users-list --filter ...` | User attribute extension contains requested value |
-| User attribute + access filter | `omni query run` with `userId` | Row-level filtering works |
-| Create schedule | `omni schedules list` | Schedule settings correct |
-| Add recipients | `omni schedules recipients-get` | All recipients listed |
-
 ## Cache and Validation
 
-```bash
-# Reset cache policy
-omni models cache-reset <modelId> <policyName> --body '{ "resetAt": "2025-01-30T22:30:52.872Z" }'
-
-# Content validator (find broken field references across all dashboards and tiles)
-# Useful for blast-radius analysis: remove a field on a branch, then run the
-# validator against that branch to see what content would break.
-# See the Field Impact Analysis section in omni-model-explorer for the full workflow.
-omni models content-validator-get <modelId>
-
-# Run against a specific branch (e.g., after removing a field)
-omni models content-validator-get <modelId> --branch-id <branchId>
-
-# On large content the validator may only check references; plan every query (slower)
-omni models content-validator-get <modelId> --force-full-validation true
-
-# Git configuration
-omni models git-get <modelId>
-```
+`omni models cache-reset` resets a model's cache policy, `omni models content-validator-get` finds broken field references across dashboards and tiles (with `--branch-id`, it shows what a branch change would break), and `omni models git-get` returns a model's git configuration. Examples and the full-validation flag: [references/cache-and-validation.md](references/cache-and-validation.md).
 
 ## Docs Reference
 

@@ -4,6 +4,19 @@ A filter-only field is a parameter on a view: it appears in the field picker and
 
 Docs: [Templated filters](https://docs.omni.co/modeling/templated-filters) · [Parameters](https://docs.omni.co/modeling/templated-filters/parameters) · [bind_to](https://docs.omni.co/modeling/templated-filters#bind_to) · Guide: [Improving date flexibility with templated filters](https://docs.omni.co/guides/modeling/date-flexibility-templated-filters)
 
+## Contents
+
+- [Declaring one](#declaring-one)
+- [Binding without SQL: `bind_to`](#binding-without-sql-bind_to)
+- [Reading it in SQL](#reading-it-in-sql)
+- [Worked shapes](#worked-shapes)
+  - [Switch which date a dimension uses](#switch-which-date-a-dimension-uses)
+  - [Switch which measure a KPI shows](#switch-which-measure-a-kpi-shows)
+  - [A numeric threshold](#a-numeric-threshold)
+  - [A condition with a default when the control is empty](#a-condition-with-a-default-when-the-control-is-empty)
+- [Using it from a query or dashboard](#using-it-from-a-query-or-dashboard)
+- [Validating a templated field](#validating-a-templated-field)
+
 ## Declaring one
 
 Filter-only fields live under a top-level `filters:` block in the view, beside `dimensions:` and `measures:`.

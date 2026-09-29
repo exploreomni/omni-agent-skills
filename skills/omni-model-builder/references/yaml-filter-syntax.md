@@ -6,6 +6,22 @@ Complete reference for the filter condition syntax used in Omni model YAML. This
 - **Topic always filters** — `always_where_filters:`, `always_having_filters:` on a topic
 - **Topic default filters** — `default_filters:` on a topic
 
+## Contents
+
+- [Core Structure](#core-structure)
+- [Value Formats](#value-formats)
+- [Negation](#negation)
+- [Combining Multiple Conditions](#combining-multiple-conditions)
+- [Conditional Operators](#conditional-operators)
+- [Numeric Operators](#numeric-operators)
+  - [Examples](#examples)
+- [String Operators](#string-operators)
+  - [Examples](#examples-1)
+- [Date & Time Operators](#date--time-operators)
+  - [Examples](#examples-2)
+- [Measure Filter Examples](#measure-filter-examples)
+- [Advanced Operators](#advanced-operators)
+
 ## Core Structure
 
 ```yaml
