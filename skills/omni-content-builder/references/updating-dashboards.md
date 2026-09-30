@@ -2,7 +2,17 @@
 
 Edits go through the **v2 draft flow**: read the published state, author a merge-by-key patch, apply it to a draft, validate the draft, publish. The published dashboard is untouched until `v2-publish-draft` — a bad draft is discarded with zero impact.
 
-> **Advanced layout only.** Classic-layout dashboards return **422** from the v2 endpoints: *"This document uses the classic dashboard layout, which the documents API does not support. Upgrade the dashboard to the advanced layout before editing it through the API."* There is no API fallback — ask the user to upgrade the layout in the Omni UI, then retry.
+> **Advanced layout only.** Classic-layout dashboards return **422** from the v2 endpoints: *"This document uses the classic dashboard layout, which the documents API does not support. Upgrade the dashboard to the advanced layout before editing it through the API."* To fix it, run `omni documents upgrade-layout <identifier>`, then retry. On a published dashboard it publishes the new layout immediately, so confirm with the user first; if a draft exists it returns 409, and `clearExistingDraft: true` discards that draft, so never pass it without asking.
+
+## Contents
+
+- [The five-step loop](#the-five-step-loop)
+- [Merge-by-key semantics](#merge-by-key-semantics)
+- [Recipes](#recipes)
+- [The `--body` vs flags gotcha](#the---body-vs-flags-gotcha)
+- [Errors](#errors)
+- [Failure handling](#failure-handling)
+- [See also](#see-also)
 
 ## The five-step loop
 
@@ -12,7 +22,7 @@ Edits go through the **v2 draft flow**: read the published state, author a merge
 omni documents v2-get <identifier> > doc.json
 ```
 
-Returns the envelope: `name`, `description`, `queryPresentations {data, order}`, `controls {data, order}`, `containers`, `settings`. The response carries no `identifier`/`modelId` — keep the identifier you queried with. If a draft already exists, `v2-get` returns the draft state.
+Returns the envelope: `name`, `description`, `modelId` (the shared model), `workbookModelId` (read-only), `queryPresentations {data, order}`, `controls {data, order}`, `containers`, `settings`. There is no `identifier` in the body — keep the one you queried with. `v2-get` returns the **published** state only; if a draft already exists and you want to build on it, read it with `v2-get-draft <identifier> <draftIdentifier>` (ids from `omni documents list-drafts`).
 
 **Step 2 — Author the patch.** Patches **merge by key** (semantics below) — send only what you're changing. Include a `summary` string in the body; it is written to the document's history audit trail.
 
@@ -43,21 +53,21 @@ omni documents v2-patch-draft-by-identifier <identifier> <draftIdentifier> --bod
 omni documents v2-publish-draft <identifier>
 ```
 
-Publishes the **main** draft only. Publishing swaps the document to the draft's workbook model — the workbook model id changes; if you need it afterwards, open a new draft and read `workbookModelId` from `omni documents list-drafts <identifier>`.
+Publishes the **main** draft only. Publishing switches the document to the draft's workbook model, so the workbook model id changes. `v2-get` returns the **published** document's workbook model; each new draft has its own copy, returned by `list-drafts` and by that draft's `v2-get-draft`. Read the id of the model you are about to write to.
 
 ## Merge-by-key semantics
 
 - `queryPresentations.data` and `controls.data` merge **by key**: keys you send are written, keys you omit are preserved, a key set to `null` is deleted.
 - The `order` arrays are **full replacements** — always send the complete ordered list.
-- `containers` is a **full replacement** of the layout tree — send the whole tree with your edit applied.
+- `containers` is a **full replacement** of the layout tree — send the whole tree with your edit applied. Omit it to keep the layout and let the server auto-place any tiles you add.
 - `settings` is shallow-merged — send only the keys you're changing.
 - A single patch's `queryPresentations` is capped at **48 entries** — split larger edits across multiple patches to the same draft.
 
 ## Recipes
 
-All go in a `v2-patch-draft` (or `…-by-identifier`) body, alongside a `summary`.
+All go in a patch body, alongside a `summary`: `v2-patch-draft` for the first patch, which opens the draft, and `v2-patch-draft-by-identifier` for every later patch to that same draft.
 
-**Add a tile** — new key in `data`, append to `order`, add a tile stack to `containers` (full tree):
+**Add a tile** — new key in `data`, append to `order`. Omit `containers` to have the tile auto-placed on the first page, or send the full tree to place it yourself:
 
 ```json
 {
@@ -66,11 +76,11 @@ All go in a `v2-patch-draft` (or `…-by-identifier`) body, alongside a `summary
     "data": { "5": { /* full tile — see queryPresentations.md */ } },
     "order": ["1", "2", "3", "4", "5"]
   },
-  "containers": [ /* existing tree + a stack referencing tile 5 — see containers.md */ ]
+  "containers": [ /* optional: existing tree + a stack referencing tile 5 — see containers.md */ ]
 }
 ```
 
-**Edit a tile** — send only that key, but send the **complete tile** with its inner vis config **re-authored nested under `config`**. Never echo the flat shape `v2-get` returned — a flat-sent vis config is silently dropped (only `visType` survives):
+**Edit a tile** — send only that key, with the **complete tile** (a tile read from `v2-get-draft` can be edited and sent back as is):
 
 ```json
 {
@@ -80,7 +90,7 @@ All go in a `v2-patch-draft` (or `…-by-identifier`) body, alongside a `summary
     "prefersChart": true, "automaticVis": false,
     "query": { /* full query incl. every collection field — see below */ },
     "visConfig": { "chartType": "area", "fields": ["…"], "version": 0,
-      "visConfig": { "visType": "basic", "config": { /* re-authored spec */ } } }
+      "visConfig": { "visType": "basic", "config": { /* spec */ } } }
   } } }
 }
 ```
@@ -95,7 +105,7 @@ All go in a `v2-patch-draft` (or `…-by-identifier`) body, alongside a `summary
 }
 ```
 
-**Rename a tab** — a tab is a tile; its label is the tile's `name`. Even for a rename, send the complete tile with the inner vis config re-nested under `config` — echoing the flat GET shape drops the vis config.
+**Rename a tab** — a tab is a tile; its label is the tile's `name`. Send the complete tile with the new `name`; the tile you read back is already in the shape you write.
 
 **Reorder tabs** — send the full `order` array; it replaces wholesale: `{"queryPresentations": {"order": ["3", "1", "2"]}}`. Verify by readback.
 
@@ -119,10 +129,11 @@ When `--body` is present, the CLI **silently ignores every shorthand flag** (`--
 |---|---|---|
 | 400 | Unrecognized top-level key | clean per-key message, e.g. `"Unrecognized key: filterConfig"` |
 | 400 | Tile query missing collection fields | per-field errors; `sorts`, `filters`, `calculations`, `column_totals`, `row_totals`, `fill_fields`, `pivots`, `userEditedSQL` are required (empty values fine) alongside `table` and `fields` — and always send `limit` and `join_paths_from_topic_name` too |
+| 400 | `hidden` on a filter/control config | "controls.data[…].config carries `hidden` … not supported" — remove the key; place or unplace the control through `containers` |
 | 404 | Nonexistent document | |
 | 404 | `v2-publish-draft` with no **main** draft | `"Document draft does not exist"` — including when only a *branch-bound* draft exists ([branch-bound-drafts.md](branch-bound-drafts.md)) |
 | 404 | Patching a draft identifier as if it were published | plain not-found |
-| 422 | Classic dashboard layout | exact message above; no API fallback — upgrade in the UI |
+| 422 | Classic dashboard layout | exact message above; after the user confirms, `omni documents upgrade-layout <identifier>` (see above), then retry |
 
 ## Failure handling
 
@@ -138,7 +149,7 @@ omni documents discard-draft <identifier>     # targets the MAIN draft
 
 ## See also
 
-- [documents-v2.md](documents-v2.md) — envelope, tile shape, the flat-read/nested-write vis-config gotcha
+- [documents-v2.md](documents-v2.md) — envelope, tile shape, read and write behaviors
 - [containers.md](containers.md) — authoring the layout tree
 - [validation-and-testing.md](validation-and-testing.md) — validating the draft before publishing
 - [branch-bound-drafts.md](branch-bound-drafts.md) — drafts bound to a model branch

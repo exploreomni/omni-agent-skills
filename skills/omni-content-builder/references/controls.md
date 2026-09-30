@@ -14,10 +14,12 @@ In the [v2 documents API](documents-v2.md), `controls.data` holds dashboard filt
 - [`map` — per-tile scoping](#map--per-tile-scoping) — exclude/include tiles, field overrides
 - [Config shapes](#config-shapes) — filter and interactive-control config by type
 - [More filter config shapes](#more-filter-config-shapes)
-- [Hiding a control](#hiding-a-control) — `config.hidden`
+- [Hiding a control](#hiding-a-control) — by placement
 - [Parent controls (one control drives many)](#parent-controls-one-control-drives-many)
 - [Control vs. content-item — and syncing a filter across pages](#control-vs-content-item--and-syncing-a-filter-across-pages)
 - [Mustache control tokens (in markdown/text tiles)](#mustache-control-tokens-in-markdowntext-tiles)
+- [Filters and controls in a create body](#filters-and-controls-in-a-create-body)
+- [Model it or control it?](#model-it-or-control-it) — a filter-only field in the model vs a dashboard control
 - [See also](#see-also)
 
 ## `map` — per-tile scoping
@@ -66,7 +68,7 @@ The full control catalog (`type` values from the `CONTROL_TYPE` enum):
 | `TOP_N` | — | control | override a dimension's dynamic top-N limit |
 | `PERIOD_OVER_PERIOD` | — | control | add prior-period comparison columns (dashboard-only) |
 
-All carry `id` + optional `label`/`description`/`hidden` — **except `PERIOD_OVER_PERIOD`**, which carries only `id` + its own fields (no `label`/`hidden`).
+All carry `id` + optional `label`/`description` — **except `PERIOD_OVER_PERIOD`**, which carries only `id` + its own fields. Whether a control is visible depends on its placement (see [Hiding a control](#hiding-a-control)).
 
 ### Date filter
 
@@ -127,7 +129,7 @@ Binds to tiles whose query uses that timeframed field.
 }
 ```
 
-> Unlike `FIELD_SELECTION` (which *swaps* one field), a field picker **adds** its selected `values` to a tile's query — so it has no existing-field-overlap requirement and applies to the tiles it's mapped to. `isDimension` hints whether each option is a dimension; `values` is the live selection.
+> Unlike `FIELD_SELECTION` (which *swaps* one field), a field picker **adds** its selected `values` to a tile's query, so the tile's query doesn't need to contain any of those fields already; the picker applies to the tiles it's mapped to. `isDimension` marks whether each option is a dimension; `values` is the current selection. Optional `fieldOrder` sets column order: `"query"` (the default) keeps the query's order, and `"control"` reorders the picked fields to match `values`, including fields the query already had.
 >
 > **Known cosmetic bug:** a field picker's chip renders with the string-filter verb — e.g. `is Category,Order Count` — because it falls through to the string-EQUALS summary instead of having its own. Functionality is unaffected (the fields are added correctly).
 
@@ -197,11 +199,12 @@ Binds to tiles whose query uses that timeframed field.
 
 ## More filter config shapes
 
-Each shape below is a `controls.data.<id>.config` body. Common optional properties across filter types: `description` (info-icon tooltip), `required: true` (a value must be selected), `hidden: true` (see below). Rules:
+Each shape below is a `controls.data.<id>.config` body. Common optional metadata across filter types: `label`; `description` (info-icon tooltip); `required: true` (a value must be set before the dashboard runs) with `requiredScope` (`"dashboard"` blocks every tile, `"tiles"` only the tiles the filter is connected to; a filter saved without it behaves as `"dashboard"`); `filterControlType` (string: `multiValueEquals` / `singleValueEquals`; date: `timeframe` / `singleDay`); `topic`; and `watchedContainerIds` (`[]` = don't auto-apply to new queries). Rules:
 
 - **Every filter MUST include `fieldName`** — fully qualified (e.g. `"users.state"`) — or it won't bind to any column. Date filters take **no timeframe bracket** (`order_items.created_at`, not `created_at[month]`).
-- Configs read back from UI-built dashboards also carry `topic` and `base_view` (see the date-filter example above) — include them.
+- Configs read back from UI-built dashboards also carry `topic` and `base_view` (see the date-filter example above). Keep `topic`; `base_view` is accepted and ignored.
 - `config.type` values include `"string"`, `"number"`, `"date"`, `"boolean"`, `"null"`, `"by_query"`, `"user_attribute"`, `"composite"`. Common shapes are below; for the **filter-value shapes** of any type (incl. `composite` / `user_attribute` / `by_query` and the per-`kind` enums), see omni-query's [filter-expressions.md](../../omni-query/references/filter-expressions.md). When still unsure, build the filter in the Omni UI and read it back — `omni documents v2-get <identifier>` returns a `controls` slice you can copy directly into a patch.
+- **`filterControlType` must match `config.type`.** `singleValueEquals` and `multiValueEquals` are for `string` filters only; `singleDay` and `timeframe` are for `date` filters only. The API doesn't check the pairing. On a `number` filter, `singleValueEquals` drops every value a viewer picks in the filter bar, so only the saved default ever applies and a required filter never clears. For buttons or a dropdown on a number field, see [Single select on a number field](#single-select-on-a-number-field).
 
 ### String dropdown
 
@@ -212,6 +215,30 @@ Each shape below is a `controls.data.<id>.config` body. Common optional properti
   "values": []        // default selection: [] = none (show all); ["complete"] pre-selects
 }
 ```
+
+### Single select on a number field
+
+Single and multiple selection (buttons, dropdown) exist only for string fields. For a number field with a handful of values (a version, a reply number), add a text copy in the model and filter on that:
+
+```yaml
+dimensions:
+  version_select:
+    sql: TO_CHAR(${version})       # Snowflake; use your warehouse's cast to text
+    label: Version (Select)
+    filter_single_select_only: true
+    order_by_field: version        # without this, choices sort as text: 10, 11, 2
+```
+
+```jsonc
+"config": {
+  "type": "string", "kind": "EQUALS", "values": ["1"],
+  "fieldName": "orders.version_select", "label": "Version",
+  "filterControlType": "singleValueEquals"
+},
+"map": { "1": "orders.version_select" }   // every map entry points at the text copy
+```
+
+Place it with `"appearance": { "control": "buttonToggle" }` or `"dropdown"`. With `settings.facetFilters: true`, the choices narrow when other filters change. A pick that is no longer among them stays applied and returns no rows until the viewer picks again.
 
 ### Boolean toggle
 
@@ -245,27 +272,29 @@ Each shape below is a `controls.data.<id>.config` body. Common optional properti
 }
 ```
 
-### Hidden filter
+### Filter that applies but isn't shown
 
-Any filter type with `"hidden": true` — applied to queries but not shown in the dashboard UI. Useful for hardcoded filters viewers shouldn't change. (Omni recommends model **access filters** over hidden dashboard filters for data restriction.)
+A filter with a value that is **placed in no container** keeps applying to its tiles but has no UI. Use it for a fixed filter that viewers shouldn't change. (To restrict data, Omni recommends model **access filters** over hidden dashboard filters.)
 
 ```jsonc
 "config": {
   "type": "string", "kind": "EQUALS",
   "fieldName": "order_items.status", "label": "Status",
-  "values": ["complete"], "hidden": true
+  "values": ["complete"]
 }
+// …and no `{ "type": "filter", "id": … }` content-item for it anywhere in `containers`
 ```
 
 Filters do **not** auto-apply to SQL-mode tiles — use templated (dynamic) filters in the SQL instead.
 
 ## Hiding a control
 
-Set **`config.hidden: true`** to keep a control out of the layout: it won't render and won't be auto-placed into the filter bar, yet it still holds live state and reacts to other controls. Remove its content-item from every container at the same time — a control left unplaced **but not hidden** gets auto-placed back into the filter bar.
+A control is shown only where a container places it: the filter bar, a page, or a tile. A control in `controls.data` that no container references is hidden, but it keeps its state, still applies its value, and still feeds `{{controls.<id>.summary}}`.
 
-> The flag lives at **`config.hidden`** (inside the config object). An entry-level `"hidden": true` (sibling of `config`/`map`) is **stripped on save** — set it on the config and read the doc back to confirm.
+- **To hide a control**, remove its content-item from every container and leave it in `controls.data` / `order`. Unplaced controls are not auto-placed on create or on patch.
+- **To show it again**, add a `{ "type": "filter" | "control", "id": … }` content-item for it.
 
-**In the editor (UI).** Hidden controls collect in a collapsible **HIDDEN CONTROLS** tray pinned to the top of the canvas — collapsed it shows just a count (`▸ HIDDEN CONTROLS (5)`), expanded it lists each so an author can still edit and set values. The UI equivalent of `config.hidden` is **Edit Control → Settings → "Hide this control when viewing the dashboard."** A hidden control is invisible to viewers but its **value still applies**, and can be set via scheduled deliveries, embeds, and the URL param **`?c--<controlId>=<value>`** (`&editControl=<controlId>` opens its edit panel).
+**In the editor (UI).** Hidden controls collect in a collapsible **HIDDEN CONTROLS** tray at the top of the canvas (collapsed, it shows a count such as `▸ HIDDEN CONTROLS (5)`), where an author can still edit them and set values. The UI setting **Edit Control → Settings → "Hide this control when viewing the dashboard"** produces the same state. Viewers don't see a hidden control, but its **value still applies**, and it can be set through scheduled deliveries, embeds, and the URL parameter **`?c--<controlId>=<value>`** (`&editControl=<controlId>` opens its edit panel).
 
 ## Parent controls (one control drives many)
 
@@ -284,8 +313,8 @@ This is the mechanical form of the **"hide complexity"** best practice ([Dashboa
 ```
 
 - `selectionMap` is `{ "<childControlId>": { "<parentValue>": "<childFieldValue>" } }` — picking a parent option pushes the mapped value into each child.
-- Place **only the parent** in a container; set each child's **`config.hidden: true`** so the children stay invisible.
-- The hidden children feed markdown tiles via `{{controls.<childId>.summary}}` (see [markdown-tiles.md](markdown-tiles.md)), so one parent click re-labels a whole row of KPI cards. The cards follow `.summary` (no field-swap needed); if a child's `config.field` is a real measure other tiles share, scope it with all-`false` child `map`s so it can't bleed into them.
+- Place **only the parent** in a container; leave the children unplaced so they stay hidden.
+- The unplaced children feed markdown tiles through `{{controls.<childId>.summary}}` (see [markdown-tiles.md](markdown-tiles.md)), so one click on the parent relabels a whole row of KPI cards. The cards read `.summary`, so no field swap is needed. If a child's `config.field` is a measure that other tiles also use, give the child a `map` with every tile set to `false` so it doesn't change them.
 
 ### A parent's Mapping tab is moot
 
@@ -304,7 +333,7 @@ A **control** lives once in `controls.data[id]` — it owns the config **and the
 { "type": "filter", "id": "order_created_filter", "instanceKey": "fbar-order-created-p2" }
 ```
 
-- **UI path:** **Duplicate page** does exactly this — it deep-clones the page's containers + content-items, regenerating `instanceKey`s but **preserving each content-item's `id`**, so the copy's filters reference the same controls (synced). Build the sidebar on one page, duplicate, then swap the copy's content tiles.
+- **In the UI**, **Duplicate page** produces the same result: it deep-clones the page's containers + content-items, regenerating `instanceKey`s but **preserving each content-item's `id`**, so the copy's filters reference the same controls (synced).
 - **Not** via independent drag/add: dragging a filter **moves** its single placement (no copy), and there's no UI affordance to place an already-placed control a second time. The filter-bar's duplicate-rejection is **bar-scoped only**, so you *can* drag a filter out of the bar into a page sidebar — but just that one placement.
 - **Filter-bar contrast:** in the (global, every-page) filter bar, **one** placement covers all pages. Per-page sidebars need **one placement per page**, all reusing the same control id.
 
@@ -323,6 +352,46 @@ A markdown tile can react to a **control's** current selection. These tokens are
 > **Namespace gotcha.** `{{controls.<id>}}` resolves only against **dashboard controls** (`controls.data`). A control embedded in a tile's `query.controls[]` is invisible to the template (every token returns empty) **and** renders in the HIDDEN CONTROLS tray. Drive markdown from a dashboard control, not a tile-embedded one.
 
 This is the basis of the dynamic-caption and metric-switch patterns documented in [markdown-tiles.md](markdown-tiles.md) and [mustache.md](mustache.md).
+
+## Filters and controls in a create body
+
+Include `controls` in a `v2-create` body (or patch it in later; controls merge by key like tiles):
+
+```bash
+omni documents v2-create --body '{
+  "modelId": "your-shared-model-id",
+  "name": "Filtered Dashboard",
+  "controls": {
+    "data": {
+      "date_filter": {
+        "config": {
+          "type": "date", "kind": "TIME_FOR_INTERVAL_DURATION", "ui_type": "PAST",
+          "left_side": "6 months ago", "right_side": "6 months",
+          "fieldName": "order_items.created_at",
+          "topic": "order_items", "base_view": "order_items",
+          "label": "Date Range"
+        },
+        "map": {}
+      },
+      "state_filter": {
+        "config": {
+          "type": "string", "kind": "EQUALS",
+          "fieldName": "users.state",
+          "topic": "order_items", "base_view": "order_items",
+          "label": "State", "values": []
+        },
+        "map": {}
+      }
+    },
+    "order": ["date_filter", "state_filter"]
+  },
+  "queryPresentations": { … }
+}'
+```
+
+## Model it or control it?
+
+A dashboard filter or control belongs to one document and is scoped to tiles through `map`. Model the filter instead, as a filter-only field (`omni-model-builder` → `references/templated-filters.md`), when every workbook and dashboard on the topic should get the same filter, when one control must drive several columns or a measure threshold (`bind_to`), or when a control must switch which column or measure a field uses (a templated `CASE`). The dashboard then binds an ordinary filter control to that field (`fieldName: <view>.<field>`) with no `map`, because the model defines what the filter applies to. Keep a dashboard control when the behavior is specific to one document, when viewers should pick the field themselves (`FIELD_SELECTION`, `FIELD_PICKER`), or when you cannot change the shared model. A **Restricted Querier** cannot branch or edit the shared model, but a filter-only field is a `.view` extension, so it can go in this document's **workbook model** (see [workbook-model.md](workbook-model.md)) when one dashboard needs the modeled form; otherwise use a dashboard control.
 
 ## See also
 

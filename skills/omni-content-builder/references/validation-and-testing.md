@@ -2,6 +2,15 @@
 
 Every dashboard build or update must include validation before and after creation. Broken tiles, bad field references, and misconfigured viz specs are silent failures — the dashboard renders but tiles show "Chart unavailable" or "No data" with no API-level error. The v2 draft flow gives you a critical safety net: **nothing goes live until `v2-publish-draft`**, so validate the draft first — a bad draft is discarded with zero impact.
 
+## Contents
+
+- [Step 1: Validate the Model](#step-1-validate-the-model)
+- [Step 2: Test Every Query via Execution](#step-2-test-every-query-via-execution)
+- [Step 3: Validate Viz Spec Consistency](#step-3-validate-viz-spec-consistency)
+- [Step 4: Validate the Draft Before Publishing](#step-4-validate-the-draft-before-publishing)
+- [Optional: check the render in a browser](#optional-check-the-render-in-a-browser)
+- [Validation Checklist Summary](#validation-checklist-summary)
+
 ## Step 1: Validate the Model
 
 Before building any queries, confirm the underlying model is healthy:
@@ -26,8 +35,10 @@ omni query run --body '{
     "limit": 10,
     "join_paths_from_topic_name": "order_items"
   }
-}'
+}' -o json
 ```
+
+`-o json` keeps the job envelope that the checks below read. In the human format, `query run` prints a formatted table without it.
 
 (Standalone `query run` bodies take a `modelId`; **tile** queries inside v2 documents must not — the server anchors tiles to the document's workbook model.)
 
@@ -53,7 +64,7 @@ Before assembling `queryPresentations`, check each tile's viz configuration agai
 | Rule | What to check |
 |------|---------------|
 | `prefersChart` must be `true` for charts | If `false` or omitted, Omni renders a table regardless of other viz settings |
-| Spec lives in `visConfig.visConfig.config` on WRITE | The rendering spec must be nested under `config` inside the inner `visConfig` when you send it. **It reads back flat** (spec fields beside `visType`) — never round-trip the flat GET shape; a flat-sent spec is silently dropped |
+| Spec lives in `visConfig.visConfig.config` | The rendering spec sits under `config` inside the inner `visConfig`, on write and on read |
 | `chartType` and `fields` sit at the outer `visConfig` level | `visConfig: { chartType, fields, version, visConfig: {…} }` — not at the tile's top level |
 | `visType` must match chart category | `"omni-kpi"` for KPI, `"basic"` for cartesian/pie/heatmap/boxplot, `"funnel"`/`"sankey"`/`"map"` for those, `"omni-table"` for tables |
 | `chartType` must be a valid enum value | e.g. `table`, `kpi`, `line`/`lineColor`, `column`/`columnStacked`, `bar`/`barStacked`, `area`/`areaStacked`, `point`/`pointColor`, `pie`, `heatmap`, `boxplot`, `funnel`, `sankey`, `map`, `regionMap`. **NOT** `barColor`/`areaColor`/`stackedBarColor`/`scatter` |
@@ -84,8 +95,8 @@ omni documents v2-get <identifier>                           # published state
 Check that:
 - **Tile count matches**: the length of `queryPresentations.order` AND the set of keys in `queryPresentations.data` both match what you expect — check both agree with each other.
 - No `queryPresentations.data` entries have null or missing `query` objects.
-- Each tile you wrote read back with a non-empty inner vis config (it reads back *flat* — that's expected; see Step 3).
-- Every tile in `order` is referenced by a `containers` stack — stored-but-unplaced tiles render nowhere.
+- Each tile you wrote read back with a non-empty `visConfig.visConfig.config`.
+- Every tile in `order` is referenced by a `containers` stack. Tiles added without `containers` are auto-placed; a tile missing from a layout you sent yourself renders nowhere.
 
 **4b. Execute the dashboard's queries to verify they run:**
 
@@ -99,19 +110,18 @@ Works on v2 documents; the returned queries include the workbook `modelId`, so t
 ```bash
 # For each query returned, execute it
 omni query run --body '{
-  "query": <query-object-from-get-queries>,
-  "resultType": "csv"
-}'
+  "query": <query-object-from-get-queries>
+}' -o json
 ```
 
-For tiles that exist only on the draft, take the query object from the `v2-get-draft` readback and run it with `modelId` set to the draft's `workbookModelId` (from `omni documents list-drafts <identifier>`).
+For tiles that exist only on the draft, take the query object from the `v2-get-draft` readback and run it with `modelId` set to that response's `workbookModelId`.
 
 For every tile, print or record a concrete verification line with the tile name,
 query status, and row count. Use **`cache_metadata.num_rows`** for the row count
 (`summary.row_count` does not exist). Do not leave post-build verification as silent
 command output.
 
-Using `"resultType": "csv"` makes it easy to spot-check that the data looks reasonable (correct columns, non-empty rows, expected value ranges).
+To spot-check the data itself (correct columns, non-empty rows, expected value ranges), run the query again with `"resultType": "csv"` beside `query`. That run prints only the CSV, with no `cache_metadata` or `remaining_job_ids`, so take each tile's status and row count from the JSON run.
 
 **What to check:**
 - Every tile's query executes without error
@@ -121,6 +131,20 @@ Using `"resultType": "csv"` makes it easy to spot-check that the data looks reas
 **4c. If any query fails:** the draft has a broken tile. Fix it with one corrected `omni documents v2-patch-draft-by-identifier <identifier> <draftIdentifier>` at most; if that also fails, `omni documents discard-draft <identifier>` and report the blocker — the published dashboard was never touched. Do not enter an open-ended repair loop, and do not publish a draft with a known-broken tile.
 
 **4d. Publish, then spot-check:** after `v2-publish-draft`, a final `omni documents v2-get <identifier>` confirms the published state matches the validated draft.
+
+## Optional: check the render in a browser
+
+When a browser is reachable, a visual check is a valid last step after the API checks above. It adds to them; it never replaces them. A dashboard PNG from `omni dashboards download` ([downloads.md](downloads.md)) is the same check without a browser.
+
+An Omni dashboard page never goes idle: it keeps connections open, so a tool that waits for the network to go quiet, such as a "network idle" load state or a screenshot that waits for the page to settle, times out. Work around it:
+
+- **Wait for the page, not the network.** Load the page, then check the DOM in short, separate reads a few seconds apart, up to a fixed limit such as 60 seconds, instead of waiting for a load event.
+- **Wait until no tile is still loading.** A tile that is re-running its query keeps showing its previous result, with only a small loading indicator in its corner, so values read too early are stale. Reload after any change, and treat the page as settled only when no element matching `[aria-busy=true]`, `[class*=pulse]`, `[class*=loading]` or `[class*=spinner]` has a nonzero height.
+- **Read values from the DOM where you can.** A tile's rendered text (KPIs, markdown, tables) is the `innerText` of its `[data-tile-identifier]` element, and filter-bar controls are `[data-filter-kind]` elements. Charts draw on a canvas, so their values are not in the DOM; compare those with the tile's query results instead. These selectors come from the current app and can change; when one finds nothing, fall back to the PNG.
+- **Set filter values through the URL** for a filter-dependent check, and reload, rather than changing them interactively.
+- **Navigate pages by URL.** A page is at `/dashboards/<identifier>/<pageId>`. A draft opens in edit mode, where clicking a page tab opens its settings instead of switching pages, so use the URL there too.
+- **When the screenshot tool times out,** capture the browser window at the operating-system level instead. The window has to be visible on screen: a covered or background window stops painting and captures blank. Background tabs also slow page timers to about once a minute, so don't wait with timers inside the page.
+- **Stop at the limit.** If the page hasn't settled by then, report which tiles are still loading, and rely on the PNG and the per-tile query results.
 
 ## Validation Checklist Summary
 
@@ -134,5 +158,5 @@ Using `"resultType": "csv"` makes it easy to spot-check that the data looks reas
 | Pre-build | Viz specs are internally consistent | Check against the rules above |
 | Pre-publish | Draft has all expected tiles | `v2-get-draft` — `order` length and `data` keys both match |
 | Pre-publish | All tile queries execute | `omni documents get-queries` + `omni query run` each |
-| Pre-publish | Data looks correct | Spot-check CSV output for reasonableness |
+| Pre-publish | Data looks correct | Spot-check a `"resultType": "csv"` run |
 | Post-publish | Published state matches the draft | `omni documents v2-get <identifier>` |
