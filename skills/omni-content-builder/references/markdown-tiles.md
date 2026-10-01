@@ -4,6 +4,14 @@ Patterns for **markdown viz tiles** (`chartType: "markdown"`, `visType: "omni-ma
 
 > **Recipe source for advanced markdown vizzes — [docs.omni.co/showcase](https://docs.omni.co/showcase).** Working CSS/mustache for things no native chart type gives you: **symmetric funnel** (clip-path trapezoids + step-conversion labels — more informative than the built-in echarts funnel), **conditional-color KPI** (CASE calc → class name → `<style>`), **table with tiny inline bars**, **gauges/thermometer**, **dumbbell plot**, **waffle/square-fill** charts. For a "stages as rows" viz (funnel, tiny-bar table) shape the query with `transposed_measures` (see `omni-query`) so stages become `measure_value` rows, or compute step ratios as their own measures and read them via `result._first`.
 
+## Contents
+
+- [Native data components — `<Sparkline>` and `<ChangeArrow>`](#native-data-components--sparkline-and-changearrow)
+- [Sizing markdown tiles (heights) — they clip easily](#sizing-markdown-tiles-heights--they-clip-easily)
+- [Responsive KPI headline numbers — scale font to the *card*, not the viewport](#responsive-kpi-headline-numbers--scale-font-to-the-card-not-the-viewport)
+- [A markdown KPI card that follows a metric picker](#a-markdown-kpi-card-that-follows-a-metric-picker)
+- [Data-driven funnel (proportional widths, no table calc)](#data-driven-funnel-proportional-widths-no-table-calc)
+
 ## Native data components — `<Sparkline>` and `<ChangeArrow>`
 
 Omni's markdown renderer ships two **publicly documented** data components that draw inline visualizations from the tile's query results — **prefer them over hand-rolled equivalents.** A KPI "big number + sparkline + up/down delta" card needs **no table calculations and no CSS `<div>` bar tricks**: `<Sparkline>` draws the trend and `<ChangeArrow>` computes and colors the delta. (A `spark_h = metric/MAX(metric)` calc in a `{{#result}}` loop, or a `mom_pct`/`mom_dir` CASE-class arrow, just re-implements these — more fragily.)
@@ -56,7 +64,7 @@ Computes the percent change itself (`current / comparison − 1`) and picks the 
 > - `<Sparkline>`: `show-axis` ✅ — `showAxis` ❌
 > - `<comparison>` (and `<single-value>`/`<progress>`): `description-before` / `description-after` ✅ — `descriptionBefore` / `descriptionAfter` ❌
 >
-> Tag names are case-insensitive (`<ChangeArrow>` = `<changearrow>`); **attribute names are not** — always kebab-case. (You can't tell from `query run` — a stripped attribute is a *render* behaviour; verify in the UI or a dashboard PNG.) This is why a swapped delta "didn't work" with `swapColors` but works with `swap-colors`.
+> Tag names are case-insensitive (`<ChangeArrow>` = `<changearrow>`); **attribute names are not** — always kebab-case. (You can't tell from `query run` — a stripped attribute is a *render* behaviour; verify with a dashboard PNG from `omni dashboards download`, or in a browser when one is reachable.) This is why a swapped delta "didn't work" with `swapColors` but works with `swap-colors`.
 
 ### Worked KPI card (label + value + delta + sparkline)
 
@@ -97,7 +105,7 @@ The query is just `[orders.created_at[month], orders.total_revenue]` sorted asce
 
 A separate `color_class` calc recolours the *value* by threshold (*level*) while `arrow_class` colours the glyph by *direction*; the CSS `::before` supplies the ↓/↑ glyph so the span body stays empty. Query sorted **ascending** so `_last` = latest and `OMNI_PERCENT_CHANGE_FROM_PREVIOUS` compares it to the prior month.
 
-> **These are still markdown-viz tiles**, so the blank-tile and round-trip rules elsewhere in this file apply: keep `automaticVis:false` + `prefersChart:false`, and re-author the inner spec nested under `config` on write. The components render in normal dashboard markdown tiles (not only AI-summary tiles). As always, **you cannot confirm the render from `query run`** — download a dashboard PNG (`omni dashboards download` → `download-status` → `download-file`) or check in the UI.
+> **These are still markdown-viz tiles**, so the blank-tile and round-trip rules elsewhere in this file apply: keep `automaticVis:false` + `prefersChart:false`, and re-author the inner spec nested under `config` on write. The components render in normal dashboard markdown tiles (not only AI-summary tiles). As always, **you cannot confirm the render from `query run`** — download a dashboard PNG (`omni dashboards download` → `download-status` → `download-file`), or check it in a browser when one is reachable (see [validation-and-testing.md](validation-and-testing.md#optional-check-the-render-in-a-browser)).
 
 > **The export catch-22 — one throwing tile fails the WHOLE dashboard render.** A markdown tile that throws at render (an undefined value handed to a component, a bad token) shows "Chart unavailable" *and* fails the PNG/PDF export with the generic `"Job failed to render."`. Two consequences: (1) a render-job failure is **not** automatically a service outage — it's often a single bad tile; confirm by exporting a known-good dashboard. (2) Verify an **unfamiliar component** as a **one-tile** dashboard export first, so a crash is isolated. Fetch the image with `omni dashboards download-file <id> <jobId>`.
 
@@ -119,7 +127,7 @@ A markdown KPI with a fixed `font-size:40px` headline number **clips horizontall
 - Size the number in `cqw` (1cqw = 1% of the container's width) with a `clamp()` floor/cap: `font-size:clamp(16px,15cqw,40px);…;white-space:nowrap`. `15cqw` ≈ 25px in a ~165px six-across card (fits a 10-char value), grows to the 40px cap on wide/full-width cards, and shrinks gracefully when cards reflow.
 - **Omni's markdown renderer supports container queries** — inline `container-type` and the `cqw` unit both pass the sanitizer and render. (`<style>` blocks work too.) Prefer `cqw` over `vw`: `vw` tracks the *viewport*, so when cards reflow to full-width at narrow widths the number turns tiny in a wide card; `cqw` tracks the card and stays correctly sized at every breakpoint.
 - Anchor the edit on `font-weight:800` — in these KPI cards only the headline number is weight 800 (labels are 700), so it uniquely identifies the value line across all the size variants (36/38/40px, colored or class-driven).
-- **This is a markdown-tile edit, so it is subject to the round-trip trap** (see [visConfig.md](visConfig.md)) — re-author the inner spec as `visConfig.visConfig = { visType:"omni-markdown", config:{ version:1, markdown:"…" } }`. Sending the GET's *flat* `{version,markdown,visType}` back silently drops `markdown` and the tile renders blank — a blank tile here is the flat shape, not the `cqw`.
+- The inner spec is `visConfig.visConfig = { visType:"omni-markdown", config:{ version:1, markdown:"…" } }`, and it reads back in that same shape, so a tile from `v2-get-draft` can be edited and patched back as is. Read it back after writing and confirm `config.markdown` persisted.
 
 ## A markdown KPI card that follows a metric picker
 

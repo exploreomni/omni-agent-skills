@@ -6,7 +6,7 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
-## [1.18.0] - 2026-09-28
+## [1.19.0] - 2026-10-01
 
 ### omni-integrations
 
@@ -14,6 +14,29 @@ Since 1.11.0 both plugins share one version, held in `versions.json` and stamped
 - **`omni-to-dbt-metricflow` — filter dependencies survive the drop list.** Step 4 is now three ordered passes: candidates, drops, dependencies. The dependency pass adds the primary key of every touched view and each kept measure's filter and `sql` dimensions, even when the drop pass removed them as `hidden: true` or as not selected by the topic. A measure whose dependency is filter-only, in a skipped view, or a cross-view expression is dropped and reported. Before, a view or topic export could drop a hidden dimension that a measure filters on; `dbt parse` and `mf validate-configs` pass, and only `mf query --explain` fails.
 - **`omni-to-dbt-metricflow` — same-view filters keep the group.** A same-view predicate now goes inside `expr` for every aggregate type (`count`: `THEN 1 END`, `sum`: `THEN <column> ELSE 0 END`, others: `THEN <column> END`), which is the SQL Omni generates itself, so the group stays present with the same value. The note on differences now states them exactly: only a cross-view metric `filter` differs, where the group is absent when queried alone and NULL when queried with other metrics, and Omni shows 0 for `count`, `count_distinct`, and `sum`. Step 9 tests a filtered metric alone and with an unfiltered one.
 - **`omni-to-dbt-metricflow` — week start day.** New note: MetricFlow has no per-model week start; its standard week is Monday on every adapter except Snowflake, where `DATE_TRUNC('week')` follows `WEEK_START`. FIELD-MAPPING.md documents a custom-granularity time-spine column for an Omni `week_start_day`, built from a fixed anchor date with dbt cross-db macros so it does not depend on the adapter's `DATE_TRUNC('week')` (Sunday on dbt-bigquery, `WEEK_START` on Snowflake). Omni's own weekly results are unchanged after fallback.
+
+## [1.18.0] - 2026-09-28
+
+### omni-analytics
+
+_Summary: `omni-content-builder` was re-checked against the current documents v2 API. Four things it warned about now behave differently, some missing options were added, and the skill now recommends one path wherever it used to list two. The check that runs each tile's query now reads its row count from JSON output. No command or flag changed._
+
+**Fixed**
+- **`omni-content-builder` — *Checking each tile's query*.** The validation reference ran each tile's query with `"resultType": "csv"`, whose output is only the CSV, and then read the row count from `cache_metadata.num_rows`, which that output does not have. The check now runs with `-o json`, which keeps the job envelope, and a CSV run is a separate spot-check of the data.
+
+**Changed**
+- **`omni-content-builder` — *Reading a tile's chart config*.** A tile's chart config now reads back in the same shape you write it. The warnings about a flattened read, and the `normalizeTile()` helper, are gone. After writing a tile, read it back and check that its `config` is not empty.
+- **`omni-content-builder` — *Hiding a control*.** A control's `hidden` flag is no longer accepted in a patch. A control shows wherever a container places it, so hide one by leaving it out of every container.
+- **`omni-content-builder` — *Where new tiles go*.** When a create or patch has no `containers`, every new tile is placed on the first page automatically. Send `containers` to place tiles yourself. This replaces the old note that only the first tile was laid out.
+- **`omni-content-builder` — *What a read returns*.** `v2-get` with a document's identifier returns the published document, never draft edits. A draft comes from `v2-get-draft`, or from `v2-get` with the draft's own identifier. Every read includes `modelId` and `workbookModelId`. `branchId` is accepted only on the patch that creates a draft. `v2-update-identifier` is now in the command tables, and SKILL.md's table also lists the query-model binding commands.
+- **`omni-content-builder` — *Newly documented options*.** Tile types (`foreign` replaces `app`, and a `linked` tile needs `sourceQueryPresentationKey`), the `treemap` and `svgMap` charts, percent stacking (`stack_percentage`, not `normalize`), filter metadata, `FIELD_PICKER` field order, four more layout items (spacer, divider, placeholder, text), stack and grid options, the page `breakpoint`, the 15-page limit, and length caps on names and subtitles. One unverified claim about inline filters was removed.
+- **`omni-content-builder` — *Model a filter, or add a control*.** A new paragraph on when a filter belongs in the model as a filter-only field rather than on the dashboard as a control.
+- **`omni-content-builder` — *Filter control type must match the filter type*.** `singleValueEquals` / `multiValueEquals` belong on `string` filters and `singleDay` / `timeframe` on `date` filters. The API doesn't check the pairing, and a `number` filter set to single selection drops every value a viewer picks. For buttons or a dropdown on a number field, a new section shows filtering on a text copy of the field, with `order_by_field` keeping the choices in numeric order.
+- **`omni-content-builder` — *One recommended path*.** Wherever the skill named two ways to do something, it now says which to use and when. For example, `list-drafts` is the lookup for a draft's workbook model id, and fields go in the JSON body whenever a request has one.
+- **`omni-content-builder` — *A shorter SKILL.md*.** SKILL.md drops from about 11.6k to about 5.9k tokens (487 to 198 lines). Document lifecycle examples and build workflows, the workbook-model field workflow, and dashboard downloads move into their own references (`document-lifecycle.md`, `workbook-model.md`, `downloads.md`); the controls create example and the model-or-control criteria move into `controls.md`. Long Known Issues entries keep the rule and link to the detail, and entries whose error message already explains the fix now live only in `documents-v2.md`'s error map. Every reference over 100 lines opens with a table of contents. The create example's date filter now uses the object form.
+- **`omni-content-builder` — *Headless by default*.** The skill no longer asks the agent to build anything in the Omni UI. Chart and filter configs come from the recipes or from reading back an existing dashboard, the UI-first workflow is gone, and a classic-layout dashboard is upgraded with `omni documents upgrade-layout`, which publishes immediately, so the agent confirms with the user first. A browser check of the rendered dashboard stays optional for when a browser is reachable; `validation-and-testing.md` lists how to work with a dashboard page that never goes idle.
+- **`omni-api-conventions` rule — *`--schema` and the API*.** `--schema` describes the installed CLI build, which can lag the API. When it disagrees with a doc, keep the CLI current and confirm with a live call.
+- **`omni-content-builder` — *Evals*.** Six cases updated and three added: hiding a control by placement, adding a tile without `containers`, and renaming a tile read from a draft.
 
 ## [1.17.0] - 2026-09-24
 
