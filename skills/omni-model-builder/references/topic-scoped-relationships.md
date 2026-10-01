@@ -1,7 +1,5 @@
 # Topic-Scoped Relationships — Extended Examples
 
-> **Note for contributors:** This file is a YAML example gallery for human reference. It is not loaded at agent runtime. All procedural guidance and directives live in `SKILL.md` under "Writing Relationships."
-
 ## Basic Topic-Scoped Relationship
 
 ```yaml

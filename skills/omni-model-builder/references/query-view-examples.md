@@ -1,7 +1,5 @@
 # Query View Examples
 
-> **Note for contributors:** This file is a YAML example gallery for human reference. It is not loaded at agent runtime. Procedural guidance and directives live in `SKILL.md` under "Query Views."
-
 ## Option 1 — Single Primary Key (query: block)
 
 ```yaml

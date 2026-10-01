@@ -2,6 +2,25 @@
 
 Complete parameter reference for views, topics, dimensions, and measures. Use these when building or modifying Omni semantic model YAML.
 
+## Contents
+
+- [Dimension Parameters](#dimension-parameters)
+  - [Common dimension examples](#common-dimension-examples)
+- [Measure Parameters](#measure-parameters)
+  - [Aggregate Types](#aggregate-types)
+  - [Common measure examples](#common-measure-examples)
+  - [Measure Filter Conditions](#measure-filter-conditions)
+- [Format Values](#format-values)
+  - [Numeric](#numeric)
+  - [Currency](#currency)
+  - [Accounting](#accounting)
+  - [Date/Time](#datetime)
+- [Topic Parameters](#topic-parameters)
+- [Composite Topic Parameters](#composite-topic-parameters)
+- [View Parameters (selected)](#view-parameters-selected)
+- [Timeframes](#timeframes)
+- [Groups](#groups)
+
 ## Dimension Parameters
 
 | Parameter | Description |
@@ -299,7 +318,7 @@ A `.composite_topic` file. See [composite-topics.md](composite-topics.md).
 | Parameter | Description |
 |-----------|-------------|
 | `filters` | View-level block declaring filter-only fields (parameters with no column) read by other fields via Mustache. See [templated-filters.md](templated-filters.md) |
-| `materialized_query` | Declares the view as a pre-aggregated table: `fields:` map (topic field → column), `base_view`, `topic`, optional `filters:` pin. See [aggregate-awareness.md](aggregate-awareness.md) |
+| `materialized_query` | Declares the view as a pre-aggregated table: `fields:` map (field → column), `base_view`, optional `topic` (only for a table built from a topic's query), optional `filters:` pin. See [aggregate-awareness.md](aggregate-awareness.md) |
 
 ## Timeframes
 
