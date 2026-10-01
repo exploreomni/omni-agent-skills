@@ -50,6 +50,18 @@ The app normalises row keys to the bare column name, so it works whether the tab
 
 The tab **names** are what the app binds to. The SQL uses literal `VALUES` and a `GENERATOR` (with a per-product regional mix), so it needs no tables; for a real engagement swap each tab for a query on Peloton's product catalog, orders, and workouts tables with the same column names (or edit the `QUERIES` map and column names at the top of `app.html`).
 
+## Publish to the demo instance (one command)
+
+With the Omni CLI (≥ 1.4.0) on your own machine:
+
+```bash
+omni config init --name demo --endpoint https://omni.demo.exploreomni.dev --auth oauth   # browser login
+./publish-demo.sh demo                      # lists the shared models
+./publish-demo.sh demo <shared-model-id>    # creates + publishes the app with the three SQL tabs
+```
+
+The script makes one `documents v2-create` call carrying the app HTML and three raw-SQL workbook tabs named exactly as the app expects, then reads the queries back and prints the app URL. The SQL is Snowflake syntax; on another warehouse the tabs error and the app shows its embedded sample data until they are rewritten. If the header pill still says "Sample data", open the workbook, run each SQL tab once so Omni materialises the columns, and publish.
+
 ## Omni CLI equivalents
 
 The app was written through the Omni MCP app tools (`putApp` / `publishDraft`) because this session had no CLI credentials. The same steps with the Omni CLI (verified against `omni` 1.4.0 with `--help` and `--schema`):
