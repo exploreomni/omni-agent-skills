@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Peloton Product Comparison</title>
+<style>
+  /* ---------- tokens ---------- */
+  :root{
+    color-scheme: light;
+    --bg: var(--color-background, #ffffff);
+    --surface:#f6f6f8; --surface-2:#ececf0; --border:#e3e3e8; --border-strong:#c6c6cf;
+    --text:#0b0b0d; --text-2:#55555e; --text-3:#8a8a94;
+    --accent:#df1c2f; --accent-ink:#ffffff; --accent-soft:#fdeaec;
+    --s-bike:#e34948; --s-bikeplus:#2a78d6; --s-tread:#eb6834; --s-treadplus:#1baf7a;
+    --s-row:#eda100; --s-guide:#4a3aa7; --s-app:#e87ba4;
+    --r1:#c7dcf5; --r2:#8fb9ea; --r3:#5a95dc; --r4:#2a78d6; --r5:#174f94; --r-ink-strong:#ffffff;
+    --good:#1a7f37; --warn:#b5650a;
+    --grid:#ececf0; --axis:#c6c6cf;
+    --radius:14px; --radius-sm:8px;
+    --shadow:0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+    --font: "Inter", "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]) body:not(.prefers-light){
+      color-scheme: dark;
+      --bg: var(--color-background, #0f0f10);
+      --surface:#1a1a1d; --surface-2:#232327; --border:#2b2b31; --border-strong:#3c3c45;
+      --text:#f4f4f6; --text-2:#b4b4bd; --text-3:#7d7d88;
+      --accent:#ff3b4e; --accent-ink:#ffffff; --accent-soft:#3a1519;
+      --s-bike:#e66767; --s-bikeplus:#3987e5; --s-tread:#d95926; --s-treadplus:#199e70;
+      --s-row:#c98500; --s-guide:#9085e9; --s-app:#d55181;
+      --r1:#1e3a5f; --r2:#2a5389; --r3:#3a6fb3; --r4:#5a95dc; --r5:#9cc3f0; --r-ink-strong:#0b0b0d;
+      --good:#4fae85; --warn:#e0a542;
+      --grid:#232327; --axis:#3c3c45;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  body.prefers-dark, :root[data-theme="dark"] body{
+    color-scheme: dark;
+    --bg: var(--color-background, #0f0f10);
+    --surface:#1a1a1d; --surface-2:#232327; --border:#2b2b31; --border-strong:#3c3c45;
+    --text:#f4f4f6; --text-2:#b4b4bd; --text-3:#7d7d88;
+    --accent:#ff3b4e; --accent-ink:#ffffff; --accent-soft:#3a1519;
+    --s-bike:#e66767; --s-bikeplus:#3987e5; --s-tread:#d95926; --s-treadplus:#199e70;
+    --s-row:#c98500; --s-guide:#9085e9; --s-app:#d55181;
+    --r1:#1e3a5f; --r2:#2a5389; --r3:#3a6fb3; --r4:#5a95dc; --r5:#9cc3f0; --r-ink-strong:#0b0b0d;
+    --good:#4fae85; --warn:#e0a542;
+    --grid:#232327; --axis:#3c3c45;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  /* ---------- base ---------- */
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  button{font:inherit;color:inherit;cursor:pointer}
+  select,input{font:inherit;color:inherit}
+  .wrap{max-width:1240px;margin:0 auto;padding:0 16px 64px}
+  h1,h2,h3{margin:0;line-height:1.2;font-weight:700;letter-spacing:-0.01em}
+  h2{font-size:22px}
+  .muted{color:var(--text-2)}
+  .small{font-size:13px}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+  /* ---------- header ---------- */
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:22px 0 18px;border-bottom:1px solid var(--border)}
+  .brand{display:flex;align-items:center;gap:14px}
+  .wordmark{font-weight:900;letter-spacing:.22em;font-size:22px;text-transform:uppercase}
+  .wordmark::after{content:"";display:inline-block;width:8px;height:8px;margin-left:8px;background:var(--accent);border-radius:50%;vertical-align:middle}
+  .brand .title{font-size:14px;color:var(--text-2);padding-left:14px;border-left:1px solid var(--border-strong)}
+  .pill{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;padding:5px 11px;border-radius:100px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);white-space:nowrap}
+  .pill .dot{width:8px;height:8px;border-radius:50%;background:var(--text-3)}
+  .pill.live .dot{background:var(--good)}
+  .pill.partial .dot{background:var(--warn)}
+  .pill.sample .dot{background:var(--text-3)}
+
+  /* ---------- sections ---------- */
+  section{margin-top:36px}
+  .sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+  .sec-head p{margin:4px 0 0;color:var(--text-2);max-width:720px}
+  .eyebrow{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:6px}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:100px;background:var(--surface);padding:3px}
+  .seg button{border:0;background:transparent;padding:6px 12px;border-radius:100px;font-size:13px;color:var(--text-2)}
+  .seg button[aria-pressed="true"]{background:var(--text);color:var(--bg)}
+  select.ctl{border:1px solid var(--border);background:var(--surface);border-radius:100px;padding:7px 12px;font-size:13px}
+  .toggle{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--text-2);cursor:pointer;user-select:none}
+  .toggle input{accent-color:var(--accent)}
+
+  /* ---------- product chips ---------- */
+  .chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .chip{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid var(--border);background:var(--surface);border-radius:var(--radius-sm);text-align:left;transition:border-color .15s, transform .15s}
+  .chip:hover{border-color:var(--border-strong);transform:translateY(-1px)}
+  .chip[aria-pressed="true"]{border-color:var(--chip-color);background:color-mix(in srgb, var(--chip-color) 10%, var(--surface))}
+  .chip .glyph{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;background:var(--surface-2);color:var(--text-2);flex:none}
+  .chip[aria-pressed="true"] .glyph{background:var(--chip-color);color:#fff}
+  .chip .glyph svg{width:22px;height:22px}
+  .chip b{display:block;font-size:14px}
+  .chip span.sub{display:block;font-size:12px;color:var(--text-3)}
+  .hint{font-size:12.5px;color:var(--text-3);margin-top:8px}
+
+  /* ---------- cards ---------- */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 18px 16px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .card::before{content:"";position:absolute;left:0;top:0;right:0;height:4px;background:var(--card-color)}
+  .card .name{display:flex;align-items:center;gap:8px;font-weight:800;font-size:18px}
+  .card .name i{width:10px;height:10px;border-radius:50%;background:var(--card-color);display:inline-block}
+  .card .fam{font-size:12px;color:var(--text-3);text-transform:uppercase;letter-spacing:.1em;margin-top:2px}
+  .card .price{font-size:30px;font-weight:800;letter-spacing:-0.02em;margin:12px 0 0}
+  .card .price small{font-size:13px;color:var(--text-2);font-weight:500;letter-spacing:0;margin-left:4px}
+  .card .mem{font-size:13px;color:var(--text-2)}
+  .card .blurb{margin:12px 0 0;font-size:13.5px;color:var(--text-2)}
+  .card .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+  .tag{font-size:11.5px;padding:3px 8px;border-radius:100px;background:var(--surface-2);color:var(--text-2)}
+  .tag.win{background:var(--accent-soft);color:var(--accent);font-weight:600}
+  .card .kv{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+  .card .kv div{font-size:12.5px;color:var(--text-3)}
+  .card .kv div b{display:block;color:var(--text);font-size:14px;font-weight:600}
+  .empty{padding:28px;border:1px dashed var(--border-strong);border-radius:var(--radius);color:var(--text-2);text-align:center}
+
+  /* ---------- spec table ---------- */
+  .tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow)}
+  table{border-collapse:collapse;width:100%;min-width:560px;font-size:14px}
+  th,td{padding:11px 14px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+  th{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);font-weight:600;background:var(--surface-2);white-space:nowrap}
+  th .sw{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;vertical-align:middle}
+  td.lbl{color:var(--text-2);white-space:nowrap;width:1%}
+  td.best{font-weight:700}
+  td.best::after{content:"best";font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-left:8px;font-weight:700;vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+
+  /* ---------- charts ---------- */
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);position:relative}
+  .panel h3{font-size:15px;margin-bottom:4px}
+  .panel .sub{font-size:12.5px;color:var(--text-3);margin-bottom:10px}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--text-2);margin:6px 0 4px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:12px;height:3px;border-radius:2px;display:inline-block}
+  .legend i.box{width:10px;height:10px;border-radius:2px}
+  svg.chart{width:100%;height:auto;display:block;overflow:visible}
+  svg.chart text{font-family:var(--font)}
+  .tip{position:absolute;pointer-events:none;background:var(--text);color:var(--bg);font-size:12.5px;line-height:1.4;padding:8px 10px;border-radius:8px;box-shadow:var(--shadow);opacity:0;transition:opacity .08s;z-index:5;min-width:150px}
+  .tip b{display:block;margin-bottom:4px}
+  .tip .row{display:flex;justify-content:space-between;gap:14px}
+  .tip .row i{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+  .grid-2{display:grid;grid-template-columns:2fr 1fr;gap:14px}
+  .multiples{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+  @media (max-width:900px){.grid-2{grid-template-columns:1fr}}
+
+  /* ---------- fit finder ---------- */
+  .fit{display:grid;grid-template-columns:1fr 1.2fr;gap:16px}
+  @media (max-width:900px){.fit{grid-template-columns:1fr}}
+  .q{margin-bottom:16px}
+  .q label.t{display:block;font-weight:600;font-size:13.5px;margin-bottom:8px}
+  .optrow{display:flex;gap:8px;flex-wrap:wrap}
+  .opt{border:1.5px solid var(--border);background:var(--bg);border-radius:100px;padding:7px 13px;font-size:13px}
+  .opt[aria-pressed="true"]{border-color:var(--text);background:var(--text);color:var(--bg)}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .rangev{font-weight:700}
+  .reco{display:flex;flex-direction:column;gap:10px}
+  .rec{border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;background:var(--bg);display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center}
+  .rec .rank{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:var(--surface-2);color:var(--text-2)}
+  .rec:first-child .rank{background:var(--accent);color:var(--accent-ink)}
+  .rec .nm{font-weight:700}
+  .rec .why{font-size:12.5px;color:var(--text-2)}
+  .rec .score{font-weight:700;font-variant-numeric:tabular-nums}
+  .rec .bar{grid-column:2 / span 2;height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden}
+  .rec .bar i{display:block;height:100%;background:var(--rec-color)}
+  .btn{border:1px solid var(--border-strong);background:var(--bg);padding:8px 14px;border-radius:100px;font-size:13px;font-weight:600}
+  .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .btn:hover{filter:brightness(.97)}
+  footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);font-size:12.5px;color:var(--text-3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="wordmark">Peloton</div>
+      <div class="title">Product Comparison Studio</div>
+    </div>
+    <div class="controls">
+      <span id="data-pill" class="pill sample" title="Waiting for Omni query results"><span class="dot"></span><span id="data-pill-text">Loading data…</span></span>
+    </div>
+  </header>
+
+  <!-- 1. pick products -->
+  <section id="pick">
+    <div class="sec-head">
+      <div>
+        <div class="eyebrow">Step 1</div>
+        <h2>Choose up to four products to compare</h2>
+        <p>Tap a product to add it to the comparison. Every chart and table below updates instantly.</p>
+      </div>
+      <div class="controls">
+        <button class="btn" id="preset-bikes">Bikes</button>
+        <button class="btn" id="preset-cardio">Cardio hardware</button>
+        <button class="btn" id="preset-entry">Entry points</button>
+      </div>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="hint" id="chip-hint"></div>
+  </section>
+
+  <!-- 2. at a glance -->
+  <section id="glance">
+    <div class="sec-head">
+      <div>
+        <div class="eyebrow">At a glance</div>
+        <h2>Side by side</h2>
+      </div>
+    </div>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <!-- 3. spec sheet -->
+  <section id="specs">
+    <div class="sec-head">
+      <div>
+        <div class="eyebrow">Spec sheet</div>
+        <h2>Compare the details</h2>
+        <p>“Best” marks the strongest value in each row: lowest price, biggest screen, newest release.</p>
+      </div>
+      <div class="controls">
+        <label class="toggle"><input type="checkbox" id="diff-only"> Show differences only</label>
+      </div>
+    </div>
+    <div class="tablewrap"><table id="spec-table"></table></div>
+  </section>
+
+  <!-- 4. momentum -->
+  <section id="momentum">
+    <div class="sec-head">
+      <div>
+        <div class="eyebrow">Momentum</div>
+        <h2>How each product is selling</h2>
+        <p>Monthly performance over the last 24 months. Hover for the exact values.</p>
+      </div>
+      <div class="controls">
+        <div class="seg" id="metric-seg" role="group" aria-label="Metric">
+          <button data-m="units_sold" aria-pressed="true">Units</button>
+          <button data-m="hardware_revenue_usd" aria-pressed="false">Hardware revenue</button>
+          <button data-m="new_memberships" aria-pressed="false">New memberships</button>
+        </div>
+        <select class="ctl" id="region-sel" aria-label="Region"></select>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="panel">
+        <h3 id="trend-title">Units sold per month</h3>
+        <div class="sub" id="trend-sub"></div>
+        <div class="legend" id="trend-legend"></div>
+        <div id="trend"></div>
+        <div class="tip" id="trend-tip"></div>
+      </div>
+      <div class="panel">
+        <h3>Where it sells</h3>
+        <div class="sub">Share of units by region, last 12 months</div>
+        <div class="legend" id="region-legend"></div>
+        <div id="regions"></div>
+        <div class="tip" id="region-tip"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. engagement -->
+  <section id="engagement">
+    <div class="sec-head">
+      <div>
+        <div class="eyebrow">Members</div>
+        <h2>How members use each product</h2>
+        <p>Engagement signals for the selected products. Higher is better in every panel.</p>
+      </div>
+    </div>
+    <div class="multiples" id="multiples"></div>
+  </section>
+
+  <!-- 6. fit finder -->
+  <section id="fit">
+    <div class="sec-head">
+      <div>
+        <div class="eyebrow">Fit finder</div>
+        <h2>Which product fits me?</h2>
+        <p>Answer four quick questions and we rank the line-up for you, with the reasons.</p>
+      </div>
+    </div>
+    <div class="fit">
+      <div class="panel">
+        <div class="q">
+          <label class="t">What do you want to do most?</label>
+          <div class="optrow" id="q-goal">
+            <button class="opt" data-v="Cycling" aria-pressed="true">Cycling</button>
+            <button class="opt" data-v="Running" aria-pressed="false">Running</button>
+            <button class="opt" data-v="Rowing" aria-pressed="false">Rowing</button>
+            <button class="opt" data-v="Strength" aria-pressed="false">Strength</button>
+            <button class="opt" data-v="Variety" aria-pressed="false">A bit of everything</button>
+          </div>
+        </div>
+        <div class="q">
+          <label class="t" for="q-budget">Hardware budget: <span class="rangev" id="budget-v">$3,000</span></label>
+          <input type="range" id="q-budget" min="0" max="6000" step="100" value="3000">
+        </div>
+        <div class="q">
+          <label class="t">How much space do you have?</label>
+          <div class="optrow" id="q-space">
+            <button class="opt" data-v="compact" aria-pressed="false">Compact corner</button>
+            <button class="opt" data-v="standard" aria-pressed="true">A spare wall</button>
+            <button class="opt" data-v="room" aria-pressed="false">Dedicated room</button>
+          </div>
+        </div>
+        <div class="q">
+          <label class="t">What matters most?</label>
+          <div class="optrow" id="q-priority">
+            <button class="opt" data-v="screen" aria-pressed="true">Immersive screen</button>
+            <button class="opt" data-v="lowimpact" aria-pressed="false">Low impact</button>
+            <button class="opt" data-v="fullbody" aria-pressed="false">Full-body workout</button>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Your line-up</h3>
+        <div class="sub" id="fit-sub"></div>
+        <div class="reco" id="reco"></div>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn primary" id="compare-top">Compare my top 3 above</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ============ constants ============ */
+  const ORDER = ['Bike','Bike+','Tread','Tread+','Row','Guide','App'];
+  const COLOR = {
+    'Bike':'var(--s-bike)','Bike+':'var(--s-bikeplus)','Tread':'var(--s-tread)','Tread+':'var(--s-treadplus)',
+    'Row':'var(--s-row)','Guide':'var(--s-guide)','App':'var(--s-app)'
+  };
+  const REGION_ORDER = ['United States','Canada','UK & Ireland','Germany','Australia'];
+  const REGION_COLOR = ['var(--r5)','var(--r4)','var(--r3)','var(--r2)','var(--r1)'];
+  const QUERIES = { products:'peloton_products', sales:'peloton_monthly_sales', engagement:'peloton_engagement' };
+  const MAX_SELECT = 4;
+
+  const GLYPH = {
+    Bike:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7M10 9l-1.5-3h3M15 9l-1-3"/></svg>',
+    Tread:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17h13a3 3 0 0 0 0-6H5"/><path d="M17 14l3-9M17 5h4"/><path d="M3 20h18"/></svg>',
+    Row:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15h18"/><path d="M6 15v4M18 15v4"/><rect x="9" y="10" width="5" height="3" rx="1"/><path d="M4 12l3-5h4"/></svg>',
+    Guide:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="11" rx="2"/><circle cx="12" cy="12.5" r="3"/><path d="M8 4h8"/></svg>',
+    App:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/><path d="M10 9l2 2 3-3"/></svg>'
+  };
+  const glyphFor = p => GLYPH[(p||'').replace('+','')] || GLYPH.App;
+
+  const SPEC_ROWS = [
+    {key:'list_price_usd', label:'List price', fmt:v=>v>0?money(v):'No hardware', best:'min', skipZero:true},
+    {key:'membership_usd_per_month', label:'Membership / month', fmt:v=>money(v,2), best:'min'},
+    {key:'modality', label:'Modality'},
+    {key:'training_focus', label:'Training focus'},
+    {key:'footprint', label:'Footprint'},
+    {key:'weight_lb', label:'Equipment weight', fmt:v=>v>1?fmtNum(v)+' lb':'—'},
+    {key:'screen_inches', label:'Screen', fmt:v=>v>0?v+'″ touchscreen':'—', best:'max'},
+    {key:'screen_movement', label:'Screen movement'},
+    {key:'max_user_weight_lb', label:'Max user weight', fmt:v=>v>=999?'—':fmtNum(v)+' lb', best:'max', skip:v=>v>=999},
+    {key:'signature_feature', label:'Signature feature'},
+    {key:'best_for', label:'Best for'},
+    {key:'launch_year', label:'Launched', fmt:v=>String(v), best:'max'}
+  ];
+
+  const ENGAGE_METRICS = [
+    {key:'avg_workouts_per_week', label:'Workouts per week', fmt:v=>v.toFixed(1)},
+    {key:'avg_minutes_per_workout', label:'Minutes per workout', fmt:v=>fmtNum(v)+' min'},
+    {key:'retention_12m_pct', label:'12-month retention', fmt:v=>v+'%'},
+    {key:'nps', label:'Net Promoter Score', fmt:v=>String(v)},
+    {key:'cross_training_pct', label:'Members who cross-train', fmt:v=>v+'%'}
+  ];
+
+  /* ============ formatting ============ */
+  const nf0 = new Intl.NumberFormat('en-US',{maximumFractionDigits:0});
+  function fmtNum(v){ return nf0.format(Math.round(v)); }
+  function money(v,d){ return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:d||0,maximumFractionDigits:d||0}).format(v); }
+  function compact(v, isMoney){
+    const a=Math.abs(v); let s;
+    if(a>=1e9) s=(v/1e9).toFixed(1)+'B'; else if(a>=1e6) s=(v/1e6).toFixed(1)+'M'; else if(a>=1e3) s=(v/1e3).toFixed(a>=1e4?0:1)+'k'; else s=String(Math.round(v));
+    return (isMoney?'$':'')+s;
+  }
+  const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function monthLabel(key){ const [y,m]=key.split('-'); return MONTHS[+m-1]+' '+y.slice(2); }
+  function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  /* ============ sample data (embedded fallback) ============ */
+  // Mirrors the SQL in sql/*.sql so the app renders before the queries are wired.
+  const SAMPLE_PRODUCTS = [
+    ['Bike','Bike','Cycling',1445,44.00,'4 ft x 2 ft',135,297,21.5,'Tilt','Manual resistance knob','Entry-level studio cycling at home',2014,'Cardio'],
+    ['Bike+','Bike','Cycling',2495,44.00,'4 ft x 2 ft',140,297,23.8,'Rotate + tilt','Auto-Follow resistance','Cycling plus off-bike strength and yoga',2020,'Cardio + Strength'],
+    ['Tread','Tread','Running',2995,44.00,'68 in x 33 in',290,300,23.8,'Tilt','0-12.5 mph, 0-12.5% incline','Running and walking with guided classes',2020,'Cardio'],
+    ['Tread+','Tread','Running',5995,44.00,'75 in x 36.5 in',455,300,32.0,'Tilt','Slat belt, 0-12.5 mph, 0-15% incline','Premium running with a shock-absorbing slat belt',2023,'Cardio'],
+    ['Row','Row','Rowing',2995,44.00,'8 ft x 2 ft',156,300,23.8,'Swivel + tilt','Form Assist stroke feedback','Full-body low-impact cardio',2022,'Cardio + Strength'],
+    ['Guide','Guide','Strength',295,24.00,'Connects to TV',1,999,0,'Uses your TV','Camera Movement Tracker','Strength training with rep tracking',2022,'Strength'],
+    ['App','App','Multi-modality',0,12.99,'No hardware',0,999,0,'Your own device','Works with any equipment','Classes anywhere on phone, tablet, or TV',2018,'Multi-modality']
+  ].map(r=>({product:r[0],family:r[1],modality:r[2],list_price_usd:r[3],membership_usd_per_month:r[4],footprint:r[5],weight_lb:r[6],max_user_weight_lb:r[7],screen_inches:r[8],screen_movement:r[9],signature_feature:r[10],best_for:r[11],launch_year:r[12],training_focus:r[13]}));
+
+  const SAMPLE_ENGAGEMENT = [
+    ['Bike',4.6,31,92,71,38,'Cycling'],['Bike+',5.1,34,94,78,46,'Cycling'],['Tread',4.2,36,90,69,41,'Running'],
+    ['Tread+',4.9,41,95,82,44,'Running'],['Row',4.4,28,91,74,52,'Rowing'],['Guide',3.8,24,84,63,61,'Strength'],['App',3.1,22,76,58,70,'Multi-modality']
+  ].map(r=>({product:r[0],avg_workouts_per_week:r[1],avg_minutes_per_workout:r[2],retention_12m_pct:r[3],nps:r[4],cross_training_pct:r[5],primary_modality:r[6]}));
+
+  function hash(str){ let h=2166136261>>>0; for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619)>>>0; } return h; }
+  function buildSampleSales(){
+    const base={'Bike':[1445,5200],'Bike+':[2495,3100],'Tread':[2995,1900],'Tread+':[5995,450],'Row':[2995,700],'Guide':[295,1600],'App':[0,9000]};
+    const fam={'Bike':'Bike','Bike+':'Bike','Tread':'Tread','Tread+':'Tread','Row':'Row','Guide':'Guide','App':'App'};
+    const weights={'United States':0.68,'Canada':0.07,'UK & Ireland':0.12,'Germany':0.05,'Australia':0.08};
+    const now=new Date(); const rows=[];
+    for(const p of ORDER){
+      for(let idx=0;idx<24;idx++){
+        const d=new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth()-idx, 1));
+        const key=d.toISOString().slice(0,10);
+        for(const r of REGION_ORDER){
+          const season=1+0.22*Math.cos(2*Math.PI*(d.getUTCMonth())/12);
+          const noise=0.9+(hash(p+key+r)%100)/500;
+          const units=Math.round(base[p][1]*weights[r]*Math.pow(1.012,23-idx)*season*noise);
+          rows.push({product:p,family:fam[p],month:key,region:r,units_sold:units,hardware_revenue_usd:units*base[p][0],
+            new_memberships:Math.round(units*(p==='App'?0.55:0.92)),returns:Math.round(units*(0.03+(hash(r+p+idx)%100)/2500))});
+        }
+      }
+    }
+    return rows;
+  }
+
+  /* ============ state ============ */
+  const state = {
+    selected:['Bike','Bike+','Tread','Row'],
+    metric:'units_sold', region:'All', diffOnly:false,
+    goal:'Cycling', budget:3000, space:'standard', priority:'screen',
+    data:{products:SAMPLE_PRODUCTS, sales:buildSampleSales(), engagement:SAMPLE_ENGAGEMENT},
+    live:{products:false,sales:false,engagement:false},
+    notes:[]
+  };
+
+  /* ============ Omni wiring ============ */
+  // Rows come back keyed by field name (e.g. "peloton_products.product" or "PRODUCT"); normalise to lower-case column names.
+  function normaliseRows(rows){
+    return rows.map(r=>{ const o={}; for(const k in r){ const kk=k.substring(k.lastIndexOf('.')+1).toLowerCase(); let v=r[k];
+      if(typeof v==='string' && /^-?\d+(\.\d+)?$/.test(v.trim())) v=Number(v);
+      if(kk==='month' && v!=null){ v=String(v).slice(0,10); if(/^\d{4}-\d{2}$/.test(v)) v+='-01'; }
+      o[kk]=v; } return o; });
+  }
+  function setPill(){
+    const pill=document.getElementById('data-pill'), txt=document.getElementById('data-pill-text');
+    const n=Object.values(state.live).filter(Boolean).length;
+    pill.classList.remove('live','partial','sample');
+    if(n===3){ pill.classList.add('live'); txt.textContent='Live data from Omni'; pill.title='All three workbook queries are wired: '+Object.values(QUERIES).join(', '); }
+    else if(n>0){ pill.classList.add('partial'); txt.textContent='Partly live ('+n+' of 3 queries)'; pill.title='Wired: '+Object.keys(state.live).filter(k=>state.live[k]).map(k=>QUERIES[k]).join(', ')+'. Sample data fills the rest.'; }
+    else { pill.classList.add('sample'); txt.textContent='Sample data'; pill.title=(state.notes[0]||'Add the three SQL query tabs to the workbook to go live.'); }
+  }
+  function connectOmni(){
+    if(typeof omni==='undefined' || !omni.ready){ state.notes.push('Omni runtime not detected (local preview). Showing embedded sample data.'); setPill(); return; }
+    omni.ready.then(()=>{
+      try{ omni.runQueries(Object.values(QUERIES)); }catch(e){ state.notes.push('runQueries: '+e.message); }
+      for(const key of Object.keys(QUERIES)){
+        const name=QUERIES[key];
+        try{
+          const q=omni.query(name);
+          const handle=res=>{
+            if(!res || res.status==='running') return;
+            if(res.status==='error'){ state.notes.push(name+': query error'); setPill(); return; }
+            const rows=normaliseRows(res.rows||[]);
+            if(!rows.length){ state.notes.push(name+': returned no rows'); setPill(); return; }
+            state.data[key]=rows; state.live[key]=true; setPill(); renderAll();
+          };
+          if(q && q.data) handle(q.data);
+          if(q && q.onData) q.onData(handle);
+        }catch(e){ state.notes.push(name+': not wired ('+(e&&e.message||'missing')+')'); }
+      }
+      setPill();
+    }).catch(e=>{ state.notes.push('omni.ready failed: '+(e&&e.message)); setPill(); });
+    setTimeout(setPill, 2500);
+  }
+
+  /* ============ derived data ============ */
+  const byProduct = (rows)=>{ const m={}; for(const r of rows) m[r.product]=r; return m; };
+  function selectedProducts(){ const m=byProduct(state.data.products); return state.selected.filter(p=>m[p]).map(p=>m[p]); }
+  function monthsSorted(){ return Array.from(new Set(state.data.sales.map(r=>r.month))).sort(); }
+  function series(metric, region){
+    const months=monthsSorted(); const out={};
+    for(const p of state.selected){ out[p]=months.map(()=>0); }
+    const idx={}; months.forEach((m,i)=>idx[m]=i);
+    for(const r of state.data.sales){ if(!(r.product in out)) continue; if(region!=='All' && r.region!==region) continue; out[r.product][idx[r.month]]+=Number(r[metric])||0; }
+    return {months, out};
+  }
+
+  /* ============ renderers ============ */
+  function renderChips(){
+    const el=document.getElementById('chips'); const m=byProduct(state.data.products);
+    const prods=ORDER.filter(p=>m[p]).concat(Object.keys(m).filter(p=>!ORDER.includes(p)));
+    el.innerHTML=prods.map(p=>{ const d=m[p]; const on=state.selected.includes(p);
+      const sub=d.list_price_usd>0?money(d.list_price_usd):(d.membership_usd_per_month?money(d.membership_usd_per_month,2)+'/mo':'');
+      return `<button class="chip" data-p="${esc(p)}" aria-pressed="${on}" style="--chip-color:${COLOR[p]||'var(--accent)'}"><span class="glyph">${glyphFor(p)}</span><span><b>${esc(p)}</b><span class="sub">${esc(d.modality||'')} · ${esc(sub)}</span></span></button>`; }).join('');
+    el.querySelectorAll('.chip').forEach(b=>b.addEventListener('click',()=>toggleProduct(b.dataset.p)));
+    document.getElementById('chip-hint').textContent = state.selected.length>=MAX_SELECT ? `Maximum of ${MAX_SELECT} products selected — remove one to add another.` : `${state.selected.length} of ${MAX_SELECT} selected.`;
+  }
+  function toggleProduct(p){
+    const i=state.selected.indexOf(p);
+    if(i>=0){ if(state.selected.length>1) state.selected.splice(i,1); }
+    else if(state.selected.length<MAX_SELECT) state.selected.push(p);
+    state.selected=ORDER.filter(x=>state.selected.includes(x)).concat(state.selected.filter(x=>!ORDER.includes(x)));
+    renderAll();
+  }
+  function setSelection(list){ state.selected=list.slice(0,MAX_SELECT); renderAll(); window.scrollTo({top:document.getElementById('glance').offsetTop-12,behavior:'smooth'}); }
+
+  function renderCards(){
+    const el=document.getElementById('cards'); const prods=selectedProducts(); const eng=byProduct(state.data.engagement);
+    if(!prods.length){ el.innerHTML='<div class="empty">Select at least one product above.</div>'; return; }
+    const hw=prods.filter(p=>p.list_price_usd>0);
+    const cheapest=hw.length?Math.min(...hw.map(p=>p.list_price_usd)):null;
+    const bigScreen=Math.max(...prods.map(p=>p.screen_inches||0));
+    const newest=Math.max(...prods.map(p=>p.launch_year||0));
+    const bestRet=Math.max(...prods.map(p=>(eng[p.product]||{}).retention_12m_pct||0));
+    el.innerHTML=prods.map(p=>{ const e=eng[p.product]||{}; const tags=[];
+      if(hw.length>1 && p.list_price_usd===cheapest && hw.some(h=>h.list_price_usd!==cheapest)) tags.push('<span class="tag win">Lowest price</span>');
+      if(prods.length>1 && p.screen_inches>0 && p.screen_inches===bigScreen) tags.push('<span class="tag win">Biggest screen</span>');
+      if(prods.length>1 && p.launch_year===newest) tags.push('<span class="tag win">Newest</span>');
+      if(prods.length>1 && e.retention_12m_pct===bestRet) tags.push('<span class="tag win">Best retention</span>');
+      tags.push(`<span class="tag">${esc(p.training_focus||'')}</span>`);
+      return `<div class="card" style="--card-color:${COLOR[p.product]||'var(--accent)'}">
+        <div class="name"><i></i>${esc(p.product)}</div>
+        <div class="fam">${esc(p.family||'')} · ${esc(p.modality||'')}</div>
+        <div class="price">${p.list_price_usd>0?money(p.list_price_usd):'<span style="font-size:20px">No hardware</span>'}${p.list_price_usd>0?'<small>hardware</small>':''}</div>
+        <div class="mem">${money(p.membership_usd_per_month||0,2)} / month membership</div>
+        <p class="blurb">${esc(p.best_for||'')}</p>
+        <div class="tags">${tags.join('')}</div>
+        <div class="kv">
+          <div>Signature<b>${esc(p.signature_feature||'')}</b></div>
+          <div>Footprint<b>${esc(p.footprint||'')}</b></div>
+          <div>Workouts / week<b>${e.avg_workouts_per_week!=null?Number(e.avg_workouts_per_week).toFixed(1):'—'}</b></div>
+          <div>12-mo retention<b>${e.retention_12m_pct!=null?e.retention_12m_pct+'%':'—'}</b></div>
+        </div></div>`; }).join('');
+  }
+
+  function renderSpecTable(){
+    const t=document.getElementById('spec-table'); const prods=selectedProducts();
+    if(!prods.length){ t.innerHTML=''; return; }
+    let html='<thead><tr><th></th>'+prods.map(p=>`<th><span class="sw" style="background:${COLOR[p.product]||'var(--accent)'}"></span>${esc(p.product)}</th>`).join('')+'</tr></thead><tbody>';
+    for(const row of SPEC_ROWS){
+      const vals=prods.map(p=>p[row.key]);
+      if(state.diffOnly && prods.length>1 && vals.every(v=>String(v)===String(vals[0]))) continue;
+      let best=null;
+      if(row.best && prods.length>1){
+        const cand=vals.filter(v=>typeof v==='number' && !(row.skipZero&&v<=0) && !(row.skip&&row.skip(v)));
+        if(cand.length>1 && Math.min(...cand)!==Math.max(...cand)) best=row.best==='min'?Math.min(...cand):Math.max(...cand);
+      }
+      html+=`<tr><td class="lbl">${esc(row.label)}</td>`+prods.map(p=>{ const v=p[row.key]; const isBest=best!=null && v===best && !(row.skipZero&&v<=0) && !(row.skip&&row.skip(v));
+        const txt=v==null?'—':(row.fmt?row.fmt(v):String(v)); return `<td class="${isBest?'best':''}">${esc(txt)}</td>`; }).join('')+'</tr>';
+    }
+    t.innerHTML=html+'</tbody>';
+  }
+
+  /* ---- trend line chart ---- */
+  function renderTrend(){
+    const metricLabel={units_sold:'Units sold per month',hardware_revenue_usd:'Hardware revenue per month',new_memberships:'New memberships per month'}[state.metric];
+    const isMoney=state.metric==='hardware_revenue_usd';
+    document.getElementById('trend-title').textContent=metricLabel;
+    document.getElementById('trend-sub').textContent=(state.region==='All'?'All regions':state.region)+' · last 24 months';
+    const {months,out}=series(state.metric,state.region);
+    const names=Object.keys(out).filter(p=>out[p].some(v=>v>0));
+    const legend=document.getElementById('trend-legend');
+    legend.innerHTML=names.map(p=>`<span><i style="background:${COLOR[p]}"></i>${esc(p)}</span>`).join('') + (state.selected.length>names.length?`<span class="muted small">(${esc(state.selected.filter(p=>!names.includes(p)).join(', '))}: no ${isMoney?'hardware revenue':'data'})</span>`:'');
+    const host=document.getElementById('trend');
+    if(!names.length||!months.length){ host.innerHTML='<div class="empty">No data for this selection.</div>'; return; }
+    const W=760,H=300,L=52,R=70,T=14,B=34; const iw=W-L-R, ih=H-T-B;
+    const maxV=Math.max(...names.flatMap(p=>out[p]))||1; const nice=niceMax(maxV);
+    const x=i=>L+ (months.length>1? i*iw/(months.length-1) : iw/2); const y=v=>T+ih-(v/nice)*ih;
+    let svg=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(metricLabel)} by product">`;
+    const ticks=4; for(let k=0;k<=ticks;k++){ const v=nice*k/ticks; svg+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)" stroke-width="1"/><text x="${L-8}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="var(--text-3)">${compact(v,isMoney)}</text>`; }
+    svg+=`<line x1="${L}" x2="${W-R}" y1="${T+ih}" y2="${T+ih}" stroke="var(--axis)"/>`;
+    const step=Math.ceil(months.length/8);
+    months.forEach((m,i)=>{ if(i%step===0||i===months.length-1) svg+=`<text x="${x(i)}" y="${H-10}" text-anchor="middle" font-size="11" fill="var(--text-3)">${monthLabel(m.slice(0,7))}</text>`; });
+    // lines
+    const ends=[];
+    for(const p of names){ const d=out[p].map((v,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1)).join(' ');
+      svg+=`<path d="${d}" fill="none" stroke="${COLOR[p]}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+      ends.push({p, y:y(out[p][out[p].length-1])}); }
+    // direct labels at line end (nudge apart)
+    ends.sort((a,b)=>a.y-b.y); for(let i=1;i<ends.length;i++){ if(ends[i].y-ends[i-1].y<13) ends[i].y=ends[i-1].y+13; }
+    for(const e of ends) svg+=`<text x="${W-R+8}" y="${e.y+4}" font-size="12" font-weight="600" fill="var(--text-2)">${esc(e.p)}</text>`;
+    svg+=`<line id="trend-cross" x1="0" x2="0" y1="${T}" y2="${T+ih}" stroke="var(--border-strong)" stroke-dasharray="3 3" style="opacity:0"/>`;
+    svg+=`<g id="trend-dots"></g><rect id="trend-hit" x="${L}" y="${T}" width="${iw}" height="${ih}" fill="transparent"/></svg>`;
+    host.innerHTML=svg;
+    const svgEl=host.querySelector('svg'), hit=svgEl.querySelector('#trend-hit'), cross=svgEl.querySelector('#trend-cross'), dots=svgEl.querySelector('#trend-dots');
+    const tip=document.getElementById('trend-tip'); const panel=tip.parentElement;
+    function move(ev){ const pt=svgPoint(svgEl,ev); let i=Math.round((pt.x-L)/(iw/Math.max(1,months.length-1))); i=Math.max(0,Math.min(months.length-1,i));
+      cross.setAttribute('x1',x(i)); cross.setAttribute('x2',x(i)); cross.style.opacity=1;
+      dots.innerHTML=names.map(p=>`<circle cx="${x(i)}" cy="${y(out[p][i])}" r="4.5" fill="${COLOR[p]}" stroke="var(--surface)" stroke-width="2"/>`).join('');
+      const rows=names.map(p=>({p,v:out[p][i]})).sort((a,b)=>b.v-a.v);
+      tip.innerHTML=`<b>${monthLabel(months[i].slice(0,7))}</b>`+rows.map(r=>`<div class="row"><span><i style="background:${COLOR[r.p]}"></i>${esc(r.p)}</span><span>${isMoney?money(r.v):fmtNum(r.v)}</span></div>`).join('');
+      const pr=panel.getBoundingClientRect(); let tx=ev.clientX-pr.left+14, ty=ev.clientY-pr.top+14; if(tx+tip.offsetWidth>pr.width-8) tx=ev.clientX-pr.left-tip.offsetWidth-14; tip.style.left=tx+'px'; tip.style.top=ty+'px'; tip.style.opacity=1; }
+    function leave(){ tip.style.opacity=0; cross.style.opacity=0; dots.innerHTML=''; }
+    hit.addEventListener('mousemove',move); hit.addEventListener('mouseleave',leave);
+    hit.addEventListener('touchstart',e=>{move(e.touches[0]);},{passive:true}); hit.addEventListener('touchmove',e=>{move(e.touches[0]);},{passive:true}); hit.addEventListener('touchend',leave);
+  }
+  function niceMax(v){ const p=Math.pow(10,Math.floor(Math.log10(v))); const f=v/p; const n=f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10; return n*p; }
+  function svgPoint(svg,ev){ const pt=svg.createSVGPoint(); pt.x=ev.clientX; pt.y=ev.clientY; return pt.matrixTransform(svg.getScreenCTM().inverse()); }
+
+  /* ---- regional mix (100% stacked) ---- */
+  function renderRegions(){
+    const host=document.getElementById('regions'); const legend=document.getElementById('region-legend');
+    const months=monthsSorted().slice(-12); const set=new Set(months);
+    const regions=REGION_ORDER.filter(r=>state.data.sales.some(s=>s.region===r)).concat(Array.from(new Set(state.data.sales.map(s=>s.region))).filter(r=>!REGION_ORDER.includes(r)));
+    legend.innerHTML=regions.map((r,i)=>`<span><i class="box" style="background:${REGION_COLOR[i%REGION_COLOR.length]}"></i>${esc(r)}</span>`).join('');
+    const tot={}; for(const p of state.selected){ tot[p]={}; regions.forEach(r=>tot[p][r]=0); }
+    for(const s of state.data.sales){ if(!(s.product in tot)||!set.has(s.month)) continue; tot[s.product][s.region]=(tot[s.product][s.region]||0)+(Number(s.units_sold)||0); }
+    const rowsP=state.selected.filter(p=>Object.values(tot[p]).some(v=>v>0));
+    if(!rowsP.length){ host.innerHTML='<div class="empty">No regional data.</div>'; return; }
+    const W=360, rowH=34, L=56, R=8, H=rowsP.length*rowH+6; const iw=W-L-R;
+    let svg=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Share of units by region">`;
+    rowsP.forEach((p,ri)=>{ const sum=Object.values(tot[p]).reduce((a,b)=>a+b,0)||1; let cx=L; const y0=ri*rowH+4;
+      svg+=`<text x="${L-8}" y="${y0+16}" text-anchor="end" font-size="12" font-weight="600" fill="var(--text-2)">${esc(p)}</text>`;
+      regions.forEach((r,i)=>{ const share=tot[p][r]/sum; const w=share*iw; if(w<=0) return;
+        svg+=`<rect class="seg" data-p="${esc(p)}" data-r="${esc(r)}" data-v="${tot[p][r]}" data-s="${(share*100).toFixed(1)}" x="${cx+1}" y="${y0}" width="${Math.max(0,w-2)}" height="22" rx="3" fill="${REGION_COLOR[i%REGION_COLOR.length]}"/>`;
+        if(share>=0.12) svg+=`<text x="${cx+w/2}" y="${y0+15}" text-anchor="middle" font-size="11" font-weight="600" fill="${i<=2?'var(--r-ink-strong)':'var(--text)'}" pointer-events="none">${Math.round(share*100)}%</text>`;
+        cx+=w; });
+    });
+    svg+='</svg>'; host.innerHTML=svg;
+    const tip=document.getElementById('region-tip'); const panel=tip.parentElement;
+    host.querySelectorAll('rect.seg').forEach(seg=>{
+      seg.addEventListener('mousemove',ev=>{ tip.innerHTML=`<b>${esc(seg.dataset.p)} · ${esc(seg.dataset.r)}</b><div class="row"><span>Units (12 mo)</span><span>${fmtNum(+seg.dataset.v)}</span></div><div class="row"><span>Share</span><span>${seg.dataset.s}%</span></div>`;
+        const pr=panel.getBoundingClientRect(); let tx=ev.clientX-pr.left+12, ty=ev.clientY-pr.top+12; if(tx+tip.offsetWidth>pr.width-8) tx=ev.clientX-pr.left-tip.offsetWidth-12; tip.style.left=tx+'px'; tip.style.top=ty+'px'; tip.style.opacity=1; });
+      seg.addEventListener('mouseleave',()=>tip.style.opacity=0);
+    });
+  }
+
+  /* ---- engagement small multiples ---- */
+  function renderEngagement(){
+    const host=document.getElementById('multiples'); const eng=byProduct(state.data.engagement);
+    const prods=state.selected.filter(p=>eng[p]);
+    if(!prods.length){ host.innerHTML='<div class="empty">No engagement data for this selection.</div>'; return; }
+    host.innerHTML=ENGAGE_METRICS.map(m=>{
+      const rows=prods.map(p=>({p,v:Number(eng[p][m.key])||0})).sort((a,b)=>b.v-a.v); const max=Math.max(...rows.map(r=>r.v))||1;
+      const W=300,rowH=28,L=58,R=58,H=rows.length*rowH+4; const iw=W-L-R;
+      let svg=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(m.label)}">`;
+      rows.forEach((r,i)=>{ const y=i*rowH+3; const w=Math.max(2,r.v/max*iw);
+        svg+=`<text x="${L-8}" y="${y+15}" text-anchor="end" font-size="12" font-weight="600" fill="var(--text-2)">${esc(r.p)}</text><rect x="${L}" y="${y}" width="${w}" height="20" rx="4" fill="${COLOR[r.p]}"><title>${esc(r.p)}: ${esc(m.fmt(r.v))}</title></rect><text x="${L+w+8}" y="${y+15}" font-size="12" fill="var(--text)" font-variant-numeric="tabular-nums">${esc(m.fmt(r.v))}</text>`; });
+      return `<div class="panel"><h3>${esc(m.label)}</h3><div class="sub">Leader: ${esc(rows[0].p)}</div>${svg}</svg></div>`; }).join('');
+  }
+
+  /* ---- fit finder ---- */
+  function scoreProducts(){
+    const prods=state.data.products; const eng=byProduct(state.data.engagement); const res=[];
+    for(const p of prods){ let s=0; const why=[]; const over=p.list_price_usd>state.budget;
+      const g=state.goal;
+      if(g==='Variety'){ const v={'App':40,'Bike+':25,'Row':20,'Guide':15,'Bike':10,'Tread':10,'Tread+':10}[p.product]||10; s+=v; if(v>=20) why.push('wide class library'); }
+      else if(g==='Strength'){ const v={'Guide':40,'App':25,'Row':15,'Bike+':15}[p.product]||0; s+=v; if(v>=15) why.push('strong for strength training'); }
+      else { if(p.modality===g){ s+=40; why.push('built for '+g.toLowerCase()); } else if(p.modality==='Multi-modality'){ s+=15; why.push('has '+g.toLowerCase()+' classes'); } }
+      if(over){ s-=60; why.push('over your budget'); } else if(p.list_price_usd>0){ s+=Math.round(20*(1-p.list_price_usd/Math.max(state.budget,1))); why.push('within budget'); } else { s+=8; }
+      const sp=state.space; const spaceScore={compact:{'Guide':20,'App':20,'Bike':10,'Bike+':10,'Row':5,'Tread':-10,'Tread+':-25},standard:{'Bike':10,'Bike+':10,'Tread':10,'Row':10,'Guide':6,'App':6,'Tread+':0},room:{'Tread+':15,'Tread':8,'Row':8,'Bike':5,'Bike+':5,'Guide':5,'App':5}}[sp][p.product]||0;
+      s+=spaceScore; if(spaceScore<0) why.push('needs more space'); else if(spaceScore>=15) why.push('fits a small space');
+      const pr=state.priority;
+      if(pr==='screen'){ const v=Math.round((p.screen_inches||0)/32*25); s+=v; if(v>=18) why.push('immersive screen'); }
+      if(pr==='lowimpact'){ const v={'Row':25,'Bike':20,'Bike+':20,'App':10,'Tread+':8,'Tread':0,'Guide':5}[p.product]||0; s+=v; if(v>=20) why.push('low impact on joints'); }
+      if(pr==='fullbody'){ const v={'Row':25,'Guide':20,'Bike+':10,'App':10,'Tread':5,'Tread+':5,'Bike':4}[p.product]||0; s+=v; if(v>=20) why.push('works the whole body'); }
+      const ret=(eng[p.product]||{}).retention_12m_pct||0; s+=Math.round(ret/10); if(ret>=94) why.push('members stick with it');
+      res.push({p:p.product,score:s,why,over}); }
+    res.sort((a,b)=>b.score-a.score); return res;
+  }
+  function renderFit(){
+    const r=scoreProducts(); const top=r.slice(0,3); const max=Math.max(...r.map(x=>x.score),1);
+    document.getElementById('budget-v').textContent=money(state.budget);
+    document.getElementById('fit-sub').textContent=`${state.goal} · budget ${money(state.budget)} · ${{compact:'compact space',standard:'a spare wall',room:'dedicated room'}[state.space]} · ${{screen:'immersive screen',lowimpact:'low impact',fullbody:'full-body'}[state.priority]}`;
+    document.getElementById('reco').innerHTML=r.slice(0,5).map((x,i)=>`<div class="rec" style="--rec-color:${COLOR[x.p]||'var(--accent)'}"><div class="rank">${i+1}</div><div><div class="nm">${esc(x.p)}${x.over?' <span class="tag">over budget</span>':''}</div><div class="why">${esc(x.why.slice(0,3).join(' · '))}</div></div><div class="score">${Math.max(0,x.score)}</div><div class="bar"><i style="width:${Math.max(0,x.score)/max*100}%"></i></div></div>`).join('');
+    document.getElementById('compare-top').onclick=()=>setSelection(top.map(x=>x.p));
+  }
+
+  function renderFooter(){
+    document.getElementById('foot').innerHTML = `Prototype built on Omni Apps. Product specs and list prices are indicative and sales and engagement figures are sample data generated in the workbook; swap the three SQL query tabs (${Object.values(QUERIES).join(', ')}) for Peloton's own tables and this page updates with no code changes.`;
+  }
+
+  function renderAll(){ renderChips(); renderCards(); renderSpecTable(); renderTrend(); renderRegions(); renderEngagement(); renderFit(); }
+
+  /* ============ controls ============ */
+  function wireControls(){
+    document.getElementById('preset-bikes').onclick=()=>setSelection(['Bike','Bike+']);
+    document.getElementById('preset-cardio').onclick=()=>setSelection(['Bike+','Tread','Row','Tread+']);
+    document.getElementById('preset-entry').onclick=()=>setSelection(['App','Guide','Bike']);
+    document.getElementById('diff-only').addEventListener('change',e=>{ state.diffOnly=e.target.checked; renderSpecTable(); });
+    document.querySelectorAll('#metric-seg button').forEach(b=>b.addEventListener('click',()=>{ document.querySelectorAll('#metric-seg button').forEach(x=>x.setAttribute('aria-pressed','false')); b.setAttribute('aria-pressed','true'); state.metric=b.dataset.m; renderTrend(); }));
+    const sel=document.getElementById('region-sel');
+    function fillRegions(){ const regs=Array.from(new Set(state.data.sales.map(s=>s.region))); const ordered=REGION_ORDER.filter(r=>regs.includes(r)).concat(regs.filter(r=>!REGION_ORDER.includes(r)));
+      sel.innerHTML='<option value="All">All regions</option>'+ordered.map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join(''); sel.value=state.region; }
+    fillRegions(); sel.addEventListener('change',()=>{ state.region=sel.value; renderTrend(); });
+    state._fillRegions=fillRegions;
+    function optGroup(id,key,after){ document.querySelectorAll('#'+id+' .opt').forEach(b=>b.addEventListener('click',()=>{ document.querySelectorAll('#'+id+' .opt').forEach(x=>x.setAttribute('aria-pressed','false')); b.setAttribute('aria-pressed','true'); state[key]=b.dataset.v; after(); })); }
+    optGroup('q-goal','goal',renderFit); optGroup('q-space','space',renderFit); optGroup('q-priority','priority',renderFit);
+    document.getElementById('q-budget').addEventListener('input',e=>{ state.budget=+e.target.value; renderFit(); });
+    let rt; window.addEventListener('resize',()=>{ clearTimeout(rt); rt=setTimeout(()=>{renderTrend();},120); });
+  }
+
+  /* ============ boot ============ */
+  wireControls(); renderFooter(); renderAll(); setPill(); connectOmni();
+  const _renderAll=renderAll; renderAll=function(){ if(state._fillRegions) state._fillRegions(); _renderAll(); };
+})();
+</script>
+</body>
+</html>

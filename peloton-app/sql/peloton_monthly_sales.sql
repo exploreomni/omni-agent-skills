@@ -16,10 +16,17 @@ products as (
     ('App',    'App',      0, 9000)
   as v(product, family, unit_price_usd, baseline_monthly_units)
 ),
-regions as (
+-- regional mix differs by product so the "Where it sells" view has something to say
+product_regions as (
   select * from values
-    ('United States', 0.68), ('Canada', 0.07), ('UK & Ireland', 0.12), ('Germany', 0.05), ('Australia', 0.08)
-  as r(region, region_weight)
+    ('Bike','United States',0.70),('Bike','Canada',0.07),('Bike','UK & Ireland',0.11),('Bike','Germany',0.05),('Bike','Australia',0.07),
+    ('Bike+','United States',0.66),('Bike+','Canada',0.07),('Bike+','UK & Ireland',0.13),('Bike+','Germany',0.06),('Bike+','Australia',0.08),
+    ('Tread','United States',0.74),('Tread','Canada',0.06),('Tread','UK & Ireland',0.10),('Tread','Germany',0.04),('Tread','Australia',0.06),
+    ('Tread+','United States',0.82),('Tread+','Canada',0.06),('Tread+','UK & Ireland',0.07),('Tread+','Germany',0.02),('Tread+','Australia',0.03),
+    ('Row','United States',0.78),('Row','Canada',0.07),('Row','UK & Ireland',0.09),('Row','Germany',0.02),('Row','Australia',0.04),
+    ('Guide','United States',0.62),('Guide','Canada',0.08),('Guide','UK & Ireland',0.14),('Guide','Germany',0.07),('Guide','Australia',0.09),
+    ('App','United States',0.55),('App','Canada',0.08),('App','UK & Ireland',0.17),('App','Germany',0.09),('App','Australia',0.11)
+  as r(product, region, region_weight)
 )
 select
   p.product,
@@ -34,6 +41,6 @@ select
   round(units_sold * iff(p.product = 'App', 0.55, 0.92)) as new_memberships,
   round(units_sold * (0.03 + (abs(hash(r.region, p.product, m.idx)) % 100) / 2500.0)) as returns
 from products p
+join product_regions r on r.product = p.product
 cross join months m
-cross join regions r
 order by p.product, m.month_start, r.region

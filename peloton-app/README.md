@@ -6,19 +6,22 @@ An interactive, Peloton-branded app built as an **Omni App** (custom HTML in pla
 |---|---|
 | Document | `Peloton Product Comparison` (identifier `f8a35453`) on omni.omniapp.co |
 | App URL | https://omni.omniapp.co/w/f8a35453?redirectToApp=true |
-| App source | `app.html` (self-contained, no external scripts or fonts, ~49 KB) |
+| App source | `app.html` (self-contained, embedded subset font, no external requests, ~90 KB) |
 | Wired queries | `peloton_products`, `peloton_monthly_sales`, `peloton_engagement` (SQL in `sql/`) |
 
 ## What the app does
 
-1. **Choose products** – tap up to four product chips, or use the presets (Bikes, Cardio hardware, Entry points).
-2. **Side by side** – price, membership, signature feature, footprint, engagement, with "winner" tags (lowest price, biggest screen, newest, best retention).
-3. **Spec sheet** – a comparison table that marks the best value per row, with a "differences only" toggle.
-4. **Momentum** – 24-month line chart (units, hardware revenue, or new memberships) with a region filter and hover crosshair, plus a 100% stacked bar of regional share.
-5. **Members** – small multiples for workouts per week, minutes per workout, 12-month retention, NPS, and cross-training share.
-6. **Fit finder** – goal, budget slider, space, and priority produce a scored ranking with reasons, and a button that loads the top three into the comparison.
+1. **Choose products** – tap up to four product chips (or press 1 to 7), or use the presets. A sticky tray keeps the current comparison, a reset, and a jump to the fit finder within reach once you scroll.
+2. **Side by side** – price, membership, signature feature, footprint, engagement, with winner tags (lowest price, biggest screen, best retention, most used) only when one product wins outright.
+3. **Spec sheet** – grouped into Price, Equipment, and Experience, with "best" on the single strongest value per row and a differences-only toggle.
+4. **Fit finder** – goal, budget slider, space, and priority produce a match score out of 100 with the reasons, and one button loads the top three into the comparison.
+5. **Deeper analysis (collapsed)** – a 24-month momentum chart (units, hardware revenue, or new memberships) with a region filter, keyboard arrow navigation, and a table view; regional share with the chosen region highlighted and a table view; and engagement small multiples.
 
-Light and dark mode follow the viewer's Omni theme (`prefers-light` / `prefers-dark` on `<body>`). The chart palette was validated for colour-vision deficiency and contrast in both modes.
+Light and dark mode follow the viewer's Omni theme (`prefers-light` / `prefers-dark` on `<body>`). The chart palette was validated for colour-vision deficiency and contrast in both modes, every muted text style measures at least 4.5:1, controls are 44px tall on touch screens and narrow viewports, focus rings are visible, and the typeface (Archivo, SIL Open Font License) is subset and embedded so the app loads nothing from outside Omni.
+
+### Impeccable review
+
+The app went through [Impeccable](https://impeccable.style/) `critique` and `audit` (two isolated assessments plus the deterministic detector), then a `polish` pass. Before: 26/40 design health, 13/20 audit, 14 CLI detector findings and 50 in-browser findings (muted text at 2.9 to 3.4:1, kicker labels, ghost cards, sub-44px targets). After: 0 detector findings, all measured text at or above 4.5:1, and the analyst panels moved behind a disclosure so the shopper story runs picker, side by side, spec sheet, fit finder. The critique snapshot is in `.impeccable/critique/`; the assessment notes are in `archive/`.
 
 ## How data gets in
 
@@ -45,7 +48,7 @@ The app normalises row keys to the bare column name, so it works whether the tab
 3. Repeat for `sql/peloton_monthly_sales.sql` → `peloton_monthly_sales` and `sql/peloton_engagement.sql` → `peloton_engagement`.
 4. Open the App tab; the badge should read "Live data from Omni". Publish.
 
-The tab **names** are what the app binds to. The SQL uses literal `VALUES` and a `GENERATOR`, so it needs no tables; for a real engagement swap each tab for a query on Peloton's product catalog, orders, and workouts tables with the same column names (or edit the `QUERIES` map and column names at the top of `app.html`).
+The tab **names** are what the app binds to. The SQL uses literal `VALUES` and a `GENERATOR` (with a per-product regional mix), so it needs no tables; for a real engagement swap each tab for a query on Peloton's product catalog, orders, and workouts tables with the same column names (or edit the `QUERIES` map and column names at the top of `app.html`).
 
 ## Omni CLI equivalents
 
@@ -72,7 +75,9 @@ omni documents get-app f8a35453                                          # publi
 |---|---|
 | `app.html` | The app. Edit and re-publish with `putApp` or the CLI. |
 | `sql/*.sql` | The three wired query definitions (Snowflake). |
-| `archive/preview.js` | Local Chromium harness: renders the app with and without a stubbed `omni` runtime and screenshots it. `node archive/preview.js` |
+| `archive/preview.js` | Local Chromium harness: renders light, dark, tablet, mobile, and a stubbed `omni` runtime, exercises the controls, and screenshots each. `node archive/preview.js` |
+| `archive/app.v1.html` | The version before the Impeccable polish pass. |
+| `archive/impeccable-*.json`, `archive/impeccable-assessment-a.md` | Detector output before and after, and the design-review assessment. |
 | `archive/shot-*.png` | Screenshots from the last preview run. |
 
 ## Caveats to say out loud with Peloton
