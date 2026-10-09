@@ -96,6 +96,30 @@ Do not mark a PR ready for review if the behavior has only been tested with mock
 
 Run `git diff --check` before requesting review.
 
+## Turning a Correction into a Change
+
+When an agent using these skills gets something wrong and you correct it in a
+session or a Slack thread, the correction is lost as soon as the thread is. The
+repo only improves if every correction lands in one of the places below, which
+the next agent reads and CI enforces. Pick the first row that fits; more than
+one can apply.
+
+| The agent... | Put the correction in | Why there |
+|---|---|---|
+| Used the wrong command, flag, payload, or default in Omni | The skill's `SKILL.md`, under **Known Issues & Safe Defaults** if it is a sharp edge, or the workflow section if it is the normal path | This is what the agent reads on every run. Verify with `omni <command> --help` first. |
+| Did the right thing for the wrong reason, or would have got it wrong on a slightly different prompt | An eval case in `skills/<skill-name>/evals/evals.json` | The case pins the behavior. BenchFlow scores it, and GEPA can optimize the skill against it (see `evals/README.md`). |
+| Picked the wrong skill, or picked a skill for work outside Omni | An eval case in the skill that should have won, or an out-of-scope case in `evals/ci/negative-cases.json` | Tier 1 routing CI runs every case on every PR and blocks a description change that regresses it. |
+| Made a mistake a script can catch without a model | A check in `evals/ci/validate.py`, with a test in `evals/ci/test_ci.py` | Tier 0 runs in seconds on every PR and needs no credentials. |
+| Broke a stable Omni convention (naming, permissions, YAML shape) in Cursor | A rule in `rules/` | Rules apply without a skill loading. Cursor only; anything Claude Code users need goes in a skill. |
+| Worked in this repo the wrong way (wrong directory, skipped validation, duplicated a rule into a skill) | `AGENTS.md` for agent operating instructions, this file for contributor policy | These are read before editing, not at runtime. |
+
+The eval case is the row to reach for when in doubt. A correction that only
+lives in prose has to be rediscovered each time the prose is edited; one that
+lives in a case is scored on every run, and GEPA can use it to propose the
+prose edit for you. Write the case from the real prompt that went wrong, not a
+tidied version of it, and state in `expected_behavior` the thing the agent
+should have done rather than the thing it did.
+
 ## Evals
 
 The root `evals/` directory is contributor tooling, not a distributed skill package. `evals/README.md` owns BenchFlow setup, runner commands, reset flows, fixture notes, and export mechanics.

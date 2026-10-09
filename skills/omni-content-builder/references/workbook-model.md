@@ -58,6 +58,20 @@ v2 tile queries carry **no `modelId`** — the server anchors each tile to the d
 5. **`documents v2-patch-draft-by-identifier <identifier> <draftIdentifier>`** adding the tile that references the field — no `modelId` anywhere in the tile query.
 6. **`documents v2-publish-draft <identifier>`** — the field and tile go live together.
 
+> **If the topic has a `fields:` allowlist, add the new field to it or the tile 400s.** A topic that declares `fields: [...]` exposes only those selectors, and the list is enforced at query time, so a tile that selects your new workbook-model field fails with an error that the field is **outside of the `<topic>` topic** until the topic lists it. Between steps 4 and 5:
+>
+> ```bash
+> omni models yaml-get <draftWorkbookModelId> --file-name <folder>/<topic>.topic     # read the current topic file
+> # append your field to its fields: list, then write the whole file back at the same path
+> omni models yaml-create <draftWorkbookModelId> --body '{
+>   "fileName": "<folder>/<topic>.topic",
+>   "yaml": "<the complete topic yaml, with order_items.is_high_value appended to fields:>",
+>   "mode": "extension"
+> }'
+> ```
+>
+> Send the **complete** `fields:` list, not just the addition: whether `mode: "extension"` merges a list-valued key with the inherited one or replaces it is not documented, and a full list is correct either way. `fileName` is the topic's exact path, folder prefix included. A **Restricted Querier cannot write `.topic` files** to the workbook model (see Step 0 above), so for them the field has to go on a topic without an allowlist or through a branch opened by someone who can.
+
 After publishing, the workbook model ID has **changed** — open a new draft and re-read `workbookModelId` from `list-drafts` before any further `yaml-create`.
 
 ## Verify the Extension Worked

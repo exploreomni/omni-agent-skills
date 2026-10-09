@@ -8,6 +8,7 @@ Complete reference for a tile's visualization config — the v2 `visConfig` enve
 - [chartType Values](#charttype-values) — the authoritative enum
 - [chartType → visType → configType mapping](#charttype--vistype--configtype-mapping)
 - [Config Object: Cartesian Charts](#config-object-cartesian-charts) — line, column, bar, area, scatter, combo
+- [Layered charts (layer compiler)](#layered-charts-layer-compiler) — one mark, axis, and colour setup per measure
 - [Config Object: KPI](#config-object-kpi)
 - [Config Object: Pie / Donut](#config-object-pie--donut)
 - [Config Object: Heatmap](#config-object-heatmap)
@@ -47,7 +48,7 @@ A chart tile is driven by **one queryPresentation-level field**: the `visConfig`
 }
 ```
 
-Set `prefersChart: true` to default the tile to chart (vs. table) view, and `automaticVis: false` so the renderer uses your explicit spec instead of deriving one. (On create, the server seed tile can flip tile `"1"`'s `automaticVis` back to `true` — read back and re-patch if it matters.)
+Set `prefersChart: true` to default the tile to chart (vs. table) view, and `automaticVis: false` so the renderer uses your explicit spec instead of deriving one. (A tile can read back `automaticVis: true` even though you sent `false` — always for tile `"1"` on create, and seen on later tiles too. Check that the explicit spec renders instead of re-patching the flag; see [queryPresentations.md](queryPresentations.md).)
 
 > **Reads return the shape you write.** `v2-get` / `v2-get-draft` return the inner config as `{ visType, config }`, so a tile read back can be written back unchanged, including for restores, duplicates, and moves. A spec sent flat beside `visType` is also accepted and moved under `config`. Misplaced *presentation*-level keys (`chartType` / `config` / `fields` at the tile top level) return a 400.
 
@@ -227,7 +228,7 @@ Per-entry properties:
 | `movingAverage` | `{ "enabled": true, "window": {…} }` | Native moving average — see below. |
 | `totals` | `{ "enabled": true, … }` | Stacked-total labels (`simpleTotals`). |
 
-> **Per-series solid color is `series[].mark._mark_color` (a hex string), not `series[].color`.** `series[].color` exists but is a per-*layer* dimension-encoding slot that is **ignored on the standard render path** — setting a hex there does nothing. To force one solid color on a series, set `mark._mark_color` and add `manual: true` (the `manual` flag marks the color as user-set so the auto-styler won't overwrite it on the next render).
+> **Per-series solid color is `series[].mark._mark_color` (a hex string), not `series[].color`.** On a classic chart (no `behaviors.useLayerCompiler`) `series[].color` is a per-*layer* dimension-encoding slot that the render path **ignores** — setting a hex there does nothing. To force one solid color on a series, set `mark._mark_color` and add `manual: true` (the `manual` flag marks the color as user-set so the auto-styler won't overwrite it on the next render). On a **layered** chart the per-layer colour setting lives on the series entry instead — see [Layered charts](#layered-charts-layer-compiler) and read a UI-built chart back before writing it by hand.
 >
 > ```json
 > "series": [{ "field": { "name": "order_items.total_revenue" }, "yAxis": "y",
@@ -235,6 +236,30 @@ Per-entry properties:
 > ```
 >
 > For coloring by a **dimension value** instead (e.g. status → color), use `config.color.values` (above), not a per-series color.
+
+## Layered charts (layer compiler)
+
+Omni's newer X/Y chart editor is **layer-based**: every measure placed on the left or right axis is a **layer** with its own mark (`area`, `bar`, `line`, `point`), axis, stacking, colour, size, and label settings, and the two axes have independent scales. The classic editor configures one mark and one colour for the whole chart. Layers are **enabled per organization** (Omni support turns them on); an eligible existing chart moves over through **Tab → Test the new chart editor…**, which copies the tab, and comes back through **Tab → Leave the new chart editor…**. Docs: [Build X/Y charts with layers](https://docs.omni.co/visualize-present/visualizations/layers).
+
+A chart built in the layer editor reads back with **`behaviors.useLayerCompiler: true`** in its cartesian config. A classic chart has no such key. Treat that flag the way this file treats funnel or map configs: **read a chart that was built in the UI back with `v2-get` and reuse its shape**, rather than composing the layer entries from the classic cartesian tables above. The classic `series[]` / `color` tables describe the classic render path; a layered config carries its per-layer settings on each series entry, and the exact keys are not documented in Omni's public API docs.
+
+**Colour belongs to the field, not the layer.** In a layered chart the colour setup is keyed by the field a layer colours by. Two layers that colour by the same dimension share one palette and one legend, and changing the colours in either layer changes both. There is no per-layer palette for a shared field ([one colour setup per field](https://docs.omni.co/visualize-present/visualizations/layers#color-and-legends)). Each layer's **Color** is one of:
+
+| Layer colour | Effect |
+|---|---|
+| A field | Splits the layer by that dimension. Reusing a field another layer already colours by shares its colours and legend. |
+| Single color | One colour for the whole layer. Layers without a colour field share a **Series** legend when there is more than one. |
+| Measure names | Only on a **Measure values** layer: one colour and legend entry per measure, which also enables stacking or grouping the measures together. `Measure values` and `Measure names` are chart-only fields, not query or model fields. |
+
+**Recipes:**
+
+- **Two layers split by the same dimension, different colours.** Not possible by colouring both layers by that one field. Two routes that follow from the per-field rule:
+  1. Split the second layer into **separate measures per value** (Omni's documented alternative) and put them on a Measure values layer coloured by Measure names, so each measure gets its own colour.
+  2. **Copy the dimension** as a second field in the workbook model (`segment_for_line: sql: ${segment}`) and colour the second layer by the copy. A different field is a different colour setup, so each layer gets its own palette and legend. This follows from the rule rather than from a documented recipe, so confirm the render on read-back ([validation-and-testing.md](validation-and-testing.md)).
+- **One solid colour per layer.** Set each layer to Single color; the legend lists the layers as series.
+- **Several measures stacked or grouped in one layer.** Put Measure values on the axis, choose the measures, and colour by Measure names.
+
+For a bar + line combo on the classic path, the [Combo Chart (Bar + Line)](#combo-chart-bar--line) example still applies: `chartType: "barLine"` with a `mark` per series entry.
 
 ### Reference lines, trend lines, moving averages
 
@@ -829,6 +854,9 @@ Enables AI-generated descriptions/subtitles on tiles:
 | `domain`/`title`/`scale` set directly on `x`/`y` (e.g. `y.domain`, `y.min`) | **Silently ignored** — axis won't zoom, title won't change | Nest under `axis`: `y.axis.domain.{min,max,zero}`, `y.axis.title.value`. `domain` is an **object** `{min,max,zero}`, not `[min,max]`; min/max are **raw** values (`0.6` = 60%) |
 | `_stack: "normalize"` for 100% stacked | Invalid enum | Use `_stack: "stack_percentage"` (enum: `group`/`stack`/`stack_percentage`/`overlay`) |
 | `series[].color: "#hex"` for a solid series color | No effect (ignored per-layer slot) | Use `series[].mark._mark_color` + `manual: true`; for color-by-value use `config.color.values` |
+| Two layers coloured by the same field, expecting different palettes | Both layers share one palette and one legend; editing one edits both | Colour is per field. Colour the second layer by a copied dimension, by Single color, or split it into measures coloured by Measure names — see [Layered charts](#layered-charts-layer-compiler) |
+| Custom palette on layer 2 recolours layer 1 | Same cause: the palette is attached to the shared colour field | Same fix as above |
+| Hand-writing `series[]` entries for a `useLayerCompiler` chart from the classic tables | Keys ignored or chart falls back | Read a UI-built layered chart back with `v2-get` and reuse its series shape |
 | `series[].label` to rename a legend entry | No effect — legend keeps the field label | Set `series[].title.value` (the legend reads `title.value`, falling back to the field label) |
 | Stack dimension not pivoted | Single un-split series | Add the `color.field` dimension to `query.pivots` |
 | Missing measure in query | Empty tile, no error | Every query must include at least one measure |
