@@ -9,12 +9,12 @@
     {
       "id": "1",
       "question": "Build a dashboard called 'Weekly Sales Overview' with two tiles: monthly revenue trend (line chart) and top 10 customers by revenue (table).",
-      "ground_truth": "Dashboard created via omni documents v2-create with two working tiles in the keyed queryPresentations envelope. Both queries validated before creation. Because a multi-tile v2-create only auto-lays-out tile \"1\", the agent authors a containers tree (or patches one in) so both tiles render. Dashboard read back via v2-get and queries verified after creation. Share link provided.",
+      "ground_truth": "Dashboard created via omni documents v2-create with two working tiles in the keyed queryPresentations envelope. Both queries validated before creation. With no containers in the create body the server auto-places both tiles; if the agent sends a containers tree it must reference both tiles. Dashboard read back via v2-get and queries verified after creation. Share link provided.",
       "expected_behavior": [
         "The agent runs omni query run to test each tile's query before creating the dashboard — not after",
         "The agent checks that each query returned rows before proceeding, using the row-count field exposed by the response (cache_metadata.num_rows)",
         "The agent creates the document with omni documents v2-create using the keyed queryPresentations envelope ({data: {\"1\": ..., \"2\": ...}, order: [\"1\",\"2\"]}), with each tile's query carrying the full required collection-field set and no modelId",
-        "The agent ensures both tiles actually render: it authors a containers tree placing both tiles (at create or via a follow-up draft patch), because a multi-tile v2-create only lays out tile \"1\"",
+        "The agent ensures both tiles actually render: it either omits containers (auto-placement covers every tile) or sends a containers tree that references both tiles — it does not send a tree that places only one",
         "The agent reads the created document back with omni documents v2-get and confirms both entries exist in queryPresentations.data and order",
         "The agent runs omni documents get-queries and executes the dashboard's queries to verify they work after creation",
         "The agent provides a dashboard URL in the format {OMNI_BASE_URL}/dashboards/{identifier} — using the identifier from the v2-create response"
@@ -24,12 +24,12 @@
     {
       "id": "2",
       "question": "Add a KPI tile showing total revenue this quarter to the existing dashboard with identifier '{{EVAL_DASHBOARD_TILES}}'.",
-      "ground_truth": "Existing dashboard read first via v2-get. If the filtered KPI query validates, the KPI tile is added on a draft via v2-patch-draft — sending only the new tile key (merge-by-key preserves existing tiles), the complete order array, and a full containers tree placing the new tile. The draft is read back and verified before v2-publish-draft. If the server rejects the required query-level date filter during validation, the agent validates the unfiltered base query once, then either uses a verified dashboard-level date control fallback or leaves the dashboard unchanged and reports the exact blocker. On a failed patch, the draft is discarded and the published dashboard is untouched.",
+      "ground_truth": "Existing dashboard read first via v2-get. If the filtered KPI query validates, the KPI tile is added on a draft via v2-patch-draft — sending only the new tile key (merge-by-key preserves existing tiles), the complete order array, and either no containers (the tile is auto-placed) or a full containers tree that places it. The draft is read back and verified before v2-publish-draft. If the server rejects the required query-level date filter during validation, the agent validates the unfiltered base query once, then either uses a verified dashboard-level date control fallback or leaves the dashboard unchanged and reports the exact blocker. On a failed patch, the draft is discarded and the published dashboard is untouched.",
       "expected_behavior": [
         "The agent reads the existing document with omni documents v2-get before making any changes",
         "The agent adds the tile on a draft (omni documents v2-patch-draft) rather than writing directly to the published document, and sends only the new tile's key in queryPresentations.data — it relies on merge-by-key instead of resending every existing tile",
-        "When sending order or containers, the agent sends them complete: order lists every live tile key, and containers is the full layout tree including a stack for the new tile",
-        "The submitted KPI tile uses visType omni-kpi with its rendering spec (markdownConfig etc.) nested under visConfig.visConfig.config — not flat",
+        "When sending order or containers, the agent sends them complete: order lists every live tile key, and containers (if sent at all) is the full layout tree including a stack for the new tile",
+        "The submitted KPI tile uses visType omni-kpi with its rendering spec (markdownConfig etc.) nested under visConfig.visConfig.config",
         "The agent reads the draft back (v2-get-draft) and verifies the KPI tile persisted with a non-empty inner vis config before publishing with v2-publish-draft",
         "If the required query-level date filter returns a server-side parsing error during omni query run, the agent validates the unfiltered base query once and does not save the known-broken query-level filter; it either uses a verified dashboard-level date control fallback or leaves the existing dashboard unchanged and reports the blocker",
         "If a patch returns a server-side error, the agent stops after a bounded retry, discards the draft (omni documents discard-draft), and reports the blocker instead of using documents-import, creating replacement dashboards, or probing alternate endpoints"
@@ -71,10 +71,10 @@
       "expected_behavior": [
         "The agent runs omni query run to validate the tile query — including the status dimension in pivots — before creating the dashboard",
         "The chart uses a valid chartType enum value for a vertical stacked bar: 'columnStacked' (NOT invalid values like 'stackedBarColor' or 'barColor')",
-        "The rendering spec is nested under visConfig.visConfig.config, with chartType and fields at the outer visConfig level — not flat inside the inner visConfig (silently dropped) and not at the tile's top level (400)",
+        "The rendering spec is nested under visConfig.visConfig.config, with chartType and fields at the outer visConfig level — not at the tile's top level (400)",
         "The cartesian spec is internally consistent: mark.type 'bar', configType 'cartesian', _dependentAxis 'y', series with yAxis 'y', and color with _stack 'stack' referencing the status field",
         "The status dimension used for the stack/color is included in the query's pivots",
-        "After creation, the agent reads the document back with v2-get and confirms the persisted (flat-read) inner visualization config contains more than just visType — i.e., the chart spec was not silently dropped",
+        "After creation, the agent reads the document back with v2-get and confirms the persisted inner visualization config carries a non-empty config beside visType",
         "The agent provides a dashboard URL in the format {OMNI_BASE_URL}/dashboards/{identifier}"
       ],
       "expected_skill": "omni-content-builder"
@@ -87,7 +87,7 @@
         "The agent validates the query (created_at by month, status, and a count measure) with omni query run before creating the dashboard",
         "The heatmap uses chartType 'heatmap' with visType 'basic'",
         "The spec uses configType 'heatmap' (NOT 'cartesian'), with x and y dimension fields and color bound to the count measure",
-        "The rendering spec is nested under visConfig.visConfig.config — not flat inside the inner visConfig and not at the tile's top level",
+        "The rendering spec is nested under visConfig.visConfig.config, not at the tile's top level",
         "After creation, the agent reads the document back with v2-get and confirms the persisted inner visualization config is non-empty",
         "The agent provides a dashboard URL in the format {OMNI_BASE_URL}/dashboards/{identifier}"
       ],
@@ -101,7 +101,7 @@
         "The agent validates the query (status dimension plus a measure) with omni query run before creating the dashboard",
         "The pie chart uses chartType 'pie' with visType 'basic'",
         "The spec uses configType 'polar' (NOT 'pie' or 'cartesian'), with the measure as theta and the status dimension as the color encoding",
-        "The rendering spec is nested under visConfig.visConfig.config — not flat inside the inner visConfig and not at the tile's top level",
+        "The rendering spec is nested under visConfig.visConfig.config, not at the tile's top level",
         "After creation, the agent reads the document back with v2-get and confirms the persisted inner visualization config is non-empty",
         "The agent provides a dashboard URL in the format {OMNI_BASE_URL}/dashboards/{identifier}"
       ],
@@ -129,12 +129,12 @@
     {
       "id": "9",
       "question": "On dashboard '{{EVAL_DASHBOARD_WORKBOOK}}', add a running total of monthly order count.",
-      "ground_truth": "The running total is added as a table calculation on the tile (calculations[] with OMNI_RUNNING_TOTAL, calc_name in query.fields), not as a new dimension or measure in the workbook or shared model. The edit rides the draft flow: v2-get to read, v2-patch-draft sending only the affected tile key (merge-by-key preserves the rest, with the inner vis config re-nested under config), draft verified, then v2-publish-draft.",
+      "ground_truth": "The running total is added as a table calculation on the tile (calculations[] with OMNI_RUNNING_TOTAL, calc_name in query.fields), not as a new dimension or measure in the workbook or shared model. The edit rides the draft flow: v2-get to read, v2-patch-draft sending only the affected tile key (merge-by-key preserves the rest; the tile read from the draft is sent back with only the calculation added), draft verified, then v2-publish-draft.",
       "expected_behavior": [
         "The agent treats the running total as window-shaped logic that belongs in a table calculation — it does NOT add a new measure or dimension to the workbook model or the shared model for it",
         "The running total is expressed as a table calculation using OMNI_RUNNING_TOTAL, with its calc_name included in query.fields",
         "The agent reads the existing document first (v2-get) and edits via the draft flow, sending only the affected tile's key — merge-by-key preserves the other tiles without resending them",
-        "When resending the edited tile, the agent re-authors its inner vis config nested under visConfig.visConfig.config rather than echoing the flat shape v2-get returned (which would silently strip the spec)",
+        "When resending the edited tile, the agent keeps the tile's existing visConfig (read back as { visType, config }) and adds only the calculation — it does not rebuild or drop the vis spec",
         "The agent reads the draft back, confirms the calculation persisted, and publishes with v2-publish-draft",
         "The agent does not modify the shared model"
       ],
@@ -179,6 +179,42 @@
       "depends_on": [
         "omni-admin"
       ]
+    },
+    {
+      "id": "12",
+      "question": "On dashboard '{{EVAL_DASHBOARD_WORKBOOK}}', the 'Status' filter should keep applying but no longer show in the filter bar.",
+      "ground_truth": "The filter stays in controls.data and controls.order with its value; the agent removes its content-item from the filter-bar (and any other container) by sending the full containers tree without it on a draft, reads the draft back to confirm the control is still present and unplaced, and publishes. It does not send hidden on the control config.",
+      "expected_behavior": [
+        "The agent reads the current state first (v2-get, or v2-get-draft if a draft exists) and locates the filter's content-item in containers",
+        "The agent hides the filter by removing its { type: filter, id } content-item from every container and sending the complete containers tree — it does not delete the control from controls.data",
+        "The agent does not put hidden: true (or any hidden key) on the control config; if it tries, it recognizes the 400 that names the control and switches to placement",
+        "The agent reads the draft back and confirms the control is still in controls.data with no content-item referencing it, then publishes"
+      ],
+      "expected_skill": "omni-content-builder"
+    },
+    {
+      "id": "13",
+      "question": "Add a table of order count by status to dashboard '{{EVAL_DASHBOARD_WORKBOOK}}'. Put it wherever; layout doesn't matter.",
+      "ground_truth": "The query is validated with omni query run, then the tile is added on a draft via v2-patch-draft sending only the new tile key and the complete order array, with no containers in the patch so the server auto-places it on the first page. The draft is read back to confirm a container references the new tile, the tile's query is run, and the draft is published.",
+      "expected_behavior": [
+        "The agent validates the tile query with omni query run before patching",
+        "The patch carries the new tile under queryPresentations.data and the complete order array, and omits containers so the tile is auto-placed — it does not hand-author a layout tree for a request that says layout doesn't matter",
+        "The agent reads the draft back (v2-get-draft) and confirms a container references the new tile's key before publishing",
+        "The agent does not echo untouched tiles back in the patch"
+      ],
+      "expected_skill": "omni-content-builder"
+    },
+    {
+      "id": "14",
+      "question": "Rename the 'Monthly Revenue' tile on dashboard '{{EVAL_DASHBOARD_WORKBOOK}}' to 'Revenue by Month'.",
+      "ground_truth": "The agent reads the current state, finds the tile by name, and patches only that tile key on a draft with the tile as read back and name changed — the visConfig read back (visType plus config) is sent back unchanged. The draft is read back to confirm the name changed and the vis config is still non-empty, then published.",
+      "expected_behavior": [
+        "The agent patches only the renamed tile's key (merge-by-key), not every tile",
+        "The agent sends the tile as read back with only name changed — it does not rebuild or strip the visConfig",
+        "The agent confirms on read-back that visConfig.visConfig.config is still non-empty after the rename",
+        "The agent publishes via v2-publish-draft only after the read-back check"
+      ],
+      "expected_skill": "omni-content-builder"
     }
   ]
 }

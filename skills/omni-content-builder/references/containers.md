@@ -2,6 +2,20 @@
 
 In the [v2 documents API](documents-v2.md), `containers` is the layout tree — it decides where each tile renders and which controls are visible. If a tile (or control) is not referenced by a container, it does not appear, even though it exists and runs. This is the single most common reason a v2 dashboard looks empty.
 
+## Contents
+
+- [Top-level shape](#top-level-shape)
+- [The grid is 24 columns](#the-grid-is-24-columns)
+- [A tile stack](#a-tile-stack)
+- [Other content-items and container options](#other-content-items-and-container-options)
+- [Grouping tiles into a movable band](#grouping-tiles-into-a-movable-band)
+- [Multi-page dashboards](#multi-page-dashboards)
+- [The Filter Bar](#the-filter-bar)
+- [Control placement (filters vs interactive controls)](#control-placement-filters-vs-interactive-controls)
+- [Content-item `padding` (and the switcher-alignment trick)](#content-item-padding-and-the-switcher-alignment-trick)
+- [Common pitfalls](#common-pitfalls)
+- [See also](#see-also)
+
 ## Top-level shape
 
 ```jsonc
@@ -68,6 +82,22 @@ A **dashboard text tile** is **not** a `queryPresentation` — it's a content-it
 - Because it has **no query**, it gets the **dashboard mustache context**: `filters` keyed by control **`id`** (not `view.field`), a `queries` namespace, **no `result`**. See the context table in [mustache.md](mustache.md).
 - **Don't** try to make a text tile as a no-query *markdown queryPresentation* (`type:"blank"`, or `type:"query"` with the query omitted) — it renders **"This chart is empty."** Markdown `queryPresentation` tiles require a query; the no-query text tile is this `inline-text` content-item instead.
 
+## Other content-items and container options
+
+| Item | Keys |
+|---|---|
+| `query` | `as`: `chart` / `result` / `ai` / `metadata`; `format`: `name` / `subtitle` / `description` (only with `as: "metadata"`, or `subtitle` / `description` with `as: "ai"`); `detachedContent` = local text rendered instead of the query value |
+| `filter` | optional `appearance`: `{ "control": "buttonToggle" \| "dropdown", "display": "inline" \| "popover" }`. `control` applies to string filters with single or multiple selection; a `number` filter ignores it and shows the number editor |
+| `inline-text` | `content`; `appearance`: `{ "as": "inline" \| "tooltip" }`; `textAlign`: `start` / `center` / `end` |
+| `inline-spacer` | `size` (px along the stack axis, default 16; in a grid the size comes from `gridPosition`) |
+| `inline-divider` | `direction`: `horizontal` / `vertical`; `thickness`: 1 / 2 / 4; `color`: `border1` / `border4` / `text1` / `text4`; `align`: `start` / `center` / `end` |
+| `placeholder` | a wire-frame slot with no content: `placeholderType` (`query` / `control` / `filter` / `text`), `label`, `description` |
+| `text` | `id` = UUID of a rich-text block created in the UI; don't generate one |
+
+Every content-item accepts `instanceKey`, `padding`, `preset`, and a `style` object with sizing keys (`width`, `height`, `minWidth`, `minHeight`, `maxWidth`, `maxHeight`, `aspectRatio`, `fillSpace`). On a `stack` or `grid` those sizing keys sit at the **top level** (as `fillSpace: true` does in the tile-stack example), while `style` is a preset **name** such as `"tile"`.
+
+Stack options beyond `direction` / `gap` / `padding` / `style`: `align` (`flex-start`, `flex-end`, `center`, `stretch`), `justify` (`flex-start`, `flex-end`, `center`, `space-between`), `wrap` (`nowrap` / `wrap`), `mobileBehavior` (`stack` turns a row into a column, `wrap` keeps the row and wraps it, `keep` keeps the desktop arrangement, `hide` hides it on mobile), and `metadata.locked` (children can't be dragged, reordered, or resized in the editor). A `grid` takes `mobileBehavior` `keep` / `hide` and `metadata.locked`. A grid child's `x + w` must not exceed 24.
+
 ## Grouping tiles into a movable band
 
 To make several tiles move together as one unit, wrap them in a named `stack` that has a single `gridPosition`, and give the **child** tile stacks **no** `gridPosition` (let them flex with `fillSpace`):
@@ -106,7 +136,7 @@ The top-level `containers` array holds **one `page` container per page** — add
 ]
 ```
 
-- A page is `{ containerType: "page", instanceKey, name, container: <grid|stack> }`. Optional: `description`, `breakpoint`, `media: "screen" | "print"`.
+- A page is `{ containerType: "page", instanceKey, name, container: <grid|stack> }`. Optional: `description`, `breakpoint: "desktop" | "mobile"`, `media: "screen" | "print"`. A document holds at most 15 pages.
 - **`queryPresentations` are page-agnostic** — a flat pool keyed by tile key. The *containers* decide which page shows each tile. A tile renders on whichever page's grid holds its tile stack, and a given tile stack lives on exactly **one** page. Move a tile between pages by moving its stack between page grids' `children`.
 - **Breakpoint / print variants**: a page's `container` may be a `reference` to another page's grid, so desktop / mobile / print variants can share one layout (`media: "print"` + `breakpoint` drive PDF/print rendering).
 
@@ -174,7 +204,7 @@ To place a switcher inside a specific tile (e.g. a per-KPI metric picker), add t
 ]
 ```
 
-To **hide** an in-tile switcher (e.g. once a [parent control](controls.md#parent-controls-one-control-drives-many) drives it and you only want the parent visible), remove its content-item from the tile stack **and** set `config.hidden: true` on the control — a control left unplaced but un-hidden gets auto-placed back into the filter bar. The hidden control still feeds the card via `{{controls.<id>.summary}}`. See [controls.md](controls.md#hiding-a-control).
+To **hide** an in-tile switcher (e.g. once a [parent control](controls.md#parent-controls-one-control-drives-many) drives it and you only want the parent visible), remove its content-item from the tile stack. An unplaced control is hidden, stays in `controls.data`, and still feeds the card via `{{controls.<id>.summary}}`. See [controls.md](controls.md#hiding-a-control).
 
 > **`PERIOD_OVER_PERIOD` is auto-placed — don't author a content-item for it.** A PoP content-item in a tile stack renders as "Item missing," and so does a **manual filter-bar child**: Omni already auto-renders the "Compare to" widget next to the date filter in the control's `filterId`, so a hand-placed copy duplicates it → "Item missing." Just add the control to `controls.data`/`order` (no `containers` entry); the tile's comparison columns come from the query's `period_over_period_computations`. See [controls.md](controls.md).
 
@@ -197,10 +227,9 @@ Any content-item (`chart`, `control`, `filter`, `inline-page-switcher`, `metadat
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Only one tile shows after `v2-create` | Auto-layout placed only the seed tile | Author the full `containers` tree |
-| A tile is missing | No container references its `attachedQueryKey` | Add a tile stack for it |
+| A tile is missing after a create/patch that sent `containers` | The tree you sent doesn't reference it (auto-placement is off whenever you send `containers`) | Add a tile stack for it, or omit `containers` and let the server place it |
 | Tiles render at half width | Sized for a 12-col grid | Grid is 24 cols — double the `w` (full = 24) |
-| Control sits in "HIDDEN CONTROLS" | Not added as a content-item | Add `{type:filter|control}` to the filter bar (or a tile) |
+| Control sits in "HIDDEN CONTROLS" | Not added as a content-item | Add `{type:filter|control}` to the filter bar for a dashboard-wide control, or to the container of one tile when the control belongs to that tile only |
 | "Item missing" placeholder | Wrong content-item type | Filter → `type:filter`; switcher → `type:control` |
 | Rows overlap after a height change | Increased a row's `h`/`y` without shifting rows below | Shift every lower row's `y` by the same delta |
 | Can't navigate away from a page | Page switcher only on some pages' grids | Add an `inline-page-switcher` to **every** page's grid (unique `instanceKey` each) |
