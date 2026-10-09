@@ -215,6 +215,30 @@
         "The agent publishes via v2-publish-draft only after the read-back check"
       ],
       "expected_skill": "omni-content-builder"
+    },
+    {
+      "id": "15",
+      "question": "On dashboard '{{EVAL_DASHBOARD_WORKBOOK}}' add a chart with order count as bars and total revenue as a line, both split by product category, and give the two layers different colours from each other.",
+      "ground_truth": "The agent recognises that in a layered chart colour is set per field, so colouring both layers by the same category field would share one palette and one legend. It gives the second layer its own colour setup another way: colouring it by a copied dimension added to the workbook model, setting it to a single colour, or splitting it into measures coloured by Measure names. Before writing layer config by hand it reads back an existing chart built in the layer editor (behaviors.useLayerCompiler) and reuses its shape, or falls back to the classic barLine combo. The tile query runs and the tile reads back with a non-empty config.",
+      "expected_behavior": [
+        "The agent states that colour in a layered chart belongs to the field, so two layers coloured by the same dimension share a palette and legend",
+        "The agent does not try to attach two different palettes to the same colour field; it uses a copied dimension, Single color, or Measure names for the second layer",
+        "The agent reads back an existing layer-editor chart with omni documents v2-get before hand-writing a useLayerCompiler config, or uses the documented classic barLine shape",
+        "The agent runs the tile query and reads the tile back to confirm visConfig.visConfig.config is non-empty before publishing"
+      ],
+      "expected_skill": "omni-content-builder"
+    },
+    {
+      "id": "16",
+      "question": "Add a workbook-model dimension 'is_high_value' (sale price over 100) to order_items on dashboard '{{EVAL_DASHBOARD_WORKBOOK}}' and add a tile that counts orders by it. The topic restricts which fields it exposes.",
+      "ground_truth": "The agent opens a draft, reads the draft's workbookModelId, writes the dimension to order_items.view with mode extension, then checks the topic file for a fields: allowlist. Because the topic restricts fields, it reads the topic with yaml-get, appends order_items.is_high_value to the complete fields list, and writes the whole topic file back at its exact path with yaml-create before adding the tile. The tile query runs without an error saying the field is outside of the topic, and the draft is read back and published.",
+      "expected_behavior": [
+        "The agent writes the new dimension to the draft's workbook model with mode: extension",
+        "The agent checks whether the topic declares a fields: allowlist and, when it does, appends the new field to the complete list and writes the whole topic file back at the same path",
+        "The agent runs the tile query and confirms it does not fail with the field being outside of the topic",
+        "The agent reads the draft back before publishing"
+      ],
+      "expected_skill": "omni-content-builder"
     }
   ]
 }

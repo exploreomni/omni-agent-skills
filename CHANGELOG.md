@@ -6,6 +6,22 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.20.0] - 2026-10-09
+
+### omni-analytics
+
+_Summary: `omni-content-builder` now covers Omni's layer-based chart editor, which no skill mentioned before. An agent asked for two layers split by the same dimension with different colours had to guess the layer config, and nothing told it that colour in a layered chart is keyed by the field, not the layer. The release also softens the `automaticVis` seed-tile advice, which was sending agents into pointless re-patch loops, and adds the topic `fields:` allowlist step to the workbook-model flow. No command or flag changed._
+
+**Added**
+- **`omni-content-builder` — *Layered charts (layer compiler)*.** New section in `references/visConfig.md`: what a layer is, how the layer editor is enabled and entered, that a chart built there reads back with `behaviors.useLayerCompiler: true`, and the rule that **colour is set per field**: two layers coloured by the same dimension share one palette and one legend, so the second layer gets its own colours only through a copied dimension, Single color, or a Measure values layer coloured by Measure names. Recipes for each, three new Common Mistakes rows, and a Known Issues bullet in `SKILL.md`. The per-layer JSON keys are not in Omni's public API docs, so the section tells the agent to read a UI-built layered chart back with `v2-get` and reuse its shape rather than compose it from the classic tables.
+- **`omni-content-builder` — *Topic `fields:` allowlist*.** `references/workbook-model.md` adds the step between writing a workbook-model field and building a tile on it: if the topic declares `fields: [...]`, the tile 400s with the field being outside of the topic until the field is appended to that list. Recipe: `yaml-get` the topic, append to the complete list, `yaml-create` at the same path with `mode: extension`. Notes that a Restricted Querier cannot write `.topic` files to the workbook model.
+- **`omni-content-builder` — evals.** Case 15 (two layers, same split, different colours) and case 16 (workbook-model field on a topic with an allowlist).
+
+**Changed**
+- **`omni-content-builder` — `automaticVis` read-back.** `SKILL.md`, `documents-v2.md`, `queryPresentations.md` and `visConfig.md` said only tile `"1"` on create reads back `automaticVis: true`, and to re-patch it. Later tiles have been seen reading back `true` too, after a patch set them `false`, and the re-patch advice cost one session three patches for nothing. The four places now say: judge by the render, confirm the read-back `config` is non-empty, and re-patch only when the renderer is visibly deriving its own chart.
+- **`omni-content-builder` — `series[].color` note.** Narrowed from "ignored, does nothing" to "ignored on the classic render path"; on a `useLayerCompiler` chart the per-layer colour setting lives on the series entry, with a pointer to the new section.
+- **`omni-content-builder` — new-tile requirements.** The Known Issues bullet on required query fields now also names `type: "query"` and `userEditedSQL: ""`, which were documented only in the references.
+
 ## [1.19.0] - 2026-10-01
 
 ### omni-integrations

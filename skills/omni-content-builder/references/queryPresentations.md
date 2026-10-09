@@ -44,7 +44,7 @@ Every chart queryPresentation requires: `name`, `prefersChart: true`, a `visConf
 
 - **`order` replaces wholesale** — whenever you send it, send the complete array.
 - **A single patch can touch at most 48 `data` entries** — batch larger rewrites into multiple patches on the same draft.
-- **Tile `"1"` on create is merged into a server seed tile**, which keeps `automaticVis: true` even when you send `false` (tiles `"2"` onward keep `false`). If it matters, patch tile `"1"` again on a draft.
+- **`automaticVis` can read back `true` on a tile you wrote as `false`** — always for tile `"1"` on create (it is merged into a server seed tile), and seen on later tiles too. Don't loop on re-patching it: confirm the read-back `config` is non-empty and the render matches; re-patch only when the renderer is visibly deriving its own chart.
 - **A create or patch with no `containers` auto-places every new tile** — send `containers` only to set the layout yourself.
 
 ## Where the visualization config lives (read this first)
@@ -112,7 +112,7 @@ The allowed tile keys — anything else is a 400:
 | `type` | **Yes** | Tile kind — omitting it 400s. Dashboard query tiles — **including raw-SQL tiles** — use **`"query"`**; a raw-SQL tile is a `query` tile with `userEditedSQL` set (do **not** use `"sql"` — that is a workbook tab kind, not a dashboard query tile; the renderer reports "Unknown content item type"). The other values (`blank`, `csv`, `dataset`, `spreadsheet`, `sql`, `dbt`, `query-view`, `linked`, `foreign`) are workbook tab kinds; `foreign` (a tab that queries another shared model) can only be echoed back, never created or converted through the API. The `containers` slot's child `type` must match — for query tiles it is always `"query"`. |
 | `topicName` | Recommended | Topic name for the query — set this whenever querying from a topic. Ensures correct join context in the dashboard. |
 | `prefersChart` | Yes (charts) | **Must be `true` to render a chart.** Without it, Omni always shows the results table regardless of any other vis settings. |
-| `automaticVis` | Recommended | Set `false` when authoring an explicit vis config (and always for markdown tiles). Seed-tile caveat: tile `"1"` on create can come back `true` — re-patch if it matters. |
+| `automaticVis` | Recommended | Set `false` when authoring an explicit vis config (and always for markdown tiles). It can read back `true` anyway (tile `"1"` on create always does); judge by the render, not the flag, and re-patch only when the renderer is deriving its own chart. |
 | `visConfig` | Yes (charts) | The envelope: `{ chartType, fields, version, visConfig: { visType, config } }` — see above. |
 | `query` | Yes | Query definition (see below). |
 | `description` | No | Tile description (≤ 500 characters). |

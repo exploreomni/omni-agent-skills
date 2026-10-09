@@ -168,7 +168,7 @@ A `map` exclusion (`{ "<tileKey>": false }`) or remap (`{ "<tileKey>": "<field>"
 
 `v2-create`, and every patch that carries **no `containers`**, auto-places each new dashboard-eligible tile on the first page (csv / dataset / query-view / dbt tabs are stored but not placed). Containers created this way are removed when their tile is deleted. When you send `containers`, it fully defines the layout and nothing is auto-placed — tiles it doesn't reference are stored but render nowhere. On a workbook-only document (no layout yet) tiles are stored without placement. (See [containers.md](containers.md).)
 
-Related: tile `"1"` in a create body **is merged into the server's seed tile**, which keeps `automaticVis: true` even when you send `false`; tiles `"2"` onward keep `false`. If tile `"1"`'s `automaticVis` matters, patch it again on a draft after create.
+Related: tile `"1"` in a create body **is merged into the server's seed tile**, which keeps `automaticVis: true` even when you send `false`. Later tiles have also been seen reading back `true` after a patch set them `false`. Don't loop on re-patching the flag: read the tile back, confirm `visConfig.visConfig.config` is non-empty, and check the render. A tile whose explicit spec renders is done whatever `automaticVis` says; re-patch only when the renderer is visibly deriving its own chart.
 
 ### 4. `query.filters` needs the object form, not the shorthand string
 
