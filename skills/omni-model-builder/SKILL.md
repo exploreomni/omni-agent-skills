@@ -143,7 +143,7 @@ After either path, confirm new topics and views resolve against the production m
 | Relationships | (special) | Global join definitions |
 | Composite topic | `.composite_topic` | Joins two or more topics on shared dimensions (see [composite-topics.md](references/composite-topics.md)) |
 
-Write with `mode: "extension"` (shared model layer). To delete a file, send empty `yaml`.
+Write with `mode: "extension"` (shared model layer). To delete a file, run `omni models yaml-delete <modelId> --file-name <path> --mode extension --branch-id <branchId>`.
 
 ## Writing Views
 
