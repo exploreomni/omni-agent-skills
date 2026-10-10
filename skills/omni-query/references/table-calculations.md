@@ -5,6 +5,7 @@ Complete reference for authoring the `calculations[]` array in an Omni query spe
 ## Contents
 
 - [Table Calculations](#table-calculations) — minimum calc, common requests mapped to operators, and generating calcs with an agentic job
+- [Rules for table-calc answers](#rules-for-table-calc-answers) — when to use a calc, blank columns, `swallow_errors`, documented operators
 
 1. [Wire shape](#1-wire-shape) — the `calc_name` + `sql_expression` object shape
 2. [The AST: `SerializedSqlExpr`](#2-the-ast-serializedsqlexpr) — node types (`call`, `field`, literals)
@@ -41,6 +42,13 @@ Common requests → operator (exact AST + per-recipe gotchas in the reference �
 For the exact JSON AST per recipe, the full operator catalog (`Omni.*` / `SqlStdOperatorTable.*`), node types, validation rules, and the unfamiliar-calc round-trip strategy, see the sections below.
 
 At execution, calcs compile into an outer `SELECT` wrapping the base aggregation; window-style operators emit `... OVER (...)` there, so the shared data model never needs window functions to support them. In pivoted queries, template operators auto-partition by the pivot column for per-segment series; set `outside_pivot: true` and wrap an aggregator around `OMNI_PIVOT_OFFSET` for a row-summary that sweeps across pivot columns.
+
+## Rules for table-calc answers
+
+- When the user asks for a **calculated column**, **table calculation**, **running total**, **moving average**, **percent change**, **row total**, **tier label**, **VLOOKUP**, **SUMIF**, or **date difference**, satisfy it with a `calculations[]` table calc selected in `query.fields`. Do not substitute an existing model field, `userEditedSQL`, client-side math, or a narrative-only explanation unless the user explicitly asks for that alternative.
+- If a calc query succeeds but the calc column is blank, treat it as a failed calc until proven otherwise. Re-check operand order, `for_calc`, date truncation, `outside_pivot`, and whether the `calc_name` appears in `query.fields`.
+- **Don't swallow calc errors while authoring or validating.** Keep `swallow_errors: false` (the default) so a bad calc fails loudly with the real message. With `swallow_errors: true`, the column silently shows `#ERROR!` and the query still returns `COMPLETE` — easy to misread as data, a blank calc, or an engine bug. If you see `#ERROR!`, re-run with `swallow_errors: false` to surface the cause (often a referenced field missing from `query.fields`). When re-running a calc query you pulled from a document, dashboard tile, or `omni ai` job, run it **verbatim** — dropping a field the calc references manufactures an error that isn't the calc's fault. Reserve `swallow_errors: true` for a finalized tile that needs per-cell resilience, and validate it with `false` first. See `references/table-calculations.md` §5.11 & §6.5.
+- Prefer the documented Omni calc operators over lower-level raw SQL/window ASTs when a template exists. For example, use `Omni.OMNI_RUNNING_TOTAL`, `Omni.OMNI_PERCENT_CHANGE_FROM_PREVIOUS`, and `Omni.OMNI_FX_AVERAGE(Omni.OMNI_OFFSET_MULTI(...))` for moving averages instead of hand-authored `window_call`/`LAG` when the prompt asks for a table calculation.
 
 ## 1. Wire shape
 

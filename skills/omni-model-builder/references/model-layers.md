@@ -58,6 +58,19 @@ omni models yaml-get <modelId> --file-name your_view.view --branch-id <branchId>
 
 Use `extension` to confirm *what you changed*, and `combined` to confirm *what the model resolves to*. When the model is git-integrated, the **combined** output mirrors what's written to the repository — which is why committed `*.view.yaml` files carry the schema-layer `table_name:` and base columns, while the extension layer holds only your deltas. For a shared extension model synced to git, the files hold only the extension layer, what `--mode extension` returns. Other `--mode` values: `staged` returns the branch model only; `merged` returns the branch merged with the shared model, in the same form as `extension`; `fully-resolved` returns `combined` with the `extends` chain expanded (the same as `--mode combined --fully-resolved true`).
 
+## File types
+
+| Type | Extension | Purpose |
+|------|-----------|---------|
+| View | `.view` | Dimensions, measures, filters for a table |
+| Topic | `.topic` | Joins views into a queryable unit |
+| Relationships | (special) | Global join definitions |
+| Composite topic | `.composite_topic` | Joins two or more topics on shared dimensions (see [composite-topics.md](composite-topics.md)) |
+
+## Inspecting a branch
+
+To **inspect** a branch, `yaml-get` **without** `--file-name` enumerates the whole model — `--mode extension` for just the branch's changed files (your deltas), `--mode combined` for the full composed model (schema + shared + branch); then drill into any file by its exact path.
+
 ## Branches on dbt-connected models
 
 `omni models branch-dbt-get <modelId> <branchName>` (CLI ≥ 1.1.2) reads the dbt environment a branch resolves to, including the dbt git branch it compiles against. A branch with no environment of its own resolves to the connection's default (production) environment, reported with `is_default_environment: true`.

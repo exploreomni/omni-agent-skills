@@ -50,7 +50,7 @@ Use `-o json` for structured Omni output. Use `-o human` for tables.
 
 - A dimension name cannot be a time-granularity keyword (`day`, `week`, `month`, `quarter`, `year`, `hour`, `minute`, `second`). Rename it (`day_dt` with `expr: day`) or `dbt parse` fails validation.
 
-Converting a legacy spec: [YAML-REFERENCE.md](./references/YAML-REFERENCE.md). Week start, the dbt environment for each case, and scoped refreshes: [FIELD-MAPPING.md](./references/FIELD-MAPPING.md#week-start-day) and [FALLBACK-TO-DBT.md](./references/FALLBACK-TO-DBT.md#dbt-environment-sync-and-refresh).
+Converting a legacy spec, week start, dbt environments and scoped refreshes: [YAML-REFERENCE.md](./references/YAML-REFERENCE.md), [FIELD-MAPPING.md](./references/FIELD-MAPPING.md#week-start-day), [FALLBACK-TO-DBT.md](./references/FALLBACK-TO-DBT.md#dbt-environment-sync-and-refresh).
 
 ## Workflow
 
@@ -96,25 +96,13 @@ omni models yaml-get <modelId> --file-name <view>.view --mode combined
 omni models yaml-get <modelId> --file-name <view>.view --mode extension
 ```
 
-`combined` is the effective model. `extension` is model-layer content only. Do not export dbt-sourced fields with provenance comments.
+`combined` is the effective model. `extension` is model-layer content only.
 
 ### Step 3 — Map Views to dbt Models and Entities
 
-Map only direct database-backed views. Use this table before field work.
-
-| Omni source | dbt target | Action |
-|---|---|---|
-| `omni_dbt_ecomm__order_items` | `ref('order_items')` | Export when dbt owns the source model. |
-| `ecomm__order_items` schema view | `ref('order_items')` | Export only if the dbt integration owns it. |
-| CSV view | none | Skip and report. |
-| `derived_table` view | none | Skip and report. |
-| `*.query.view` | none | Skip and report. |
+Map only direct database-backed views: skip and report CSV views, `derived_table` views and query views. The view-to-model and relationship-to-entity tables are in [FIELD-MAPPING.md](./references/FIELD-MAPPING.md#entities-and-view-mapping).
 
 Map an Omni `primary_key` dimension to a primary entity. Map a supported many-to-one relationship to a foreign entity on the many side. Name it for the foreign-key column.
-
-| Omni relationship | Entity on the many side | Entity on the one side |
-|---|---|---|
-| `${a.user_id} = ${b.id}` | `user_id`, `foreign`, `expr: user_id` | `user_id`, `primary`, `expr: id` |
 
 Use a stable expression for a composite primary key. Skip joins with `where_sql`, inner semantics, many-to-many semantics, or more than two hops.
 
@@ -157,17 +145,9 @@ Inspect the extension and combined definitions before mapping a measure. A dimen
 
 ### Step 6 — Map Measures and Metrics
 
-Use [FIELD-MAPPING.md](./references/FIELD-MAPPING.md) for full mappings and filters. Use [YAML-REFERENCE.md](./references/YAML-REFERENCE.md) for spec-specific syntax.
-
 Apply the Step 5 dimension-override checkpoint before writing every measure expression. A measure must reference dbt model columns. Do not silently inline an Omni override.
 
-| Omni definition | Legacy output | Flattened dbt 1.12 output |
-|---|---|---|
-| Unfiltered aggregate | Measure named as Omni measure with `create_metric: true` | Simple metric named as Omni measure. |
-| Filtered aggregate with a same-view predicate (any aggregate type) | Measure named as Omni measure with the predicate inside `expr` and `create_metric: true`. No metric `filter`. `count`: `CASE WHEN <predicate> THEN 1 END`. `sum`: `CASE WHEN <predicate> THEN <column> ELSE 0 END`. Every other aggregate: `CASE WHEN <predicate> THEN <column> END`. | Simple metric with the same `agg` and `expr`. |
-| Filtered aggregate with a cross-view predicate | Atomic `<agg>_<column>` measure plus metric named as Omni measure with `filter` | Simple metric named as Omni measure with `agg`, `expr`, and `filter`. |
-| Ratio of measures | Ratio metric | Top-level ratio metric. |
-| Arithmetic over measures | Derived metric | Top-level derived metric. |
+Each Omni definition (unfiltered, same-view filter, cross-view filter, ratio, arithmetic) has one output in each spec: [FIELD-MAPPING.md](./references/FIELD-MAPPING.md#measure-output-by-omni-definition).
 
 Do not use the same name for different atomic and user-facing definitions. A count with no SQL uses `expr: 1`.
 

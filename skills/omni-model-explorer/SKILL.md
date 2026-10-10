@@ -1,6 +1,6 @@
 ---
 name: omni-model-explorer
-description: Discover and inspect Omni Analytics models, topics, views, fields, dimensions, measures, and relationships using the Omni CLI. Use this skill whenever someone wants to understand what data is available in Omni, explore their semantic model, find specific fields or views, check how tables join together, see what topics exist, or asks any variant of "what can I query", "what fields are available", "show me the model", "what data do we have", or "how is this data modeled". Also use when you need to understand the Omni model structure before building or modifying anything.
+description: Discover and inspect Omni Analytics models, topics, views, fields, dimensions, measures, and relationships using the Omni CLI. Use this skill whenever someone wants to understand what data is available in Omni, explore their semantic model, find specific fields or views, check how tables join together, see what topics exist, or asks any variant of "what can I query", "what fields are available", "show me the model", "what data do we have", or "how is this data modeled". Also use when the Omni model structure needs to be understood before building or modifying anything.
 ---
 
 # Omni Model Explorer

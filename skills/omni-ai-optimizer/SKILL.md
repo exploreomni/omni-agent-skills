@@ -1,6 +1,6 @@
 ---
 name: omni-ai-optimizer
-description: Optimize your Omni Analytics model for Blobby, the Omni Agent — configure ai_context, ai_fields, synonyms, sample_queries, and AI-specific topic extensions. Use this skill whenever someone wants to improve AI accuracy in Omni, make Blobby smarter, add AI context or example questions, curate which fields the AI sees, personalize AI context by user attribute, scope context to a model tier or agent, diagnose context-window pruning or truncation, control which topics AI can reach, troubleshoot why Blobby gives wrong answers, or any variant of "make the AI better", "Blobby isn't answering correctly", "optimize for AI", or "teach the AI about our data".
+description: Optimize an Omni Analytics model for Blobby, the Omni Agent — configure ai_context, ai_fields, synonyms, sample_queries, and AI-specific topic extensions. Use this skill whenever someone wants to improve AI accuracy in Omni, make Blobby smarter, add AI context or example questions, curate which fields the AI sees, personalize AI context by user attribute, scope context to a model tier or agent, diagnose context-window pruning or truncation, control which topics AI can reach, troubleshoot why Blobby gives wrong answers, or any variant of "make the AI better", "Blobby isn't answering correctly", "optimize for AI", or "teach the AI about our data".
 ---
 
 # Omni AI Optimizer
@@ -273,29 +273,7 @@ dimensions:
 
 ### Enumerating Values for Categorical Fields
 
-For closed-set enums, use `all_values` so Blobby knows every valid filter value:
-
-```yaml
-dimensions:
-  status:
-    all_values: [complete, pending, cancelled, returned]
-  payment_method:
-    all_values: [credit_card, debit_card, bank_transfer, paypal, gift_card]
-```
-
-For open-ended categoricals where a full list isn't practical, use `sample_values` to give representative examples:
-
-```yaml
-dimensions:
-  product_category:
-    sample_values: [Electronics, Clothing, Home & Garden, Sports, Books]
-  city:
-    sample_values: [New York, Los Angeles, Chicago, Houston, Phoenix]
-```
-
-> **Note**: `all_values` is pruned first, so don't count on it surviving in a context-tight topic — put anything load-bearing in `ai_context` instead.
-
-When the [dbt integration](https://docs.omni.co/integrations/dbt/setup) is enabled, dbt `accepted_values` tests are ingested as `all_values` automatically — check before hand-authoring them.
+Use `all_values` for a closed set and `sample_values` for an open-ended categorical. `all_values` is pruned first, and dbt `accepted_values` tests arrive as `all_values` when the dbt integration is on. Examples: [references/categorical-values.md](references/categorical-values.md).
 
 ## Adding synonyms
 
@@ -364,22 +342,7 @@ Prioritize high-impact changes. Improve wording without changing semantics.
 
 Omni can generate model-improvement suggestions itself (CLI ≥ 1.1.2, `omni ai-model-suggestions --help`). Use these as a complement to the manual checklist above — review each suggestion before applying it:
 
-```bash
-# Kick off a generation run, then read it back
-omni ai-model-suggestions model-suggestions-generate <modelId>
-omni ai-model-suggestions model-suggestions-run-latest <modelId>
-omni ai-model-suggestions model-suggestions-run-get <modelId> <runId>
-
-# Work the suggestion list
-omni ai-model-suggestions model-suggestions-list <modelId>
-omni ai-model-suggestions model-suggestions-ignore <modelId> <suggestionId>
-omni ai-model-suggestions model-suggestions-restore <modelId> <suggestionId>
-omni ai-model-suggestions model-suggestions-delete <modelId> <suggestionId>
-
-# Recurring generation
-omni ai-model-suggestions model-suggestions-schedule-enable <modelId>
-omni ai-model-suggestions model-suggestions-schedule-disable <modelId>
-```
+Generate, read, triage and schedule suggestions: [references/ai-model-suggestions.md](references/ai-model-suggestions.md).
 
 ## Agent Skills
 

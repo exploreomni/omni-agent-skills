@@ -39,7 +39,7 @@ omni folders --help     # Folder operations
 
 ## Known Issues & Safe Defaults
 
-- `omni content list` does not currently support a `--labels` filter. For dashboards, `omni content search --q <labelName>` matches labels. For an exhaustive by-label listing (including workbook-only documents), use `omni documents list --include labels -o json`, paginate with `--cursor`, then filter records whose `labels` array contains the target label.
+- `omni content list` has no `--labels` filter. For dashboards, `omni content search --q <labelName>` matches labels. For an exhaustive by-label listing (including workbook-only documents), use `omni documents list --include labels -o json`, paginate with `--cursor`, then filter records whose `labels` array contains the target label.
 - Some dashboard exports can fail before a job is created, for example with `Cannot use 'in' operator to search for 'query_id' in ...`. If `omni dashboards download` returns an error and no job ID, do not call `download-status` or claim the export completed. Report the dashboard identifier, the exact API error, and that no downloadable job was created.
 
 ## Searching Content

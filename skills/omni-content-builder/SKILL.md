@@ -7,7 +7,7 @@ description: Create, update, and manage Omni Analytics documents and dashboards 
 
 Create, update, and manage Omni documents, dashboards, and apps programmatically via the Omni CLI — document lifecycle, drafts, workbook models, filters, controls, and dashboard content.
 
-Documents are created and edited through the **v2 documents API** (`omni documents v2-*`) — an explicit envelope of `queryPresentations`, `controls`, `containers`, and `settings`, edited through a **draft → publish** flow. This is the only path for building, reading, or changing a document — never fall back to the v1 `documents create`/`get` commands (v1 `put`/`update` were removed in CLI 1.2.2).
+Documents are created and edited through the **v2 documents API** (`omni documents v2-*`) — an explicit envelope of `queryPresentations`, `controls`, `containers`, and `settings`, edited through a **draft → publish** flow.
 
 ## Design defaults
 
@@ -83,11 +83,11 @@ Omni dashboards are built from **documents**. A document's v2 state is an envelo
 - **Layout** is the `containers` tree — a tile renders only where a container references it (see [references/containers.md](references/containers.md)).
 - Each document also has a **workbook model** for per-dashboard model changes (see [references/workbook-model.md](references/workbook-model.md)).
 
-A document is edited through **drafts**: `v2-patch-draft` creates a draft and applies your patch; the published document is untouched until `v2-publish-draft`. Which command reads the published state and which reads a draft: [references/documents-v2.md](references/documents-v2.md#commands). Drafts can also be bound to a **model branch** (see [references/branch-bound-drafts.md](references/branch-bound-drafts.md)).
+A document is edited through **drafts** (see [Update Existing Dashboard](#update-existing-dashboard)), which can also be bound to a **model branch**: [references/branch-bound-drafts.md](references/branch-bound-drafts.md).
 
 ## Build queries on a topic
 
-Build every tile's query **on a topic** whenever possible: set the query `table` to the topic's **base view** and pass `join_paths_from_topic_name: <topic>`, plus `topicName: <topic>` on the **presentation** (the presentation-level `topicName` is tile-specific — a standalone query has no equivalent). Joined-view fields then resolve through the topic's join map from the base view. For the full shape — how the join map reaches joined-view fields, the worked example, and verifying with `omni models get-topic` (`base_view_name`/`join_via_map`) — see **`omni-query`**'s *Build queries on a topic*.
+Build every tile's query **on a topic** whenever possible: set the query `table` to the topic's **base view** and pass `join_paths_from_topic_name: <topic>`, plus `topicName: <topic>` on the **presentation** (the presentation-level `topicName` is tile-specific — a standalone query has no equivalent). Joined-view fields then resolve through the topic's join map from the base view. The full shape, a worked example and how to verify it: **`omni-query`** → *Build queries on a topic*.
 
 A tile not built on a topic still runs, but restricted queriers and viewers can't see it, and a Restricted Querier can't author one, so every tile you build as a Restricted Querier must be topic-based. Access Boost and raw-SQL tiles: [references/queryPresentations.md](references/queryPresentations.md#tiles-not-built-on-a-topic).
 
@@ -97,15 +97,7 @@ Create a document with `documents v2-create`, by name alone or with the full env
 
 ## Update Existing Dashboard
 
-Edits go through the **draft flow**; the published dashboard is untouched until you publish:
-
-1. **Read** the current state with `omni documents v2-get <identifier> > doc.json`, or `v2-get-draft` if a draft already exists. Find the document first with `omni-content-explorer` or `omni documents list` if you don't have its identifier.
-2. **Author the patch**, sending only what changes. Patches merge by key; the `order` arrays and `containers` are full replacements. To delete a tile, set its key to `null` and remove it from `order`.
-3. **Open the draft**: `omni documents v2-patch-draft <identifier> --body @patch.json`, with a `summary` in the body, and keep the returned `draftIdentifier`. `--body @file` needs no shell quoting and checks the JSON before sending.
-4. **Validate the draft**: read it back with `v2-get-draft <identifier> <draftIdentifier>` and run the affected queries (see [Validation Loops](#validation-loops)). Iterate with `v2-patch-draft-by-identifier <identifier> <draftIdentifier>`.
-5. **Publish** with `omni documents v2-publish-draft <identifier>`, then share the link (see [URL Patterns](#url-patterns)). To abandon the draft, `omni documents discard-draft <identifier>`; the published document is untouched.
-
-Error map, merge-semantics details, and recipes are in **[references/updating-dashboards.md](references/updating-dashboards.md)**.
+Edits go through the **draft flow**; the published dashboard is untouched until you publish. Read the document with `omni documents v2-get <identifier>` (find it first with `omni-content-explorer` or `omni documents list`), send only what changes with `omni documents v2-patch-draft <identifier> --body @patch.json` and a `summary`, and keep the returned `draftIdentifier`. Read the draft back with `v2-get-draft` and run the affected queries (see [Validation Loops](#validation-loops)), iterate with `v2-patch-draft-by-identifier`, then publish with `v2-publish-draft` and share the link (see [URL Patterns](#url-patterns)), or abandon the draft with `discard-draft`. Each step, the error map and recipes: **[references/updating-dashboards.md](references/updating-dashboards.md)**.
 
 ## Updating a Dashboard's Model
 
@@ -117,7 +109,6 @@ Filters and interactive controls share one envelope slice: `controls: {data, ord
 
 - The keys in `controls.data` are arbitrary IDs and must match `order`.
 - **Filter shapes** (date / string / number / boolean, required) and **interactive controls** (field/timeframe switchers) are documented with examples in [references/controls.md](references/controls.md).
-- `map` scopes a control per tile: `{"<tileKey>": false}` excludes a tile, `{"<tileKey>": "<fieldName>"}` remaps it — for both filters and interactive switchers.
 - **Every filter MUST include `fieldName`** with the fully qualified field name (no timeframe bracket for date filters), or it won't bind to any column.
 - To reuse a filter from an existing dashboard, read it back with `omni documents v2-get`; its `controls` slice can go into a patch as is.
 

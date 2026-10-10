@@ -41,9 +41,7 @@ Before writing any SQL expression, look up the connection's dialect: find the mo
 
 ## Schema Refresh: Syncing with Database Changes
 
-The **schema layer** is auto-generated from your database. When your database schema changes (new/deleted/renamed columns, type changes), refresh it to stay in sync: `omni models refresh <modelId>` (add `--branch-id <branchId>` to scope to a branch; requires **Connection Admin**).
-
-See [schema-refresh.md](references/schema-refresh.md) for when to trigger, what it does and its side effects, the deleted/renamed-column impact-check workflow, and connection/credential error handling.
+When the database schema changes (new, deleted or renamed columns, type changes), refresh the schema layer with `omni models refresh <modelId>` (`--branch-id <branchId>` scopes it to a branch; requires **Connection Admin**). When to run it, its side effects, the impact check for deleted or renamed columns, and connection errors: [schema-refresh.md](references/schema-refresh.md).
 
 ## Known Issues & Safe Defaults
 
@@ -100,7 +98,7 @@ omni models yaml-create <modelId> --body '{
 }'
 ```
 
-> **⚠️ Editing an existing file = whole-file read-modify-write at its exact path.** `yaml-create` **replaces** a file's authored content (no field-by-field merge), so `yaml-get` it first, edit, and write the **complete** file back, or the other authored fields are dropped. `fileName` is the file's **exact path** (not a regex, unlike on read) — reuse the full-path key verbatim, folder prefix included (e.g. `MARTS/fct_ai_events.view`); a non-matching name doesn't error, it **silently creates a duplicate** at that path (`success: true`). (Schema base columns live in the schema layer, so they're unaffected.) To **inspect** a branch, `yaml-get` **without** `--file-name` enumerates the whole model — `--mode extension` for just the branch's changed files (your deltas), `--mode combined` for the full composed model (schema + shared + branch); then drill into any file by its exact path.
+> **⚠️ Editing an existing file = whole-file read-modify-write at its exact path.** `yaml-create` **replaces** a file's authored content (no field-by-field merge), so `yaml-get` it first, edit, and write the **complete** file back, or the other authored fields are dropped. `fileName` is the file's **exact path** (not a regex, unlike on read) — reuse the full-path key verbatim, folder prefix included (e.g. `MARTS/fct_ai_events.view`); a non-matching name doesn't error, it **silently creates a duplicate** at that path (`success: true`). (Schema base columns live in the schema layer, so they're unaffected.) To inspect a branch's files: [model-layers.md](references/model-layers.md#inspecting-a-branch).
 
 On a dbt-connected model, `omni models branch-dbt-get` shows the dbt environment a branch compiles against: [model-layers.md](references/model-layers.md#branches-on-dbt-connected-models).
 
@@ -109,18 +107,17 @@ On a dbt-connected model, `omni models branch-dbt-get` shows the dbt environment
 Every YAML write must be validated and tested before merging — a field can be valid YAML yet produce wrong results or broken queries.
 
 ```bash
-# 1. Validate — a NEW issue with is_warning:false that references your changed file is blocking; fix before proceeding
+# 1. Validate: a new is_warning:false issue in a file you changed blocks; fix it first
 omni models validate <modelId> --branch-id <branchId>
 
-# 2. Query the fields you changed — confirm no error, and cache_metadata.num_rows > 0
-#    (the row count is at cache_metadata.num_rows; there is NO summary.row_count — see omni-query)
+# 2. Query the changed fields: no error, and cache_metadata.num_rows > 0 (there is no summary.row_count)
 omni query run --body '{"query":{"modelId":"<modelId>","table":"your_view","fields":["your_view.new_dimension","your_view.new_measure"],"limit":10,"join_paths_from_topic_name":"your_topic"},"branchId":"<branchId>"}'
 
-# 3. Read it back — confirm the field is present (and not duplicated at a second path)
+# 3. Read it back: the field is present, and not duplicated at a second path
 omni models yaml-get <modelId> --file-name your_view.view --branch-id <branchId>
 ```
 
-Spot-check that values look right (a `sum` isn't returning a `count`; booleans read true/false), and if a field references another view include fields from both to confirm the join resolves. See [validation-and-testing.md](references/validation-and-testing.md) for triaging errors that predate your change, join-path testing, natural-language validation via `omni ai job-submit`, the full results checklist, and duplicate-file recovery.
+Spot-check that values look right (a `sum` isn't returning a `count`; booleans read true/false), and if a field references another view include fields from both to confirm the join resolves. Triage of errors that predate your change, join-path tests, natural-language validation and the full checklist: [validation-and-testing.md](references/validation-and-testing.md).
 
 > **Running totals, moving averages, period-over-period change, percent-of-total and ranks are table calculations** on the query result: **`omni-query` → `references/table-calculations.md`**. Model an in-warehouse field only when the window must span rows outside the result set.
 
@@ -136,14 +133,7 @@ After either path, confirm new topics and views resolve against the production m
 
 ## YAML File Types
 
-| Type | Extension | Purpose |
-|------|-----------|---------|
-| View | `.view` | Dimensions, measures, filters for a table |
-| Topic | `.topic` | Joins views into a queryable unit |
-| Relationships | (special) | Global join definitions |
-| Composite topic | `.composite_topic` | Joins two or more topics on shared dimensions (see [composite-topics.md](references/composite-topics.md)) |
-
-Write with `mode: "extension"` (shared model layer). To delete a file, run `omni models yaml-delete <modelId> --file-name <path> --mode extension --branch-id <branchId>`.
+Model files are views (`.view`), topics (`.topic`), composite topics (`.composite_topic`) and the relationships file: [model-layers.md](references/model-layers.md#file-types). Write with `mode: "extension"` (shared model layer). To delete a file, run `omni models yaml-delete <modelId> --file-name <path> --mode extension --branch-id <branchId>`.
 
 ## Writing Views
 
@@ -188,11 +178,11 @@ See `references/modelParameters.md` (24+ params, all 13 aggregate types) and `re
 
 ### Aggregate tables (aggregate awareness)
 
-**Reach for an aggregate table** when the same fact rollup is queried repeatedly at a coarser grain than the table (daily or monthly tiles over an event-level fact) and a pre-aggregated table exists or can be built. Declare it with a `materialized_query` block on a view, one per table, described against the base view; Omni reads it when a query fits and falls back to the fact table when not. **It will not help** a query that needs a column the table lacks, a non-additive measure (`average`, `count_distinct`, `median`) at another grain, or a finer grain than the table. Confirm with a `planOnly` query headed `-- Query rewritten to use materialized view`. **Never map** a window-function field (`ROW_NUMBER`, `RANK`, `LAG`, a running total) or a `*_distinct_on` measure, and never set `limit` or `offset` in `materialized_query`: each returns wrong results or stops Omni from using the table. Pin a table that holds part of the history to its dates, keep every row in the base view, and write date boundaries in model SQL as `>=` and `<`. Rules, filter pins, joined views, [what not to declare](references/aggregate-awareness.md#what-not-to-declare) and [known issues](references/aggregate-awareness.md#known-issues): [aggregate-awareness.md](references/aggregate-awareness.md).
+**Reach for an aggregate table** when the same fact rollup is queried repeatedly at a coarser grain than the table (daily or monthly tiles over an event-level fact) and a pre-aggregated table exists or can be built. Declare it with a `materialized_query` block on a view, one per table, described against the base view; Omni reads it when a query fits and falls back to the fact table when not. Confirm with a `planOnly` query headed `-- Query rewritten to use materialized view`. **Never map** a window-function field (`ROW_NUMBER`, `RANK`, `LAG`, a running total) or a `*_distinct_on` measure, and never set `limit` or `offset` in `materialized_query`: each returns wrong results or stops Omni from using the table. Pin a table that holds part of the history to its dates, keep every row in the base view, and write date boundaries in model SQL as `>=` and `<`. Rules, filter pins, joined views, [what not to declare](references/aggregate-awareness.md#what-not-to-declare) and [known issues](references/aggregate-awareness.md#known-issues): [aggregate-awareness.md](references/aggregate-awareness.md).
 
 ### Level of detail
 
-**Reach for `level_of_detail`** when a measure has to be computed at a grain other than the query's: a per-customer total on every order row (`fixed:`), a finer aggregate summarized up (`always_include:`), or an amount held at a coarser grain while finer dims are on the report (`always_exclude:`). For a header amount repeating across line detail, weigh it against a composite topic with `unrelated_dimension_handling: repeat`, which needs no list. Grain matching, the outer-aggregate rule, template reuse and verification: [level-of-detail.md](references/level-of-detail.md).
+**Reach for `level_of_detail`** when a measure has to be computed at a grain other than the query's: a per-customer total on every order row (`fixed:`), a finer aggregate summarized up (`always_include:`), or an amount held at a coarser grain while finer dims are on the report (`always_exclude:`). Grain matching, the outer-aggregate rule, template reuse and verification: [level-of-detail.md](references/level-of-detail.md).
 
 ### Cross-View Fields in Views
 
@@ -222,24 +212,7 @@ Topic `default_filters`, `always_where_filters`, and `always_having_filters` use
 
 ### Global Relationships
 
-Global relationships are defined in the shared relationships file and are available across all topics. Use these for standard, reusable joins.
-
-```yaml
-- join_from_view: order_items
-  join_to_view: users
-  on_sql: ${order_items.user_id} = ${users.id}
-  relationship_type: many_to_one
-  join_type: always_left
-```
-
-| Type | When to Use |
-|------|-------------|
-| `many_to_one` | Orders → Users |
-| `one_to_many` | Users → Orders |
-| `one_to_one` | Users → User Settings |
-| `many_to_many` | Tags ↔ Products (rare) |
-
-Getting `relationship_type` right prevents fanout and symmetric aggregate errors.
+Global relationships are defined in the shared relationships file and are available across all topics. Use these for standard, reusable joins, and set `relationship_type` (`many_to_one`, `one_to_many`, `one_to_one`, `many_to_many`) to match the data, which prevents fanout. Example and when to use each type: [global-relationships.md](references/global-relationships.md).
 
 ### Topic-Scoped Relationships
 

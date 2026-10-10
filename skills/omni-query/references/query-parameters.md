@@ -5,6 +5,7 @@ Reference for the `query` object in an `omni query run` body: its parameters, fi
 ## Contents
 
 - [Query Parameters](#query-parameters)
+- [Composite topics](#composite-topics)
 - [Field Naming](#field-naming)
 - [Sorts](#sorts)
 - [Filters](#filters)
@@ -26,6 +27,10 @@ Reference for the `query` object in an `omni query run` body: its parameters, fi
 | `pivots` | No | Array of field names to pivot on |
 
 - **`query run` requires `modelId` INSIDE the `query` object — every time.** A standalone body is `{"query":{"modelId":"<uuid>", …}}`; omit it and the call **400s** with `query.modelId: Invalid input: expected string, received undefined`. This is the **exact opposite** of a v2 **dashboard tile** query (`omni-content-builder`), whose tile query must **never** carry `modelId` (the server anchors tiles to the document's workbook model). Don't let the tile rule bleed into standalone queries — **tiles omit `modelId`; `query run` requires it.** When running against a **branch** or a **workbook/draft model**, set `modelId` to *that* model's id (the branch model id or the draft's `workbookModelId`), not the shared model — and pass `branchId` at the top level only when the skill explicitly calls for it (a branch's own model id already resolves branch fields).
+
+## Composite topics
+
+A composite (`is_composite: true` in `list-topics`) has no base view: send `join_paths_from_topic_name: <composite>` and **no `table`**. Address fields as `@_shared_dimensions_.<name>[timeframe]`, `@_shared_views_.<view>.<field>`, and `@<topic>.<view>.<measure>`; a filter keyed `@<topic>.` applies to that member topic only; the `@` is required. A dimension that belongs to one member topic can be filtered but not selected under the composite's default `unrelated_dimension_handling` — make it a shared dimension if it must be grouped on, or expect the composite to declare `null_fill` (other members' measures land on a null row) or `repeat` (they repeat on every row). `get-topic` on the composite lists the addressable surface.
 
 ## Field Naming
 
