@@ -30,6 +30,25 @@ omni dashboards download <dashboardId> --body '{ "format": "png", "queryIdentifi
 
 Format matrix: **pdf / png / xlsx / csv / json** — `json` is **single-tile only** (requires `queryIdentifierMapKey`), and for a full dashboard `csv` returns a **ZIP of one CSV per tile**. `pdf`/`png` give the image; `csv`/`xlsx`/`json` give the tile's data. For the authoritative `paperFormat` values and the full PDF/PNG + data option set (`paperOrientation`, `hideTitle`, `showFilters`, formatting/row-limit flags, `filename`, `filterConfig`, …), run **`omni dashboards download --schema`** — don't rely on this list staying exhaustive.
 
-## Multi-page dashboards — the public download API renders ONE page
+## Multi-page dashboards — pick the pages with `containerPages`
 
-`POST /v1/dashboards/{id}/download` has **no `pages`/`pageId` parameter**. PNG is inherently one page, and a PDF of a multi-page dashboard returns only the **default/active page** — page *selection* exists only in the **UI download** form, not this endpoint (and not the schedules/deliveries API). There is no robust public-API way to render a chosen page today — tracked as an upstream API gap.
+On a dashboard with the advanced (multi-page) layout, a download renders only the **first page** unless the body names the pages in **`containerPages`**: a list of page `instanceKey`s. A page is a top-level entry of the document's `containers` that has a `name`; its `instanceKey` is also the page's URL segment, `/dashboards/<identifier>/<instanceKey>`.
+
+```bash
+# List the pages: instanceKey and name
+omni documents v2-get <dashboardId> -o json \
+  | python3 -c 'import json,sys;[print(c["instanceKey"], c["name"]) for c in json.load(sys.stdin)["containers"] if c.get("name")]'
+
+# Render one page as a PNG; same async flow as above
+omni dashboards download <dashboardId> --body '{ "format": "png", "containerPages": ["<instanceKey>"] }'
+```
+
+| `format` | What `containerPages` does |
+|---|---|
+| `png` | Exactly one page. For every page, start one download per page. |
+| `pdf` | One or more pages in one file, in the dashboard's page order, whatever order you list them in |
+| `csv`, `xlsx` | Only the tiles on the listed pages (a one-page `csv` is a ZIP of that page's tiles) |
+| `json` | Not available: `json` is single-tile only |
+
+- **Errors are 400s that name the problem:** two pages in a PNG (`PNG format supports only one page`), `containerPages` with `queryIdentifierMapKey` (`containerPages cannot be used with queryIdentifierMapKey`), and a key that isn't a page (`Invalid page found in containerPages: …`, followed by every page as `key (Name)`).
+- **Drafts:** the download commands also take a draft identifier in place of the dashboard's, and render the draft's unpublished content against the branch it was taken on. Read a draft's pages with `omni documents v2-get-draft <dashboardId> <draftId>`.

@@ -167,6 +167,8 @@ omni dashboards download-status <identifier> <jobId>
 
 Formats: `pdf`, `png`
 
+A multi-page dashboard renders only its first page unless the body lists the pages in `containerPages`, by their `instanceKey`s; a PNG takes exactly one page. Listing the pages, other formats and the errors are in the **omni-content-builder** skill's `references/downloads.md`.
+
 ## URL Patterns
 
 Construct direct links to content:

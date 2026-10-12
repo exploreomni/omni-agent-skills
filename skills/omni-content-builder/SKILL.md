@@ -151,7 +151,7 @@ What to check in each response, the full viz-spec table, the checklist, and an o
 
 ## Dashboard Downloads
 
-Downloads are asynchronous: start one with `omni dashboards download`, poll `download-status` until the job reaches a terminal state, then fetch the file with `download-file`. Single-tile and data formats, the one-page limit on multi-page dashboards, and what "Job failed to render" means: [references/downloads.md](references/downloads.md).
+Downloads are asynchronous: start one with `omni dashboards download`, poll `download-status` until the job reaches a terminal state, then fetch the file with `download-file`. Single-tile and data formats, choosing the pages of a multi-page dashboard (`containerPages`), and what "Job failed to render" means: [references/downloads.md](references/downloads.md).
 
 ## Docs Reference
 
