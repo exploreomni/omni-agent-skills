@@ -188,7 +188,8 @@
         "The agent reads the current state first (v2-get, or v2-get-draft if a draft exists) and locates the filter's content-item in containers",
         "The agent hides the filter by removing its { type: filter, id } content-item from every container and sending the complete containers tree — it does not delete the control from controls.data",
         "The agent does not put hidden: true (or any hidden key) on the control config; if it tries, it recognizes the 400 that names the control and switches to placement",
-        "The agent reads the draft back and confirms the control is still in controls.data with no content-item referencing it, then publishes"
+        "The agent reads the draft back and confirms the control is still in controls.data with no content-item referencing it, then publishes",
+        "If the dashboard has no 'Status' filter, the agent asks instead of creating one"
       ],
       "expected_skill": "omni-content-builder"
     },
@@ -212,7 +213,8 @@
         "The agent patches only the renamed tile's key (merge-by-key), not every tile",
         "The agent sends the tile as read back with only name changed — it does not rebuild or strip the visConfig",
         "The agent confirms on read-back that visConfig.visConfig.config is still non-empty after the rename",
-        "The agent publishes via v2-publish-draft only after the read-back check"
+        "The agent publishes via v2-publish-draft only after the read-back check",
+        "If the dashboard has no 'Monthly Revenue' tile, the agent asks instead of renaming a different tile"
       ],
       "expected_skill": "omni-content-builder"
     }
