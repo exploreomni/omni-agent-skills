@@ -105,6 +105,8 @@ All go in a patch body, alongside a `summary`: `v2-patch-draft` for the first pa
 }
 ```
 
+**Keep query ids stable** — re-sending a tile's `query` in a patch gives that tab a new query id, which breaks deep links to it (`?w=<query id>`). Round-trip the tile from `v2-get-draft` and change only what you need; a tile sent back unchanged keeps its id. When a markdown tile links to other tabs, build in two passes: patch the tiles, read back their ids, then patch only the markdown tile.
+
 **Rename a tab** — a tab is a tile; its label is the tile's `name`. Send the complete tile with the new `name`; the tile you read back is already in the shape you write.
 
 **Reorder tabs** — send the full `order` array; it replaces wholesale: `{"queryPresentations": {"order": ["3", "1", "2"]}}`. Verify by readback.

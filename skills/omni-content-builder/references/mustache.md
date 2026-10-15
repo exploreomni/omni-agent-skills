@@ -105,6 +105,15 @@ Rows are nested by `[pivot…].view.field`, each leaf carrying:
 
 Row accessors: `result._first`, `._second`, `._second_to_last`, `._last`, `._rows` (count), `._totals._first` (column‑totals row), and numeric indices `result.0`, `result.1`. Single‑value aggregate queries → use `result._first`.
 
+#### Iterating rows with `{{#result}}`
+
+A `{{#result}}…{{/result}}` section renders its body once per result row. Inside it, field tokens are **relative to the row**: `{{view.field.value}}`, with the same `.value` / `.value_static` / `.raw` suffixes. Absolute accessors still resolve inside the section (`{{result._first.view.field.value_static}}` gives the first row on every iteration), and `{{result._rows}}` works outside it. The section renders every row the query returns, so sort and `limit` the query to what the tile should show. The list-row recipe that uses it: [dashboard-style.md](dashboard-style.md#list-rows-in-a-markdown-tile).
+
+```html
+{{#result}}<p>{{orders.status.value}}: {{orders.count.value_static}}</p>{{/result}}
+<p>{{result._rows}} rows</p>
+```
+
 > **A measure is keyed by `view.field`; a table calculation is keyed by its bare `calc_name` at the row level — NOT nested under a view.** A model field is `{{result._last.ecomm__order_items.total_revenue.value_static}}`, but a calc named `color_class` is `{{result._last.color_class.raw}}` (not `…ecomm__order_items.color_class…`). Mis-nesting a calc under a view silently yields an empty string. This makes calcs handy for driving CSS: a `CASE`-based calc that outputs a class name (`'good'`/`'warn'`/`'bad'`), read via `{{result._last.<calc_name>.raw}}` into a `class="…"`, gives you a **conditional-color KPI** (threshold-driven number color) with one calc + a `<style>` block.
 
 > **For data-driven markdown geometry, prefer raw MEASURE tokens + CSS `calc()` over table calcs.** A table calc resolves in `result` **only if its `calc_name` is also in `query.fields`** — a calc that's only in `query.calculations` is not selected, so `{{result._first.<calc_name>.raw}}` comes back blank. (That's *why* the color-class calc above works: it's selected.) You can select a calc and read it, but for sizing/geometry it's simpler and more robust to skip calcs: query the raw **measures** (wide, one row — they always resolve, `.value_static` formatted / `.raw` unformatted, including the transposed synthetic `measure_value`) and do the arithmetic in CSS `calc()` on `.raw` tokens — division, subtraction, scaling all evaluate: `width: calc({{result._first.v.stage.raw}} / {{result._first.v.max.raw}} * 100%)`, `calc(( {{…delivered.raw}} - {{…returned.raw}} ) / {{…units.raw}} * 50%)`. (A blank tile from a ratio is usually a malformed *measure* — unquoted `${}`, see `omni-model-builder` topic-scoped-views — not the calc; calcs selected into `fields` render fine.)

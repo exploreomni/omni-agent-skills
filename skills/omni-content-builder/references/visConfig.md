@@ -411,7 +411,7 @@ A complete, **render-verified** status KPI — label + value + change-vs-prior (
 | `dataLabelPosition` | No | `"inside"` / `"outside"` — a **top-level polar key**, not `dataLabel.position`. |
 | `tooltip` | No | Fields for hover |
 
-> **No legend sizing.** The pie config exposes no legend-size control — the only legend option is `color.legendPosition` (position, incl. `NONE`). A larger/custom legend requires a markdown tile.
+> **No legend sizing.** The pie config exposes no legend-size control — the only legend option is `color.legendPosition`, lowercase: `right`, `left`, `top`, `bottom`, or `none` to hide it. A larger/custom legend requires a markdown tile.
 > **"Category — xx.y%" slice labels (value + share):** `dataLabel: { enabled: true, field: { name: "<the color dim>" } }` + `dataLabelPercentage: { enabled: true, decimals: 1 }`; keep `theta` as the raw count. The label renders the `dataLabel.field` value with the share appended in parentheses — `"Category (23.4%)"` — when `dataLabelPercentage.enabled`. (Verify by building it once in the UI and reading it back with `omni documents v2-get`.)
 
 ## Config Object: Heatmap

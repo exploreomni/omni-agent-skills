@@ -220,6 +220,8 @@ measures:
 | `ends_with` | `email: { ends_with: .com }` |
 | `not` (IS NOT NULL) | `id: { not: null }` |
 
+> **Check a filtered measure against its unfiltered twin.** On a topic-level measure, a `not: null` or multi-value `is:` condition on another view's field can be ignored with no error, while a single `is:` value applies. If the two measures return the same number, move the condition into `sql:` (`CASE WHEN ${other_view.key} IS NOT NULL THEN … END`).
+
 > This table is a quick reference. For the **complete** condition catalog — `and`/`or` on one field, list matches, joined-view qualification (`users.country: { is: US }`), and the three filter contexts (measure filters, topic `always_where`/`always_having`, `default_filters`) — see **[yaml-filter-syntax.md](yaml-filter-syntax.md)**.
 
 ## Format Values
@@ -278,7 +280,7 @@ Use D3 time format strings: `"%Y-%m"`, `"%Y-%m-%d"`, `"%Y-%m-%d %H:%M:%S"`
 | `fields` | Field curation: `[order_items.*, users.name, -users.internal_id]` |
 | `ai_context` | Guides Blobby's field mapping and behavior |
 | `ai_fields` | Curates fields visible to AI (supports `*`, `-`, `tag:`) |
-| `sample_queries` | Example questions with correct queries for AI |
+| `sample_queries` | Example questions with correct queries for AI. Each key is the name shown in the UI (there is no `label:`), so use a quoted Title Case key such as `"Revenue by Region, Last Month":`. Use relative dates (`time_for_duration: [1 complete months ago, 1 months]`) here and in `ai_context`: fixed dates go stale and teach the AI the wrong default period |
 | `default_filters` | User-visible, removable filters applied to all queries |
 | `always_where_sql` | Non-removable SQL filter on all rows |
 | `always_where_filters` | Non-removable filter using filter syntax |

@@ -215,6 +215,61 @@
         "The agent publishes via v2-publish-draft only after the read-back check"
       ],
       "expected_skill": "omni-content-builder"
+    },
+    {
+      "id": "15",
+      "question": "Build an exec dashboard of at-risk orders for leadership: which orders still in processing or shipped are most at risk, and which were already returned. They want to act on it each morning.",
+      "ground_truth": "A dashboard built with the actionable-dashboard style: the at-risk list (orders not yet delivered or returned) is placed before the already-returned list, every list row names an owner or responsible entity available in the model (e.g. the customer or a responsible dimension), no table has more than 5 columns, every date filter (dashboard control and tile filters) is relative, and any markdown list tile renders names and key numbers with drillable {{view.field.value}} tokens inside a {{#result}} section. Queries are validated before creation and the draft is read back before publishing.",
+      "expected_behavior": [
+        "The agent places the at-risk / still-recoverable list before (above or left of) the already-returned list",
+        "Each list row includes an owner or responsible entity column or line",
+        "No table tile has more than 5 columns; if more context is needed the agent uses a markdown {{#result}} list row or shorter labels",
+        "Every date filter, on the dashboard control and in tile query filters, uses the relative TIME_FOR_INTERVAL_DURATION object form, not fixed dates, and no title or label hard-codes a month name",
+        "Any markdown list tile uses {{view.field.value}} (drillable) for names and key numbers, not only .value_static",
+        "The agent sizes each list's row limit to the tile and states it in the subtitle",
+        "The agent validates each query with omni query run before creating, and reads the document back before publishing"
+      ],
+      "expected_skill": "omni-content-builder"
+    },
+    {
+      "id": "16",
+      "question": "Remove the 'Status' filter from dashboard '{{EVAL_DASHBOARD_WORKBOOK}}' entirely — I don't want it on the dashboard anymore, hidden or otherwise.",
+      "ground_truth": "The agent reads the document, then in one draft patch sets the Status control's key in controls.data to null, sends the complete controls.order without it, and sends the full containers tree without the control's filter content-item. It does not merely hide the control (unplace it) and does not drop it from order without the null. The draft is read back to confirm the control is gone from controls.data, controls.order, and containers, and the remaining tiles still run, before publishing.",
+      "expected_behavior": [
+        "The agent reads the current document with v2-get before patching",
+        "The patch sets controls.data.<statusControlId> to null",
+        "The patch sends the full controls.order array without that control id",
+        "The patch sends the complete containers tree with the control's filter content-item removed",
+        "The agent does not treat removal as hiding (leaving the control in controls.data)",
+        "The agent reads back the draft, confirms the control is gone from data, order and containers, and only then publishes"
+      ],
+      "expected_skill": "omni-content-builder"
+    },
+    {
+      "id": "17",
+      "question": "Build a dashboard with a horizontal 100% stacked bar showing, for each product category, the share of order items that were returned versus not returned. Each bar should run 0 to 100%.",
+      "ground_truth": "The agent defines share measures (e.g. returned items / all items and not-returned items / all items) that sum to 1 per bar — in the workbook model or as calculations — rather than relying on barStackedPercentage to normalise raw measures. It charts the share measures with barStacked, pins the value axis with x.axis.domain {min:0, max:1} and formats it with label.format.format percent_0. It validates the query and checks the axis reads 0–100%, ideally with a PNG render.",
+      "expected_behavior": [
+        "The agent defines share measures whose series sum to 1 per bar instead of stacking raw measures with barStackedPercentage",
+        "The chart uses barStacked with the share measures as series",
+        "The value axis is pinned with x.axis.domain {min: 0, max: 1}",
+        "The value axis label format is percent_0 (x.axis.label.format.format)",
+        "The agent validates the query and verifies the rendered axis reads 0–100% (PNG render or read-back)"
+      ],
+      "expected_skill": "omni-content-builder"
+    },
+    {
+      "id": "18",
+      "question": "On dashboard '{{EVAL_DASHBOARD_WORKBOOK}}', the 'Status' filter isn't affecting the 'Monthly Revenue' tile — an earlier edit excluded it. Make the filter apply to that tile again.",
+      "ground_truth": "The agent reads the document, finds the Status control and the tile key of 'Monthly Revenue', and patches the control's map with that tile key set explicitly to the filter's field name (e.g. map[\"<tileKey>\"] = \"order_items.status\"). It does not try to clear the exclusion by deleting the key from map, because map merges by key and an earlier false persists. It reads the draft back to confirm map[tileKey] is the field name and runs the tile's query with the filter applied before publishing.",
+      "expected_behavior": [
+        "The agent reads controls.data for the Status control and identifies the Monthly Revenue tile key",
+        "The patch sets map[\"<tileKey>\"] explicitly to the filter's fully qualified field name",
+        "The agent does not rely on deleting the key from map (or omitting it) to re-enable the tile",
+        "The agent reads back the draft and confirms map[\"<tileKey>\"] is the field name, not false",
+        "The agent verifies the tile's query with the filter value applied before publishing"
+      ],
+      "expected_skill": "omni-content-builder"
     }
   ]
 }

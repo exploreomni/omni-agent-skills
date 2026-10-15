@@ -15,6 +15,7 @@ In the [v2 documents API](documents-v2.md), `controls.data` holds dashboard filt
 - [Config shapes](#config-shapes) — filter and interactive-control config by type
 - [More filter config shapes](#more-filter-config-shapes)
 - [Hiding a control](#hiding-a-control) — by placement
+- [Removing a control](#removing-a-control)
 - [Parent controls (one control drives many)](#parent-controls-one-control-drives-many)
 - [Control vs. content-item — and syncing a filter across pages](#control-vs-content-item--and-syncing-a-filter-across-pages)
 - [Mustache control tokens (in markdown/text tiles)](#mustache-control-tokens-in-markdowntext-tiles)
@@ -28,6 +29,8 @@ In the [v2 documents API](documents-v2.md), `controls.data` holds dashboard filt
 - `"<tileKey>": false` — exclude that tile.
 - `"<tileKey>": "<fieldName>"` — remap to a different field on that tile.
 - **Omit or empty `map` ⇒ the control applies to every tile by its `config.fieldName`.**
+
+> **`map` merges by key, and a `false` entry persists.** Deleting a tile's key from `map` in a patch does not clear an earlier `false`, and neither does replacing the tile under the same key. To make a control apply to that tile again, set `map["<tileKey>"]` explicitly to the field name. Symptom of a stale `false`: a replaced KPI ignores the filter and shows unfiltered numbers. Read `map` back after the patch.
 
 > **Both filters and interactive controls scope per-tile.** `{"<tileKey>": false}` excludes a tile from either a **filter** (it stays all-time) or an interactive **`FIELD_SELECTION`** switcher (it stops rewriting that tile); `"<tileKey>": "<fieldName>"` remaps it.
 
@@ -50,7 +53,7 @@ Two rules:
 
 A `map` value can only be a field name or `false` — there's no per-tile *override* of the relative window itself.
 
-> **Two filter controls on the same field of the same tile = OR, not AND.** If two (or more) filters map to the same field on a tile, they're merged into a single composite **OR** before the query runs — a *union* of the windows (e.g. `created_at` in "past 12 months" **OR** "past 6 months" → effectively past 12 months), never an intersection. You **cannot AND two filters on one field** this way, so you can't bound a range by stacking, say, a `>=` and a `<=` date control on one field — author a **single range/`between` filter** instead. (This OR-merge is the *query* behavior. In mustache it's context-dependent: a **viz tile** sees only the merged composite at the `view.field` key with `.value` empty, but a **dashboard text tile** sees the two filters **separately, keyed by control id**, each with its own `.value` — see [mustache.md](mustache.md).)
+> **Two filter controls on the same field of the same tile = OR, not AND.** If two (or more) filters map to the same field on a tile, they're merged into a single composite **OR** before the query runs — a *union* of the windows (e.g. `created_at` in "past 12 months" **OR** "past 6 months" → effectively past 12 months), never an intersection. You **cannot AND two filters on one field** this way, so you can't bound a range by stacking, say, a `>=` and a `<=` date control on one field — author a **single range/`between` filter** instead. Separately, **a dashboard control replaces a tile-level filter on the same field**: a tile filtered to `X` with the control set to `Y` returns `Y`, and with the control blank it returns every row. Scope the tile through a field that has no dashboard control. (This OR-merge is the *query* behavior. In mustache it's context-dependent: a **viz tile** sees only the merged composite at the `view.field` key with `.value` empty, but a **dashboard text tile** sees the two filters **separately, keyed by control id**, each with its own `.value` — see [mustache.md](mustache.md).)
 
 ## Config shapes
 
@@ -295,6 +298,24 @@ A control is shown only where a container places it: the filter bar, a page, or 
 - **To show it again**, add a `{ "type": "filter" | "control", "id": … }` content-item for it.
 
 **In the editor (UI).** Hidden controls collect in a collapsible **HIDDEN CONTROLS** tray at the top of the canvas (collapsed, it shows a count such as `▸ HIDDEN CONTROLS (5)`), where an author can still edit them and set values. The UI setting **Edit Control → Settings → "Hide this control when viewing the dashboard"** produces the same state. Viewers don't see a hidden control, but its **value still applies**, and it can be set through scheduled deliveries, embeds, and the URL parameter **`?c--<controlId>=<value>`** (`&editControl=<controlId>` opens its edit panel).
+
+## Removing a control
+
+Hiding keeps a control; removing deletes it. In one patch:
+
+1. Set `controls.data.<id>` to `null`.
+2. Send the full `controls.order` without it.
+3. Send `containers` without its `{ "type": "filter" | "control", "id": "<id>" }` content-item (the filter bar or wherever it was placed).
+
+```json
+{
+  "summary": "remove the Region filter",
+  "controls": { "data": { "region": null }, "order": ["date_filter", "status"] },
+  "containers": [ /* full tree without the region content-item */ ]
+}
+```
+
+Dropping a control from `controls.order` without the `null` returns `400 order is missing control IDs: …`, because `data` merges by key and still holds it. Read back `controls` and `containers` to confirm it is gone.
 
 ## Parent controls (one control drives many)
 

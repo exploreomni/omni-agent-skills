@@ -164,3 +164,25 @@ relationships:
 - `always_left` → unmatched keys render as `∅`/null. Add an `'Other'` catch-all (a final `UNION ALL SELECT <unmatched>, 'Other'` is impractical for open domains — instead `COALESCE(${map.label}, 'Other')` in a derived dim, or accept nulls) to give unmatched keys a catch-all `'Other'` bucket.
 - Validates clean; the grouped query runs COMPLETE and mapped labels flow into results.
 - Prefer a true **UI Input Table** when the mapping changes over time (reps reassigned) — it's editable in-app; the query view requires a YAML edit to change.
+
+## `sql:` query views on SQL Server / Fabric (T-SQL)
+
+Omni wraps a query view's `sql:` as a derived table. Two things follow on T-SQL:
+
+- **No `WITH` CTEs.** A CTE inside a derived table fails at query time with `Incorrect syntax near the keyword 'WITH'`; validation does not catch it. Nest derived tables instead.
+- **Alias every `${other_query_view}` reference.** It is inlined as a bare subquery, so `FROM ${job_hours} WHERE …` fails. Write `FROM ${job_hours} jh`.
+
+```yaml
+# job_burn.query.view — the hours rollup as a nested derived table
+sql: |
+  SELECT h.job_id, h.hours, b.budget_hours,
+         h.hours / NULLIF(b.budget_hours, 0) AS pct_of_budget
+  FROM (
+    SELECT job_id, SUM(hours) AS hours
+    FROM ${job_hours} jh
+    GROUP BY job_id
+  ) h
+  JOIN dbo.job_budgets b ON b.job_id = h.job_id
+```
+
+Run a query against the view after saving, since this only fails at run time.

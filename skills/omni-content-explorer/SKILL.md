@@ -1,6 +1,6 @@
 ---
 name: omni-content-explorer
-description: Find, browse, and organize content in Omni Analytics — dashboards, workbooks, folders, and labels — using the Omni CLI. Use this skill whenever someone wants to find an existing dashboard, search for content, list workbooks, browse folders, see what dashboards exist, find popular reports, download a dashboard as PDF or PNG, favorite content, manage labels on documents, or any variant of "find the dashboard about", "what reports do we have", "show me our dashboards", "where is the sales report", or "download this dashboard". This skill locates and organizes content; to inspect what a dashboard tile actually queries — its fields, filters, and sorts — use omni-query.
+description: Find, browse, and organize content in Omni Analytics — dashboards, workbooks, folders, and labels — using the Omni CLI. Use this skill whenever someone wants to find an existing dashboard, search for content, list workbooks, browse folders, see what dashboards exist, find popular reports, download a dashboard as PDF or PNG, set an alert on a dashboard tile, favorite content, manage labels on documents, or any variant of "find the dashboard about", "what reports do we have", "show me our dashboards", "where is the sales report", "download this dashboard", or "alert me when this changes". This skill locates and organizes content; to inspect what a dashboard tile actually queries — its fields, filters, and sorts — use omni-query.
 ---
 
 # Omni Content Explorer
@@ -167,6 +167,15 @@ omni dashboards download-status <identifier> <jobId>
 
 Formats: `pdf`, `png`
 
+## Alerts
+
+An alert is a schedule with a condition on one tile of an existing dashboard: it runs on its cron and delivers only when the condition holds. Any user who can schedule the dashboard can create one; it needs no admin rights. Add `conditionType` (`RESULTS_PRESENT`, `RESULTS_MISSING`, `RESULTS_CHANGED`, `RESULTS_UNCHANGED`) and `conditionQueryMapKey` (the watched tile's key in `queryPresentations.data`) to the `schedules create` body; each requires the other. Confirm field names with `omni schedules create --schema` first.
+
+- **An alert sends messages to people.** Confirm the recipients with the user before creating one.
+- **The tile decides whether the alert is useful.** Shaping it is builder work: `omni-content-builder` → *Tiles an alert can watch*.
+
+The condition table, a create example, and cron timing: [references/alerts.md](references/alerts.md). For plain scheduled deliveries and recipients, see **`omni-admin`** → *Schedules*; to build or change the watched tile, see **`omni-content-builder`**.
+
 ## URL Patterns
 
 Construct direct links to content:
@@ -184,7 +193,7 @@ When scanning all documents for field references (e.g., for impact analysis), pa
 
 ## Docs Reference
 
-- [Content API](https://docs.omni.co/api/content.md) · [Documents API](https://docs.omni.co/api/documents.md) · [Folders API](https://docs.omni.co/api/folders.md) · [Labels API](https://docs.omni.co/api/labels.md) · [Dashboard Downloads](https://docs.omni.co/api/dashboard-downloads.md)
+- [Content API](https://docs.omni.co/api/content.md) · [Documents API](https://docs.omni.co/api/documents.md) · [Folders API](https://docs.omni.co/api/folders.md) · [Labels API](https://docs.omni.co/api/labels.md) · [Dashboard Downloads](https://docs.omni.co/api/dashboard-downloads.md) · [Schedules API](https://docs.omni.co/api/schedules.md)
 
 ## Related Skills
 

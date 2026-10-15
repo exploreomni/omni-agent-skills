@@ -1,6 +1,6 @@
 ---
 name: omni-content-builder
-description: Create, update, and manage Omni Analytics documents and dashboards programmatically — document lifecycle, drafts, tiles, visualizations, filters, controls, and layouts — using the Omni CLI. Use this skill whenever someone wants to build a dashboard, create a workbook or document, add tiles or charts, configure dashboard filters or controls, set up a KPI view, lay out or rearrange tiles and pages, edit a dashboard as a draft and publish it, change dashboard settings, rename/move/duplicate/delete a dashboard, modify dashboard-level model customizations like workbook-specific joins or fields, or build and edit an Omni app (custom HTML content in place of a dashboard) — including casual phrasings like "make a dashboard for…", "add a chart to…", or "clean up this dashboard's layout" that don't name the skill. For running a query or pulling metrics use omni-query; for adding a field to the shared model use omni-model-builder.
+description: Create, update, and manage Omni Analytics documents and dashboards programmatically — document lifecycle, drafts, tiles, visualizations, filters, controls, and layouts — using the Omni CLI. Use this skill whenever someone wants to build a dashboard, create a workbook or document, add tiles or charts, configure dashboard filters or controls, set up a KPI view, lay out or rearrange tiles and pages, edit a dashboard as a draft and publish it, change dashboard settings, rename/move/duplicate/delete a dashboard, modify dashboard-level model customizations like workbook-specific joins or fields, or build and edit an Omni app (custom HTML content in place of a dashboard) — including casual phrasings like "make a dashboard for…", "add a chart to…", or "clean up this dashboard's layout" that don't name the skill. Load it before any document API call, even when a local build script exists. For running a query or pulling metrics use omni-query; for adding a field to the shared model use omni-model-builder.
 ---
 
 # Omni Content Builder
@@ -22,6 +22,16 @@ The mechanics here build a *correct* dashboard; for a *good* one, apply Omni's [
 - **Put controls next to what they drive,** with action-oriented labels ("Filter by Region", not "Region").
 - **Hide complexity behind a parent control** — one control drives many; leave the child controls unplaced (see [controls.md](references/controls.md#parent-controls-one-control-drives-many)).
 - **Charts read without hovering.** A viewer should get the key insight from the chart itself; a tooltip is a detail, not the message.
+
+For an operational or exec dashboard, also apply [references/dashboard-style.md](references/dashboard-style.md) (*Building dashboards people can act on*):
+
+- **Order by what can still change.** At-risk before already lost; every list row names an owner.
+- **Tables of 5 columns or fewer, with no truncated headers.** Otherwise use a markdown `{{#result}}` list row; size `limit` to the tile and check the PNG.
+- **Every view drills.** Use `{{view.field.value}}` for names and key numbers in markdown; `.value_static` is display-only.
+- **Relative dates everywhere** — on the date control and every tile filter; no month names in titles or labels.
+- **One meaning per colour**, always with a text label; set single-series colours explicitly.
+- **Fixed scope in tile filters**; 5 or fewer viewer controls.
+- **A tile someone will alert on is a short categorical watchlist** (about 10 rows, filtered to the threshold), with the condition named in its subtitle.
 
 ## Known Issues & Safe Defaults
 
@@ -200,3 +210,4 @@ Downloads are asynchronous: start one with `omni dashboards download`, poll `dow
 - **omni-query** — test queries before adding to dashboards
 - **omni-content-explorer** — find existing dashboards to learn from
 - **omni-embed** — embed dashboards you've built in external apps
+- **omni-admin** — scheduled deliveries, recipients and email-only users
