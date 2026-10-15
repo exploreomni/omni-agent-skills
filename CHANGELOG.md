@@ -6,6 +6,15 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.21.1] - 2026-10-15
+
+### omni-analytics
+
+_Summary: `omni-admin` gets a shorter SKILL.md, within the limits the [Agent Skills specification](https://agentskills.io/specification#progressive-disclosure) recommends: a body under 5k tokens and 500 lines, with every reference linked one level deep from SKILL.md. References over 100 lines open with a table of contents. Sections move word for word into references; no instruction changes._
+
+**Changed**
+- **`omni-admin` — *A shorter SKILL.md*.** About 6.7k to 4.0k tokens (520 to 372 lines). Model roles, AI credits, color palettes, uploads, cache and validation, the Access Boost detail and the docs links move into references; the confirm-before-boosting rule and the section headings other skills cite stay in SKILL.md.
+
 ## [1.21.0] - 2026-10-13
 
 ### omni-analytics
