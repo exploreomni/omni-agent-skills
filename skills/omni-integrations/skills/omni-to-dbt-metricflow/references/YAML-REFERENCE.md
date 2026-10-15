@@ -1,5 +1,13 @@
 # dbt MetricFlow YAML Reference
 
+## Contents
+
+- [Legacy spec: `semantic_models` and `metrics`](#legacy-spec-semantic_models-and-metrics)
+- [dbt 1.12 flattened spec](#dbt-112-flattened-spec)
+- [Aggregate Type Mapping](#aggregate-type-mapping)
+- [Metric Type Mapping](#metric-type-mapping)
+- [What Omni Imports Back](#what-omni-imports-back)
+
 Use the YAML shape already used by the dbt project.
 
 Worked example. The annotated blocks below use an e-commerce model: Omni view `omni_dbt_ecomm__order_items` backed by dbt model `order_items`, joined to `omni_dbt_ecomm__users` on `user_id`. Replace the view, model, column, and entity names with your own.
