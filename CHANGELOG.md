@@ -6,6 +6,15 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.21.5] - 2026-10-15
+
+### omni-analytics
+
+_Summary: `omni-model-builder` gets a shorter SKILL.md, within the limits the [Agent Skills specification](https://agentskills.io/specification#progressive-disclosure) recommends: a body under 5k tokens and 500 lines, with every reference linked one level deep from SKILL.md. References over 100 lines open with a table of contents. Sections move word for word into references; no instruction changes._
+
+**Changed**
+- **`omni-model-builder` — *A shorter SKILL.md*.** About 10.5k to 4.6k tokens (520 to 238 lines). Model layers, file types, SQL dialect, post-merge checks, topic-scoped definitions, global relationships, troubleshooting, writing topics, query views, the two ways to ship a branch, git-connected models, triage of validation errors, why the primary key matters, the dbt branch note, the docs links and when to reach for a composite topic move into references, and sentences a reference already states are dropped. The two *Known Issues* entries added in 1.21.0 stay in SKILL.md.
+
 ## [1.21.0] - 2026-10-13
 
 ### omni-analytics
