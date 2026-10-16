@@ -228,6 +228,17 @@
         "The agent finds the dashboard identifier before calling get-queries, either by listing documents or using a known identifier"
       ],
       "expected_skill": "omni-query"
+    },
+    {
+      "id": "20",
+      "question": "What are the current numbers on the 'Monthly Revenue Trend' tile of the 'Revenue Overview' dashboard, but only for orders with status 'Complete'? Don't change the dashboard.",
+      "ground_truth": "The agent finds the tile's queryIdentifierMapKey with omni documents get-queries, runs the saved query with omni documents run-query, passing the status filter in the body's filters map, and reports the returned rows without modifying the document.",
+      "expected_behavior": [
+        "The agent calls omni documents get-queries to find the tile's queryIdentifierMapKey",
+        "The agent runs the saved query with omni documents run-query <identifier> <queryIdentifierMapKey>, passing the status condition in the body's filters keyed by field name",
+        "The agent reports rows from the run and does not create a draft, patch, or publish the dashboard"
+      ],
+      "expected_skill": "omni-query"
     }
   ]
 }

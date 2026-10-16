@@ -24,6 +24,19 @@ _Summary: sync with Omni CLI 1.5.0. New commands reach the admin, query, and con
 **Fixed**
 - **`omni-content-explorer` — *Content list labels filter*.** The *Known Issues* bullet said `omni content list` had no `--labels` filter; CLI 1.5.0 added it. The *Filter and Sort* example now uses `--labels`, and the workbook-only fallback stays for documents the content endpoint doesn't return.
 - **`omni-query` and `omni-api-conventions` — *Typed `query run` schema*.** Both said `omni query run --schema` renders the `query` object free-form and pointed at the skill examples instead. CLI 1.5.0 types `query` with `fields` and `modelId` required and enumerated `calculations` / `filters` / `sorts` / `pivots`; both docs now reference `omni query run --schema --field query` and keep the worked examples as the authority for the non-schema keys.
+- **`omni-query` — *Nested `branchId`*.** The skill said a `branchId` misplaced inside `query` is silently dropped; it is rejected. `resultType` and `cache` are still dropped there.
+- **`omni-query` — *Row limits*.** An omitted `limit` is always 1000; a topic or model `default_row_limit` is not applied. A pivoted query accepts `limit: null` when the body sets `resultType`.
+- **`omni-content-builder` — *Query presentations schema note*.** The reference said `--schema` renders the query free-form; it now lists the query and calc keys but not the `known_type` or `format` values.
+- **`omni-content-explorer` — *Content search*.** Search returns dashboards and apps, not dashboards only; only dashboard results can be scheduled.
+- **`omni-admin` — *Schedule verification*.** The check after `schedules create` named the dropped `content` field; it now checks `entity`.
+
+**Changed**
+- **`omni-model-builder` — *Scoped schema refresh*.** With `--schemas` or `--tables` and the default hard refresh, objects inside the selection that the warehouse no longer has are removed; `--hard-refresh false` only adds and updates.
+
+### omni-integrations
+
+**Changed**
+- **`omni-to-dbt-metricflow` — *Scoped refresh*.** `--schemas` / `--tables` no longer require `--hard-refresh false`. The fallback procedure keeps it, because a filtered hard refresh now removes objects inside the selection.
 
 ## [1.21.1] - 2026-10-15
 

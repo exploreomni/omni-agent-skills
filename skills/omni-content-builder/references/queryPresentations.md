@@ -160,7 +160,7 @@ The `query` object follows the [Query API](https://docs.omni.co/api/queries.md) 
 | `pivots` | Yes | Array of field names to pivot on — a color/stack dimension (e.g. for a stacked chart) **must** be pivoted. `[]` fine |
 | `userEditedSQL` | Yes | `""` for a normal semantic tile. Set to a SQL string to make this a **raw-SQL tile** (see below). |
 
-> **`--schema` can't enumerate this `query` shape.** The `query`/`calculations` object sits in the **free-form** region of the documents body, so `omni documents v2-create --schema` (and `query run --schema`) render it without sub-fields — they won't list `known_type`, the `format` strings, or the calc keys. The enums above are runtime-verified and documented here precisely because `--schema` can't supply them; for where `--schema` *is* vs *isn't* authoritative, see the [`omni-api-conventions`](../../../rules/omni-api-conventions.mdc) rule.
+> **`--schema` lists the keys, not the values.** On CLI ≥ 1.5.0, `omni documents v2-create --schema --field queryPresentations.data.query` (and `query run --schema --field query`) list the query and calc keys, but not `known_type`, the `format` strings, or the `sql_expression` AST. The enums above are runtime-verified and documented here because `--schema` can't supply them; for where `--schema` *is* vs *isn't* authoritative, see the [`omni-api-conventions`](../../../rules/omni-api-conventions.mdc) rule.
 
 There is no `query.visConfig` in v2 — the v1 `{ "chartType": … }` hint is not part of the schema and does nothing. The tile is driven entirely by the presentation-level `visConfig` envelope.
 

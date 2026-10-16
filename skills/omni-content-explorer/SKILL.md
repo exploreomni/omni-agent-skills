@@ -50,7 +50,7 @@ For "find the dashboard about X", reach for free-text search first (CLI ≥ 1.1.
 omni content search --q "revenue" --limit 25
 ```
 
-`--q` keywords are matched against dashboard names, descriptions, query names, folder names, labels, and creator names. `--limit` caps results at 1–25. Each result carries `identifier`, `name`, `description`, `folderPath`, `tileNames`, `verified`, and a ready-made `url` — link the user straight to it. Search covers **dashboards only** — workbook-only documents don't surface here, so fall back to `omni content list` / `omni documents list` filtering when the target may not have a dashboard.
+`--q` keywords are matched against names, descriptions, query names, folder names, labels, and creator names. `--limit` caps results at 1–25. Each result carries `identifier`, `name`, `description`, `folderPath`, `tileNames`, `verified`, and a ready-made `url` — link the user straight to it. Search covers **dashboards and apps** (CLI ≥ 1.5.0); each result's `type` is `dashboard` or `app`, and only dashboard results can be scheduled. Workbook-only documents don't surface here, so fall back to `omni content list` / `omni documents list` filtering when the target may not have a dashboard.
 
 ## Browsing Content
 
@@ -127,6 +127,7 @@ omni folders list --include onlyFavorites
 
 # Get a single folder (CLI ≥ 1.5.0). Returns the fields the API can set;
 # owner and access still come from `omni folders get-permissions <folderId>`.
+# 404 means the folder does not exist *or* the caller cannot view it.
 omni folders get <folderId>
 
 # Create
@@ -187,7 +188,7 @@ omni apps download-status <identifier> <jobId>
 omni apps download-file <identifier> <jobId>
 ```
 
-Formats: `pdf`, `png`, `xlsx`, `csv` (full-app `csv` is a ZIP of one CSV per query).
+Formats: `pdf`, `png`, `xlsx`, `csv` (full-app `csv` is a ZIP of one CSV per query). Queries on models the user cannot query are left out of the file without an error, so a file missing sheets is an access issue, not a failed job.
 
 ## Alerts
 

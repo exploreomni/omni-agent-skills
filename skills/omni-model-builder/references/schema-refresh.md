@@ -17,6 +17,8 @@ omni models refresh <modelId>
 omni models refresh <modelId> --branch-id <branchId>
 ```
 
+`--schemas` and `--tables` limit the refresh to the listed objects. With the default hard refresh, objects inside that selection that the warehouse no longer has are **removed** from the schema model; add `--hard-refresh false` to only add and update.
+
 Requires **Connection Admin** permissions.
 
 **Deleted or renamed columns:** If the user says a database column was deleted or renamed but does not name the exact table/column, do not stop immediately for clarification. First create a branch, refresh the schema on that branch, validate the branch, and run the content validator to identify broken model fields, dashboards, and tiles:

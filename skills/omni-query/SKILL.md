@@ -98,7 +98,7 @@ omni query run --body '{
 | `table` | Conditional | Base view (the `FROM`). Required for a semantic query **unless** `join_paths_from_topic_name` is set (base view comes from the topic) or `userEditedSQL` is used (table ignored). |
 | `fields` | Yes | Array of `view.field_name` references |
 | `join_paths_from_topic_name` | Recommended | Topic for join resolution |
-| `limit` | No | Row limit (default 1000, max 50000, `null` for unlimited) |
+| `limit` | No | Row limit (default 1000, max 50000, `null` for unlimited). A topic's or model's `default_row_limit` is not applied here: an omitted `limit` is always 1000 |
 | `sorts` | No | Array of sort objects |
 | `filters` | No | Filter object |
 | `pivots` | No | Array of field names to pivot on |
@@ -157,7 +157,7 @@ users.created_at[year]      — Yearly
 }
 ```
 
-**Pivoted queries reject `limit: null`** — pass an explicit numeric limit (e.g., `5000`). Unlimited is only allowed when `pivots[]` is empty.
+**Pivoted queries reject `limit: null`** unless the body sets a top-level `resultType` — otherwise pass an explicit numeric limit (e.g., `5000`).
 
 ### Transpose measures into rows (`transposed_measures`)
 
@@ -237,7 +237,7 @@ omni query run --body '{
 
 ## Request-level options (outside `query`)
 
-These keys sit at the **top level** of the body, beside `query`, not inside it. **The `query` object is permissive — a key you misplace inside `query` (e.g. `resultType`, `branchId`, `cache`) is silently dropped, not rejected**, so the call "succeeds" while ignoring your option. The tell-tale for a misplaced `resultType` is getting the base64-Arrow envelope back when you asked for JSON/CSV.
+These keys sit at the **top level** of the body, beside `query`, not inside it. **The `query` object is permissive — a key you misplace inside `query` (e.g. `resultType`, `cache`) is silently dropped, not rejected**, so the call "succeeds" while ignoring your option. `branchId` is the exception: nested inside `query` it is rejected. The tell-tale for a misplaced `resultType` is getting the base64-Arrow envelope back when you asked for JSON/CSV.
 
 | Option | Description |
 |--------|-------------|
@@ -357,7 +357,7 @@ omni query wait --job-ids "$JID" --completion-only true
 omni query results --job-id "$JID" --offset 0
 ```
 
-`--completion-only` is also accepted as a top-level body key on `omni query run` with the same effect. Cannot combine with `resultType`.
+On `omni query run`, set `"completionOnly": true` at the body's top level for the same effect. Cannot combine with `resultType`.
 
 ## Running Queries from Dashboards
 
@@ -374,7 +374,7 @@ omni query run --body '{ "query": { ... }, "userId": "user-uuid-here" }'
 omni query run --body '{ "query": { ... }, "cache": "SkipCache" }'
 ```
 
-**Run a saved query as it is saved** (CLI ≥ 1.5.0). `omni documents run-query <identifier> <queryId>` runs one of the document's saved queries server-side and returns a single JSON / CSV / XLSX document — the query body is read on the server, so the caller can only replace or add filters for the run. A tile on the dashboard (or any query of a document with an app) runs for anyone who can view it; a hidden tile or an off-dashboard tab needs workbook access. `<queryId>` is the tile's `queryIdentifierMapKey` or its query presentation id from `omni documents get-queries`. Prefer this over reconstructing the full `query run` body when you want the saved behavior intact.
+**Run a saved query as it is saved** (CLI ≥ 1.5.0). `omni documents run-query <identifier> <queryId>` runs one of the document's saved queries server-side and returns a single JSON / CSV / XLSX document — the query body is read on the server, so the caller can only replace or add filters for the run. A tile on the dashboard (or any query of a document with an app) runs for anyone who can view it; a hidden tile or an off-dashboard tab needs workbook access. `<queryId>` is the tile's `queryIdentifierMapKey` or its query presentation id from `omni documents get-queries`. Per-run `filters` are keyed by field name; a filter that cannot be applied fails the run with a 400 rather than running without it. With an org-scoped key, `--user-id` runs as that member, on `get-queries` too. Prefer this over reconstructing the full `query run` body when you want the saved behavior intact.
 
 ## AI-Powered Query Generation
 

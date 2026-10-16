@@ -212,6 +212,10 @@ omni user-attributes user-attribute-selection-update --body '{ "user_attribute_i
 omni user-attributes user-attribute-selection-delete --user-attribute-id <attributeId>
 ```
 
+> `user-attribute-selection-update` / `-delete` change the **caller's own**
+> switch. An org API key acts as its creator, so an admin cannot switch another
+> user's value with them; the call succeeds and changes the admin's own value.
+>
 > Sending an **empty `values`** array with `allow_any_value: false` removes the
 > provisioning entirely, which also **stops honouring any switch the user has
 > already made**. Confirm with the requester before clearing provisioning on a
@@ -281,6 +285,9 @@ omni schedules create --body '{
 
 # Deliver a workbook tab instead of the dashboard (CLI ≥ 1.5.0).
 # Set entity: "workbook" and pass the tab via queryIdentifierMapKey; default stays entity: "dashboard".
+# `schedules update` does not take entity, so changing what a schedule delivers means creating a new one.
+# filterConfig, containerPages and singleColumnLayout apply to dashboard deliveries only.
+# Find these later with: omni schedules list --content-type "workbook tab"
 omni schedules create --body '{
   "identifier": "document-identifier",
   "name": "Weekly Pipeline Tab",
@@ -403,7 +410,7 @@ omni schedules list -o json
 omni schedules recipients-get <scheduleId>
 ```
 
-Check that: the created schedule id appears in the list and the returned fields match the requested `schedule` cron, `timezone`, `destinationType`, `content`, `format`, and dashboard `identifier`. If the list/get response shape is not parseable, report that schedule setting verification was inconclusive instead of silently treating an empty parser result as success. Always verify recipients with `recipients-get`.
+Check that: the created schedule id appears in the list and the returned fields match the requested `schedule` cron, `timezone`, `destinationType`, `entity`, `format`, and document `identifier`. If the list/get response shape is not parseable, report that schedule setting verification was inconclusive instead of silently treating an empty parser result as success. Always verify recipients with `recipients-get`.
 
 ## IP Allowlist (CLI ≥ 1.5.0)
 
