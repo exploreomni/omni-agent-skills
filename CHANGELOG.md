@@ -6,6 +6,15 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.21.7] - 2026-10-15
+
+### omni-integrations
+
+_Summary: `omni-to-dbt-metricflow` gets a shorter SKILL.md, within the limits the [Agent Skills specification](https://agentskills.io/specification#progressive-disclosure) recommends: a body under 5k tokens and 500 lines, with every reference linked one level deep from SKILL.md. References over 100 lines open with a table of contents. Sections move word for word into references; no instruction changes._
+
+**Changed**
+- **`omni-to-dbt-metricflow` — *A shorter SKILL.md*.** About 8.1k to 4.5k tokens (389 to 256 lines). Troubleshooting, the name-check searches and options, the parity checks, the handoff checklist and the view, entity and measure-output tables move into references, and three notes on dbt environments, pushing before a sync and scoped refreshes move into `FALLBACK-TO-DBT.md`. Step 10 keeps its safety rules and points to the full sequence there, and Known Issues entries that Critical Rules or a reference already state are dropped. `FIELD-MAPPING.md`, `YAML-REFERENCE.md` and `FALLBACK-TO-DBT.md` open with a table of contents.
+
 ## [1.21.0] - 2026-10-13
 
 ### omni-analytics

@@ -1,5 +1,20 @@
 # Omni → MetricFlow Field Mapping
 
+## Contents
+
+- [Entities and View Mapping](#entities-and-view-mapping)
+- [Dimensions](#dimensions)
+- [Dimension Overrides and Measures](#dimension-overrides-and-measures)
+- [Measure Output by Omni Definition](#measure-output-by-omni-definition)
+- [Aggregations](#aggregations)
+- [Same-View Filter → Predicate Inside `expr`](#same-view-filter--predicate-inside-expr)
+- [Cross-View Filter → Atomic Measure Plus Simple Metric](#cross-view-filter--atomic-measure-plus-simple-metric)
+- [Filter Operators](#filter-operators)
+- [Ratio and Derived Metrics](#ratio-and-derived-metrics)
+- [Topic Extras](#topic-extras)
+- [Unsupported Constructs](#unsupported-constructs)
+- [Adapt to your project](#adapt-to-your-project)
+
 Use the effective Omni `combined` YAML. Do not export fields with dbt provenance comments.
 
 Worked example. The examples below use an e-commerce model: Omni view `omni_dbt_ecomm__order_items` backed by dbt model `order_items`, joined to `omni_dbt_ecomm__users` on `user_id`. Replace the view, model, column, and entity names with your own.
@@ -7,6 +22,18 @@ Worked example. The examples below use an e-commerce model: Omni view `omni_dbt_
 Use [YAML-REFERENCE.md](./YAML-REFERENCE.md) for the equivalent dbt 1.12 flattened form.
 
 ## Entities and View Mapping
+
+| Omni source | dbt target | Action |
+|---|---|---|
+| `omni_dbt_ecomm__order_items` | `ref('order_items')` | Export when dbt owns the source model. |
+| `ecomm__order_items` schema view | `ref('order_items')` | Export only if the dbt integration owns it. |
+| CSV view | none | Skip and report. |
+| `derived_table` view | none | Skip and report. |
+| `*.query.view` | none | Skip and report. |
+
+| Omni relationship | Entity on the many side | Entity on the one side |
+|---|---|---|
+| `${a.user_id} = ${b.id}` | `user_id`, `foreign`, `expr: user_id` | `user_id`, `primary`, `expr: id` |
 
 ```yaml
 # Omni relationship
@@ -144,6 +171,16 @@ measures:
 ```
 
 It is a valid dbt example. In Omni it is correct only after the matching Omni dimension override has been removed.
+
+## Measure Output by Omni Definition
+
+| Omni definition | Legacy output | Flattened dbt 1.12 output |
+|---|---|---|
+| Unfiltered aggregate | Measure named as Omni measure with `create_metric: true` | Simple metric named as Omni measure. |
+| Filtered aggregate with a same-view predicate (any aggregate type) | Measure named as Omni measure with the predicate inside `expr` and `create_metric: true`. No metric `filter`. `count`: `CASE WHEN <predicate> THEN 1 END`. `sum`: `CASE WHEN <predicate> THEN <column> ELSE 0 END`. Every other aggregate: `CASE WHEN <predicate> THEN <column> END`. | Simple metric with the same `agg` and `expr`. |
+| Filtered aggregate with a cross-view predicate | Atomic `<agg>_<column>` measure plus metric named as Omni measure with `filter` | Simple metric named as Omni measure with `agg`, `expr`, and `filter`. |
+| Ratio of measures | Ratio metric | Top-level ratio metric. |
+| Arithmetic over measures | Derived metric | Top-level derived metric. |
 
 ## Aggregations
 
