@@ -151,6 +151,14 @@ jobs:
         id: sync
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Headless runs deny every tool not listed here, and the action still
+          # reports success. Without this list the agent could not run `omni`,
+          # edit a file, or open a PR, and every release was marked synced with
+          # nothing done. The schema makes the agent say what it did, so the
+          # next step can check it instead of trusting a green action.
+          claude_args: |
+            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(omni:*),Bash(grep:*),Bash(git:*),Bash(gh release view:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh pr create:*),Bash(gh api:*),Bash(python3 .github/scripts/stamp_versions.py:*)"
+            --json-schema '{"type":"object","properties":{"outcome":{"type":"string","enum":["pr_opened","no_changes","blocked"],"description":"pr_opened: a PR is open on the branch you were given. no_changes: you checked the release and nothing in this repo needs to change. blocked: you could not finish (a denied tool, a failed command, missing input)."},"reason":{"type":"string","description":"One or two sentences on what you did or what stopped you."}},"required":["outcome","reason"]}'
           prompt: |
             Omni CLI release ${{ steps.release.outputs.tag }} was published.
 
@@ -170,11 +178,67 @@ jobs:
             If nothing in this repo is affected by the release, make no changes and
             open no PR.
 
+            Report `blocked` if you could not complete the procedure for any
+            reason. Never report `no_changes` for a release you could not fully
+            check.
+
+      # The marker below stops every later run from retrying this tag, so it is
+      # only earned by a checked outcome: a PR that actually exists, or a
+      # "no changes" verdict from a run that was not denied any tools.
+      - name: Check the sync outcome
+        id: outcome
+        if: always() && steps.guard.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ steps.release.outputs.branch }}
+          SYNC_RESULT: ${{ steps.sync.outcome }}
+          STRUCTURED: ${{ steps.sync.outputs.structured_output }}
+          EXECUTION_FILE: ${{ steps.sync.outputs.execution_file }}
+        run: |
+          set -euo pipefail
+          # The action's log shows only a count of denied tool calls. Name them,
+          # so a missing entry in --allowedTools is obvious from the run page.
+          DENIALS=0
+          if [ -n "$EXECUTION_FILE" ] && [ -f "$EXECUTION_FILE" ]; then
+            DENIALS=$(jq '[.[] | select(.type == "result") | (.permission_denials // []) | length] | add // 0' "$EXECUTION_FILE")
+            jq -r '.[] | select(.type == "result") | (.permission_denials // [])[]
+              | "::warning::Denied \(.tool_name): \(.tool_input | tostring | .[0:200])"' "$EXECUTION_FILE" \
+              | sort -u | head -n 25
+          fi
+          echo "Denied tool calls: $DENIALS"
+
+          if [ "$SYNC_RESULT" != "success" ]; then
+            echo "::error::The sync agent did not finish ($SYNC_RESULT). Not marking this tag as synced."
+            exit 1
+          fi
+          OUTCOME=$(jq -r '.outcome // empty' <<<"$STRUCTURED")
+          REASON=$(jq -r '.reason // empty' <<<"$STRUCTURED")
+          echo "Agent outcome: $OUTCOME — $REASON"
+
+          PR_NUMBER=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open \
+            --json number --jq '.[0].number // empty')
+          case "$OUTCOME" in
+            pr_opened)
+              if [ -z "$PR_NUMBER" ]; then
+                echo "::error::The agent reported a PR, but none is open on $BRANCH."
+                exit 1
+              fi ;;
+            no_changes)
+              if [ "$DENIALS" -gt 0 ]; then
+                echo "::error::The agent reported no changes after $DENIALS denied tool calls, so it may not have been able to check. Not marking this tag as synced."
+                exit 1
+              fi ;;
+            *)
+              echo "::error::The agent reported '${OUTCOME:-nothing}': $REASON"
+              exit 1 ;;
+          esac
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
       # Pushed before the review request, and never gated on it: the marker is
       # what stops tomorrow's poll from redoing this sync, while the /review
       # comment is a convenience. A failure there must not cost us the marker.
       - name: Mark this tag as synced
-        if: steps.guard.outputs.proceed == 'true' && steps.sync.outcome == 'success'
+        if: steps.guard.outputs.proceed == 'true' && steps.outcome.outcome == 'success'
         env:
           TAG: ${{ steps.release.outputs.tag }}
         run: |
@@ -185,25 +249,18 @@ jobs:
           git push origin "refs/tags/cli-synced/$TAG"
 
       - name: Request review on the new PR
-        if: steps.guard.outputs.proceed == 'true' && steps.sync.outcome == 'success'
+        if: steps.guard.outputs.proceed == 'true' && steps.outcome.outcome == 'success' && steps.outcome.outputs.pr_number != ''
         env:
           # skill-review.yml triggers on issue_comment, and GitHub does not start
           # workflow runs from events created with GITHUB_TOKEN. Commenting with it
           # would post the comment and silently never trigger a review, so this
-          # needs its own token.
+          # needs its own token. The PR was already looked up with GITHUB_TOKEN in
+          # the outcome check, so a rejected review token only costs the comment.
           GH_TOKEN: ${{ secrets.SYNC_REVIEW_TOKEN || secrets.GITHUB_TOKEN }}
           HAVE_REVIEW_TOKEN: ${{ secrets.SYNC_REVIEW_TOKEN != '' }}
-          BRANCH: ${{ steps.release.outputs.branch }}
+          PR_NUMBER: ${{ steps.outcome.outputs.pr_number }}
         run: |
           set -euo pipefail
-          # --head matches a branch name exactly, so this must be the same
-          # branch name handed to the agent above.
-          PR_NUMBER=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" \
-            --json number --jq '.[0].number // empty')
-          if [ -z "$PR_NUMBER" ]; then
-            echo "No PR on $BRANCH — the release needed no skill changes."
-            exit 0
-          fi
           if [ "$HAVE_REVIEW_TOKEN" != "true" ]; then
             echo "::warning::SYNC_REVIEW_TOKEN is not set. Comment /review on PR #$PR_NUMBER by hand."
             exit 0
