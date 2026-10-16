@@ -1,0 +1,44 @@
+{
+  "version": "1",
+  "skill_name": "omni-to-snowflake-semantic-view",
+  "defaults": {
+    "timeout_sec": 600,
+    "judge_model": "claude-sonnet-4-6"
+  },
+  "cases": [
+    {
+      "id": "1",
+      "question": "Turn our Omni 'Order Items' topic into a Snowflake Semantic View called order_items_sv in ANALYTICS.SEMANTIC, and let the ANALYST role use it. I'm running you in Claude Code.",
+      "ground_truth": "The agent recognizes an external environment, checks for the snow CLI first (then SnowSQL or the Python connector), and confirms the connection method. It confirms the topic, name, database and schema, and role. It reads the topic, relationships and view files with omni models yaml-get, confirms the table list and join hierarchy, maps dimensions, time dimensions and metrics, and stops for review before generating YAML. It creates the view with CALL SYSTEM$CREATE_SEMANTIC_VIEW_FROM_YAML('ANALYTICS.SEMANTIC', $$...$$), using a temporary .sql file for long YAML, then grants SELECT on the semantic view to ANALYST.",
+      "expected_behavior": [
+        "The agent detects that it runs outside Snowflake and confirms a connection method, preferring the snow CLI",
+        "The agent confirms the topic, name, location and role before exploring the model",
+        "The agent confirms the table list and stops for a review of dimensions, metrics and relationships before generating output",
+        "The agent creates the view with SYSTEM$CREATE_SEMANTIC_VIEW_FROM_YAML and grants SELECT to the confirmed role"
+      ],
+      "expected_skill": "omni-to-snowflake-semantic-view"
+    },
+    {
+      "id": "2",
+      "question": "Our Omni order_items view has a filter-only field date_basis (values created and shipped, default_filter is: created) and an event_date dimension whose SQL switches between created_at and shipped_at on it. Convert the Order Items topic to a Snowflake Semantic View.",
+      "ground_truth": "The agent resolves the Mustache in event_date statically, using the default_filter value (created), so event_date maps to created_at. It does not emit date_basis itself as a dimension, metric or filter: filter-only fields only parameterize other fields' SQL. It tells the user that the Semantic View fixes event_date to the default and that the switch is not available in Snowflake. For a field that referenced a filter-only field with no default_filter and no inline fallback, it would warn and ask the user how to proceed.",
+      "expected_behavior": [
+        "The agent resolves event_date with the default_filter value, created",
+        "The agent does not emit the filter-only field as a dimension, metric or filter",
+        "The agent tells the user that the date switch does not carry over to the Semantic View"
+      ],
+      "expected_skill": "omni-to-snowflake-semantic-view"
+    },
+    {
+      "id": "3",
+      "question": "Convert the Order Items topic to a Snowflake Semantic View. The topic's fields list is [ecomm__order_items.*, ecomm__users.country, -ecomm__order_items.cost, -ecomm__order_items.raw_json].",
+      "ground_truth": "The agent resolves the field list in order: every order_items field from the wildcard, plus users.country, then removes cost and raw_json even though the wildcard included them. The Semantic View contains no cost or raw_json field, and the agent reports the excluded fields when it shows the mapping for review.",
+      "expected_behavior": [
+        "The agent applies the exclusions after the inclusions, so cost and raw_json are removed despite the wildcard",
+        "The output includes users.country and the other order_items fields",
+        "The agent lists the excluded fields in the review before generating output"
+      ],
+      "expected_skill": "omni-to-snowflake-semantic-view"
+    }
+  ]
+}
