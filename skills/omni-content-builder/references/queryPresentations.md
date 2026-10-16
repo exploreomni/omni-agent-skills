@@ -22,6 +22,7 @@ Every chart queryPresentation requires: `name`, `prefersChart: true`, a `visConf
 - [queryPresentation Object Parameters](#querypresentation-object-parameters)
 - [Query Object Parameters](#query-object-parameters)
 - [chartType values (summary)](#charttype-values-summary)
+- [Tiles not built on a topic](#tiles-not-built-on-a-topic)
 - [Discovering the Full Structure from Existing Dashboards](#discovering-the-full-structure-from-existing-dashboards)
 - [Caveats When Reusing queryPresentations](#caveats-when-reusing-querypresentations)
 - [Chart Type Examples](#chart-type-examples)
@@ -223,6 +224,12 @@ A stacked **column** is vertical; a stacked **bar** is horizontal — Omni disti
 | `table` | Data table |
 
 > **Not valid**: `barColor`, `areaColor`, `stackedBarColor`, `scatter`, `lineColor`-style names for bar/area. Earlier versions of this doc used `barColor`/`areaColor`/`stackedBarColor` — those are **not** in Omni's `chartType` enum and will be rejected. Use `column`/`bar`, `area`, and `columnStacked`/`barStacked` respectively. (`lineColor`, `pointColor`, `pointSize`, `pointSizeColor` *are* valid.)
+
+## Tiles not built on a topic
+
+A tile **not** built on a topic still runs (a bare base-view query or a raw-SQL `userEditedSQL` tile uses the global `relationships` file), but restricted queriers and viewers can't see it; the two [Known Issues](../SKILL.md#known-issues--safe-defaults) rules in SKILL.md say when to ask and when to advise Access Boost. To author a raw-SQL tile and boost it end to end, see [references/queryPresentations.md](queryPresentations.md) → *Raw-SQL tiles*; for the boost commands and the org-level prerequisite, see **`omni-admin`** → *Document Permissions* (`add-permits` with `accessBoost`, or `update-permission-settings`).
+
+**Authoring limit (distinct from the visibility above):** if *you* are a Restricted Querier, you **can't author a non-topic / raw-SQL tile at all** — `QUERY_TOPICS` queries topics only — so **every tile you build must be topic-based**. The non-topic + Access-Boost path is only for a `QUERY_FULL_MODEL` author building for a restricted *audience*. (Check with `whoami`; see **`omni-admin`** → *Model Roles & Caller Access*.)
 
 ## Discovering the Full Structure from Existing Dashboards
 
