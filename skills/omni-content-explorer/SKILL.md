@@ -39,7 +39,7 @@ omni folders --help     # Folder operations
 
 ## Known Issues & Safe Defaults
 
-- `omni content list --labels <name>[,<name>]` filters **dashboards and apps** by label (CLI ≥ 1.5.0). For workbook-only documents, which `content list` does not return, fall back to `omni documents list --include labels -o json` and filter client-side on the `labels` array.
+- `omni content list --labels <name>[,<name>]` filters **dashboards and apps** by label (CLI ≥ 1.5.0). Without `--scope` it returns organization content only, so restricted content with the label is left out without warning; run it again with `--scope restricted` for a complete list. For workbook-only documents, which `content list` does not return, fall back to `omni documents list --include labels -o json` and filter client-side on the `labels` array.
 - Some dashboard exports can fail before a job is created, for example with `Cannot use 'in' operator to search for 'query_id' in ...`. If `omni dashboards download` returns an error and no job ID, do not call `download-status` or claim the export completed. Report the dashboard identifier, the exact API error, and that no downloadable job was created.
 
 ## Searching Content
@@ -73,6 +73,7 @@ omni content list --include '_count,labels'
 # Covers dashboards and apps; workbook-only documents are not returned by content list,
 # so for those fall back to `omni documents list --include labels -o json` + client-side filter.
 omni content list --labels "Weekly Digest,Finance"
+omni content list --labels "Weekly Digest,Finance" --scope restricted   # the default scope is organization only
 
 # By scope
 omni content list --scope organization

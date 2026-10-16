@@ -28,6 +28,8 @@ _Summary: sync with Omni CLI 1.5.0. New commands reach the admin, query, and con
 - **`omni-query` — *Row limits*.** An omitted `limit` is always 1000; a topic or model `default_row_limit` is not applied. A pivoted query accepts `limit: null` when the body sets `resultType`.
 - **`omni-content-builder` — *Query presentations schema note*.** The reference said `--schema` renders the query free-form; it now lists the query and calc keys but not the `known_type` or `format` values.
 - **`omni-content-explorer` — *Content search*.** Search returns dashboards and apps, not dashboards only; only dashboard results can be scheduled.
+- **`omni-content-explorer` — *Label filter scope*.** `content list --labels` without `--scope` returns organization content only; the skill now adds a `--scope restricted` pass.
+- **`omni-query` — *Calculation `sql_expression`*.** `--schema` says the server parses `original_formula` when `sql_expression` is omitted; the server rejects the calculation instead. The reference keeps `sql_expression` required and now says so.
 - **`omni-admin` — *Schedule verification*.** The check after `schedules create` named the dropped `content` field; it now checks `entity`.
 
 **Changed**
