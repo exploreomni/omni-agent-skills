@@ -6,6 +6,40 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.22.0] - 2026-10-16
+
+### omni-analytics
+
+_Summary: sync with Omni CLI 1.5.0. New commands reach the admin, query, and content skills — IP allowlist, user-attribute selection switching, app downloads, folder get/favorites, saved-document query execution, and chunked query results. Two stale claims are removed now that the CLI covers them: `content list --labels` and the typed `query run` schema._
+
+**Added**
+- **`omni-admin` — *IP allowlist*.** `omni ip-allowlist get` / `update` (CLI ≥ 1.5.0) read and write the organization's IP allowlist, with a server-side guard that refuses an update that would strand the caller or leave the allowlist enabled with no entries.
+- **`omni-admin` — *Switchable attribute values*.** `omni user-attributes user-attribute-selectable-values-get`/`-update` provision which values a user or group may switch between, and `user-attribute-selections-list` / `user-attribute-selection-update` / `user-attribute-selection-delete` let the caller switch the active value. Clearing provisioning stops honouring an existing switch.
+- **`omni-admin` — *Workbook schedules*.** `omni schedules create` / `update` accept `entity: "workbook"` with a `queryIdentifierMapKey` to deliver a single workbook tab instead of the dashboard; default stays `entity: "dashboard"`.
+- **`omni-content-explorer` — *App downloads*.** `omni apps download` / `download-status` / `download-file` render a published app on the same async pattern as `dashboards download`, with the same `--user-id` scoping across all three calls. Formats are `pdf`, `png`, `xlsx`, `csv`.
+- **`omni-content-explorer` — *Folder get and favorites*.** `omni folders get <folderId>` returns the writable fields (owner and access still come from `folders get-permissions`); `omni folders add-favorite` / `remove-favorite` are idempotent; `omni folders list --include onlyFavorites` scopes the list to a user's favorites (org-scoped keys must also pass `--user-id`).
+- **`omni-query` — *Saved document queries*.** `omni documents run-query <identifier> <queryId>` runs a saved query as it is saved — the caller may replace or add filters but cannot change what runs — returning a single JSON / CSV / XLSX document.
+- **`omni-query` — *Chunked query results*.** `omni query wait --completion-only true` (also a `completionOnly` body key on `query run`) splits completion from the payload; `omni query results --job-id <id> --offset <n>` reads the base64 Arrow slices by byte offset. Results stay readable for about an hour after completion.
+
+**Fixed**
+- **`omni-content-explorer` — *Content list labels filter*.** The *Known Issues* bullet said `omni content list` had no `--labels` filter; CLI 1.5.0 added it. The *Filter and Sort* example now uses `--labels`, and the workbook-only fallback stays for documents the content endpoint doesn't return.
+- **`omni-query` and `omni-api-conventions` — *Typed `query run` schema*.** Both said `omni query run --schema` renders the `query` object free-form and pointed at the skill examples instead. CLI 1.5.0 types `query` with `fields` and `modelId` required and enumerated `calculations` / `filters` / `sorts` / `pivots`; both docs now reference `omni query run --schema --field query` and keep the worked examples as the authority for the non-schema keys.
+- **`omni-query` — *Nested `branchId`*.** The skill said a `branchId` misplaced inside `query` is silently dropped; it is rejected. `resultType` and `cache` are still dropped there.
+- **`omni-query` — *Row limits*.** An omitted `limit` is always 1000; a topic or model `default_row_limit` is not applied. A pivoted query accepts `limit: null` when the body sets `resultType`.
+- **`omni-content-builder` — *Query presentations schema note*.** The reference said `--schema` renders the query free-form; it now lists the query and calc keys but not the `known_type` or `format` values.
+- **`omni-content-explorer` — *Content search*.** Search returns dashboards and apps, not dashboards only; only dashboard results can be scheduled.
+- **`omni-content-explorer` — *Label filter scope*.** `content list --labels` without `--scope` returns organization content only; the skill now adds a `--scope restricted` pass.
+- **`omni-query` — *Calculation `sql_expression`*.** `--schema` says the server parses `original_formula` when `sql_expression` is omitted; the server rejects the calculation instead. The reference keeps `sql_expression` required and now says so.
+- **`omni-admin` — *Schedule verification*.** The check after `schedules create` named the dropped `content` field; it now checks `entity`.
+
+**Changed**
+- **`omni-model-builder` — *Scoped schema refresh*.** With `--schemas` or `--tables` and the default hard refresh, objects inside the selection that the warehouse no longer has are removed; `--hard-refresh false` only adds and updates.
+
+### omni-integrations
+
+**Changed**
+- **`omni-to-dbt-metricflow` — *Scoped refresh*.** `--schemas` / `--tables` no longer require `--hard-refresh false`. The fallback procedure keeps it, because a filtered hard refresh now removes objects inside the selection.
+
 ## [1.21.1] - 2026-10-15
 
 ### omni-analytics

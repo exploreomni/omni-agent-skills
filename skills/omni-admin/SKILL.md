@@ -43,6 +43,7 @@ omni schedules --help        # Schedule operations
 omni connections --help      # Connection management
 omni documents --help        # Document permissions
 omni folders --help          # Folder permissions
+omni ip-allowlist --help     # Organization IP allowlist (CLI ≥ 1.5.0)
 omni scim users-create --schema   # Print a command's args, flags, body schema + example, and response shape (no token)
 ```
 
@@ -187,6 +188,39 @@ user record with a SCIM update even if the initial user lookup already shows the
 requested value. This keeps the operation idempotent while still honoring the
 requested admin action.
 
+### Switchable attribute values (CLI ≥ 1.5.0)
+
+An attribute can be **provisioned** so a user or group may *switch between* a
+curated list of values at runtime (dynamic shared extensions, access filters,
+connection environment routing). The caller's chosen value then drives those
+features exactly as an assigned value would — so provisioning cannot grant
+access the user does not already have access to.
+
+```bash
+# Admin: list / set the values a user or group may switch to.
+# GET uses --user-id or --group-id flags; the PUT body carries user_id or group_id (not both).
+omni user-attributes user-attribute-selectable-values-get <attributeId> --user-id <membershipId>
+omni user-attributes user-attribute-selectable-values-update <attributeId> --body '{
+  "user_id": "<membershipId>",
+  "values": ["us-east", "us-west"],
+  "allow_any_value": false
+}'
+
+# Caller self-service: list switchable attributes, switch one, or clear the switch
+omni user-attributes user-attribute-selections-list
+omni user-attributes user-attribute-selection-update --body '{ "user_attribute_id": "<attributeId>", "values": ["us-west"] }'
+omni user-attributes user-attribute-selection-delete --user-attribute-id <attributeId>
+```
+
+> `user-attribute-selection-update` / `-delete` change the **caller's own**
+> switch. An org API key acts as its creator, so an admin cannot switch another
+> user's value with them; the call succeeds and changes the admin's own value.
+>
+> Sending an **empty `values`** array with `allow_any_value: false` removes the
+> provisioning entirely, which also **stops honouring any switch the user has
+> already made**. Confirm with the requester before clearing provisioning on a
+> user who relies on the switched value for row-level security.
+
 ## Model Roles & Caller Access
 
 Before deciding where a model or content change goes, run `omni whoami whoami --model-id <modelId>` and decide from the permissions in `rolesByModel[<id>].permissions`, since a role can appear under a custom name or an internal code: `QUERY_FULL_MODEL` is the signal that the caller can create a branch, `UPDATE` that they can merge to the shared model (without it, open a PR or request a merge), and `USE_WORKBOOKS` that they can create content. A caller with `USE_WORKBOOKS` and no `QUERY_FULL_MODEL` (a Restricted Querier) can change only existing views in the document's workbook model and must build every tile on a topic, so do not plan topic, join, or access-grant changes for them. The full permission table, the decision rules, and the role-assignment commands (keyed by membership id, with the body key `roleName`) are in [references/model-roles.md](references/model-roles.md).
@@ -237,16 +271,33 @@ omni folders add-permissions <folderId> --body '{
 # List schedules
 omni schedules list
 
-# Create schedule
+# Create schedule (default entity is "dashboard", so omitting it delivers the dashboard)
 omni schedules create --body '{
   "identifier": "dashboard-identifier",
   "name": "Weekly Dashboard - Monday 9am PT",
   "schedule": "0 9 ? * MON *",
   "timezone": "America/Los_Angeles",
   "destinationType": "email",
-  "content": "dashboard",
   "format": "pdf",
   "subject": "Weekly dashboard",
+  "recipients": ["team@company.com"]
+}'
+
+# Deliver a workbook tab instead of the dashboard (CLI ≥ 1.5.0).
+# Set entity: "workbook" and pass the tab via queryIdentifierMapKey; default stays entity: "dashboard".
+# `schedules update` does not take entity, so changing what a schedule delivers means creating a new one.
+# filterConfig, containerPages and singleColumnLayout apply to dashboard deliveries only.
+# Find these later with: omni schedules list --content-type "workbook tab"
+omni schedules create --body '{
+  "identifier": "document-identifier",
+  "name": "Weekly Pipeline Tab",
+  "schedule": "0 9 ? * MON *",
+  "timezone": "America/Los_Angeles",
+  "destinationType": "email",
+  "entity": "workbook",
+  "queryIdentifierMapKey": "<tabKey>",
+  "format": "xlsx",
+  "subject": "Pipeline tab",
   "recipients": ["team@company.com"]
 }'
 
@@ -359,7 +410,25 @@ omni schedules list -o json
 omni schedules recipients-get <scheduleId>
 ```
 
-Check that: the created schedule id appears in the list and the returned fields match the requested `schedule` cron, `timezone`, `destinationType`, `content`, `format`, and dashboard `identifier`. If the list/get response shape is not parseable, report that schedule setting verification was inconclusive instead of silently treating an empty parser result as success. Always verify recipients with `recipients-get`.
+Check that: the created schedule id appears in the list and the returned fields match the requested `schedule` cron, `timezone`, `destinationType`, `entity`, `format`, and document `identifier`. If the list/get response shape is not parseable, report that schedule setting verification was inconclusive instead of silently treating an empty parser result as success. Always verify recipients with `recipients-get`.
+
+## IP Allowlist (CLI ≥ 1.5.0)
+
+`omni ip-allowlist get` / `update` read and write the organization's IP allowlist — whether it's enforced, the support and SCIM bypasses, and the allowed addresses with their notes. Requires **organization admin** access. The update is **refused** if it would leave the allowlist enabled with no entries, or enabled with a list that blocks the caller's own address — a locked-out org cannot be fixed by API.
+
+```bash
+omni ip-allowlist get
+# Every field is optional; `entries` replaces the whole list.
+omni ip-allowlist update --body '{
+  "enabled": true,
+  "entries": [
+    { "address": "203.0.113.0/24", "note": "office" },
+    { "address": "198.51.100.42",  "note": "VPN exit" }
+  ]
+}'
+```
+
+Confirm the current state with `get` before an `update`, and name the addresses being added or removed when you report back — a bad entry can lock out every non-support user, and the server will accept the write that strands them.
 
 ## Cache and Validation
 

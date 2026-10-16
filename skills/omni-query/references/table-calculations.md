@@ -20,7 +20,7 @@ At execution time, the calc engine wraps the base aggregation query in an outer 
 ```ts
 type OmniCalculation = {
   calc_name: string                          // required — identifier; becomes the column alias
-  sql_expression: SerializedSqlExpr          // required — the AST (see §2)
+  sql_expression: SerializedSqlExpr          // required — the AST (see §2); the server does not parse original_formula in its place, despite what --schema says
   label?: string                             // UI display label
   format?: string                            // e.g. "currency_2", "#,##0.00", "0.0%"
   description?: string

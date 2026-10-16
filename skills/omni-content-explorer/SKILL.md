@@ -39,7 +39,7 @@ omni folders --help     # Folder operations
 
 ## Known Issues & Safe Defaults
 
-- `omni content list` does not currently support a `--labels` filter. For dashboards, `omni content search --q <labelName>` matches labels. For an exhaustive by-label listing (including workbook-only documents), use `omni documents list --include labels -o json`, paginate with `--cursor`, then filter records whose `labels` array contains the target label.
+- `omni content list --labels <name>[,<name>]` filters **dashboards and apps** by label (CLI ≥ 1.5.0). Without `--scope` it returns organization content only, so restricted content with the label is left out without warning; run it again with `--scope restricted` for a complete list. For workbook-only documents, which `content list` does not return, fall back to `omni documents list --include labels -o json` and filter client-side on the `labels` array.
 - Some dashboard exports can fail before a job is created, for example with `Cannot use 'in' operator to search for 'query_id' in ...`. If `omni dashboards download` returns an error and no job ID, do not call `download-status` or claim the export completed. Report the dashboard identifier, the exact API error, and that no downloadable job was created.
 
 ## Searching Content
@@ -50,7 +50,7 @@ For "find the dashboard about X", reach for free-text search first (CLI ≥ 1.1.
 omni content search --q "revenue" --limit 25
 ```
 
-`--q` keywords are matched against dashboard names, descriptions, query names, folder names, labels, and creator names. `--limit` caps results at 1–25. Each result carries `identifier`, `name`, `description`, `folderPath`, `tileNames`, `verified`, and a ready-made `url` — link the user straight to it. Search covers **dashboards only** — workbook-only documents don't surface here, so fall back to `omni content list` / `omni documents list` filtering when the target may not have a dashboard.
+`--q` keywords are matched against names, descriptions, query names, folder names, labels, and creator names. `--limit` caps results at 1–25. Each result carries `identifier`, `name`, `description`, `folderPath`, `tileNames`, `verified`, and a ready-made `url` — link the user straight to it. Search covers **dashboards and apps** (CLI ≥ 1.5.0); each result's `type` is `dashboard` or `app`, and only dashboard results can be scheduled. Workbook-only documents don't surface here, so fall back to `omni content list` / `omni documents list` filtering when the target may not have a dashboard.
 
 ## Browsing Content
 
@@ -69,9 +69,11 @@ omni content list --include '_count,labels'
 ### Filter and Sort
 
 ```bash
-# By label: list documents with labels, then filter the JSON results client-side.
-# Paginate with --cursor until pageInfo.hasNextPage is false.
-omni documents list --include labels -o json
+# By label (CLI ≥ 1.5.0) — comma-separated label names.
+# Covers dashboards and apps; workbook-only documents are not returned by content list,
+# so for those fall back to `omni documents list --include labels -o json` + client-side filter.
+omni content list --labels "Weekly Digest,Finance"
+omni content list --labels "Weekly Digest,Finance" --scope restricted   # the default scope is organization only
 
 # By scope
 omni content list --scope organization
@@ -121,6 +123,14 @@ Useful for understanding what a dashboard computes and re-running queries via `o
 # List
 omni folders list
 
+# List only the caller's favorited folders (CLI ≥ 1.5.0; org-scoped keys must also pass --user-id)
+omni folders list --include onlyFavorites
+
+# Get a single folder (CLI ≥ 1.5.0). Returns the fields the API can set;
+# owner and access still come from `omni folders get-permissions <folderId>`.
+# 404 means the folder does not exist *or* the caller cannot view it.
+omni folders get <folderId>
+
 # Create
 omni folders create "Q1 Reports" --scope organization
 ```
@@ -148,14 +158,18 @@ omni folders bulk-update-labels <folderId> --body '{ "add": ["Q1"], "remove": ["
 ## Favorites
 
 ```bash
-# Favorite
+# Favorite a document
 omni documents add-favorite <identifier>
 
-# Unfavorite
+# Unfavorite a document
 omni documents remove-favorite <identifier>
+
+# Favorite a folder (CLI ≥ 1.5.0). Both calls are idempotent.
+omni folders add-favorite <folderId>
+omni folders remove-favorite <folderId>
 ```
 
-## Dashboard Downloads
+## Dashboard and App Downloads
 
 ```bash
 # Start download (async)
@@ -166,6 +180,16 @@ omni dashboards download-status <identifier> <jobId>
 ```
 
 Formats: `pdf`, `png`
+
+**Apps download separately** (CLI ≥ 1.5.0). `omni dashboards download` renders dashboards; a published app uses the parallel `omni apps` family. Same `download` → `download-status` → `download-file` async flow and the same body shape as `dashboards download`; a job is visible only to the user it runs as, so pass the same `--user-id` through all three calls when using an org-scoped API key.
+
+```bash
+omni apps download <identifier> --body '{ "format": "pdf" }'
+omni apps download-status <identifier> <jobId>
+omni apps download-file <identifier> <jobId>
+```
+
+Formats: `pdf`, `png`, `xlsx`, `csv` (full-app `csv` is a ZIP of one CSV per query). Queries on models the user cannot query are left out of the file without an error, so a file missing sheets is an access issue, not a failed job.
 
 ## Alerts
 
