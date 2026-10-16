@@ -6,6 +6,15 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.21.8] - 2026-10-15
+
+### omni-integrations
+
+_Summary: `omni-to-snowflake-semantic-view` gets a shorter SKILL.md, within the limits the [Agent Skills specification](https://agentskills.io/specification#progressive-disclosure) recommends: a body under 5k tokens and 500 lines, with every reference linked one level deep from SKILL.md. References over 100 lines open with a table of contents. Sections move word for word into references; no instruction changes._
+
+**Changed**
+- **`omni-to-snowflake-semantic-view` — *A shorter SKILL.md*.** About 5.3k to 2.7k tokens (731 to 287 lines). The connectivity options, the field mapping (dimensions, measures and filter-only fields) and the output YAML structure move into new references: `CONNECTIVITY.md`, `FIELD-MAPPING.md` and `YAML-REFERENCE.md`.
+
 ## [1.21.0] - 2026-10-13
 
 ### omni-analytics
