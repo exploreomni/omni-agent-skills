@@ -36,7 +36,8 @@ You also need a **model ID** and knowledge of available **topics and fields**.
 ```bash
 omni query --help              # List query operations
 omni query run --help          # Show flags for running a query
-omni query run --schema        # Body schema + example — but the query object renders free-form; for its shape use the examples below
+omni query run --schema        # Body schema + example (CLI ≥ 1.5.0 types the `query` object — `fields` and `modelId` are required, `calculations`/`filters`/`sorts`/`pivots` are enumerated; keys outside the typed set are still accepted but not shown)
+omni query run --schema --field query  # Just the typed query sub-fields
 omni ai --help                 # AI-powered query generation
 ```
 
@@ -344,6 +345,20 @@ omni query wait --job-ids job-id-1,job-id-2
 
 JSON mode never polls for you: the stream ends at the wait window and the footer's `remaining_job_ids` is the only sign the result is incomplete. (Human-mode output on CLI ≥ 1.3.0 does poll.)
 
+### Streaming large results in chunks (CLI ≥ 1.5.0)
+
+For a result too large to hold in one response — or when a connection drops mid-download — split the result off from completion with `--completion-only true` and fetch it afterwards with `omni query results`. The job lines from `query run` / `query wait` then omit `result`; the Arrow IPC bytes come back as base64 slices you append and parse once `stream_stats.next_offset` is `null`. Results stay readable for roughly an hour after the job completes.
+
+```bash
+# 1. Wait for completion without downloading the payload
+omni query wait --job-ids "$JID" --completion-only true
+
+# 2. Read the result in slices (resume on drop by passing the previous next_offset)
+omni query results --job-id "$JID" --offset 0
+```
+
+`--completion-only` is also accepted as a top-level body key on `omni query run` with the same effect. Cannot combine with `resultType`.
+
 ## Running Queries from Dashboards
 
 Extract and re-run queries powering existing dashboards:
@@ -358,6 +373,8 @@ omni query run --body '{ "query": { ... }, "userId": "user-uuid-here" }'
 # Cache policy (valid values: Standard, SkipRequery, SkipCache, SkipCacheAndRebuildExtracts)
 omni query run --body '{ "query": { ... }, "cache": "SkipCache" }'
 ```
+
+**Run a saved query as it is saved** (CLI ≥ 1.5.0). `omni documents run-query <identifier> <queryId>` runs one of the document's saved queries server-side and returns a single JSON / CSV / XLSX document — the query body is read on the server, so the caller can only replace or add filters for the run. A tile on the dashboard (or any query of a document with an app) runs for anyone who can view it; a hidden tile or an off-dashboard tab needs workbook access. `<queryId>` is the tile's `queryIdentifierMapKey` or its query presentation id from `omni documents get-queries`. Prefer this over reconstructing the full `query run` body when you want the saved behavior intact.
 
 ## AI-Powered Query Generation
 
