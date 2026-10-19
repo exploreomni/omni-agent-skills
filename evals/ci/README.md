@@ -28,6 +28,11 @@ Stdlib only. Fails the build on:
 - a declared `files:` input that is not on disk
 - `{{PLACEHOLDER}}` with no matching key in `evals/eval-env.json`
 - a relative markdown link that does not resolve
+
+The `evals.json` checks also cover the `omni-integrations` skills under
+`skills/omni-integrations/skills/*/evals/`. Their frontmatter, description
+overlap and routing are not checked yet, and Tier 1 routes only among the
+`skills/*` skills.
 - two skill descriptions whose wording overlaps enough to compete for the same
   prompts (warns at 30%, fails at 50%; today's closest pair is 17%)
 

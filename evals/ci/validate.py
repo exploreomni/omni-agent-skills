@@ -104,6 +104,18 @@ def discover_skills() -> list[str]:
     return sorted(p.name for p in SKILLS_DIR.iterdir() if (p / "SKILL.md").is_file())
 
 
+def discover_integration_skills() -> dict[str, Path]:
+    """Skills shipped by the omni-integrations plugin, keyed by directory name.
+
+    Only their eval files are checked here. Their frontmatter, description
+    overlap and routing are outside this check for now.
+    """
+    root = SKILLS_DIR / "omni-integrations" / "skills"
+    if not root.is_dir():
+        return {}
+    return {p.name: p for p in sorted(root.iterdir()) if (p / "SKILL.md").is_file()}
+
+
 def check_markdown_links(path: Path, report: Report) -> None:
     body = path.read_text(encoding="utf-8")
     for target in MD_LINK_RE.findall(body):
@@ -185,14 +197,18 @@ def load_eval_env(report: Report) -> set[str]:
     return {key for key in data if key != "_comment"}
 
 
-def check_eval_files(skills: list[str], env_keys: set[str], report: Report) -> int:
-    known = set(skills)
+def check_eval_files(
+    skills: list[str], env_keys: set[str], report: Report, integration: dict[str, Path] | None = None
+) -> int:
+    integration = integration or {}
+    known = set(skills) | set(integration)
+    skill_dirs = {skill: SKILLS_DIR / skill for skill in skills} | integration
     total_cases = 0
 
-    for skill in skills:
-        path = SKILLS_DIR / skill / "evals" / "evals.json"
+    for skill, skill_dir in skill_dirs.items():
+        path = skill_dir / "evals" / "evals.json"
         if not path.is_file():
-            report.warn(f"skills/{skill}", "has no evals/evals.json, so nothing evaluates it")
+            report.warn(rel(skill_dir), "has no evals/evals.json, so nothing evaluates it")
             continue
 
         try:
@@ -272,7 +288,7 @@ def check_eval_files(skills: list[str], env_keys: set[str], report: Report) -> i
             else:
                 for declared in files:
                     # Runner resolves declared inputs relative to the skill directory.
-                    if not (SKILLS_DIR / skill / str(declared)).is_file():
+                    if not (skill_dir / str(declared)).is_file():
                         report.error(where, f"declared input file does not exist: {declared}")
 
             blob = " ".join(
@@ -404,13 +420,15 @@ def main() -> int:
     descriptions = check_skill_docs(skills, report)
     check_agents_and_rules(report)
     env_keys = load_eval_env(report)
-    total_cases = check_eval_files(skills, env_keys, report)
+    integration = discover_integration_skills()
+    total_cases = check_eval_files(skills, env_keys, report, integration)
     negative_cases = check_negative_cases(skills, env_keys, report)
     overlaps = check_description_overlap(descriptions, report)
 
     if args.json:
         print(json.dumps({
             "skills": skills,
+            "integration_skills": sorted(integration),
             "cases": total_cases,
             "negative_cases": negative_cases,
             "errors": report.errors,
@@ -421,7 +439,7 @@ def main() -> int:
         }, indent=2))
         return 1 if report.errors else 0
 
-    print(f"Checked {len(skills)} skills, {total_cases} eval cases, "
+    print(f"Checked {len(skills)} skills (+{len(integration)} integration skills' evals), {total_cases} eval cases, "
           f"{negative_cases} out-of-scope cases.")
     if overlaps:
         a, b, score = overlaps[0]
