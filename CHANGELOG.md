@@ -6,6 +6,18 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.22.2] - 2026-10-23
+
+### omni-analytics
+
+_Summary: one pairing of YAML content and write mode for every edit — read the file with `--mode combined` and send the whole file with `"mode": "extension"` — in the model-builder, content-builder and AI-optimizer skills._
+
+**Fixed**
+- **`omni-model-builder` — *Editing an existing file*.** Step 1 now says to read the file with `--mode combined`, change it, and send the whole file with `"mode": "extension"`, and to read it back in both modes. It says why the other pairings fail: a partial file in `extension` mode replaces the layer's copy, a partial file in `combined` mode marks every omitted field `ignored`, and a `combined` write, or sending back the file as read with `--mode extension`, can store a copy of the parent's `sql:` in an extension, workbook or branch layer when the query view's SQL returns an undeclared column. Deleting a file is an empty `yaml` with `"mode": "extension"`.
+- **`omni-model-builder` — *Query views*.** Declare a dimension for every column a `sql:` query view's SQL returns.
+- **`omni-content-builder` — *Workbook-model fields*.** The Step 2 recipe reads the view from the draft's workbook model with `--mode combined`, adds the fields, and sends the whole file with `"mode": "extension"`. The note that combined mode always marks omitted fields `ignored` now says this happens with a partial body.
+- **`omni-ai-optimizer` — *Writing ai_context*.** Adding `ai_context` to an existing topic sends the whole topic file, read with `--mode combined`, with `"mode": "extension"`.
+
 ## [1.22.0] - 2026-10-16
 
 ### omni-analytics

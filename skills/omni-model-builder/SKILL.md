@@ -131,7 +131,12 @@ omni models yaml-create <modelId> --body '{
 
 > **Note**: The `branchId` parameter must be a UUID from the server (Step 0). Passing a string name instead will return `400 Bad Request: Unrecognized key: "branchName"`.
 
-> **⚠️ Editing an existing file = whole-file read-modify-write at its exact path.** `yaml-create` **replaces** a file's authored content (no field-by-field merge), so `yaml-get` it first, edit, and write the **complete** file back, or the other authored fields are dropped. `fileName` is the file's **exact path** (not a regex, unlike on read) — reuse the full-path key verbatim, folder prefix included (e.g. `MARTS/fct_ai_events.view`); a non-matching name doesn't error, it **silently creates a duplicate** at that path (`success: true`). (Schema base columns live in the schema layer, so they're unaffected.) To **inspect** a branch, `yaml-get` **without** `--file-name` enumerates the whole model — `--mode extension` for just the branch's changed files (your deltas), `--mode combined` for the full composed model (schema + shared + branch); then drill into any file by its exact path.
+> **⚠️ Editing an existing file: read it with `--mode combined`, change it, and send the whole file with `"mode": "extension"`.** `yaml-create` **replaces** the layer's copy of the file (no field-by-field merge), and Omni stores only what differs from the layers below it. This holds on a shared model, a branch, a shared extension, and a workbook model, for changed fields and new ones.
+> - **Never send only the change.** In `extension` mode a partial file replaces the layer's copy, so earlier changes in it are lost. In `combined` mode (the default) every field you left out is marked `ignored: true`.
+> - **Don't write in `combined` mode, and don't send back the file as read with `--mode extension`.** On a `sql:` query view whose SQL returns a column the view doesn't declare, either can store a full copy of the parent's `sql:` in an extension, workbook, or branch layer, and that layer then stops picking up changes to the parent's SQL.
+> - **Read it back both ways:** `--mode extension` for what the layer stores, `--mode combined` for what the model resolves to. In an extension, workbook, or branch layer, a view-level `sql:` you didn't write is a copy of the parent's; report it rather than editing around it.
+>
+> `fileName` is the file's **exact path** (not a regex, unlike on read) — reuse the full-path key verbatim, folder prefix included (e.g. `MARTS/fct_ai_events.view`); a non-matching name doesn't error, it **silently creates a duplicate** at that path (`success: true`). (Schema base columns live in the schema layer, so they're unaffected.) To **inspect** a branch, `yaml-get` **without** `--file-name` enumerates the whole model — `--mode extension` for just the branch's changed files (your deltas), `--mode combined` for the full composed model (schema + shared + branch); then drill into any file by its exact path.
 
 > **dbt-connected models**: `omni models branch-dbt-get <modelId> <branchName>` (CLI ≥ 1.1.2) reads the dbt environment a branch resolves to, including the dbt git branch it compiles against. A branch with no environment of its own resolves to the connection's default (production) environment, reported with `is_default_environment: true`.
 
@@ -209,7 +214,7 @@ In the query response, confirm `summary.missing_fields` is `[]` (and `summary.in
 | Relationships | (special) | Global join definitions |
 | Composite topic | `.composite_topic` | Joins two or more topics on shared dimensions (see [composite-topics.md](references/composite-topics.md)) |
 
-Write with `mode: "extension"` (shared model layer). To delete a file, send empty `yaml`.
+Write with `mode: "extension"`: a new file as you wrote it, an existing file as the whole file read with `--mode combined` (see Step 1). To delete a file, send empty `yaml` with `mode: "extension"`; in `combined` mode an empty file marks the whole view ignored instead.
 
 ## Writing Views
 
@@ -497,6 +502,8 @@ Both options work with either a `query:` block (field-mapped virtual table) or a
 To scope a query view to one topic, see [Topic-Scoped View Definitions](#topic-scoped-view-definitions).
 
 **`sql:` versus `query:` for a rollup.** Field references (`${view.field}`) work inside a `sql:` block, but Omni expands them once, when the file is saved, into alias-qualified columns, so the `FROM` must be aliased to the view's reference name (`FROM ${order_items} AS "order_items"`). Validation does not catch a missing alias; a query does. The `query:` form (`fields:` mapping view fields and measures to column names, plus `base_view` and `topic`) compiles through the model on every run, so later changes to those fields flow through. A `sql:` query view gets no automatic `count` measure; declare one if it is needed. Examples in `references/query-view-examples.md`.
+
+**Declare a dimension for every column a `sql:` query view's SQL returns.** When a column is left undeclared, edits to the view in an extension, workbook, or branch can store a copy of the parent's `sql:`, and that layer stops picking up later changes to the SQL (see Step 1). This applies to CTEs that end in `SELECT *` too.
 
 ## Common Validation Errors
 

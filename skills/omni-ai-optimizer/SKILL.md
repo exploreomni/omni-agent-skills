@@ -102,6 +102,8 @@ omni models yaml-create <modelId> --body '{
 }'
 ```
 
+This body creates the topic file. To add `ai_context` to an existing topic, read it with `--mode combined`, add the key, and send the whole file with `"mode": "extension"` (see `omni-model-builder` → Step 1).
+
 ### What Makes Good ai_context
 
 **Terminology mapping** — map business language to field names:
