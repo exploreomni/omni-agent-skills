@@ -146,7 +146,7 @@ Error map, merge-semantics details, and recipes are in **[references/updating-da
 
 ## Updating a Dashboard's Model
 
-Dashboard-specific fields go in the document's **workbook model**, which extends the shared model. First decide where a new field belongs, based on your access (`omni whoami whoami --model-id <sharedModelId>`): a table calculation, a branch on the shared model, or this workbook model. Never write to the schema model. A field that exists only on an unmerged branch needs a [branch-bound draft](references/branch-bound-drafts.md). Write workbook-model YAML with `"mode": "extension"`; the default combined mode marks every field you leave out as ignored. The decision steps, the `yaml-create` recipe, the order for building a tile on a new field, and how to verify it: [references/workbook-model.md](references/workbook-model.md).
+Dashboard-specific fields go in the document's **workbook model**, which extends the shared model. First decide where a new field belongs, based on your access (`omni whoami whoami --model-id <sharedModelId>`): a table calculation, a branch on the shared model, or this workbook model. Never write to the schema model. A field that exists only on an unmerged branch needs a [branch-bound draft](references/branch-bound-drafts.md). Write workbook-model YAML as the whole file read with `--mode combined`, sent with `"mode": "combined"`; a body holding only your new fields marks every field you left out as ignored. The decision steps, the `yaml-create` recipe, the order for building a tile on a new field, and how to verify it: [references/workbook-model.md](references/workbook-model.md).
 
 ## Dashboard Filters & Controls
 

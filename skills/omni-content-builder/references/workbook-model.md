@@ -31,17 +31,38 @@ omni documents list-drafts <identifier>
 
 > **Note**: The workbook model (which extends the shared model) is what you pass to `omni models yaml-create`. Each draft has its **own** clone of it, and the ID **changes on every draft → publish cycle** — always read it fresh from `list-drafts`; never reuse a cached value.
 
-**Step 2 — POST YAML to the draft's workbook model with `mode: "extension"`:**
+**Step 2 — read the view from the draft's workbook model with `--mode combined`, add your fields, and send the whole file with `mode: "combined"`:**
+
+```bash
+# the whole view as the workbook model resolves it; reuse the file key it returns as fileName
+omni models yaml-get <draftWorkbookModelId> --file-name order_items.view --mode combined
+```
+
+Add the new fields to that file, for example:
+
+```yaml
+dimensions:
+  is_high_value:
+    sql: ${sale_price} > 100
+    label: High Value Order
+measures:
+  high_value_count:
+    sql: ${order_items.id}
+    aggregate_type: count_distinct
+    label: High Value Orders
+```
+
+Then send the whole file:
 
 ```bash
 omni models yaml-create <draftWorkbookModelId> --body '{
   "fileName": "order_items.view",
-  "yaml": "dimensions:\n  is_high_value:\n    sql: \"${sale_price} > 100\"\n    label: High Value Order\nmeasures:\n  high_value_count:\n    sql: \"${order_items.id}\"\n    aggregate_type: count_distinct\n    label: High Value Orders",
-  "mode": "extension"
+  "yaml": "<the whole file from yaml-get, with your fields added>",
+  "mode": "combined"
 }'
 ```
 
-> **Critical**: Always pass `"mode": "extension"` when editing an existing view in a workbook model. The default is `"combined"`, which treats your YAML body as the *complete* view definition and marks every field you didn't include as `ignored: true` — silently breaking queries that depend on fields from the shared base view. Extension mode layers your new dimensions and measures on top of the inherited view.
+> **Critical**: send the whole file, as read with `--mode combined`, with `"mode": "combined"`. Omni stores only what differs from the shared model. A body holding only your new fields is taken as the complete view in combined mode, so every field you left out is marked `ignored: true` and queries on the shared view's fields fail. For a `sql:` query view inherited from the shared model, follow the exception in **`omni-model-builder`** → Step 1.
 
 `fileName` must be `"model"`, `"relationships"`, or end with `.view` or `.topic`. The `yaml` value is a YAML string (not a JSON object) containing the view's *contents* — no `views:` wrapper. Writing to a workbook model skips git sync entirely — authorization is still checked against the underlying shared model's permissions.
 
@@ -54,7 +75,7 @@ v2 tile queries carry **no `modelId`** — the server anchors each tile to the d
 1. **`documents v2-create`** — provisions the workbook model. Skip this step when the document already exists; its workbook model is already there.
 2. **`documents v2-patch-draft <identifier>`** — open the draft (a `--summary`-only patch is enough to create it).
 3. **`documents list-drafts <identifier>`** → the draft's `workbookModelId`.
-4. **`models yaml-create <draftWorkbookModelId>` with `mode: "extension"`** → add the field (above).
+4. **`models yaml-create <draftWorkbookModelId>` with the whole file and `mode: "combined"`** → add the field (above).
 5. **`documents v2-patch-draft-by-identifier <identifier> <draftIdentifier>`** adding the tile that references the field — no `modelId` anywhere in the tile query.
 6. **`documents v2-publish-draft <identifier>`** — the field and tile go live together.
 
@@ -76,4 +97,4 @@ omni query run --body '{
 }'
 ```
 
-(Standalone `query run` bodies still take a `modelId` — only **tile** queries inside v2 documents omit it.) If the response errors on a field that exists in the shared model (e.g. `order_items.id`), your write likely used combined mode and ignored the inherited fields. Re-run Step 2 with `"mode": "extension"`.
+(Standalone `query run` bodies still take a `modelId` — only **tile** queries inside v2 documents omit it.) If the response errors on a field that exists in the shared model (e.g. `order_items.id`), your write likely sent a partial file in combined mode, which marks the inherited fields ignored. Re-run Step 2 with the whole file.

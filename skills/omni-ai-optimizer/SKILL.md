@@ -96,11 +96,13 @@ Add via the YAML API:
 omni models yaml-create <modelId> --body '{
   "fileName": "order_transactions.topic",
   "yaml": "base_view: order_items\nlabel: Order Transactions\nai_context: |\n  Map \"revenue\" → total_revenue. Map \"orders\" → count.\n  Map \"customers\" → unique_users.\n  Status values: complete, pending, cancelled, returned.\n  Only complete orders for revenue unless specified otherwise.",
-  "mode": "extension",
+  "mode": "combined",
   "branchId": "{branchId}",
   "commitMessage": "Add AI context to order transactions topic"
 }'
 ```
+
+This body creates the topic file. To add `ai_context` to an existing topic, read it with `--mode combined`, add the key, and send the whole file back (see `omni-model-builder` → Step 1).
 
 ### What Makes Good ai_context
 
