@@ -15,7 +15,7 @@ The rule is in `SKILL.md` Step 1: read the whole file with `--mode combined`, ch
 
 ## Inherited `sql:` query views
 
-The steps are in `SKILL.md` → *Known Issues & Safe Defaults*. Tested on Lab of Doom (2026-10-25), in a shared extension, on a parent query view whose SQL returns one column it doesn't declare:
+The steps are in `SKILL.md` → *Known Issues & Safe Defaults*. Tested (2026-10-25) in a shared extension, on a parent query view whose SQL returns one column it doesn't declare:
 
 | Write in the child layer | Copy of the parent's `sql:` |
 |---|---|
@@ -31,7 +31,7 @@ The steps are in `SKILL.md` → *Known Issues & Safe Defaults*. Tested on Lab of
 
 ## Relationships
 
-When the connection generates relationships from dbt (constraints, or semantic-model entities), a write to the `relationships` file in `extension`, `combined` or `staged` mode also stores those dbt-generated relationships in the model's own layer, without their `# Relationship is defined …` dbt comment. From then on they look like relationships a modeler wrote. A `merged`-mode write on a branch doesn't (tested on Lab of Doom, 2026-10-26, shared models with and without such copies):
+When the connection generates relationships from dbt (constraints, or semantic-model entities), a write to the `relationships` file in `extension`, `combined` or `staged` mode also stores those dbt-generated relationships in the model's own layer, without their `# Relationship is defined …` dbt comment. From then on they look like relationships a modeler wrote. A `merged`-mode write on a branch doesn't (tested 2026-10-26 on shared models with and without such copies):
 
 1. Create a branch of the shared model.
 2. `omni models yaml-get <modelId> --file-name relationships --mode merged --branch-id <branchId>`.
