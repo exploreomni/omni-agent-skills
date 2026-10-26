@@ -44,7 +44,7 @@ dimensions:
   order_id: {}
   product_id: {}
   order_product_key:
-    sql: ${order_id} || '-' || ${product_id}   # cast to a string first on BigQuery
+    sql: ${order_id} || '-' || ${product_id}   # BigQuery: cast each column, CAST(${order_id} AS STRING) || '-' || CAST(${product_id} AS STRING)
     primary_key: true
     hidden: true
   sale_price:
