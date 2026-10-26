@@ -64,7 +64,7 @@ When the database schema changes (new, deleted or renamed columns, type changes)
 - **Edit with `yaml-create`, not `create-field`, `update-field`, `update-view`, `update-topic` or `models update`:** they can report success without making the change ([details](references/editing-existing-files.md#field-view-and-topic-commands)).
 - **Known bug: a child layer can store a copy of an inherited `sql:` query view's SQL** (extension, workbook model, branch) and stop following the parent. Cause: an undeclared column (assume one for `SELECT *` or CTEs) or a removed dimension. Until fixed ([removing a copy](references/editing-existing-files.md#inherited-sql-query-views)):
   1. Read `--mode extension` first: a view-level `sql:` you didn't write is that copy; an `ignored: true` dimension means any write stores one. Tell the user.
-  2. Otherwise write the whole `--mode combined` read back with `"mode": "extension"` (`combined` copies it on the second edit). Change, add or hide (`hidden: true`); never remove. Re-check as in step 1.
+  2. Otherwise write the whole `--mode combined` read back with `"mode": "extension"` (`combined` copies it on the second edit). Change, add or hide; never remove. Re-check per step 1.
 
 ## Discovering Commands
 
@@ -110,7 +110,7 @@ omni models yaml-create <modelId> --body '{
 
 > **⚠️ Editing an existing file: read it whole with `--mode combined`, write it whole with `"mode": "combined"`, read it back in both modes.** Exceptions ([details](references/editing-existing-files.md#exceptions)):
 > - **Inherited `sql:` query view with an undeclared column:** see *Known Issues*.
-> - **`"mode": "merged"`, on a branch only:** for `relationships` ([why](references/editing-existing-files.md#relationships)) and to drop an override so the schema or dbt definition shows ([why](references/editing-existing-files.md#removing-an-override)).
+> - **`"mode": "merged"`, on a branch only:** for `relationships` ([why](references/editing-existing-files.md#relationships)) and to drop an override ([why](references/editing-existing-files.md#removing-an-override)).
 > - **New file:** either mode. **Delete:** empty `yaml`, `"mode": "extension"`.
 > - **`extends`:** edit from the combined read; fully-resolved content needs `"fullyResolved": true` (not yet for field or topic inline-view `extends`).
 >
@@ -153,7 +153,7 @@ Model files are views (`.view`), topics (`.topic`), composite topics (`.composit
 
 ## Writing Views
 
-> **Every view that participates in joins MUST have a real `primary_key: true` dimension.** Without a row-unique primary key, queries that join to this view can produce fanout errors or incorrect aggregations. Use the table's natural unique identifier (e.g., `id`, `order_id`, `user_id`). If no single column is unique, build a composite key from row-level columns that are jointly unique, for example `sql: ${order_id} || '-' || ${line_number}`. If you cannot define a row-unique expression, do not mark a dimension as `primary_key: true` yet; fix the grain first or avoid joining the view until a real key exists. Why: [troubleshooting.md](references/troubleshooting.md#why-the-primary-key-matters-symmetric-aggregates).
+> **Every view that participates in joins MUST have a real `primary_key: true` dimension.** Without a row-unique primary key, queries that join to this view can produce fanout errors or incorrect aggregations. Use the table's natural unique identifier (e.g., `id`, `order_id`, `user_id`). If no single column is unique, build a key dimension that concatenates row-level columns that are jointly unique, for example `sql: ${order_id} || '-' || ${line_number}`; on dialects without implicit casts, such as BigQuery, cast non-string columns to strings first. If you cannot define a row-unique expression, do not mark a dimension as `primary_key: true` yet; fix the grain first or avoid joining the view until a real key exists. Why: [troubleshooting.md](references/troubleshooting.md#why-the-primary-key-matters-symmetric-aggregates).
 
 ### Basic View
 
@@ -240,7 +240,7 @@ A topic's `views:` block can set `display_order`, override labels, and add topic
 
 ## Query Views
 
-A query view needs a primary key (`primary_key: true` on one dimension, or `custom_compound_primary_key_sql`) or joins to it fan out; confirm which field is unique before writing unless the query makes it clear, and ask the user when they are unsure. Rules, including the `FROM` alias a `sql:` block with `${view.field}` references needs: [query-views.md](references/query-views.md) · examples: [query-view-examples.md](references/query-view-examples.md).
+A query view needs a primary key (`primary_key: true` on one dimension) or joins to it fan out; confirm which field is unique before writing unless the query makes it clear, and ask the user when they are unsure. Rules, including the `FROM` alias a `sql:` block with `${view.field}` references needs: [query-views.md](references/query-views.md) · examples: [query-view-examples.md](references/query-view-examples.md).
 
 ## Common Validation Errors
 

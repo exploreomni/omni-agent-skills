@@ -148,7 +148,7 @@ relationships:
 
 ## Topic-Scoped Query View
 
-A query view defined inside a topic's `views:` block, scoped entirely to that topic. Requires `primary_key: true` on one dimension (or `custom_compound_primary_key_sql` at the view level), plus a `relationships:` entry and a `joins:` entry.
+A query view defined inside a topic's `views:` block, scoped entirely to that topic. Requires `primary_key: true` on one dimension (a concatenated key when no single field is unique), plus a `relationships:` entry and a `joins:` entry.
 
 ```yaml
 # .topic file
