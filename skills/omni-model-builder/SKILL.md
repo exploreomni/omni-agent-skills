@@ -62,9 +62,9 @@ When the database schema changes (new, deleted or renamed columns, type changes)
 - **Profile the data before modelling it.** Check grain (`COUNT(*)` vs `COUNT(DISTINCT <key>)` on every fact), implied units (value ÷ quantity per category, to catch a "hours" column that holds money), and where history starts (older records may need an opening balance). Ask the business owner what an ambiguous term ("fee type", "status") means before building on a guess.
 - **Keep eval-created files on branches until confirmed** — when you create fields/views for validation, report the branch name/id, validation status, and test-query result; merging is governed by the HARD STOP above.
 - **Edit with `yaml-create`, not `create-field`, `update-field`, `update-view`, `update-topic` or `models update`:** they can report success without making the change ([details](references/editing-existing-files.md#field-view-and-topic-commands)).
-- **Known bug: a child layer can store a copy of an inherited `sql:` query view's SQL** (extension, workbook model, branch), and stop following the parent's SQL. Cause: an undeclared column in the SQL (assume one for `SELECT *` or CTEs), or a dimension removed there. Until fixed ([removing a copy](references/editing-existing-files.md#inherited-sql-query-views)):
-  1. Read `--mode extension` first: a view-level `sql:` you didn't write is that copy; an `ignored: true` dimension means any write stores one. Either way, tell the user.
-  2. Otherwise write the whole `--mode combined` read back with `"mode": "extension"` (in `combined` mode, the second edit stores a copy). Change, add or hide (`hidden: true`); never remove. Then re-check as in step 1.
+- **Known bug: a child layer can store a copy of an inherited `sql:` query view's SQL** (extension, workbook model, branch) and stop following the parent. Cause: an undeclared column (assume one for `SELECT *` or CTEs) or a removed dimension. Until fixed ([removing a copy](references/editing-existing-files.md#inherited-sql-query-views)):
+  1. Read `--mode extension` first: a view-level `sql:` you didn't write is that copy; an `ignored: true` dimension means any write stores one. Tell the user.
+  2. Otherwise write the whole `--mode combined` read back with `"mode": "extension"` (in `combined` mode the second edit copies it). Change, add or hide (`hidden: true`); never remove. Re-check as in step 1.
 
 ## Discovering Commands
 
@@ -78,7 +78,7 @@ omni models yaml-create --schema  # Print the body's JSON schema + a filled exam
 
 > **Always work in a branch — never write directly to production — and first check you *can* branch.** Branching requires full-model access. Run `omni whoami whoami --model-id <modelId>`: `QUERY_FULL_MODEL` present → you can create a branch (and `UPDATE` present → you can merge/promote it, else open a PR / request a merge); absent → you can't branch — a one-off field belongs in the document's workbook model instead (`omni-content-builder` → *Updating a Dashboard's Model*). Full permission→capability map: **`omni-admin` → Model Roles & Caller Access**.
 
-> **Hub-and-spoke: write to the model ID you were given**, without re-routing the change ([details](references/editing-existing-files.md#hub-and-spoke-setups)).
+> **Hub-and-spoke: write to the model ID you were given**; don't re-route the change ([details](references/editing-existing-files.md#hub-and-spoke-setups)).
 
 ### Step 0: Create a Branch
 
@@ -92,7 +92,7 @@ The response `model.id` is your `branchId` — a UUID you'll pass to all subsequ
 omni models list --include activeBranches
 ```
 
-> **Shared extensions:** pair the extension's ID with a branch from `omni models list --base-model-id <extensionId> --model-kind BRANCH`, else the base shared model's branch ([details](references/editing-existing-files.md#branches-of-a-shared-extension)).
+> **Shared extensions:** pair the extension's ID with a branch from `omni models list --base-model-id <extensionId> --model-kind BRANCH`, else the shared model's branch ([details](references/editing-existing-files.md#branches-of-a-shared-extension)).
 
 > **⚠️ On a git-connected model, never hand-edit model YAML in git.** Author through Omni on a branch and ship with `omni models commit` (Step 3); Omni's next sync deletes model files that exist only in git. Files that aren't model content (OWNERS, CI config, docs) can be committed directly: [git-connected-models.md](references/git-connected-models.md).
 
@@ -110,9 +110,9 @@ omni models yaml-create <modelId> --body '{
 
 > **⚠️ Editing an existing file: read it whole with `--mode combined`, write it whole with `"mode": "combined"`, read it back in both modes.** Exceptions ([details](references/editing-existing-files.md#exceptions)):
 > - **Inherited `sql:` query view with an undeclared column:** see *Known Issues*.
-> - **`relationships`:** writes also store the connection's dbt-generated relationships.
-> - **`extends`:** edit from the combined read; send fully-resolved content only with `"fullyResolved": true` (not yet for field or topic inline-view `extends`).
-> - **Never `"mode": "merged"`.** New file: either mode. Delete: empty `yaml` with `"mode": "extension"`.
+> - **`relationships`:** edit on a branch with `"mode": "merged"`; other modes copy in dbt's relationships ([steps](references/editing-existing-files.md#relationships)).
+> - **`extends`:** edit from the combined read; fully-resolved content needs `"fullyResolved": true` (not yet for field or topic inline-view `extends`).
+> - **No other `"mode": "merged"` writes.** New file: either mode. Delete: empty `yaml` with `"mode": "extension"`.
 >
 > `fileName` is the file's **exact path** (reuse the `yaml-get` key, folder prefix included); a mismatch silently creates a duplicate ([inspect a branch](references/model-layers.md#inspecting-a-branch)).
 

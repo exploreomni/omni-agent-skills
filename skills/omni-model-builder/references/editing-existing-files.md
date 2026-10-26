@@ -29,12 +29,26 @@ The steps are in `SKILL.md` → *Known Issues & Safe Defaults*. Tested on Lab of
 - **Remove the copy**, with the user's OK: send empty `yaml` with `"mode": "extension"` for that file. It deletes the layer's file, including the layer's other changes to the view, and the view follows the parent again; then redo those changes in `extension` mode without removing a dimension.
 - **From the parent:** declaring every column the SQL returns as a dimension avoids the copy, and `combined` mode then works as usual, removals included. Undeclared columns can't be queried.
 
+## Relationships
+
+When the connection generates relationships from dbt (constraints, or semantic-model entities), a write to the `relationships` file in `extension`, `combined` or `staged` mode also stores those dbt-generated relationships in the model's own layer, without their `# Relationship is defined …` dbt comment. From then on they look like relationships a modeler wrote. A `merged`-mode write on a branch doesn't (tested on Lab of Doom, 2026-10-26, shared models with and without such copies):
+
+1. Create a branch of the shared model.
+2. `omni models yaml-get <modelId> --file-name relationships --mode merged --branch-id <branchId>`.
+3. Change only your entries: add, edit or remove relationships.
+4. Write the whole file back with `"mode": "merged"` and the `branchId`, then read it back with `--mode extension --branch-id <branchId>`: only your changes.
+5. Validate and ship the branch as usual. After the merge, the shared model's layer holds only your relationships; the dbt ones still come through from dbt, with their comments.
+
+**Removing dbt copies already stored:** the same steps. In step 3, also drop each entry that, in the `--mode combined` read, carries a `# Relationship is defined …` comment (match on `join_from_view`, `join_to_view` and `on_sql`). Sending empty `yaml` with `"mode": "extension"` removes them too, but it deletes the layer's own relationships as well.
+
+**dbt-generated relationships can be out of date.** A dbt sync adds a relationship for a new dbt constraint, but doesn't remove it when the constraint is deleted, and when a constraint changes it updates the physical relationship and not its `omni_dbt_*` copy. If a dbt-labeled relationship doesn't match the dbt project, tell the user rather than editing around it.
+
 ## Exceptions
 
 - **Inherited `sql:` query views:** in an extension, workbook, or branch, a write can store a full copy of the parent's `sql:` in the layer, and that layer stops picking up later changes to the parent's SQL. It happens when the view's SQL returns a column the view doesn't declare as a dimension; removing one of its dimensions in the layer copies it too, and after that every write copies it, in either mode. Follow the steps in `SKILL.md` → *Known Issues & Safe Defaults*: write that file with `"mode": "extension"` (still the whole file as read with `--mode combined`), hide dimensions instead of removing them, and check `--mode extension` for a view-level `sql:` you didn't write. Undeclared columns can't be queried, so declaring them in the parent is also the way to make them usable.
-- **`relationships`:** when the connection has dbt-generated relationships, any write to the file also stores them in the layer, without their dbt provenance comments. Expect them on read-back; sending empty `yaml` with `"mode": "extension"` removes the layer's copy.
+- **`relationships`:** edit it on a branch with `"mode": "merged"`; see [Relationships](#relationships).
 - **`extends`** (in the model file, a view, a field, or a topic's inline views): `--mode combined` shows a file's own content and the schema, not what `extends` brings in. Read it and write the whole file back with `"mode": "combined"`, as above; that stores only your change and keeps following the extended definitions. To see what `extends` brings in, read with `--mode fully-resolved`, and if you write that content back, send `"fullyResolved": true` with it: `combined` mode keeps anything you send that the extended definition already provides, as an override in this layer, and only the flag drops it. The flag isn't accepted yet for files with field-level `extends` or `extends` on a topic's inline views, or to change a view's own `extends:` line; edit those from the combined read. Never mix the two: fully-resolved content sent without the flag copies the inherited definitions into the layer (including a query view's `query:` or `sql:`), and the flag sent with content read in combined mode damages the file.
-- **Don't write with `"mode": "merged"`.** Published models refuse it; on branches it can store schema-layer properties (`table_name`, base columns, dbt descriptions) in the branch.
+- **Don't write with `"mode": "merged"`**, except `relationships` on a branch. Published models refuse it; for other files on a branch it can store schema-layer properties (`table_name`, base columns, dbt descriptions) in the branch.
 - **New file:** send it as written, in either mode. A view the schema already generates is not new: read and edit it as above.
 - **Delete a file:** send empty `yaml` with `"mode": "extension"`. In `combined` mode an empty file hides the inherited file instead.
 
