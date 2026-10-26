@@ -7,7 +7,7 @@ Omni uses a **layered approach** where each layer builds on top of the previous:
 3. **Workbook Model Layer** — Ad hoc extensions within individual workbooks. Used for experimental fields before promotion to shared model.
 4. **Branch Layer** — Intermediate development layer. Used when working in branches before merging changes to shared model.
 
-**Key concept**: The schema layer is the source of truth for table/column structure (refreshed when the database changes); all user-created content (dimensions, measures, relationships, topics) flows through the shared model layer. You build and modify it in **branches** (see [Safe Development Workflow](../SKILL.md#safe-development-workflow) in SKILL.md) before merging back to the shared model.
+The schema layer is the source of truth for table/column structure (refreshed when the database changes); all user-created content (dimensions, measures, relationships, topics) flows through the shared model layer. You build and modify it in **branches** (see [Safe Development Workflow](../SKILL.md#safe-development-workflow) in SKILL.md) before merging back to the shared model.
 
 ## Understanding Schema Layer vs Extension Layer
 
@@ -44,7 +44,7 @@ measures:
 
 Result: `created_at` inherits its type from the schema layer (DATE with automatic week/month/year granularities) but gets your label. The raw `revenue` column is hidden, only exposed through the `total_revenue` measure.
 
-**Key insight**: If your extension defines a dimension but there's no schema layer base dimension to provide type information, Omni can't infer granularities or types. Trigger a schema refresh to auto-generate the schema layer first.
+If your extension defines a dimension but there's no schema layer base dimension to provide type information, Omni can't infer granularities or types. Trigger a schema refresh to auto-generate the schema layer first.
 
 **Reading back what you wrote — `--mode`.** `yaml-get` returns the **combined** result by default: the schema base merged with your extension. To see only the deltas you authored, without the auto-generated base columns, read with `--mode extension`:
 

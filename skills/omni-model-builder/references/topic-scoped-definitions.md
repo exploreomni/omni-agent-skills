@@ -29,7 +29,7 @@ joins:
 
 > **`joins` vs `relationships`:** `joins` declares which views are in the topic and their hierarchy; `relationships` defines the join conditions. A topic using only global relationships needs only `joins`. A topic with a one-off join needs both.
 >
-> **Silent footgun — both are required, and omitting `joins` passes validation.** If you add the `relationships` entry but forget the view's `joins` entry, the model still **validates clean** (no error) — but the joined view's fields are silently **not exposed** in the topic (a query/markdown referencing them comes back empty). Don't trust `validate` for this; confirm the fields are actually exposed with `get-topic` (see [validation-and-testing.md](validation-and-testing.md)). (Topic file shapes vary: some list views under a `joins:` map, others as top-level `<view>: {}` entries — match the existing file's form.)
+> **Both are required, and omitting `joins` passes validation.** If you add the `relationships` entry but forget the view's `joins` entry, the model still **validates clean** (no error) — but the joined view's fields are silently **not exposed** in the topic (a query/markdown referencing them comes back empty). Don't trust `validate` for this; confirm the fields are actually exposed with `get-topic` (see [validation-and-testing.md](validation-and-testing.md)). (Topic file shapes vary: some list views under a `joins:` map, others as top-level `<view>: {}` entries — match the existing file's form.)
 
 ### Extended Views: Joining the Same Table Multiple Ways
 

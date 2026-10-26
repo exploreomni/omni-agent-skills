@@ -4,7 +4,7 @@ The rule is in `SKILL.md` Step 1: read the whole file with `--mode combined`, ch
 
 ## Why the whole file, in combined mode
 
-**⚠️ Editing an existing file: read the whole file with `--mode combined`, change it, and write the whole file back with `"mode": "combined"`.** `yaml-create` **replaces** the layer's copy of the file (no field-by-field merge), and Omni stores only what differs from the layers below it. This is how the IDE saves. It works on a shared model, a branch, a shared extension, and a workbook model, for changed, added and removed fields, and it is the only mode in which leaving a field out of the file removes it.
+`yaml-create` **replaces** the layer's copy of the file (no field-by-field merge), and Omni stores only what differs from the layers below it. This is how the IDE saves. It works on a shared model, a branch, a shared extension, and a workbook model, for changed, added and removed fields, and it is the only mode in which leaving a field out of the file removes it.
 
 - **Send the whole file.** A partial file in `combined` mode marks every field you left out `ignored: true`. In `extension` mode a partial file replaces the layer's copy, so earlier changes in that file are lost, and an inherited field you leave out is kept, not removed.
 - **Read it back both ways:** `--mode extension` for what the layer stores (only your change), `--mode combined` for what the model resolves to.
@@ -26,8 +26,8 @@ The steps are in `SKILL.md` → *Known Issues & Safe Defaults*. Tested on Lab of
 | parent declares every column: `combined` mode, remove then edit | no |
 | parent declares every column: `extension` mode, remove | yes |
 
-- **Unfreeze**, with the user's OK: send empty `yaml` with `"mode": "extension"` for that file. It deletes the layer's file, including the layer's other changes to the view, and the view follows the parent again; then redo those changes in `extension` mode without removing a dimension.
-- **From the parent:** declaring every column the SQL returns as a dimension avoids the copy, and `combined` mode then works as usual, removals included. Undeclared columns can't be queried anyway.
+- **Remove the copy**, with the user's OK: send empty `yaml` with `"mode": "extension"` for that file. It deletes the layer's file, including the layer's other changes to the view, and the view follows the parent again; then redo those changes in `extension` mode without removing a dimension.
+- **From the parent:** declaring every column the SQL returns as a dimension avoids the copy, and `combined` mode then works as usual, removals included. Undeclared columns can't be queried.
 
 ## Exceptions
 
@@ -44,11 +44,11 @@ A `sql:` view whose CTEs end in `SELECT *` counts as returning undeclared column
 
 ## Hub-and-spoke setups
 
-**Hub-and-spoke setups (shared extensions, models that `extends` another): write to the shared model ID you were given.** Whether it's the hub, a shared extension, or a model that extends another, that model (through a branch of it) is where the change goes. Don't move a change to the hub or to another extension because it seems to belong there; say so if it does, and still write where you were pointed unless told otherwise.
+In a hub-and-spoke setup (shared extensions, models that `extends` another), write to the shared model ID you were given. Whether it's the hub, a shared extension, or a model that extends another, that model (through a branch of it) is where the change goes. Don't move a change to the hub or to another extension because it seems to belong there; say so if it does, and still write where you were pointed unless told otherwise.
 
 ## Branches of a shared extension
 
-**Branches of a shared extension.** An extension either shares its base shared model's branches or has isolated branches of its own (set when it was created; no read endpoint returns the setting). Find out which before you write:
+An extension either shares its base shared model's branches or has isolated branches of its own (set when it was created; no read endpoint returns the setting). Find out which before you write:
 - `omni models list --base-model-id <extensionId> --model-kind BRANCH` lists the extension's own branches. If any come back, it has **isolated branches**: use the extension's ID with one of those branch IDs. (`--include activeBranches` on the extension doesn't list them.)
 - If none come back, list the base shared model's branches the same way (`--base-model-id <sharedModelId>`). With **shared branches** the extension has no branch of its own: use the extension's ID with the shared model's branch ID, and Omni stores the change for the extension on that branch.
 - `omni models create-branch <extensionId>` also tells you: the new branch's `baseModelId` is the extension (isolated) or the shared model (shared).
@@ -56,4 +56,4 @@ A `sql:` view whose CTEs end in `SELECT *` counts as returning undeclared column
 
 ## Field, view and topic commands
 
-- **Don't make model edits with the field, view and topic commands — use `yaml-create`.** (`create-field`, `update-field`, `update-view`, `update-topic`, `models update`). Each takes only some properties, and several cases return `success: true` without making the change: a key the command doesn't apply is dropped (for example `aggregateType` on `update-field`, or anything but `name` on `models update`), `update-view` drops `aiContext`, and a rename with `newFieldName` leaves the original field in place.
+Don't make model edits with `create-field`, `update-field`, `update-view`, `update-topic` or `models update`; use `yaml-create`. Each takes only some properties, and several cases return `success: true` without making the change: a key the command doesn't apply is dropped (for example `aggregateType` on `update-field`, or anything but `name` on `models update`), `update-view` drops `aiContext`, and a rename with `newFieldName` leaves the original field in place.

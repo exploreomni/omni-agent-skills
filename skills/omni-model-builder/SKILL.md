@@ -7,7 +7,7 @@ description: Create and edit Omni Analytics semantic model definitions — views
 
 Create and modify Omni's semantic model through the YAML API — views, topics, dimensions, measures, relationships, and query views.
 
-> **Tip**: Always use `omni-model-explorer` first to understand the existing model.
+> Use `omni-model-explorer` first to understand the existing model.
 
 ## Prerequisites
 
@@ -62,9 +62,9 @@ When the database schema changes (new, deleted or renamed columns, type changes)
 - **Profile the data before modelling it.** Check grain (`COUNT(*)` vs `COUNT(DISTINCT <key>)` on every fact), implied units (value ÷ quantity per category, to catch a "hours" column that holds money), and where history starts (older records may need an opening balance). Ask the business owner what an ambiguous term ("fee type", "status") means before building on a guess.
 - **Keep eval-created files on branches until confirmed** — when you create fields/views for validation, report the branch name/id, validation status, and test-query result; merging is governed by the HARD STOP above.
 - **Edit with `yaml-create`, not `create-field`, `update-field`, `update-view`, `update-topic` or `models update`:** they can report success without making the change ([details](references/editing-existing-files.md#field-view-and-topic-commands)).
-- **Known bug: inherited `sql:` query views freeze in child layers** (extension, workbook model, branch): a write copies the parent's `sql:` into the layer, freezing it. Cause: an undeclared column in the SQL (assume one for `SELECT *` or CTEs), or a dimension removed there. Until fixed ([recovery](references/editing-existing-files.md#inherited-sql-query-views)):
-  1. Read `--mode extension` first: a view-level `sql:` you didn't write means frozen; an `ignored: true` dimension means any write freezes it. Either way, tell the user.
-  2. Otherwise write the whole `--mode combined` read back with `"mode": "extension"` (combined freezes it later). Change, add or hide (`hidden: true`); never remove. Then re-check as in step 1.
+- **Known bug: a child layer can store a copy of an inherited `sql:` query view's SQL** (extension, workbook model, branch), and stop following the parent's SQL. Cause: an undeclared column in the SQL (assume one for `SELECT *` or CTEs), or a dimension removed there. Until fixed ([removing a copy](references/editing-existing-files.md#inherited-sql-query-views)):
+  1. Read `--mode extension` first: a view-level `sql:` you didn't write is that copy; an `ignored: true` dimension means any write stores one. Either way, tell the user.
+  2. Otherwise write the whole `--mode combined` read back with `"mode": "extension"` (in `combined` mode, the second edit stores a copy). Change, add or hide (`hidden: true`); never remove. Then re-check as in step 1.
 
 ## Discovering Commands
 
@@ -139,7 +139,7 @@ Spot-check that values look right (a `sum` isn't returning a `count`; booleans r
 
 ### Step 3: Ship the Branch
 
-> **Important**: Always ask the user for confirmation before shipping. Changes applied to the production model cannot be easily undone. Only ship after validation and testing pass (Step 2).
+> Ask the user to confirm before shipping. Changes applied to the production model cannot be easily undone. Only ship after validation and testing pass (Step 2).
 
 Check `omni models git-get <modelId>`: a git-connected model ships as a PR with `omni models commit`; otherwise merge in Omni with `omni models merge-branch <modelId> <branchName>`. Both paths: [shipping-a-branch.md](references/shipping-a-branch.md).
 
@@ -153,7 +153,7 @@ Model files are views (`.view`), topics (`.topic`), composite topics (`.composit
 
 ## Writing Views
 
-> **Every view that participates in joins MUST have a real `primary_key: true` dimension.** Without a genuine row-unique primary key, queries that join to this view can produce fanout errors or incorrect aggregations. Use the table's natural unique identifier (e.g., `id`, `order_id`, `user_id`). If no single column is unique, build a composite key from row-level columns that are jointly unique, for example `sql: ${order_id} || '-' || ${line_number}`. If you cannot define a row-unique expression, do not mark a dimension as `primary_key: true` yet; fix the grain first or avoid joining the view until a real key exists. Why: [troubleshooting.md](references/troubleshooting.md#why-the-primary-key-matters-symmetric-aggregates).
+> **Every view that participates in joins MUST have a real `primary_key: true` dimension.** Without a row-unique primary key, queries that join to this view can produce fanout errors or incorrect aggregations. Use the table's natural unique identifier (e.g., `id`, `order_id`, `user_id`). If no single column is unique, build a composite key from row-level columns that are jointly unique, for example `sql: ${order_id} || '-' || ${line_number}`. If you cannot define a row-unique expression, do not mark a dimension as `primary_key: true` yet; fix the grain first or avoid joining the view until a real key exists. Why: [troubleshooting.md](references/troubleshooting.md#why-the-primary-key-matters-symmetric-aggregates).
 
 ### Basic View
 

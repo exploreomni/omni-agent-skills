@@ -62,7 +62,7 @@ omni models yaml-create <draftWorkbookModelId> --body '{
 }'
 ```
 
-> **Critical**: send the whole file, as read with `--mode combined`, with `"mode": "combined"`. Omni stores only what differs from the shared model. A body holding only your new fields is taken as the complete view in combined mode, so every field you left out is marked `ignored: true` and queries on the shared view's fields fail. For a `sql:` query view inherited from the shared model, follow the exception in **`omni-model-builder`** → Step 1.
+> Send the whole file, as read with `--mode combined`, with `"mode": "combined"`. Omni stores only what differs from the shared model. A body holding only your new fields is taken as the complete view in combined mode, so every field you left out is marked `ignored: true` and queries on the shared view's fields fail. For a `sql:` query view inherited from the shared model, follow the exception in **`omni-model-builder`** → Step 1.
 
 `fileName` must be `"model"`, `"relationships"`, or end with `.view` or `.topic`. The `yaml` value is a YAML string (not a JSON object) containing the view's *contents* — no `views:` wrapper. Writing to a workbook model skips git sync entirely — authorization is still checked against the underlying shared model's permissions.
 
