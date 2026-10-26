@@ -19,7 +19,7 @@ _Summary: editing a model file means reading the whole file with `--mode combine
 - **Cursor rule `omni-yaml-conventions`.** Points to the same Known Issues entry.
 - **`omni-model-builder` — *Branches of a shared extension*.** Step 0 and `references/editing-existing-files.md`: how to tell shared from isolated extension branches (`models list --base-model-id <extensionId> --model-kind BRANCH`, or the `baseModelId` that `create-branch` returns), which model ID and branch ID to pair for each, and how to read the change back.
 - **`omni-model-builder` — *Hub-and-spoke setups*.** Write to the shared model ID you were given (hub, shared extension, or a model that extends another), through a branch of it; don't move a change to the hub or another extension on your own.
-- **`omni-model-builder` — *Query views*.** Declare a dimension for every column a `sql:` query view's SQL returns; changing a `query:` view's `query:` block in a child layer stores the whole block there.
+- **`omni-model-builder` — *Query views*.** Changing a `query:` view's `query:` block in a child layer stores the whole block there.
 - **`omni-content-builder` — *Workbook-model fields*.** The Step 2 recipe reads the view from the draft's workbook model with `--mode combined`, adds the fields, and writes the whole file back in combined mode. The note that combined mode marks omitted fields `ignored` now says this happens with a partial body. Evals updated to match.
 - **`omni-ai-optimizer` — *Writing ai_context*.** Adding `ai_context` to an existing topic sends the whole topic file, read with `--mode combined`.
 

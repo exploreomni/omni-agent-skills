@@ -237,7 +237,7 @@ A topic's `views:` block can set `display_order`, override labels, and add topic
 
 ## Query Views
 
-A query view needs a primary key (`primary_key: true` on one dimension, or `custom_compound_primary_key_sql`) or joins to it fan out; confirm which field is unique before writing unless the query makes it clear, and ask the user when they are unsure. Rules, including the `FROM` alias a `sql:` block with `${view.field}` references needs: [query-views.md](references/query-views.md) · examples: [query-view-examples.md](references/query-view-examples.md). Declare every column a `sql:` query view returns as a dimension ([why](references/editing-existing-files.md#exceptions)).
+A query view needs a primary key (`primary_key: true` on one dimension, or `custom_compound_primary_key_sql`) or joins to it fan out; confirm which field is unique before writing unless the query makes it clear, and ask the user when they are unsure. Rules, including the `FROM` alias a `sql:` block with `${view.field}` references needs: [query-views.md](references/query-views.md) · examples: [query-view-examples.md](references/query-view-examples.md).
 
 ## Common Validation Errors
 
