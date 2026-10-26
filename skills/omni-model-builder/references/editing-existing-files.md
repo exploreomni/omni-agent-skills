@@ -8,6 +8,7 @@ The rule is in `SKILL.md` Step 1: read the whole file with `--mode combined`, ch
 
 - **Send the whole file.** A partial file in `combined` mode marks every field you left out `ignored: true`. In `extension` mode a partial file replaces the layer's copy, so earlier changes in that file are lost, and an inherited field you leave out is kept, not removed.
 - **Read it back both ways:** `--mode extension` for what the layer stores (only your change), `--mode combined` for what the model resolves to.
+- **Primary keys in an extension read:** when a layer sets `primary_key: true` on a dimension it inherits, `--mode extension` shows it as a view-level `custom_compound_primary_key_sql: [ "${view.field}" ]`. It is the same key; `--mode combined` shows `primary_key: true`, and that is the read to edit from.
 
 ## File names
 
