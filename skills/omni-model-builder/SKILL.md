@@ -64,7 +64,7 @@ When the database schema changes (new, deleted or renamed columns, type changes)
 - **Edit with `yaml-create`, not `create-field`, `update-field`, `update-view`, `update-topic` or `models update`:** they can report success without making the change ([details](references/editing-existing-files.md#field-view-and-topic-commands)).
 - **Known bug: a child layer can store a copy of an inherited `sql:` query view's SQL** (extension, workbook model, branch) and stop following the parent. Cause: an undeclared column (assume one for `SELECT *` or CTEs) or a removed dimension. Until fixed ([removing a copy](references/editing-existing-files.md#inherited-sql-query-views)):
   1. Read `--mode extension` first: a view-level `sql:` you didn't write is that copy; an `ignored: true` dimension means any write stores one. Tell the user.
-  2. Otherwise write the whole `--mode combined` read back with `"mode": "extension"` (in `combined` mode the second edit copies it). Change, add or hide (`hidden: true`); never remove. Re-check as in step 1.
+  2. Otherwise write the whole `--mode combined` read back with `"mode": "extension"` (`combined` copies it on the second edit). Change, add or hide (`hidden: true`); never remove. Re-check as in step 1.
 
 ## Discovering Commands
 
@@ -78,7 +78,7 @@ omni models yaml-create --schema  # Print the body's JSON schema + a filled exam
 
 > **Always work in a branch — never write directly to production — and first check you *can* branch.** Branching requires full-model access. Run `omni whoami whoami --model-id <modelId>`: `QUERY_FULL_MODEL` present → you can create a branch (and `UPDATE` present → you can merge/promote it, else open a PR / request a merge); absent → you can't branch — a one-off field belongs in the document's workbook model instead (`omni-content-builder` → *Updating a Dashboard's Model*). Full permission→capability map: **`omni-admin` → Model Roles & Caller Access**.
 
-> **Hub-and-spoke: write to the model ID you were given**; don't re-route the change ([details](references/editing-existing-files.md#hub-and-spoke-setups)).
+> **Hub-and-spoke: write to the model ID you were given** ([details](references/editing-existing-files.md#hub-and-spoke-setups)).
 
 ### Step 0: Create a Branch
 
@@ -110,11 +110,11 @@ omni models yaml-create <modelId> --body '{
 
 > **⚠️ Editing an existing file: read it whole with `--mode combined`, write it whole with `"mode": "combined"`, read it back in both modes.** Exceptions ([details](references/editing-existing-files.md#exceptions)):
 > - **Inherited `sql:` query view with an undeclared column:** see *Known Issues*.
-> - **`relationships`:** edit on a branch with `"mode": "merged"`; other modes copy in dbt's relationships ([steps](references/editing-existing-files.md#relationships)).
+> - **`"mode": "merged"`, on a branch only:** for `relationships` ([why](references/editing-existing-files.md#relationships)) and to drop an override so the schema or dbt definition shows ([why](references/editing-existing-files.md#removing-an-override)).
+> - **New file:** either mode. **Delete:** empty `yaml`, `"mode": "extension"`.
 > - **`extends`:** edit from the combined read; fully-resolved content needs `"fullyResolved": true` (not yet for field or topic inline-view `extends`).
-> - **No other `"mode": "merged"` writes.** New file: either mode. Delete: empty `yaml` with `"mode": "extension"`.
 >
-> `fileName` is the file's **exact path** (reuse the `yaml-get` key, folder prefix included); a mismatch silently creates a duplicate ([inspect a branch](references/model-layers.md#inspecting-a-branch)).
+> `fileName` is the exact `yaml-get` key, folder prefix included; a mismatch silently creates a duplicate ([inspect a branch](references/model-layers.md#inspecting-a-branch)).
 
 On a dbt-connected model, `omni models branch-dbt-get` shows the dbt environment a branch compiles against: [model-layers.md](references/model-layers.md#branches-on-dbt-connected-models).
 
