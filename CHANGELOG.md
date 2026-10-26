@@ -6,6 +6,23 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.23.1] - 2026-10-25
+
+### omni-analytics
+
+_Summary: editing a model file means reading the whole file with `--mode combined` and writing the whole file back with `"mode": "combined"`, the way the IDE saves, with the known exceptions spelled out._
+
+**Fixed**
+- **`omni-model-builder` — *Editing an existing file*.** Step 1 (details in `references/editing-existing-files.md`) now says to read the whole file with `--mode combined`, change it, write the whole file back with `"mode": "combined"`, and read it back in both modes. It explains why a partial file fails in either mode, and lists the exceptions: an inherited `sql:` query view whose SQL returns an undeclared column (or whose dimensions you remove) can have the parent's `sql:` copied into the layer, so write it in `extension` mode and don't remove its dimensions; writes to `relationships` also store the connection's dbt-generated relationships; with `extends` (model, view, field or topic level), edit from the combined read, or pair a fully-resolved read with `fullyResolved: true` on the write where Omni accepts it (not yet for field-level or topic inline-view `extends`); don't write in `merged` mode; delete with empty `yaml` in `extension` mode.
+- **`omni-model-builder` — *Known Issues & Safe Defaults*.** Don't make model edits with `create-field`, `update-field`, `update-view`, `update-topic` or `models update`; use `yaml-create`. They take only some properties and can return `success: true` without making the change (dropped parameters, renames that keep the original field). Step 1 points to it.
+- **`omni-modeler` agent.** The write example and conventions now follow the whole-file, combined-mode rule (it still said to prefer `extension` mode), and say not to use the field, view and topic commands.
+- **Cursor rule `omni-yaml-conventions`.** Points to the same Known Issues entry.
+- **`omni-model-builder` — *Branches of a shared extension*.** Step 0 and `references/editing-existing-files.md`: how to tell shared from isolated extension branches (`models list --base-model-id <extensionId> --model-kind BRANCH`, or the `baseModelId` that `create-branch` returns), which model ID and branch ID to pair for each, and how to read the change back.
+- **`omni-model-builder` — *Hub-and-spoke setups*.** Write to the shared model ID you were given (hub, shared extension, or a model that extends another), through a branch of it; don't move a change to the hub or another extension on your own.
+- **`omni-model-builder` — *Query views*.** Declare a dimension for every column a `sql:` query view's SQL returns; changing a `query:` view's `query:` block in a child layer stores the whole block there.
+- **`omni-content-builder` — *Workbook-model fields*.** The Step 2 recipe reads the view from the draft's workbook model with `--mode combined`, adds the fields, and writes the whole file back in combined mode. The note that combined mode marks omitted fields `ignored` now says this happens with a partial body. Evals updated to match.
+- **`omni-ai-optimizer` — *Writing ai_context*.** Adding `ai_context` to an existing topic sends the whole topic file, read with `--mode combined`.
+
 ## [1.23.0] - 2026-10-25
 
 ### omni-analytics

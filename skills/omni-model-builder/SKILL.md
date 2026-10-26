@@ -58,9 +58,10 @@ When the database schema changes (new, deleted or renamed columns, type changes)
 >
 > When the field/view is needed for downstream content but not yet merged, the correct move is a **branch-bound draft** (`omni-content-builder` → *branch-bound drafts*), **not** a merge. When a merge is genuinely needed, **stop and ask** ("Ready for me to merge `<branch>` into the shared model?") and wait for an explicit yes. If a harness/permission layer blocks the merge, that is the guardrail working — surface it and ask; do not look for another path around it.
 
-- **Confirm the branch still exists at the start of each session and after any gap** — `omni models list --model-id <sharedModelId> --include activeBranches`. Someone else may have merged it; writes then fail with `Branch does not exist`, and drafts bound to it may already be published (check `omni documents list-drafts <identifier>`). If it was merged, diff your local YAML against the shared model and start a new branch for further changes.
+- **Confirm the branch still exists at the start of each session and after any gap** — `omni models list --model-id <sharedModelId> --include activeBranches` (for a shared extension, see Step 0). Someone else may have merged it; writes then fail with `Branch does not exist`, and drafts bound to it may already be published (check `omni documents list-drafts <identifier>`). If it was merged, diff your local YAML against the shared model and start a new branch for further changes.
 - **Profile the data before modelling it.** Check grain (`COUNT(*)` vs `COUNT(DISTINCT <key>)` on every fact), implied units (value ÷ quantity per category, to catch a "hours" column that holds money), and where history starts (older records may need an opening balance). Ask the business owner what an ambiguous term ("fee type", "status") means before building on a guess.
 - **Keep eval-created files on branches until confirmed** — when you create fields/views for validation, report the branch name/id, validation status, and test-query result; merging is governed by the HARD STOP above.
+- **Make model edits with `yaml-create`, not the field, view and topic commands** (`create-field`, `update-field`, `update-view`, `update-topic`, `models update`): they can return `success: true` without making the change ([details](references/editing-existing-files.md#field-view-and-topic-commands)).
 
 ## Discovering Commands
 
@@ -74,6 +75,8 @@ omni models yaml-create --schema  # Print the body's JSON schema + a filled exam
 
 > **Always work in a branch — never write directly to production — and first check you *can* branch.** Branching requires full-model access. Run `omni whoami whoami --model-id <modelId>`: `QUERY_FULL_MODEL` present → you can create a branch (and `UPDATE` present → you can merge/promote it, else open a PR / request a merge); absent → you can't branch — a one-off field belongs in the document's workbook model instead (`omni-content-builder` → *Updating a Dashboard's Model*). Full permission→capability map: **`omni-admin` → Model Roles & Caller Access**.
 
+> **Hub-and-spoke setups: write to the model ID you were given** (hub, shared extension, or `extends` spoke), through a branch of it. Don't move a change to another model on your own ([details](references/editing-existing-files.md#hub-and-spoke-setups)).
+
 ### Step 0: Create a Branch
 
 ```bash
@@ -86,6 +89,8 @@ The response `model.id` is your `branchId` — a UUID you'll pass to all subsequ
 omni models list --include activeBranches
 ```
 
+> **Shared extensions:** if `omni models list --base-model-id <extensionId> --model-kind BRANCH` lists branches, use one; otherwise use the base shared model's branch. Pair it with the extension's ID to write and read ([details](references/editing-existing-files.md#branches-of-a-shared-extension)).
+
 > **⚠️ On a git-connected model, never hand-edit model YAML in git.** Author through Omni on a branch and ship with `omni models commit` (Step 3); Omni's next sync deletes model files that exist only in git. Files that aren't model content (OWNERS, CI config, docs) can be committed directly: [git-connected-models.md](references/git-connected-models.md).
 
 ### Step 1: Write YAML to a Branch
@@ -94,13 +99,19 @@ omni models list --include activeBranches
 omni models yaml-create <modelId> --body '{
   "fileName": "my_new_view.view",
   "yaml": "dimensions:\n  order_id:\n    primary_key: true\n  status:\n    label: Order Status\nmeasures:\n  count:\n    aggregate_type: count",
-  "mode": "extension",
+  "mode": "combined",
   "branchId": "{branchId}",
   "commitMessage": "Add my_new_view with status dimension and count measure"
 }'
 ```
 
-> **⚠️ Editing an existing file = whole-file read-modify-write at its exact path.** `yaml-create` **replaces** a file's authored content (no field-by-field merge), so `yaml-get` it first, edit, and write the **complete** file back, or the other authored fields are dropped. `fileName` is the file's **exact path** (not a regex, unlike on read) — reuse the full-path key verbatim, folder prefix included (e.g. `MARTS/fct_ai_events.view`); a non-matching name doesn't error, it **silently creates a duplicate** at that path (`success: true`). (Schema base columns live in the schema layer, so they're unaffected.) To inspect a branch's files: [model-layers.md](references/model-layers.md#inspecting-a-branch).
+> **⚠️ Editing an existing file: read the whole file with `--mode combined`, write the whole file back with `"mode": "combined"`, and read it back with `--mode extension` and `--mode combined`.** `yaml-create` replaces the layer's copy, so a partial file loses fields. Exceptions ([details](references/editing-existing-files.md#exceptions)):
+> - **Inherited `sql:` query view** whose SQL returns a column it doesn't declare, or whose dimensions you remove: write it with `"mode": "extension"` and don't remove its dimensions.
+> - **`relationships`:** a write also stores the connection's dbt-generated relationships in the layer.
+> - **`extends`:** edit from the combined read; fully-resolved content goes back only with `"fullyResolved": true` (not yet for field-level or topic inline-view `extends`).
+> - **Never `"mode": "merged"`.** New file: either mode. Delete: empty `yaml` with `"mode": "extension"`.
+>
+> `fileName` is the file's **exact path** (reuse the `yaml-get` key verbatim, folder prefix included): a name that doesn't match silently creates a duplicate file (`success: true`). Inspecting a branch's files: [model-layers.md](references/model-layers.md#inspecting-a-branch).
 
 On a dbt-connected model, `omni models branch-dbt-get` shows the dbt environment a branch compiles against: [model-layers.md](references/model-layers.md#branches-on-dbt-connected-models).
 
@@ -135,7 +146,7 @@ After either path, confirm new topics and views resolve against the production m
 
 ## YAML File Types
 
-Model files are views (`.view`), topics (`.topic`), composite topics (`.composite_topic`) and the relationships file: [model-layers.md](references/model-layers.md#file-types). Write with `mode: "extension"` (shared model layer). To delete a file, send empty `yaml`.
+Model files are views (`.view`), topics (`.topic`), composite topics (`.composite_topic`) and the relationships file: [model-layers.md](references/model-layers.md#file-types). Write the whole file with `mode: "combined"`; exceptions and deletes are in Step 1.
 
 ## Writing Views
 
@@ -226,7 +237,7 @@ A topic's `views:` block can set `display_order`, override labels, and add topic
 
 ## Query Views
 
-A query view needs a primary key (`primary_key: true` on one dimension, or `custom_compound_primary_key_sql`) or joins to it fan out; confirm which field is unique before writing unless the query makes it clear, and ask the user when they are unsure. Rules, including the `FROM` alias a `sql:` block with `${view.field}` references needs: [query-views.md](references/query-views.md) · examples: [query-view-examples.md](references/query-view-examples.md).
+A query view needs a primary key (`primary_key: true` on one dimension, or `custom_compound_primary_key_sql`) or joins to it fan out; confirm which field is unique before writing unless the query makes it clear, and ask the user when they are unsure. Rules, including the `FROM` alias a `sql:` block with `${view.field}` references needs: [query-views.md](references/query-views.md) · examples: [query-view-examples.md](references/query-view-examples.md). Declare every column a `sql:` query view returns as a dimension ([why](references/editing-existing-files.md#exceptions)).
 
 ## Common Validation Errors
 
