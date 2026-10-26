@@ -61,8 +61,8 @@ When the database schema changes (new, deleted or renamed columns, type changes)
 - **Confirm the branch still exists at the start of each session and after any gap** — `omni models list --model-id <sharedModelId> --include activeBranches`. Someone else may have merged it; writes then fail with `Branch does not exist`, and drafts bound to it may already be published (check `omni documents list-drafts <identifier>`). If it was merged, diff your local YAML against the shared model and start a new branch for further changes.
 - **Profile the data before modelling it.** Check grain (`COUNT(*)` vs `COUNT(DISTINCT <key>)` on every fact), implied units (value ÷ quantity per category, to catch a "hours" column that holds money), and where history starts (older records may need an opening balance). Ask the business owner what an ambiguous term ("fee type", "status") means before building on a guess.
 - **Keep eval-created files on branches until confirmed** — when you create fields/views for validation, report the branch name/id, validation status, and test-query result; merging is governed by the HARD STOP above.
-- **Edit with `yaml-create`, not the field, view or topic commands or `models update`:** they can report success without making the change ([details](references/editing-existing-files.md#field-view-and-topic-commands)).
-- **Known bug: inherited `sql:` query views freeze in child layers** (extension, workbook model, branch): a write copies the parent's `sql:` into the layer, which stops following it. Cause: the SQL returns an undeclared column (assume so for `SELECT *` or CTEs), or a dimension was removed there. Until fixed ([recovery](references/editing-existing-files.md#inherited-sql-query-views)):
+- **Edit with `yaml-create`, not `create-field`, `update-field`, `update-view`, `update-topic` or `models update`:** they can report success without making the change ([details](references/editing-existing-files.md#field-view-and-topic-commands)).
+- **Known bug: inherited `sql:` query views freeze in child layers** (extension, workbook model, branch): a write copies the parent's `sql:` into the layer, freezing it. Cause: an undeclared column in the SQL (assume one for `SELECT *` or CTEs), or a dimension removed there. Until fixed ([recovery](references/editing-existing-files.md#inherited-sql-query-views)):
   1. Read `--mode extension` first: a view-level `sql:` you didn't write means frozen; an `ignored: true` dimension means any write freezes it. Either way, tell the user.
   2. Otherwise write the whole `--mode combined` read back with `"mode": "extension"` (combined freezes it later). Change, add or hide (`hidden: true`); never remove. Then re-check as in step 1.
 
@@ -92,7 +92,7 @@ The response `model.id` is your `branchId` — a UUID you'll pass to all subsequ
 omni models list --include activeBranches
 ```
 
-> **Shared extensions:** pair the extension's ID with a branch from `omni models list --base-model-id <extensionId> --model-kind BRANCH`, or the base shared model's branch if there's none ([details](references/editing-existing-files.md#branches-of-a-shared-extension)).
+> **Shared extensions:** pair the extension's ID with a branch from `omni models list --base-model-id <extensionId> --model-kind BRANCH`, else the base shared model's branch ([details](references/editing-existing-files.md#branches-of-a-shared-extension)).
 
 > **⚠️ On a git-connected model, never hand-edit model YAML in git.** Author through Omni on a branch and ship with `omni models commit` (Step 3); Omni's next sync deletes model files that exist only in git. Files that aren't model content (OWNERS, CI config, docs) can be committed directly: [git-connected-models.md](references/git-connected-models.md).
 
