@@ -62,6 +62,11 @@ When the database schema changes (new, deleted or renamed columns, type changes)
 - **Profile the data before modelling it.** Check grain (`COUNT(*)` vs `COUNT(DISTINCT <key>)` on every fact), implied units (value ÷ quantity per category, to catch a "hours" column that holds money), and where history starts (older records may need an opening balance). Ask the business owner what an ambiguous term ("fee type", "status") means before building on a guess.
 - **Keep eval-created files on branches until confirmed** — when you create fields/views for validation, report the branch name/id, validation status, and test-query result; merging is governed by the HARD STOP above.
 - **Make model edits with `yaml-create`, not the field, view and topic commands** (`create-field`, `update-field`, `update-view`, `update-topic`, `models update`): they can return `success: true` without making the change ([details](references/editing-existing-files.md#field-view-and-topic-commands)).
+- **Known bug: an inherited `sql:` query view can freeze in a child layer** (extension, workbook model or branch): a write stores a copy of the parent's `sql:`, and the view stops following it. It applies when the SQL returns a column the view doesn't declare (assume so for `SELECT *` or CTEs); removing one of its dimensions in that layer freezes it too. Until fixed:
+  1. Read `--mode extension` first. A view-level `sql:` you didn't write = already frozen; a dimension with `ignored: true` = any write freezes it. Either way, tell the user before writing.
+  2. Else edit the whole `--mode combined` read and write it with `"mode": "extension"` (combined freezes it on the second edit). Change, add or hide (`hidden: true`); never remove.
+  3. Read back `--mode extension`: no view-level `sql:`.
+  4. To unfreeze it, or avoid it from the parent: [details](references/editing-existing-files.md#inherited-sql-query-views).
 
 ## Discovering Commands
 
@@ -106,7 +111,7 @@ omni models yaml-create <modelId> --body '{
 ```
 
 > **⚠️ Editing an existing file: read the whole file with `--mode combined`, write the whole file back with `"mode": "combined"`, and read it back with `--mode extension` and `--mode combined`.** `yaml-create` replaces the layer's copy, so a partial file loses fields. Exceptions ([details](references/editing-existing-files.md#exceptions)):
-> - **Inherited `sql:` query view** whose SQL returns a column it doesn't declare, or whose dimensions you remove: write it with `"mode": "extension"` and don't remove its dimensions.
+> - **Inherited `sql:` query view whose SQL returns an undeclared column:** follow *Known Issues* (an inherited `sql:` query view can freeze).
 > - **`relationships`:** a write also stores the connection's dbt-generated relationships in the layer.
 > - **`extends`:** edit from the combined read; fully-resolved content goes back only with `"fullyResolved": true` (not yet for field-level or topic inline-view `extends`).
 > - **Never `"mode": "merged"`.** New file: either mode. Delete: empty `yaml` with `"mode": "extension"`.

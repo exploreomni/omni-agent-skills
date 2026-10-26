@@ -13,9 +13,25 @@ The rule is in `SKILL.md` Step 1: read the whole file with `--mode combined`, ch
 
 `fileName` is the file's **exact path** (not a regex, unlike on read) — reuse the full-path key verbatim, folder prefix included (e.g. `MARTS/fct_ai_events.view`); a non-matching name doesn't error, it **silently creates a duplicate** at that path (`success: true`). (Schema base columns live in the schema layer, so they're unaffected.) To inspect a branch's files: [model-layers.md](references/model-layers.md#inspecting-a-branch).
 
+## Inherited `sql:` query views
+
+The steps are in `SKILL.md` → *Known Issues & Safe Defaults*. Tested on Lab of Doom (2026-10-25), in a shared extension, on a parent query view whose SQL returns one column it doesn't declare:
+
+| Write in the child layer | Copy of the parent's `sql:` |
+|---|---|
+| `combined` mode: first edit / second edit | no / yes |
+| `extension` mode (from the `--mode combined` read): change, add or hide a dimension | no, on every edit |
+| `extension` mode: remove a dimension | yes |
+| any write after a dimension of the view was removed (`ignored: true`) in the layer, in either mode | yes |
+| parent declares every column: `combined` mode, remove then edit | no |
+| parent declares every column: `extension` mode, remove | yes |
+
+- **Unfreeze**, with the user's OK: send empty `yaml` with `"mode": "extension"` for that file. It deletes the layer's file, including the layer's other changes to the view, and the view follows the parent again; then redo those changes in `extension` mode without removing a dimension.
+- **From the parent:** declaring every column the SQL returns as a dimension avoids the copy, and `combined` mode then works as usual, removals included. Undeclared columns can't be queried anyway.
+
 ## Exceptions
 
-- **Inherited `sql:` query views:** in an extension, workbook, or branch, when the view's SQL returns a column the view doesn't declare as a dimension, or you remove one of its dimensions, a write can store a full copy of the parent's `sql:` in the layer, and that layer stops picking up later changes to the parent's SQL. Write that file with `"mode": "extension"` (still the whole file as read with `--mode combined`) for changes and additions, and don't remove its dimensions in the child. A view-level `sql:` in `--mode extension` that you didn't write is such a copy: report it rather than editing around it.
+- **Inherited `sql:` query views:** in an extension, workbook, or branch, a write can store a full copy of the parent's `sql:` in the layer, and that layer stops picking up later changes to the parent's SQL. It happens when the view's SQL returns a column the view doesn't declare as a dimension; removing one of its dimensions in the layer copies it too, and after that every write copies it, in either mode. Follow the steps in `SKILL.md` → *Known Issues & Safe Defaults*: write that file with `"mode": "extension"` (still the whole file as read with `--mode combined`), hide dimensions instead of removing them, and check `--mode extension` for a view-level `sql:` you didn't write. Undeclared columns can't be queried, so declaring them in the parent is also the way to make them usable.
 - **`relationships`:** when the connection has dbt-generated relationships, any write to the file also stores them in the layer, without their dbt provenance comments. Expect them on read-back; sending empty `yaml` with `"mode": "extension"` removes the layer's copy.
 - **`extends`** (in the model file, a view, a field, or a topic's inline views): `--mode combined` shows a file's own content and the schema, not what `extends` brings in. Read it and write the whole file back with `"mode": "combined"`, as above; that stores only your change and keeps following the extended definitions. To see what `extends` brings in, read with `--mode fully-resolved`, and if you write that content back, send `"fullyResolved": true` with it: `combined` mode keeps anything you send that the extended definition already provides, as an override in this layer, and only the flag drops it. The flag isn't accepted yet for files with field-level `extends` or `extends` on a topic's inline views, or to change a view's own `extends:` line; edit those from the combined read. Never mix the two: fully-resolved content sent without the flag copies the inherited definitions into the layer (including a query view's `query:` or `sql:`), and the flag sent with content read in combined mode damages the file.
 - **Don't write with `"mode": "merged"`.** Published models refuse it; on branches it can store schema-layer properties (`table_name`, base columns, dbt descriptions) in the branch.
