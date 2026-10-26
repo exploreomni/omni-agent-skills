@@ -6,6 +6,7 @@ Docs: [Composite topics](https://docs.omni.co/modeling/topics/composite-topics) 
 
 ## Contents
 
+- [When to reach for a composite topic](#when-to-reach-for-a-composite-topic)
 - [Is it a composite? The cardinality test](#is-it-a-composite-the-cardinality-test)
 - [The file](#the-file)
 - [Same fact, two lenses](#same-fact-two-lenses)
@@ -13,6 +14,10 @@ Docs: [Composite topics](https://docs.omni.co/modeling/topics/composite-topics) 
 - [Topic-specific dimensions: `unrelated_dimension_handling`](#topic-specific-dimensions-unrelated_dimension_handling)
 - [Querying a composite](#querying-a-composite)
 - [Aggregate tables and composites](#aggregate-tables-and-composites)
+
+## When to reach for a composite topic
+
+**Reach for a composite topic** when one query must place measures from two facts that share dimensions but no join (sales and returns by month), or one fact under two conditions (this period and last, created basis and shipped basis). **Don't** reach for it when one topic with a join answers the question, or when the second measure is a filtered variant of the first.
 
 ## Is it a composite? The cardinality test
 
