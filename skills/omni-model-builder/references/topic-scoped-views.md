@@ -2,6 +2,17 @@
 
 See [Topic views parameter](https://docs.omni.co/modeling/topics/parameters/views.md) for the full reference.
 
+## Contents
+
+- [Controlling View Display Order](#controlling-view-display-order)
+- [Overriding a Field Label](#overriding-a-field-label)
+- [Topic-Specific Filtered Measure](#topic-specific-filtered-measure)
+- [Topic-Specific Ratio Measure](#topic-specific-ratio-measure)
+- [Topic-Specific Derived Dimension](#topic-specific-derived-dimension)
+- [Cross-View Fields](#cross-view-fields)
+- [Joining the Same View Multiple Ways (Multi-Join Lifecycle)](#joining-the-same-view-multiple-ways-multi-join-lifecycle)
+- [Topic-Scoped Query View](#topic-scoped-query-view)
+
 ## Controlling View Display Order
 
 ```yaml
