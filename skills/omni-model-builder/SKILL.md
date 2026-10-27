@@ -111,7 +111,7 @@ omni models yaml-create <modelId> --body '{
 > **⚠️ Editing an existing file: read it whole with `--mode combined`, write it whole with `"mode": "combined"`, read it back in both modes.** Exceptions ([details](references/editing-existing-files.md#exceptions)):
 > - **Inherited `sql:` query view with an undeclared column:** see *Known Issues*.
 > - **`"mode": "merged"`, on a branch only:** for `relationships` ([why](references/editing-existing-files.md#relationships)) and to drop an override ([why](references/editing-existing-files.md#removing-an-override)).
-> - **New file:** either mode. **Delete:** empty `yaml`, `"mode": "extension"`.
+> - **New file:** either mode. **Delete:** empty `yaml`, `"mode": "extension"`, if inherited; else `yaml-delete --mode extension`.
 > - **`extends`:** edit from the combined read; fully-resolved content needs `"fullyResolved": true` (not yet for field or topic inline-view `extends`).
 >
 > `fileName` is the exact `yaml-get` key, folder prefix included; a mismatch silently creates a duplicate ([inspect a branch](references/model-layers.md#inspecting-a-branch)).
