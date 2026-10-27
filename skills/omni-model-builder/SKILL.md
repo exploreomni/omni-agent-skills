@@ -190,7 +190,7 @@ See `references/modelParameters.md` (24+ params, all 13 aggregate types) and `re
 
 ### Filter-only fields and dynamic fields
 
-**Reach for a filter-only field** when one user choice should change *how a field is computed* rather than *which rows are kept*: report by created date or shipped date, show revenue or order count in the same KPI, apply a threshold the viewer sets. **Don't** reach for it to hide or show fields (use topic `fields:`), to filter rows (an ordinary filter), or when the two variants deserve their own topics (see "new topic vs extend"). Shapes, binding, validation: [templated-filters.md](references/templated-filters.md).
+**Reach for a filter-only field** when one user choice should change *how a field is computed* rather than *which rows are kept*: report by created date or shipped date, show revenue or order count in the same KPI, apply a threshold the viewer sets. **Don't** reach for it to hide or show fields (use topic `fields:`), to filter rows (an ordinary filter), or when the two variants deserve their own topics (see "new topic vs adding to"). Shapes, binding, validation: [templated-filters.md](references/templated-filters.md).
 
 ### Aggregate tables (aggregate awareness)
 
@@ -212,7 +212,7 @@ Before concluding a view doesn't exist, check the schemas `yaml-get` didn't load
 
 > **Before writing a topic, confirm every view it references exists** with `omni models yaml-get <modelId>`, using the fallback above for a view in a schema that isn't loaded.
 
-### New topic vs extend an existing one
+### New topic vs adding to an existing one
 
 Adding to an existing topic is usually right when the request's base view matches its base view. Create a new topic when the subject (base view), always-applied constraints, or audience differ; ask the requestor when it is a judgment call, and build new topics on a branch. Criteria and key topic elements: [writing-topics.md](references/writing-topics.md).
 
