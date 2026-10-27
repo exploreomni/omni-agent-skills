@@ -6,7 +6,7 @@ Cross-view fields (dimensions or measures whose `sql` references `${other_view.f
 
 **Placement follows intended availability and resolved join context, not field namespace.** Define the field in the topic's `views.<host_view>` block (see "Topic-Scoped View Definitions") when it is meaningful only in that topic or depends on a topic-specific, aliased, or frozen join. The field remains queryable as `<host_view>.<field>`; topic scoping limits where it is available, not the namespace the user requested.
 
-Use the global view file when the field is universally meaningful and its dependency resolves unambiguously in every topic that exposes the host view. Before choosing, list those topics and inspect each resolved `get-topic` `join_via_map` — not only the global relationships file — then validate the branch and query at least one topic for each distinct join context. Topics without explicit joins may inherit a global relationship; topics with explicit joins may exclude it.
+Use the global view file when the field is universally meaningful and its dependency resolves the same way in every topic that exposes the host view. Validation already checks every one of those topics (the `field_broken_in_topic` issue above names the field and the topic), so validate the branch rather than inspecting each topic by hand. A field that resolves through a different join in some topic (an alias, or another path) is not an error, so validation won't show it: when the host view's topics join the dependency differently, compare those topics' `get-topic` `join_via_map`. Topics without explicit joins may inherit a global relationship; topics with explicit joins may exclude it.
 
 ## Topic-Scoped Relationships
 

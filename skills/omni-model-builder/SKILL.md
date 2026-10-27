@@ -214,7 +214,7 @@ Before concluding a view doesn't exist, check the schemas `yaml-get` didn't load
 
 ### New topic vs extend an existing one
 
-Extending an existing topic is usually right when the request's base view matches its base view. Create a new topic when the subject (base view), always-applied constraints, or audience differ; ask the requestor when it is a judgment call, and build new topics on a branch. Criteria and key topic elements: [writing-topics.md](references/writing-topics.md).
+Adding to an existing topic is usually right when the request's base view matches its base view. Create a new topic when the subject (base view), always-applied constraints, or audience differ; ask the requestor when it is a judgment call, and build new topics on a branch. Criteria and key topic elements: [writing-topics.md](references/writing-topics.md).
 
 ### Filter Expressions for Topics
 

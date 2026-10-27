@@ -19,6 +19,8 @@ Surface the returned `pr_url` to the user, with a link to the branch in the Omni
 
 ## Path B — Not git-connected: merge in Omni
 
+When you ask the user to confirm the merge, include the branch's IDE link (the URL in Path A) so they can review the changes in Omni first.
+
 ```bash
 omni models merge-branch <modelId> <branchName>
 ```
