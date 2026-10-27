@@ -6,7 +6,7 @@ Cross-view fields (dimensions or measures whose `sql` references `${other_view.f
 
 **Placement follows intended availability and resolved join context, not field namespace.** Define the field in the topic's `views.<host_view>` block (see "Topic-Scoped View Definitions") when it is meaningful only in that topic or depends on a topic-specific, aliased, or frozen join. The field remains queryable as `<host_view>.<field>`; topic scoping limits where it is available, not the namespace the user requested.
 
-Use the global view file when the field is universally meaningful and its dependency resolves unambiguously in every topic that exposes the host view. Before choosing, list those topics and inspect each resolved `get-topic` `join_via_map` — not only the global relationships file — then validate the branch and query at least one topic for each distinct join context. Topics without explicit joins may inherit a global relationship; topics with explicit joins may exclude it.
+Use the global view file when the field is universally meaningful and its dependency resolves the same way in every topic that exposes the host view. Validation already checks every one of those topics (the `field_broken_in_topic` issue above names the field and the topic), so validate the branch rather than inspecting each topic by hand. A field that resolves through a different join in some topic (an alias, or another path) is not an error, so validation won't show it: when the host view's topics join the dependency differently, compare those topics' `get-topic` `join_via_map`. Topics without explicit joins may inherit a global relationship; topics with explicit joins may exclude it.
 
 ## Topic-Scoped Relationships
 
@@ -29,7 +29,7 @@ joins:
 
 > **`joins` vs `relationships`:** `joins` declares which views are in the topic and their hierarchy; `relationships` defines the join conditions. A topic using only global relationships needs only `joins`. A topic with a one-off join needs both.
 >
-> **Silent footgun — both are required, and omitting `joins` passes validation.** If you add the `relationships` entry but forget the view's `joins` entry, the model still **validates clean** (no error) — but the joined view's fields are silently **not exposed** in the topic (a query/markdown referencing them comes back empty). Don't trust `validate` for this; confirm the fields are actually exposed with `get-topic` (see [validation-and-testing.md](validation-and-testing.md)). (Topic file shapes vary: some list views under a `joins:` map, others as top-level `<view>: {}` entries — match the existing file's form.)
+> **Both are required, and omitting `joins` passes validation.** If you add the `relationships` entry but forget the view's `joins` entry, the model still **validates clean** (no error) — but the joined view's fields are silently **not exposed** in the topic (a query/markdown referencing them comes back empty). Don't trust `validate` for this; confirm the fields are actually exposed with `get-topic` (see [validation-and-testing.md](validation-and-testing.md)). (Topic file shapes vary: some list views under a `joins:` map, others as top-level `<view>: {}` entries — match the existing file's form.)
 
 ### Extended Views: Joining the Same Table Multiple Ways
 
@@ -72,4 +72,4 @@ See `references/topic-scoped-views.md` for a full pattern gallery (label overrid
 
 **Joining the same view multiple ways** (e.g., ARR at Start / Current / End): Use `extends:` inside the topic's `views:` block to create named aliases, each with its own `on_sql` in `relationships:`. Each alias inherits all base view fields and can override labels independently. For a full YAML example, see `references/topic-scoped-views.md`.
 
-**Topic-scoped query views:** A query view can also be defined inside a topic's `views:` block, scoping it to that topic only. Same primary key rules apply (`primary_key: true` or `custom_compound_primary_key_sql`). Include a `relationships:` entry and a `joins:` entry for the new view — see [query-views.md](query-views.md), and [topic-scoped-views.md](topic-scoped-views.md) for a complete example.
+**Topic-scoped query views:** A query view can also be defined inside a topic's `views:` block, scoping it to that topic only. Same primary key rules apply (`primary_key: true` on one dimension, concatenated when no single field is unique). Include a `relationships:` entry and a `joins:` entry for the new view — see [query-views.md](query-views.md), and [topic-scoped-views.md](topic-scoped-views.md) for a complete example.

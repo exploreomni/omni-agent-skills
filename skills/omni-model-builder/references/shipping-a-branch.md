@@ -15,9 +15,11 @@ omni models commit <modelId> --body '{
 }'
 ```
 
-Surface the returned `pr_url` to the user. The reviewer merges the PR in your git host; changes flow back to `baseBranch` on the next sync. Run `omni models commit --help` for optional body flags (`allow_branch_exists`, `require_branch_exists`) when you need to enforce open-only or update-only behavior.
+Surface the returned `pr_url` to the user, with a link to the branch in the Omni IDE: `https://<instance>/models/<modelId>/ide?branchId=<branchId>&mode=staged` (the shared model's ID in the path; `mode=staged` shows only the branch's changes). `omni models commit` doesn't write the PR description, so once the PR exists and you can edit it (for example `gh pr edit <pr_url> --body-file <file>`), add that link to its description so reviewers can open the branch in Omni. The reviewer merges the PR in your git host; changes flow back to `baseBranch` on the next sync. Run `omni models commit --help` for optional body flags (`allow_branch_exists`, `require_branch_exists`) when you need to enforce open-only or update-only behavior.
 
 ## Path B — Not git-connected: merge in Omni
+
+When you ask the user to confirm the merge, include the branch's IDE link (the URL in Path A) so they can review the changes in Omni first.
 
 ```bash
 omni models merge-branch <modelId> <branchName>

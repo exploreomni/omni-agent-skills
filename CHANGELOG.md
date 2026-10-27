@@ -6,6 +6,36 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.23.1] - 2026-10-25
+
+### omni-analytics
+
+_Summary: the skills now edit a model file the way the IDE saves it: read the whole file with `--mode combined` and write it back whole with `"mode": "combined"`. The exceptions are below._
+
+**Fixed**
+- **`omni-model-builder` — *Editing an existing file*.** Whole file, `combined` mode, except:
+  - an inherited `sql:` query view with an undeclared column: `extension` mode, and hide dimensions instead of removing them;
+  - `relationships`, or dropping your override of a field: `merged` mode on a branch;
+  - `extends`: edit from the combined read; fully-resolved content needs `fullyResolved: true`.
+- **`omni-model-builder` — *Deleting a file*.** Empty `yaml` in `extension` mode only when the parent model also has the file; otherwise `omni models yaml-delete --mode extension`.
+- **`omni-model-builder` — *Field, view and topic commands*.** Use `yaml-create`; the others can report success without making the change.
+- **`omni-model-builder` — *Keying a view*.** With no unique column, use a hidden dimension that concatenates columns.
+- **`omni-model-builder` — *Naming a new shared model*.** `models create` takes `modelName`, not `name`.
+- **`omni-content-builder`, `omni-ai-optimizer`, `omni-modeler` agent — *Same edit rule*.** Recipes and examples follow it.
+
+**Added**
+- **`omni-model-builder` — *Shared extensions and hub-and-spoke*.** Which model and branch IDs to use, and where to write.
+- **`omni-model-builder` — *Reviewing a branch*.** Give the user the branch's IDE link.
+
+**Changed**
+- **`omni-model-builder` — *Fields that reference another view*.** Validate the branch instead of checking every topic by hand.
+- **`omni-model-builder`, `omni-query` — *New topic or add to an existing one*.** "Add to" a topic, not "extend".
+
+### omni-integrations
+
+**Fixed**
+- **`omni-to-dbt-metricflow` — *Falling back to the dbt definition*.** Uses the file key `yaml-get` returns (`omni_dbt_<schema>/<view>.view`).
+
 ## [1.23.0] - 2026-10-25
 
 ### omni-analytics

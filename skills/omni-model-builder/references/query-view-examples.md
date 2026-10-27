@@ -2,13 +2,13 @@
 
 ## Contents
 
-- [Option 1 — Single Primary Key (query: block)](#option-1--single-primary-key-query-block)
-- [Option 2 — Compound Primary Key (query: block)](#option-2--compound-primary-key-query-block)
+- [Single Primary Key (query: block)](#single-primary-key-query-block)
+- [Concatenated Primary Key (query: block)](#concatenated-primary-key-query-block)
 - [Raw SQL Variant](#raw-sql-variant)
 - [Rolling a Many-Side Up to a Flag (both forms)](#rolling-a-many-side-up-to-a-flag-both-forms)
 - [Mapping / lookup view (CLI stand-in for an Omni Input Table)](#mapping--lookup-view-cli-stand-in-for-an-omni-input-table)
 
-## Option 1 — Single Primary Key (query: block)
+## Single Primary Key (query: block)
 
 ```yaml
 schema: PUBLIC
@@ -28,7 +28,7 @@ dimensions:
     format: currency_2
 ```
 
-## Option 2 — Compound Primary Key (query: block)
+## Concatenated Primary Key (query: block)
 
 ```yaml
 schema: PUBLIC
@@ -40,18 +40,20 @@ query:
   base_view: order_items
   topic: order_items
 
-custom_compound_primary_key_sql: [order_id, product_id]
-
 dimensions:
   order_id: {}
   product_id: {}
+  order_product_key:
+    sql: ${order_id} || '-' || ${product_id}   # BigQuery: cast each column, CAST(${order_id} AS STRING) || '-' || CAST(${product_id} AS STRING)
+    primary_key: true
+    hidden: true
   sale_price:
     format: currency_2
 ```
 
 ## Raw SQL Variant
 
-The `sql:` block can be used in place of `query:`. The same primary key options apply.
+The `sql:` block can be used in place of `query:`. The same primary key rules apply.
 
 Use `${view_name}` to reference a view's underlying table rather than a manual `CATALOG.SCHEMA.TABLE` reference — this is the preferred form as it stays correct if the underlying table is renamed or moved.
 
@@ -149,11 +151,10 @@ sql: |
   -- ...one row per source value (mix of metro nicknames and broader regions)
 
 dimensions:
-  territory: {}
+  territory:
+    primary_key: true
   employee_name: {}
   manager_name: {}
-
-custom_compound_primary_key_sql: [ '"territory"' ]   # single-col PK is fine
 ```
 
 Then join it on the key (topic-scoped relationship):

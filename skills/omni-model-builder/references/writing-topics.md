@@ -1,8 +1,8 @@
 # Writing Topics
 
-## New topic vs extend an existing one
+## New topic vs adding to an existing one
 
-When a query can't be answered by an existing topic, first check whether you should simply **extend** one rather than create a new one. Extending is usually right when the request's base view (the FROM) matches an existing topic's base view — e.g. add a relationship/join so a needed view becomes reachable, or add a field/label. **Create a new topic** when any of these is fundamentally different:
+When a query can't be answered by an existing topic, first check whether you should **add to** one (a join so a needed view becomes reachable, a field or a label) rather than create a new one. That is usually right when the request's base view (the FROM) matches an existing topic's base view. **Create a new topic** when any of these is fundamentally different:
 
 - **Subject / object** — a different base view (FROM). What is the query fundamentally describing — orders? users? *time* (dates)? A different core entity warrants its own topic.
 - **Constraints** — conditions that are *always* applied (e.g. an `always_where` that excludes test users from order data). Different always-on filters → a different topic.

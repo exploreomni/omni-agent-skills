@@ -30,7 +30,7 @@ If the schema isn't in the `get-schemas` list at all, the connection likely does
 | "Invalid YAML syntax" | Check indentation (2 spaces, no tabs) |
 | Fanout / incorrect aggregations on joins | Add `primary_key: true` to the joined view — every view that participates in a join must have a primary key ([why](#why-the-primary-key-matters-symmetric-aggregates)) |
 | Column reference error (e.g., "Column `X` not found") | Check that the table exists and your Omni connection has access |
-| Duplicate view appeared at the repo root after an edit | You wrote with a bare `fileName` instead of the file's full path. Delete the stray root file (send empty `yaml` to it) and re-write using the exact `files` key, including its folder prefix (e.g. `MARTS/`) |
+| Duplicate view appeared at the repo root after an edit | You wrote with a bare `fileName` instead of the file's full path. Delete the stray root file with `omni models yaml-delete <modelId> --file-name <file> --mode extension` (add `--branch-id` on a branch; empty `yaml` leaves it in the model) and re-write using the exact `files` key, including its folder prefix (e.g. `MARTS/`) |
 
 ## Why the primary key matters: symmetric aggregates
 

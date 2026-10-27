@@ -91,7 +91,7 @@ This procedure follows `omni-model-builder` → Safe Development Workflow (Steps
 
    On a branch, `--mode extension` returns only the branch delta layer, usually `model` and `relationships`. Do not use it as the view override file.
 
-   File keys differ by mode. Combined output uses `<schema>/<view>.view`. Merged and extension output use `<schema>__<view>.view`. Reuse the key exactly as returned.
+   Reuse the file key exactly as `yaml-get` returns it (for a virtual-schema view, `omni_dbt_<schema>/<view>.view`).
 
 6. Identify the exact key that blocks dbt. Remove only the needed model-layer field. Preserve other authored content. If the imported measure depends on an Omni dimension override, follow the dimension-override rule before writing.
 
@@ -102,11 +102,11 @@ This procedure follows `omni-model-builder` → Safe Development Workflow (Steps
        sql: '"SALE_PRICE" * 0.95'
    ```
 
-7. Write the complete merged file. `yaml-create` is a whole-file write. On a branch, use the flat returned key and `mode: "merged"` in the body.
+7. Write the complete merged file. `yaml-create` is a whole-file write. On a branch, use the returned key and `mode: "merged"` in the body. Removing the field in `merged` mode stores `ignored: shallow`, which drops only the override, so the dbt definition shows through. Don't make this write in `combined` mode: there, removing the field stores `ignored: true`, which hides the field, dbt's definition included, and merging the branch carries that into the shared model.
 
    ```json
    {
-     "fileName": "omni_dbt_ecomm__order_items.view",
+     "fileName": "omni_dbt_ecomm/order_items.view",
      "yaml": "<full merged file minus the one field>",
      "mode": "merged",
      "branchId": "<id>"
@@ -231,4 +231,4 @@ General rule: remove a dimension override when an imported measure's dbt express
 | Aggregate time dimension | The model's time dimension for `agg_time_dimension` |
 | dbt project YAML layout | Legacy or flattened |
 | dbt YAML file layout | `models/semantic-models/` or the project's semantic-YAML location |
-| Omni file keys | `<schema>/<view>.view` in combined mode; `<schema>__<view>.view` in merged mode |
+| Omni file keys | `<schema>/<view>.view`, exactly as `yaml-get` returns it |

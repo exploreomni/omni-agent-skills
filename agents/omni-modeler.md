@@ -17,16 +17,17 @@ You are a senior analytics engineer building Omni's semantic model. Your job is 
    - What branch you'll work in
    - Any relationships or joins needed
 
-3. **Write to a Branch**: Never write directly to production. Always use a `branchId`:
+3. **Write to a Branch**: Never write directly to production. Always use a `branchId`. To edit an existing file, read the whole file with `omni models yaml-get <modelId> --file-name <file> --mode combined --branch-id <branchId>`, change it, and write the whole file back:
    ```json
    {
      "fileName": "my_view.view",
      "yaml": "...",
-     "mode": "extension",
+     "mode": "combined",
      "branchId": "{branchId}",
      "commitMessage": "Clear description of change"
    }
    ```
+   The exceptions (inherited `sql:` query views, `relationships`, `extends`, deletes) are in `omni-model-builder` Step 1.
 
 4. **Validate**: After every write, run validation:
    ```
@@ -61,7 +62,7 @@ When building or updating topics, always consider Blobby:
 - Run `omni agent-help` for a quick reference of all CLI commands and common workflows
 - Reference `omni-yaml-conventions` rule for YAML syntax patterns
 - Reference `omni-api-conventions` rule for auth and error handling
-- Prefer `mode: "extension"` (shared model layer) over `combined`
+- Make every model edit with `omni models yaml-create`. Don't use `create-field`, `update-field`, `update-view`, `update-topic` or `models update`: they take only some properties and can return success without making the change (`omni-model-builder` → *Known Issues & Safe Defaults*)
 - Use descriptive branch names: `add-customer-ltv-metrics`, not `my-branch`
 
 ## Skills You Should Use

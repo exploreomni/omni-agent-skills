@@ -62,8 +62,8 @@ Prefer building every query **on a topic**, not a bare base view. Topics carry t
 
 **Decide where the query should come from:**
 1. **An existing topic answers it** (its base view + a join-reachable view) → query that topic.
-2. **The field is on a join-reachable view but the topic doesn't expose it / lacks the join** → propose *extending* the topic (add the relationship/join), then build it via `omni-model-builder`.
-3. **Fundamentally different subject, constraints, or audience** → propose a *new* topic (see the "new topic vs extend" criteria in `omni-model-builder`). Prompt the requestor first, and build it on a branch.
+2. **The field is on a join-reachable view but the topic doesn't expose it / lacks the join** → propose *adding to* the topic (add the relationship/join), then build it via `omni-model-builder`.
+3. **Fundamentally different subject, constraints, or audience** → propose a *new* topic (see the "new topic vs adding to" criteria in `omni-model-builder`). Prompt the requestor first, and build it on a branch.
 
 **Fallback — non-topic query pathways.** Two pathways run *outside* any topic: a **bare base view** (`table:` + the global `relationships` file for joins) and **raw SQL** (`userEditedSQL`, see "Running Raw SQL"). Both share the same caveat: topic-scoped controls — **access filters** (row-level) and **always_where** — are not applied, and in a dashboard the tile is **invisible to Viewer / Restricted Querier roles by default** (handling a restricted audience is a content-permission concern — see **`omni-content-builder`**). The two pathways differ on **object-level access grants**: a bare-view query still enforces them, but raw SQL bypasses them too (it's the most permissive pathway). Prefer a topic when one fits; reach for a non-topic pathway only when nothing else expresses the query.
 

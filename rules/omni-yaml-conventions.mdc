@@ -11,4 +11,5 @@ The canonical, maintained guidance lives in the **`omni-model-builder`** skill �
 - **Dimensions / measures / topics / relationships / formats / timeframes** → `skills/omni-model-builder/references/modelParameters.md`
 - **Filter condition syntax** (measure filters, `always_where`/`always_having`, `default_filters`) → `skills/omni-model-builder/references/yaml-filter-syntax.md`
 - **Write workflow** (the `yaml-create` body, `mode`, branch, validate, `commit`/PR) and **common pitfalls** → `skills/omni-model-builder/SKILL.md`
+- **Edit with `yaml-create`, not the field, view and topic commands** (`create-field`, `update-field`, `update-view`, `update-topic`, `models update`) → `skills/omni-model-builder/SKILL.md` (*Known Issues & Safe Defaults*)
 - **Model layers and write modes** (schema / shared / workbook / branch) → `skills/omni-model-builder/SKILL.md`
