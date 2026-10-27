@@ -10,33 +10,31 @@ Since 1.11.0 both plugins share one version, held in `versions.json` and stamped
 
 ### omni-analytics
 
-_Summary: the skills now edit a model file the way the IDE saves it: read the whole file with `--mode combined`, change it, and write it back whole with `"mode": "combined"`. A few files and cases need a different write; they are listed below and in `omni-model-builder`. Deleting a file now depends on whether the parent model also has it._
+_Summary: the skills now edit a model file the way the IDE saves it: read the whole file with `--mode combined` and write it back whole with `"mode": "combined"`. The exceptions are below._
 
 **Fixed**
-- **`omni-model-builder` — *Editing an existing file*.** Send the whole file in `combined` mode; a partial file loses fields in either mode. The exceptions:
-  - an inherited `sql:` query view with a column it doesn't declare: write it in `extension` mode and hide dimensions instead of removing them, or the parent's SQL is copied into the layer (steps in *Known Issues*);
-  - `relationships`: edit on a branch in `merged` mode, or the connection's dbt relationships are stored in the layer;
-  - `extends`: edit from the combined read, and send a fully-resolved read only with `fullyResolved: true`;
-  - dropping your override so the schema or dbt definition shows through: `merged` mode on a branch.
-- **`omni-model-builder` — *Deleting a file*.** Empty `yaml` in `extension` mode deletes a file only when the parent model also has it. For a file only the layer has, including a stray duplicate at the repo root, use `omni models yaml-delete --mode extension`; empty `yaml` leaves the view in the model.
-- **`omni-model-builder` — *Field, view and topic commands*.** Edit with `yaml-create`. `create-field`, `update-field`, `update-view`, `update-topic` and `models update` can report success without making the change.
-- **`omni-model-builder` — *Keying a view*.** When no single column is unique, key the view with a hidden dimension that concatenates columns (on BigQuery and other dialects without implicit casts, cast them to strings first). Query views no longer suggest `custom_compound_primary_key_sql`.
-- **`omni-model-builder` — *Naming a new shared model*.** `omni models create` takes the name as `modelName`; it ignores `name`.
-- **`omni-content-builder`, `omni-ai-optimizer` and the `omni-modeler` agent — *Same edit rule*.** Their recipes and examples send the whole file in `combined` mode. The `omni-yaml-conventions` Cursor rule points to the *Known Issues* entry.
+- **`omni-model-builder` — *Editing an existing file*.** Whole file, `combined` mode, except:
+  - an inherited `sql:` query view with an undeclared column: `extension` mode, and hide dimensions instead of removing them;
+  - `relationships`, or dropping your override of a field: `merged` mode on a branch;
+  - `extends`: edit from the combined read; fully-resolved content needs `fullyResolved: true`.
+- **`omni-model-builder` — *Deleting a file*.** Empty `yaml` in `extension` mode only when the parent model also has the file; otherwise `omni models yaml-delete --mode extension`.
+- **`omni-model-builder` — *Field, view and topic commands*.** Use `yaml-create`; the others can report success without making the change.
+- **`omni-model-builder` — *Keying a view*.** With no unique column, use a hidden dimension that concatenates columns.
+- **`omni-model-builder` — *Naming a new shared model*.** `models create` takes `modelName`, not `name`.
+- **`omni-content-builder`, `omni-ai-optimizer`, `omni-modeler` agent — *Same edit rule*.** Recipes and examples follow it.
 
 **Added**
-- **`omni-model-builder` — *Branches of a shared extension*.** How to tell whether an extension has its own branches, and which model and branch IDs to pair.
-- **`omni-model-builder` — *Hub-and-spoke setups*.** Write to the model ID you were given; don't move a change to the hub or another extension.
-- **`omni-model-builder` — *Reviewing a branch*.** Give the user the branch's IDE link with the PR, or before a merge in Omni.
+- **`omni-model-builder` — *Shared extensions and hub-and-spoke*.** Which model and branch IDs to use, and where to write.
+- **`omni-model-builder` — *Reviewing a branch*.** Give the user the branch's IDE link.
 
 **Changed**
-- **`omni-model-builder` — *Fields that reference another view*.** Validate the branch instead of checking every topic's joins by hand; validation reports each topic where the field breaks.
-- **`omni-model-builder` and `omni-query` — *New topic or add to an existing one*.** They say "add to" a topic, since "extend" read as the `extends:` key.
+- **`omni-model-builder` — *Fields that reference another view*.** Validate the branch instead of checking every topic by hand.
+- **`omni-model-builder`, `omni-query` — *New topic or add to an existing one*.** "Add to" a topic, not "extend".
 
 ### omni-integrations
 
 **Fixed**
-- **`omni-to-dbt-metricflow` — *Falling back to the dbt definition*.** Uses the file key `yaml-get` returns (`omni_dbt_<schema>/<view>.view`) and says why that write uses `merged` mode.
+- **`omni-to-dbt-metricflow` — *Falling back to the dbt definition*.** Uses the file key `yaml-get` returns (`omni_dbt_<schema>/<view>.view`).
 
 ## [1.23.0] - 2026-10-25
 
