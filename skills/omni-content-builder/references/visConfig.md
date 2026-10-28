@@ -377,6 +377,13 @@ Layers do **not** stack across layers. Two bar layers on the same axis draw over
 - `color._stack` on this layer is the stacking of the measures: `stack`, `group`, `overlay` or `stack_percentage`.
 - A measure that should be its own layer (a line on the right axis beside stacked bars) is a separate `series` entry and must be left out of `foldedFields`.
 
+What the Measure values layer does with keys a plain layer honors, each tried:
+
+- `title.value` on the fold layer changes nothing; its legend title is `color.axis.title.value`.
+- `regression` and `movingAverage` on the fold layer draw one line through all the folded rows together, which means nothing; put them on a plain layer.
+- `dataLabel` and `totals` (with `position`) on the fold layer work: one label per segment, one total per stack.
+- One fold cannot be split across the axes: a second `omni__field_value` series on `y2` redraws every folded measure there as well. A measure that belongs on the other axis is its own layer, left out of `foldedFields`.
+
 ### Creating a layer-compiled chart through the API
 
 Take any cartesian recipe in this file, add `"useLayerCompiler": true` to `behaviors`, put the per-layer encodings on the series, and fold measures that share an axis and a mark. Bars on the left axis, a line on the right, zeros aligned:
@@ -473,6 +480,7 @@ The layer compiler parses a config against a strict schema: every key below is a
 | `series[].mark` | `type` plus one style object named after it: `bar: { cornerRadius, opacity }`, `line: { color, dash, interpolate, opacity, point, width }`, `area: { …line keys…, line }`, `point: { filled, opacity, shape, size, width }`; and `_mark_color` |
 | `series[].color` | `field`, `_stack`, `stackSort`, `manual` stay on the layer; `values`, `else`, `_scheme`, `range`, `reverse`, `axis` (legend title), `legendPosition`, `labelOverflow`, `maxItems`, `showTitle`, `scaleDomain`, `ignoreModeledColors` are field-level and belong in `colorFields["<field>"]` (inline on the series still parses: the first layer in paint order with them wins for that field) |
 | `series[].size` (point layers) | `field`, `axis.title.value`, `legendPosition`, `labelOverflow`, `maxItems`, `showTitle`, `manual` |
+| `series[].regression`, `series[].movingAverage` | `regression: { enabled, method, line: { color, dash, opacity, width }, noGroupByEncoding }`; `movingAverage: { enabled, window: { period, type }, line: { color, dash, opacity, point, width } }`. The two `line` objects are the exception to the strict rule: a key they do not declare (an `interpolate`, say) is dropped without rejecting the config |
 | `series[].dataLabel` and root `dataLabel` | `enabled`, `field`, `format`, `position`, `minValue`, `maxValue`, `useSparseLabelAlgorithm`, `color`, `font`, `fontSize`, `fontStyle`, `fontWeight` |
 | `facet` | `column` / `row` (`field`, `label`, `sort`, `title`, `manual`), `scaleXAxes` / `scaleYAxes` (`shared` / `independent`), `showXAxis` / `showYAxis` (`every` / `once`), `wrap`, `wrapColumns` |
 
@@ -504,6 +512,7 @@ Every row was written through the API with `behaviors.useLayerCompiler: true`, r
 | A Measure values layer colored by a real dimension | `series[].color.field` = the dimension on the `omni__field_value` layer: each segment is the measures added together for that value, so the measures cannot be told apart. Color by `omni__field_name` to see the measures; split by the dimension with a facet or a second layer instead |
 | Small multiples on two fields | `facet: { row: { field: { name: status } }, column: { field: { name: FN } } }` gives a grid, rows per status and a column per folded measure |
 | Which layer draws on top | `series[]` order: the last entry paints last. Bars listed after a line cover it; a line listed after bars runs over them |
+| Segment labels and stack totals on folded measures | `dataLabel: { enabled: true, position: "inside_end" }` and `totals: { enabled: true, position: "outside_end" }` on the `omni__field_value` layer |
 | A fold layer and a plain layer on one axis | Allowed: `[{ field: FV, bar, stacked }, { field: count, line, yAxis: "y" }]`; they share the axis scale |
 | Target line on the value axis | `y: { axis: { referenceLine: { enabled: true, value: 450000, label: "Target", line: { color: "#888888", dash: [4, 4] } } } }`, as on classic |
 | Bars shaded by a measure (gradient) | `series[].color: { field: { name: count } }` with `colorFields["<count>"]: { scaleDomain: { min: 8000, max: 12000 } }`; the legend is a gradient bar over that range |
