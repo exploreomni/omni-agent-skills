@@ -408,7 +408,7 @@ Take any cartesian recipe in this file, add `"useLayerCompiler": true` to `behav
 }
 ```
 
-This tile opened in the layers editor and rendered as authored. Read the tile back afterwards and confirm `behaviors.useLayerCompiler` is still `true` and the editor is the layers one; see the fallback below.
+This tile opened in the layers editor and rendered as authored. Layer-compiled tiles render in deliveries too: a dashboard of layer charts downloaded as PNG (`omni dashboards download`) drew every tile as the workbook did. Read the tile back afterwards and confirm `behaviors.useLayerCompiler` is still `true` and the editor is the layers one; see the fallback below.
 
 ### Moving a tile between the two compilers through the API
 
@@ -447,7 +447,14 @@ When a user asks in the editor's own terms, this is what to write. Every row was
 | **Axis options** (the gear beside Left axis / Right axis): **Title**, **Type**, **Domain Minimum / Maximum**, **Unpin from Zero**, **Scale**, **Zero line → Align with other axis**; its **Labels**, **Reference Line**, **Grid** tabs | `y.axis.title.value`, `y.axis._type`, `y.axis.domain.{min,max}`, `y.axis.domain.zero: false`, `y.axis.scale`, root `alignAxisZeros: true`; `y.axis.label`, `y.axis.referenceLine`, `y.axis.grid` (same under `y2`, or `x` / `x2` horizontal) |
 | **Style tab → Default chart palette**, **Reverse colors** | Fieldless root `color._scheme`, `color.reverse` |
 | **Style tab → Legends**: **Max width**, per-legend **Title**, **Position**, **Labels** (Truncate / Wrap), **Max items** | `legendSlots.<position>.size`; for a field's legend `colorFields["<field>"].axis.title.value`, `.legendPosition`, `.labelOverflow`, `.maxItems`; for the series legend the same keys on the fieldless root `color` |
-| Totals above stacked bars | `series[].totals: { enabled: true }` on the stacked layer |
+| **Simple totals** (in a layer's Label options); the button then reads **+ Add segment labels** | `series[].totals: { enabled: true }` on the stacked layer; the segment labels are that layer's `dataLabel` |
+| **Sort stack by: Label / Segment value / Overall sum / Unsorted**, **Sort order** | `series[].color.stackSort: { by: "label" / "size" / "sum" / "unsorted", order: "ascending" / "descending" }` |
+| **Axis options → Sort order: Automatic / Ascending / Descending** on a text X axis | `x.axis.sort: { field, order: "ascending" / "descending" }`; Automatic is no `sort` (query order) |
+| **Size: Fixed size** on a scatter layer | No `series[].size`; the point size is `mark.point.size` |
+| **Axes options (the menu on "Y-axes") → All values: Mark / Color / Size / Label** | The same key written onto every `series[]` entry (or the root broadcast key, which the parser copies onto each layer) |
+| **Axes options → Swap left and right**, **Display order: Left values on top / Right values on top** | Every `yAxis` flipped; the order of `series[]`: layers draw in array order, so the last entry is on top |
+| **Measure values** section: drag a measure in or out, reorder | `foldedFields` membership and order (also the legend order and, on a Measure names axis or facet, the panel order) |
+| **Field properties…** on a layer's field (title, format) | `series[].title.value`; number formats stay on the field in the model or the query |
 | Trend line, moving average | `series[].regression`, `series[].movingAverage` |
 | **Auto-charting on / off** | `automaticVis: true` / `false` on the presentation; the layers editor turns it off once a layer is edited |
 | "Test the new chart editor…" / "Upgrade charts to the new chart editor…" / "Leave the new chart editor…" | The compiler moves in [Moving a tile between the two compilers through the API](#moving-a-tile-between-the-two-compilers-through-the-api): the first copies the tab, the other two change the tile in place |
@@ -494,6 +501,9 @@ Every row was written through the API with `behaviors.useLayerCompiler: true`, r
 | Two color fields, two legends | A Measure values layer colored by `FN` plus a line layer colored by a real dimension (`series[].color.field`); each field gets its own legend |
 | Chart-wide mark with one exception | Root `mark: { type: "line" }` and `mark: { type: "bar" }` on the one layer that differs |
 | Legend and stack order of folded measures | The order of `foldedFields`: list the measure that should sit at the bottom of the stack first |
+| A Measure values layer colored by a real dimension | `series[].color.field` = the dimension on the `omni__field_value` layer: each segment is the measures added together for that value, so the measures cannot be told apart. Color by `omni__field_name` to see the measures; split by the dimension with a facet or a second layer instead |
+| Small multiples on two fields | `facet: { row: { field: { name: status } }, column: { field: { name: FN } } }` gives a grid, rows per status and a column per folded measure |
+| Which layer draws on top | `series[]` order: the last entry paints last. Bars listed after a line cover it; a line listed after bars runs over them |
 | A fold layer and a plain layer on one axis | Allowed: `[{ field: FV, bar, stacked }, { field: count, line, yAxis: "y" }]`; they share the axis scale |
 | Target line on the value axis | `y: { axis: { referenceLine: { enabled: true, value: 450000, label: "Target", line: { color: "#888888", dash: [4, 4] } } } }`, as on classic |
 | Bars shaded by a measure (gradient) | `series[].color: { field: { name: count } }` with `colorFields["<count>"]: { scaleDomain: { min: 8000, max: 12000 } }`; the legend is a gradient bar over that range |
@@ -510,6 +520,20 @@ Two results that are not errors but are worth knowing:
 - **A dimension in `query.pivots` that no layer encodes is rolled up** (one bar per month, summed across the pivot) rather than drawn once per pivot value. The classic compiler drew the same chart for that config.
 - **Layers on one axis share its scale, so mixed stack modes squash.** A `stack_percentage` layer and a `stack` layer on the same axis render against one domain and the percent layer collapses to a sliver at the bottom. Keep one stack mode per axis.
 
+### A layer that uses fewer dimensions than the query ("smart aggregation")
+
+A layer draws the rows the query returns; it never re-aggregates them. When the query groups by a dimension that a layer does not encode (not on its axis, color, size or facet), the layer needs a row per remaining dimension value, and the warehouse has to supply it: add a subtotal on the **last dimension the layer keeps** to `query.column_totals`, keyed by field name:
+
+```json
+"query": {
+  "fields": ["order_items.created_at[month]", "order_items.status", "order_items.total_revenue"],
+  "column_totals": { "order_items.created_at[month]": { "type": "aggregation" } },
+  …
+}
+```
+
+The layer then reads the month subtotal rows and draws one value per month (the editor shows a **TOTAL** badge on such a layer, and writes exactly this entry when a color field is removed from a layer while the dimension stays in the query). Without the entry the same line layer zigzags through every status row. This is per query, so it also feeds the table under the chart. Subtotals nest from the right, so the dimensions a layer keeps must be a prefix of the query's grouped dimensions. A pivoted dimension that no layer encodes needs nothing: it rolled up on its own in every test.
+
 ### Gotchas that change on a layer chart
 
 | Classic rule in this file | On a layer-compiled chart |
@@ -521,6 +545,7 @@ Two results that are not errors but are worth knowing:
 | `series[].title.value` for the legend label | Still works |
 | Axis styling under `<axis>.axis` | Still works |
 | `_dependentAxis`, `yAxis` / `xAxis`, `y2` for the right axis | Unchanged |
+| A query dimension the chart does not encode is simply ignored | A layer that omits a grouped dimension draws every row (a line zigzags) unless the query carries a `column_totals` subtotal on the last dimension the layer keeps |
 
 ## Config Object: KPI
 
