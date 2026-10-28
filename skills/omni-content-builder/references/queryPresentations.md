@@ -26,6 +26,7 @@ Every chart queryPresentation requires: `name`, `prefersChart: true`, a `visConf
 - [Caveats When Reusing queryPresentations](#caveats-when-reusing-querypresentations)
 - [Chart Type Examples](#chart-type-examples)
 - [Cartesian Config Fields](#cartesian-config-fields-visconfigvisconfigconfig)
+- [Layer-compiled cartesian tiles](#layer-compiled-cartesian-tiles)
 - [Quick Reference: chartType → visType → config](#quick-reference-charttype--vistype--config)
 
 ## Keyed map & order semantics
@@ -584,7 +585,41 @@ All line, column/bar, area, scatter, and combo charts use this structure:
 | `series` | Yes | Measure fields. Each has `"yAxis": "y"` (vertical) or `"xAxis": "x"` (horizontal). Per-series `mark` overrides enable combo charts. |
 | `tooltip` | Yes | Fields shown on hover — include all dimensions and measures. |
 | `behaviors.stackMultiMark` | No | `true` for stacked, `false` for grouped/overlay. |
+| `behaviors.useLayerCompiler` | No | `true` routes the tile to the layer compiler and the layers editor (what the UI's X/Y chart builder now creates); absent keeps the classic compiler. Per-layer `mark`, `color` and `dataLabel` then sit on each `series[]` entry, several measures in one layer use `foldedFields`, per-value colors go in root `colorFields`, and `alignAxisZeros: true` aligns the two value axes' zeros. See below. |
 | `size` | No | Field for bubble size (scatter `pointSize`/`pointSizeColor`). |
+
+## Layer-compiled cartesian tiles
+
+Every X/Y chart created in the Omni UI now stores `behaviors.useLayerCompiler: true` and keeps its encodings per layer; a tile you create through the API stays on the classic compiler (and the classic editor) unless you set that flag. Bars on the left axis and a line on the right, zeros aligned, as a layer-compiled tile:
+
+```json
+"visConfig": {
+  "chartType": "barLine",
+  "fields": ["order_items.created_at[month]", "order_items.total_revenue", "order_items.count"],
+  "version": 0,
+  "visConfig": {
+    "visType": "basic",
+    "config": {
+      "x": { "field": { "name": "order_items.created_at[month]" } },
+      "series": [
+        { "field": { "name": "order_items.total_revenue" }, "yAxis": "y",  "mark": { "type": "bar" } },
+        { "field": { "name": "order_items.count" },         "yAxis": "y2", "mark": { "type": "line" } }
+      ],
+      "tooltip": [
+        { "field": { "name": "order_items.created_at[month]" } },
+        { "field": { "name": "order_items.total_revenue" } },
+        { "field": { "name": "order_items.count" } }
+      ],
+      "alignAxisZeros": true,
+      "behaviors": { "stackMultiMark": false, "useLayerCompiler": true },
+      "configType": "cartesian",
+      "_dependentAxis": "y"
+    }
+  }
+}
+```
+
+Two rules that differ from the classic shapes above: layers never stack across layers, so measures that should stack or group go into one Measure values layer (`foldedFields` plus a series on `omni__field_value` colored by `omni__field_name`), and a `series[].color` hex string makes the tile fall back to the classic compiler without an error. The full shape, the Measure values fold, the per-layer and `colorFields` encodings, moving an existing tile in place, and which classic gotchas still hold: [visConfig.md → Layer-compiled cartesian charts](visConfig.md#layer-compiled-cartesian-charts-the-layers-editor).
 
 ## Quick Reference: chartType → visType → config
 

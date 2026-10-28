@@ -8,6 +8,7 @@ Complete reference for a tile's visualization config — the v2 `visConfig` enve
 - [chartType Values](#charttype-values) — the authoritative enum
 - [chartType → visType → configType mapping](#charttype--vistype--configtype-mapping)
 - [Config Object: Cartesian Charts](#config-object-cartesian-charts) — line, column, bar, area, scatter, combo
+- [Layer-compiled cartesian charts](#layer-compiled-cartesian-charts-the-layers-editor) — the layers editor: what it writes, Measure values, creating and moving tiles, gotchas that change
 - [Config Object: KPI](#config-object-kpi)
 - [Config Object: Pie / Donut](#config-object-pie--donut)
 - [Config Object: Heatmap](#config-object-heatmap)
@@ -135,6 +136,8 @@ These are the supported `chartType` values for building tiles with a structured 
 
 Line, column, bar, area, scatter, and combo charts use the cartesian config (`configType: "cartesian"`). This is the most common config type.
 
+The shapes in this section are read by the **classic** compiler, which is what a config gets unless it carries `behaviors.useLayerCompiler: true`. Charts built in the UI's X/Y chart editor are now **layer-compiled** and store their encodings per layer — see [Layer-compiled cartesian charts](#layer-compiled-cartesian-charts-the-layers-editor) for that shape, how it differs, and how to move a tile between the two.
+
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
 | `configType` | Yes | string | Always `"cartesian"` |
@@ -146,6 +149,7 @@ Line, column, bar, area, scatter, and combo charts use the cartesian config (`co
 | `series` | Yes | array | Measure fields, each with `"yAxis": "y"` (vertical) or `"xAxis": "x"` (horizontal) |
 | `tooltip` | Yes | array | Fields shown on hover |
 | `behaviors.stackMultiMark` | No | boolean | `true` for stacked, `false` for grouped/overlay |
+| `behaviors.useLayerCompiler` | No | boolean | `true` routes the config to the layer compiler and the layers editor; absent or `false` keeps the classic compiler. See [Layer-compiled cartesian charts](#layer-compiled-cartesian-charts-the-layers-editor) |
 | `size` | No | object | Field for bubble sizing (`pointSize` / `pointSizeColor`) |
 
 ### Axis fields (`x` / `y`)
@@ -273,7 +277,7 @@ A line/area series mark takes a `line` style object — `dash` makes it dotted. 
 `line` properties: `dash` (`[on, off]` px), `color`, `width`, `opacity`, `interpolate` (e.g. `"monotone"`, `"step"`), `point` (show/hide markers).
 
 **Projection as a ghost *column* (not a line).** The same run-rate calc works on a `barLine`/`column` chart: add the projected measure as a **second bar series** that **overlays** the actual at the same x (both from baseline 0; the ghost peeks above the shorter actual). Draw order = series-array order, so list the projected bar **first** (behind) and the solid actual **second** (front); give the ghost a translucent fill (e.g. 8-digit hex `"#94A3B8A6"` slate to match the gray "projected" convention) so only its run-rate *cap* shows above the actual partial bar.
-- **Two same-mark bar series default to STACK — you must force overlay.** `behaviors.stackMultiMark:false` is *not* enough: when an axis has ≥2 series of the same stackable mark (bar/area) and no explicit stack, the compiler defaults to `STACK`, so the ghost stacks *on top of* the actual (gray top = actual + projected) instead of overlapping. Set **`config.color._stack: "overlay"`** (enum: `group`/`stack`/`stack_percentage`/`overlay`) — the compiler returns that explicit value before falling through to the same-mark STACK default, and `OVERLAY` skips the stacking-field encodings so both bars draw from zero. Tell-tale of the bug: the dependent axis auto-scales to ~`actual+projected` instead of ~`projected`.
+- **Two same-mark bar series default to STACK — you must force overlay** (classic compiler; on a layer chart they overlay and cannot be stacked without a Measure values fold, see [Layer-compiled cartesian charts](#layer-compiled-cartesian-charts-the-layers-editor)). `behaviors.stackMultiMark:false` is *not* enough: when an axis has ≥2 series of the same stackable mark (bar/area) and no explicit stack, the compiler defaults to `STACK`, so the ghost stacks *on top of* the actual (gray top = actual + projected) instead of overlapping. Set **`config.color._stack: "overlay"`** (enum: `group`/`stack`/`stack_percentage`/`overlay`) — the compiler returns that explicit value before falling through to the same-mark STACK default, and `OVERLAY` skips the stacking-field encodings so both bars draw from zero. Tell-tale of the bug: the dependent axis auto-scales to ~`actual+projected` instead of ~`projected`.
 - **Watch the anchor branch.** A run-rate projection table-calc (the `OMNI_OFFSET_MULTI`/`OMNI_FX_ROW`/`COUNT_A` "is-this-the-last-row" pattern) is typically non-null on the **last *two*** rows: the current month gets the projected value, and the **second-to-last** gets its *actual* value as an anchor — necessary so a projection **line** visibly connects from the last complete point. For a **column** overlay that anchor paints an unwanted ghost cap on the prior month. Strip it: the calc's outer `CASE` has the shape `CASE(isLastRow, projection, CASE(isSecondToLast, actual, null))` — replace `operand[2]` (the inner anchor `CASE`) with a `null` literal so only the current month projects.
 - A run-rate projection needs a date-extent measure (`max(timestamp)` cast through the session timezone, like `last_order_date`/`last_session_date`) **on the topic's own base view** — it can't reach a `max-date` measure on a view the topic doesn't join. **Select that measure into the query and hide it** (`resultConfig.hiddenColumns`), keeping it out of `visConfig.fields`/`series` so it isn't plotted — then the calc references a *selected* field. **Do NOT hand-set `allow_refs_to_unselected_fields:true`** to reference it while unselected — it's an **AI-SQL-gen-only marker**, not a hand-authoring knob: the SQL runs, but the calc shows `#ERROR — No such field … in query` and is **uneditable in the workbook formula editor** (the observable tell — set it, then open the tile's formula editor). Selecting the date **measure** does *not* change grain (it's an aggregate, not a `GROUP BY` key — confirm row count is unchanged); selecting a **dimension** or a new-join field *would* change grain/fan out, so reframe carefully.
 
@@ -286,6 +290,156 @@ Split one chart into per-category panels with `config.facet`:
 ```
 
 Use `column` and/or `row`; `wrap: true` + `wrapColumns` controls trellis wrapping. Scales/axes default to shared.
+
+## Layer-compiled cartesian charts (the layers editor)
+
+Omni renders a cartesian config through one of two compilers, and the config decides which:
+
+| | Classic compiler | Layer compiler ("layers", the new X/Y chart builder) |
+|---|---|---|
+| Selected by | `behaviors.useLayerCompiler` absent or `false` | `behaviors.useLayerCompiler: true` |
+| Editor shown in the workbook | **X-Axis / Left-Axis / Right-Axis / Color and legend** panel | **Setup / Style** tabs with a "New X/Y chart builder" banner; each measure is a layer with its own **Mark**, **Color** and **Label** |
+| Who writes it | Every recipe in this file unless it says otherwise; any config saved before layers | Every X/Y chart created in the UI since layers went on; the "Test the new chart editor" and "Upgrade charts" actions |
+
+Both compilers read the same envelope (`visConfig.chartType` / `fields` / `visConfig.visType: "basic"` / `config`), the same `configType: "cartesian"`, `_dependentAxis`, `x`, `y` / `y2`, `series[]` and `tooltip`. What differs is where the encodings live and how layers combine. Layers are documented at [docs.omni.co/visualize-present/visualizations/layers](https://docs.omni.co/visualize-present/visualizations/layers).
+
+**A config without the flag stays on the classic compiler.** Nothing about the GA of layers changes what an API-created tile gets: a cartesian config sent through `v2-create` or a draft patch opens in the classic editor and renders through the classic compiler until `behaviors.useLayerCompiler: true` is in its config. Confirm which one a tile is on by opening its workbook tab, clicking **Options** above the chart, and looking for the banner, or by reading the tile back and checking `behaviors.useLayerCompiler`.
+
+### What the layer editor writes
+
+A chart built in the layers editor reads back in this shape (a bar colored by a dimension, stacked):
+
+```json
+"config": {
+  "_dependentAxis": "y",
+  "behaviors": { "stackMultiMark": false, "useLayerCompiler": true },
+  "configType": "cartesian",
+  "x": { "field": { "name": "order_items.created_at[month]" }, "axis": { "label": { "autoLayout": true } } },
+  "series": [
+    { "field": { "name": "order_items.total_revenue" }, "yAxis": "y",
+      "mark": { "type": "bar" },
+      "color": { "field": { "name": "order_items.status" }, "_stack": "stack" } }
+  ],
+  "colorFields": { "order_items.status": { "values": { "Complete": "#296228" } } },
+  "tooltip": [ { "field": { "name": "order_items.created_at[month]" } },
+               { "field": { "name": "order_items.status" } },
+               { "field": { "name": "order_items.total_revenue" } } ],
+  "version": 0,
+  "y2": null
+}
+```
+
+Differences from the classic shape, each confirmed by building the chart in the UI and reading the tile back with `omni documents v2-get`:
+
+| Where | Layer compiler | Classic compiler |
+|---|---|---|
+| Mark | `series[].mark.type` on every layer; the editor writes no root `mark` | Root `mark.type`, with `series[].mark` only for combo overrides |
+| Color by a dimension | `series[].color.field` on the layer that uses it; the dimension is still in `query.pivots` | Root `color.field` |
+| Stacking | `series[].color._stack` on the layer (`stack` / `group` / `overlay` / `stack_percentage`). A bar layer with a color field and no `_stack` rendered stacked; a layer the editor had set to **Overlay** keeps `"_stack": "overlay"` | Root `color._stack` |
+| Solid layer color | `series[].mark._mark_color` + `series[].manual: true` — the same keys as classic; the layer's **Color: Single color** swatch writes exactly this | Same |
+| Per-value colors | Root **`colorFields`**: `{ "<view.field>": { "values": { "<value>": "#hex" } } }`, keyed by the color field's name, so every layer colored by that field shares it. The layer keeps only `color.field` and `color._stack` | `color.values` on the root `color` |
+| Data labels | `series[].dataLabel: { "enabled": true, "field": { "name": "<the layer's measure>" }, "useSparseLabelAlgorithm": true }` | `series[].dataLabel` |
+| Zero line aligned across the two value axes (**Align with other axis** in the axis options) | Root **`alignAxisZeros: true`**; needs a series on `y` and one on `y2` | Not available |
+| Legend label | `series[].title.value` | Same |
+| Axis styling | Under `<axis>.axis` as before (`title`, `domain`, `label`, …); `y2.axis.domain` and `y.axis.title` both took effect on a layer chart | Same |
+| Right axis | `series[].yAxis: "y2"` (or `xAxis: "x2"` for horizontal bars) | Same |
+| `chartType` | **Not maintained by the layer editor.** A tab auto-charted as a line and then switched to stacked bars still reads back `chartType: "lineColor"`. Read the layers from `series[].mark.type`; when you author one, still set `chartType` to the matching enum value | Tracks the chart |
+| Written but not required | `x.axis.label.autoLayout: true`, `y2: null`, `version: 0`, `series[].manual: true` on layers added through the editor. A hand-written config without them rendered the same | — |
+
+### Measure values: several measures in one layer
+
+Layers do **not** stack across layers. Two bar layers on the same axis draw over each other (the taller one hides the shorter), and a root `color._stack: "stack"` does not change that. To stack or group several measures, put them in **one** layer through the Measure values fold, which is what the editor does when it draws measures together and what the upgrade actions do to a classic multi-measure chart:
+
+```json
+"config": {
+  "_dependentAxis": "y",
+  "behaviors": { "useLayerCompiler": true },
+  "configType": "cartesian",
+  "x": { "field": { "name": "order_items.created_at[month]" } },
+  "foldedFields": [
+    { "field": { "name": "order_items.total_revenue" } },
+    { "field": { "name": "order_items.total_margin" } }
+  ],
+  "series": [
+    { "field": { "name": "omni__field_value" }, "yAxis": "y",
+      "mark": { "type": "bar" },
+      "color": { "field": { "name": "omni__field_name" }, "_stack": "stack",
+                 "axis": { "title": { "value": "Series" } } } }
+  ],
+  "tooltip": [ { "field": { "name": "order_items.created_at[month]" } },
+               { "field": { "name": "order_items.total_revenue" } },
+               { "field": { "name": "order_items.total_margin" } } ]
+}
+```
+
+- `foldedFields` (root) lists the measures the layer draws, in legend order. They stay in `query.fields` and `visConfig.fields` as usual.
+- The layer's `field.name` is the synthetic **`omni__field_value`** ("Measure values"); its `color.field.name` is **`omni__field_name`** ("Measure names"). `{ "name": … }` is enough — the full field objects the upgrade dialog writes (`label`, `isMeasure`, …) are not needed.
+- `color._stack` on this layer is the stacking of the measures: `stack`, `group`, `overlay` or `stack_percentage`.
+- A measure that should be its own layer (a line on the right axis beside stacked bars) is a separate `series` entry and must be left out of `foldedFields`.
+
+### Creating a layer-compiled chart through the API
+
+Take any cartesian recipe in this file, add `"useLayerCompiler": true` to `behaviors`, put the per-layer encodings on the series, and fold measures that share an axis and a mark. Bars on the left axis, a line on the right, zeros aligned:
+
+```json
+"visConfig": {
+  "chartType": "barLine",
+  "fields": ["order_items.created_at[month]", "order_items.total_revenue", "order_items.count"],
+  "version": 0,
+  "visConfig": {
+    "visType": "basic",
+    "config": {
+      "x": { "field": { "name": "order_items.created_at[month]" } },
+      "series": [
+        { "field": { "name": "order_items.total_revenue" }, "yAxis": "y",  "mark": { "type": "bar" } },
+        { "field": { "name": "order_items.count" },         "yAxis": "y2", "mark": { "type": "line" } }
+      ],
+      "tooltip": [
+        { "field": { "name": "order_items.created_at[month]" } },
+        { "field": { "name": "order_items.total_revenue" } },
+        { "field": { "name": "order_items.count" } }
+      ],
+      "alignAxisZeros": true,
+      "behaviors": { "stackMultiMark": false, "useLayerCompiler": true },
+      "configType": "cartesian",
+      "_dependentAxis": "y"
+    }
+  }
+}
+```
+
+This tile opened in the layers editor and rendered as authored. Read the tile back afterwards and confirm `behaviors.useLayerCompiler` is still `true` and the editor is the layers one; see the fallback below.
+
+### Moving an existing tile to layers
+
+| Path | What it does | Result in the stored config |
+|---|---|---|
+| **Workbook tab menu → "Test the new chart editor…"** (the menu named for the tab type, e.g. **Query**) | Shows the current chart above the layered version; **Use the new chart editor** adds a **copy of the tab** with a new key. The original tab is unchanged | The copy's config is the original plus `behaviors.useLayerCompiler: true`; a group of measures sharing an axis and a mark is folded into a Measure values layer |
+| **Dashboard draft → Edit → "Upgrade charts to the new chart editor…"** | Lists the eligible charts on the current page and converts them **in place**, keeping tile keys, filter maps and layout; publish afterwards | Same change as above, applied to every eligible tile on the page |
+| **API: patch the tile on a draft** | In place, like the page-wide upgrade; the only path that works without a browser | You make the change yourself: add the flag, and fold same-axis same-mark measures |
+
+For the API path, the flag alone is enough when every measure has its own mark or axis, and when the chart is colored by a dimension through the root `color` (a classic `columnStacked` config with the flag added rendered stacked by its dimension as before: the chart-wide color is applied to the layer). The one case the flag alone gets wrong is two or more measures of the same mark on one axis: they stacked under the classic compiler and now overlay. Fold them into a Measure values layer with `color._stack: "stack"` (the shape above), which is what the UI's upgrade produces for that chart.
+
+```bash
+# the tile as it is, from v2-get or v2-get-draft, with only the config changed
+omni documents v2-patch-draft <identifier> --body @to-layers.json   # a body like:
+# { "summary": "move Revenue vs orders to the layers editor",
+#   "queryPresentations": { "data": { "3": { …the tile with behaviors.useLayerCompiler: true… } }, "order": [ …unchanged… ] } }
+```
+
+Then `v2-get-draft`, open the tile's workbook tab to confirm the layers editor, and `v2-publish-draft`.
+
+### Gotchas that change on a layer chart
+
+| Classic rule in this file | On a layer-compiled chart |
+|---|---|
+| `series[].color: "#hex"` is ignored | **Worse than ignored: the tile silently drops back to the classic editor and compiler**, flag and all (the layer parser does not accept it). The chart still draws, through the classic path, with no error. When a layer chart opens in the X-Axis / Left-Axis / Right-Axis editor, a key in its config is one the layer compiler rejects — remove it and read back. Use `mark._mark_color` + `manual: true` for a solid layer, `colorFields` for per-value colors |
+| Two same-mark bar series default to STACK; set `color._stack: "overlay"` to overlay | Layers never stack across layers: two bar layers on one axis **overlay** whatever `_stack` says at the root or on the layers. To stack them, fold them into one Measure values layer |
+| Stack dimension goes in root `color.field` + `query.pivots` | The pivot is still required; the color field lives on the layer (`series[].color.field`). A root `color.field` still works when you move a classic config over |
+| `series[].mark._mark_color` + `manual: true` | Still the per-layer solid color (and what the editor writes) |
+| `series[].title.value` for the legend label | Still works |
+| Axis styling under `<axis>.axis` | Still works |
+| `_dependentAxis`, `yAxis` / `xAxis`, `y2` for the right axis | Unchanged |
 
 ## Config Object: KPI
 
@@ -829,6 +983,10 @@ Enables AI-generated descriptions/subtitles on tiles:
 | `domain`/`title`/`scale` set directly on `x`/`y` (e.g. `y.domain`, `y.min`) | **Silently ignored** — axis won't zoom, title won't change | Nest under `axis`: `y.axis.domain.{min,max,zero}`, `y.axis.title.value`. `domain` is an **object** `{min,max,zero}`, not `[min,max]`; min/max are **raw** values (`0.6` = 60%) |
 | `_stack: "normalize"` for 100% stacked | Invalid enum | Use `_stack: "stack_percentage"` (enum: `group`/`stack`/`stack_percentage`/`overlay`) |
 | `series[].color: "#hex"` for a solid series color | No effect (ignored per-layer slot) | Use `series[].mark._mark_color` + `manual: true`; for color-by-value use `config.color.values` |
+| `series[].color: "#hex"` on a layer-compiled chart (`behaviors.useLayerCompiler: true`) | The tile silently falls back to the classic editor and compiler | Remove it; a solid layer color is `series[].mark._mark_color` + `manual: true`, per-value colors go in root `colorFields` |
+| Two measures of the same mark on one axis of a layer-compiled chart | They overlay instead of stacking; root or per-layer `_stack` does not help | Fold them into one Measure values layer (`foldedFields` + an `omni__field_value` series colored by `omni__field_name` with `_stack`) |
+| Reading a layer chart's kind from `chartType` | Stale — the layers editor does not update it | Read `series[].mark.type`; set `chartType` yourself when authoring |
+| Expecting an API-created cartesian tile to open in the layers editor | It opens in the classic editor | Add `behaviors.useLayerCompiler: true` (and fold same-axis same-mark measures) |
 | `series[].label` to rename a legend entry | No effect — legend keeps the field label | Set `series[].title.value` (the legend reads `title.value`, falling back to the field label) |
 | Stack dimension not pivoted | Single un-split series | Add the `color.field` dimension to `query.pivots` |
 | Missing measure in query | Empty tile, no error | Every query must include at least one measure |

@@ -6,6 +6,20 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.24.0] - 2026-10-28
+
+### omni-analytics
+
+_Summary: Omni's layers chart editor is on for every organization, so every X/Y chart made in the UI now saves a layer-compiled config, while a chart created through the API stays on the classic compiler until its config says otherwise. `omni-content-builder` now describes both shapes, built in the UI and read back, and how to create or move a tile between them. No command or flag changed._
+
+**Added**
+- **`omni-content-builder` — *Layer-compiled cartesian charts*.** A section in `references/visConfig.md`: which compiler a config gets (`behaviors.useLayerCompiler: true` selects layers; anything else is classic, including every API-created tile), the per-layer shape the layers editor writes (`series[].mark`, `series[].color`, `series[].dataLabel`, root `colorFields`, root `alignAxisZeros` for *Align with other axis*), the Measure values fold (`foldedFields` with an `omni__field_value` series colored by `omni__field_name`) that stacks or groups several measures in one layer, a recipe for creating a layer chart through the API, and the three ways to move an existing tile (the tab's *Test the new chart editor*, the dashboard's *Upgrade charts to the new chart editor*, or a draft patch that adds the flag and folds same-axis same-mark measures). `references/queryPresentations.md` carries the two-axis example and the `behaviors.useLayerCompiler` row.
+- **`omni-content-builder` — *Evals*.** Two cases: a two-axis bar-and-line tile with aligned zeros built for the layers editor, and moving a stacked two-measure column tile to layers in place through the API.
+
+**Changed**
+- **`omni-content-builder` — *Gotchas on a layer chart*.** Per rule: `series[].mark._mark_color` + `manual: true`, `series[].title.value`, axis styling under `<axis>.axis` and `yAxis: "y2"` hold; a `series[].color` hex string no longer just does nothing, it drops the tile back to the classic editor and compiler with no error; two same-mark measures on one axis overlay instead of stacking unless they share a Measure values layer; `chartType` is not updated by the layers editor, so read the chart's kind from `series[].mark.type`.
+- **`omni-content-builder` — *Validation*.** The viz-spec check (SKILL.md step 3 and `references/validation-and-testing.md`) covers both compilers: root `mark` for classic, per-layer `mark` and one Measure values layer for stacked measures on layers, and a readback that confirms the flag survived.
+
 ## [1.23.1] - 2026-10-25
 
 ### omni-analytics
