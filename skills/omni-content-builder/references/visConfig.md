@@ -8,7 +8,7 @@ Complete reference for a tile's visualization config — the v2 `visConfig` enve
 - [chartType Values](#charttype-values) — the authoritative enum
 - [chartType → visType → configType mapping](#charttype--vistype--configtype-mapping)
 - [Config Object: Cartesian Charts](#config-object-cartesian-charts) — line, column, bar, area, scatter, combo
-- [Layer-compiled cartesian charts](#layer-compiled-cartesian-charts-the-layers-editor) — the layers editor: what it writes, Measure values, creating and moving tiles, gotchas that change
+- [Layer-compiled cartesian charts](#layer-compiled-cartesian-charts-the-layers-editor) — the layers editor: what it writes, Measure values, creating and moving tiles, what a layer can carry, a catalog of rendered shapes, gotchas that change
 - [Config Object: KPI](#config-object-kpi)
 - [Config Object: Pie / Donut](#config-object-pie--donut)
 - [Config Object: Heatmap](#config-object-heatmap)
@@ -429,11 +429,60 @@ omni documents v2-patch-draft <identifier> --body @to-layers.json   # a body lik
 
 Then `v2-get-draft`, open the tile's workbook tab to confirm the layers editor, and `v2-publish-draft`.
 
+### What a layer can carry
+
+The layer compiler parses a config against a strict schema: every key below is accepted, and a key that is not listed anywhere in it (at any depth) makes the whole config fall back to the classic editor and compiler, silently. Tested on three such keys: a hex string in `series[].color`, `series[].label`, and `domain` placed directly on `y` instead of under `y.axis`. The tell-tale in every case was the same: the tile opens in the X-Axis / Left-Axis / Right-Axis editor instead of Setup / Style. Read the chart in view mode and you cannot tell; the legend and marks still draw.
+
+| Level | Keys the layer compiler accepts |
+|---|---|
+| Config root | `configType`, `_dependentAxis`, `x`, `x2`, `y`, `y2`, `series`, `tooltip`, `behaviors` (`useLayerCompiler`, `stackMultiMark`), `alignAxisZeros`, `colorFields`, `foldedFields`, `facet`, `dataLabel` (chart-wide "All layers" label), `legendSlots`, `mark` and `color` and `size` (chart-wide broadcasts, see below), `version` |
+| Independent axis (`x` on a vertical chart, `y` on a horizontal one) | `field`, `axis`, `manual`, `multipleDimensions` |
+| Dependent axis (`y` / `y2`, or `x` / `x2` horizontal) | `axis`, `color`, `manual`, `simpleTotals` (read by the classic compiler only; layers use `series[].totals`) |
+| `axis` (either kind) | `title`, `domain`, `scale`, `label`, `grid`, `showLabels`, `showTicks`, `showAxisLine`, `tickCount`, `sort`, `referenceLine`, `_title`, `_type` |
+| `series[]` (one layer) | `field`, `yAxis` / `xAxis`, `mark`, `color`, `size`, `dataLabel`, `title`, `totals`, `regression`, `movingAverage`, `manual` |
+| `series[].mark` | `type` plus one style object named after it: `bar: { cornerRadius, opacity }`, `line: { color, dash, interpolate, opacity, point, width }`, `area: { …line keys…, line }`, `point: { filled, opacity, shape, size, width }`; and `_mark_color` |
+| `series[].color` | `field`, `_stack`, `stackSort`, `manual` stay on the layer; `values`, `else`, `_scheme`, `range`, `reverse`, `axis` (legend title), `legendPosition`, `labelOverflow`, `maxItems`, `showTitle`, `scaleDomain`, `ignoreModeledColors` are field-level and belong in `colorFields["<field>"]` (inline on the series still parses: the first layer in paint order with them wins for that field) |
+| `series[].size` (point layers) | `field`, `axis.title.value`, `legendPosition`, `labelOverflow`, `maxItems`, `showTitle`, `manual` |
+| `series[].dataLabel` and root `dataLabel` | `enabled`, `field`, `format`, `position`, `minValue`, `maxValue`, `useSparseLabelAlgorithm`, `color`, `font`, `fontSize`, `fontStyle`, `fontWeight` |
+| `facet` | `column` / `row` (`field`, `label`, `sort`, `title`, `manual`), `scaleXAxes` / `scaleYAxes` (`shared` / `independent`), `showXAxis` / `showYAxis` (`every` / `once`), `wrap`, `wrapColumns` |
+
+Chart-wide `mark`, `color` (with a `field`), `size` and `dataLabel` are **broadcasts**: the parser copies each onto every layer that lacks its own and then reads only the layers. A fieldless root `color` is different: it holds the series-identity legend's position and title and the chart palette, and stays.
+
+### Layer shapes, each rendered as written
+
+Every row was written through the API with `behaviors.useLayerCompiler: true`, read back unchanged, and rendered as described. The field names are from the sample dataset; `FN` and `FV` stand for `omni__field_name` and `omni__field_value`.
+
+| Shape | The config that does it |
+|---|---|
+| Three layers across two axes (two lines on `y`, a bar on `y2`) | `series: [{sales, y, line}, {margin, y, line}, {count, y2, bar}]`; no fold needed when the layers should not stack |
+| Measure names on the X axis, one bar per measure, no dimension in the query | `x: { field: { name: FN } }`, `foldedFields: [sales, margin, count]`, `series: [{ field: FV, mark bar, color: { field: FN } }]`; the query holds only the measures |
+| Small multiples, one panel per measure | `facet: { column: { field: { name: FN } }, wrap: true, wrapColumns: 2 }`, `foldedFields: [sales, margin]`, `series: [{ field: FV, mark bar }]` |
+| Small multiples by a real dimension with stacked measures in each panel | `facet.column.field` = the dimension (also in `query.pivots`), plus the stacked Measure values layer |
+| Scatter sized by a measure beside a line | `{ field: sales, mark: { type: "point" }, size: { field: { name: count } } }` and `{ field: margin, mark: { type: "line" } }`; the size legend appears beside the series legend |
+| Labels on every layer except one | Root `dataLabel: { enabled: true, useSparseLabelAlgorithm: true }` and `dataLabel: { enabled: false }` on the layer to exempt; a layer with any `dataLabel` of its own ignores the root one |
+| Moving average on one layer, trend line on another | `series[].movingAverage: { enabled: true, window: { period: 3, type: "lagging" } }` on the bar layer; `series[].regression: { enabled: true, method: "linear" }` on the line layer |
+| Stacked measures with a total above each bar | The Measure values layer with `color._stack: "stack"` and `totals: { enabled: true }` on that layer |
+| 100% stacked measures | The Measure values layer with `color._stack: "stack_percentage"`; the axis reads 0 to 100% |
+| Horizontal grouped measures per category | `_dependentAxis: "x"`, `y: { field: { name: status } }`, the Measure values layer with `xAxis: "x"` and `color._stack: "group"` |
+| Grouped by a dimension, largest group first | `series[].color: { field: status, _stack: "group", stackSort: { by: "sum", order: "descending" } }` |
+| Pinned colors, a fallback color, a legend title | `colorFields: { "<status>": { values: { "Complete": "#1FAE7E", "Cancelled": "#E5484D" }, else: "#C8C8C8" } }` with `series[].color: { field: status, _stack: "stack", axis: { title: { value: "Order status" } } }` |
+| Legend under the chart | `colorFields["<status>"].legendPosition: "bottom"` with root `legendSlots: { bottom: { size: 0.25 } }` (the slot's share of the tile, 0 to 1) |
+| Mark styling per layer | `mark: { type: "area", area: { opacity: 0.3, line: true, interpolate: "monotone" } }`, `mark: { type: "line", line: { dash: [4, 4], point: true, width: 3 } }`, `mark: { type: "bar", bar: { cornerRadius: 6, opacity: 0.6 } }` |
+| Two color fields, two legends | A Measure values layer colored by `FN` plus a line layer colored by a real dimension (`series[].color.field`); each field gets its own legend |
+| Chart-wide mark with one exception | Root `mark: { type: "line" }` and `mark: { type: "bar" }` on the one layer that differs |
+| Legend and stack order of folded measures | The order of `foldedFields`: list the measure that should sit at the bottom of the stack first |
+| A fold layer and a plain layer on one axis | Allowed: `[{ field: FV, bar, stacked }, { field: count, line, yAxis: "y" }]`; they share the axis scale |
+
+Two results that are not errors but are worth knowing:
+
+- **A dimension in `query.pivots` that no layer encodes is rolled up** (one bar per month, summed across the pivot) rather than drawn once per pivot value. The classic compiler drew the same chart for that config.
+- **Layers on one axis share its scale, so mixed stack modes squash.** A `stack_percentage` layer and a `stack` layer on the same axis render against one domain and the percent layer collapses to a sliver at the bottom. Keep one stack mode per axis.
+
 ### Gotchas that change on a layer chart
 
 | Classic rule in this file | On a layer-compiled chart |
 |---|---|
-| `series[].color: "#hex"` is ignored | **Worse than ignored: the tile silently drops back to the classic editor and compiler**, flag and all (the layer parser does not accept it). The chart still draws, through the classic path, with no error. When a layer chart opens in the X-Axis / Left-Axis / Right-Axis editor, a key in its config is one the layer compiler rejects — remove it and read back. Use `mark._mark_color` + `manual: true` for a solid layer, `colorFields` for per-value colors |
+| `series[].color: "#hex"` is ignored; `series[].label` is ignored; `domain` directly on `y` is ignored | **Worse than ignored: any key the layer schema does not declare drops the tile back to the classic editor and compiler**, flag and all, with no error; the chart still draws through the classic path. All three were tested. When a layer chart opens in the X-Axis / Left-Axis / Right-Axis editor, remove the undeclared key (see [What a layer can carry](#what-a-layer-can-carry)) and read back. A solid layer color is `mark._mark_color` + `manual: true`; per-value colors go in `colorFields`; the legend label is `title.value`; axis styling goes under `axis` |
 | Two same-mark bar series default to STACK; set `color._stack: "overlay"` to overlay | Layers never stack across layers: two bar layers on one axis **overlay** whatever `_stack` says at the root or on the layers. To stack them, fold them into one Measure values layer |
 | Stack dimension goes in root `color.field` + `query.pivots` | The pivot is still required; the color field lives on the layer (`series[].color.field`). A root `color.field` still works when you move a classic config over |
 | `series[].mark._mark_color` + `manual: true` | Still the per-layer solid color (and what the editor writes) |
