@@ -8,7 +8,7 @@ Complete reference for a tile's visualization config — the v2 `visConfig` enve
 - [chartType Values](#charttype-values) — the authoritative enum
 - [chartType → visType → configType mapping](#charttype--vistype--configtype-mapping)
 - [Config Object: Cartesian Charts](#config-object-cartesian-charts) — line, column, bar, area, scatter, combo
-- [Layer-compiled cartesian charts](#layer-compiled-cartesian-charts-the-layers-editor) — the layers editor: what it writes, Measure values, creating and moving tiles, what a layer can carry, a catalog of rendered shapes, gotchas that change
+- [Layer-compiled cartesian charts](#layer-compiled-cartesian-charts-the-layers-editor) — the layers editor: what it writes, Measure values, creating and moving tiles, the editor's words and their keys, what a layer can carry, a catalog of rendered shapes, gotchas that change
 - [Config Object: KPI](#config-object-kpi)
 - [Config Object: Pie / Donut](#config-object-pie--donut)
 - [Config Object: Heatmap](#config-object-heatmap)
@@ -410,15 +410,13 @@ Take any cartesian recipe in this file, add `"useLayerCompiler": true` to `behav
 
 This tile opened in the layers editor and rendered as authored. Read the tile back afterwards and confirm `behaviors.useLayerCompiler` is still `true` and the editor is the layers one; see the fallback below.
 
-### Moving an existing tile to layers
+### Moving a tile between the two compilers through the API
 
-| Path | What it does | Result in the stored config |
-|---|---|---|
-| **Workbook tab menu → "Test the new chart editor…"** (the menu named for the tab type, e.g. **Query**) | Shows the current chart above the layered version; **Use the new chart editor** adds a **copy of the tab** with a new key. The original tab is unchanged | The copy's config is the original plus `behaviors.useLayerCompiler: true`; a group of measures sharing an axis and a mark is folded into a Measure values layer |
-| **Dashboard draft → Edit → "Upgrade charts to the new chart editor…"** | Lists the eligible charts on the current page and converts them **in place**, keeping tile keys, filter maps and layout; publish afterwards | Same change as above, applied to every eligible tile on the page |
-| **API: patch the tile on a draft** | In place, like the page-wide upgrade; the only path that works without a browser | You make the change yourself: add the flag, and fold same-axis same-mark measures |
+Both directions are a draft patch of the tile's config, in place, keeping its key, filter maps and layout. The UI's own actions (the tab's *Test the new chart editor*, which copies the tab, and the dashboard's *Upgrade charts to the new chart editor* and the tab's *Leave the new chart editor*, which change the tile in place) store exactly the shapes below, so a tile you convert by hand is indistinguishable from one the user converted.
 
-For the API path, the flag alone is enough when every measure has its own mark or axis, and when the chart is colored by a dimension through the root `color` (a classic `columnStacked` config with the flag added rendered stacked by its dimension as before: the chart-wide color is applied to the layer). The one case the flag alone gets wrong is two or more measures of the same mark on one axis: they stacked under the classic compiler and now overlay. Fold them into a Measure values layer with `color._stack: "stack"` (the shape above), which is what the UI's upgrade produces for that chart.
+**Classic to layers.** Add `behaviors.useLayerCompiler: true`. That alone is enough when every measure has its own mark or axis, and when the chart is colored by a dimension through the root `color` (a classic `columnStacked` config with the flag added rendered stacked by its dimension as before: the chart-wide color is applied to the layer). The one case the flag alone gets wrong is two or more measures of the same mark on one axis: they stacked under the classic compiler and now overlay. Fold them into a Measure values layer with `color._stack: "stack"` (the shape above); that is also what the UI's upgrade writes for such a chart.
+
+**Layers to classic.** Removing the flag is not enough when the chart has a Measure values layer: a fold shape (`foldedFields` plus an `omni__field_value` series) with the flag absent or `false` renders **"No chart available"**, because the classic compiler does not read the synthetic fields. Unfold it yourself, which is what the UI writes when a chart leaves layers: one `series[]` entry per folded measure, each with the layer's `mark` and axis; the fold's `color` minus its `field` moved to the root `color` (so `_stack` and the legend title survive); the shared mark type on the root `mark`; `foldedFields` and `useLayerCompiler` removed. Per-layer encodings every layer shared (a color field, a size field, a mark type) move to the root; ones that differ stay on their series, where the classic compiler reads only the mark.
 
 ```bash
 # the tile as it is, from v2-get or v2-get-draft, with only the config changed
@@ -427,11 +425,36 @@ omni documents v2-patch-draft <identifier> --body @to-layers.json   # a body lik
 #   "queryPresentations": { "data": { "3": { …the tile with behaviors.useLayerCompiler: true… } }, "order": [ …unchanged… ] } }
 ```
 
-Then `v2-get-draft`, open the tile's workbook tab to confirm the layers editor, and `v2-publish-draft`.
+Then `v2-get-draft` to confirm the config came back as sent, and `v2-publish-draft`.
+
+### The layers editor's words, and the keys they set
+
+When a user asks in the editor's own terms, this is what to write. Every row was read back after the editor set it, or written and seen in the editor.
+
+| What the user says (layers editor label) | Where it lives in the config |
+|---|---|
+| "Left axis" / "Right axis" (the **Y-axes** section) | `series[].yAxis: "y"` / `"y2"`; on a horizontal chart `xAxis: "x"` / `"x2"` |
+| "Add a field" to an axis, a layer's **Mark** (Bar / Line / Area / Scatter) | A new `series[]` entry; `series[].mark.type: "bar"` / `"line"` / `"area"` / `"point"` |
+| The stacking dropdown beside Mark: **Stacked / Grouped / Overlay / Stacked %** | `series[].color._stack: "stack"` / `"group"` / `"overlay"` / `"stack_percentage"` |
+| **Color: Single color** and its swatch | `series[].mark._mark_color` + `series[].manual: true` |
+| **Color:** a field | `series[].color.field`; the field is also in `query.pivots` when it is a dimension |
+| **Color options → Value mapping** (a swatch per value), **Auto-apply** palette | `colorFields["<field>"].values`, `colorFields["<field>"]._scheme` |
+| **Label → Add labels** on a layer | `series[].dataLabel: { enabled: true, field, useSparseLabelAlgorithm: true }` |
+| Labels on "All layers" | Root `dataLabel`; a layer with its own `dataLabel` opts out |
+| **Measure values** (the token, "Measure values • N") and the **Measure values** section listing its fields; "Remove from measure values" | `foldedFields` (the list) and a series whose `field.name` is `omni__field_value`; removing a field is removing it from `foldedFields` |
+| **Measure names** (as a color, a facet, or the X axis) | A field named `omni__field_name` in `series[].color.field`, `facet.column.field` / `facet.row.field`, or `x.field` |
+| **Small multiples → Columns / Rows** | `facet.column.field` / `facet.row.field`, with `wrap` and `wrapColumns` |
+| **Axis options** (the gear beside Left axis / Right axis): **Title**, **Type**, **Domain Minimum / Maximum**, **Unpin from Zero**, **Scale**, **Zero line → Align with other axis**; its **Labels**, **Reference Line**, **Grid** tabs | `y.axis.title.value`, `y.axis._type`, `y.axis.domain.{min,max}`, `y.axis.domain.zero: false`, `y.axis.scale`, root `alignAxisZeros: true`; `y.axis.label`, `y.axis.referenceLine`, `y.axis.grid` (same under `y2`, or `x` / `x2` horizontal) |
+| **Style tab → Default chart palette**, **Reverse colors** | Fieldless root `color._scheme`, `color.reverse` |
+| **Style tab → Legends**: **Max width**, per-legend **Title**, **Position**, **Labels** (Truncate / Wrap), **Max items** | `legendSlots.<position>.size`; for a field's legend `colorFields["<field>"].axis.title.value`, `.legendPosition`, `.labelOverflow`, `.maxItems`; for the series legend the same keys on the fieldless root `color` |
+| Totals above stacked bars | `series[].totals: { enabled: true }` on the stacked layer |
+| Trend line, moving average | `series[].regression`, `series[].movingAverage` |
+| **Auto-charting on / off** | `automaticVis: true` / `false` on the presentation; the layers editor turns it off once a layer is edited |
+| "Test the new chart editor…" / "Upgrade charts to the new chart editor…" / "Leave the new chart editor…" | The compiler moves in [Moving a tile between the two compilers through the API](#moving-a-tile-between-the-two-compilers-through-the-api): the first copies the tab, the other two change the tile in place |
 
 ### What a layer can carry
 
-The layer compiler parses a config against a strict schema: every key below is accepted, and a key that is not listed anywhere in it (at any depth) makes the whole config fall back to the classic editor and compiler, silently. Tested on three such keys: a hex string in `series[].color`, `series[].label`, and `domain` placed directly on `y` instead of under `y.axis`. The tell-tale in every case was the same: the tile opens in the X-Axis / Left-Axis / Right-Axis editor instead of Setup / Style. Read the chart in view mode and you cannot tell; the legend and marks still draw.
+The layer compiler parses a config against a strict schema: every key below is accepted, and a key that is not listed anywhere in it (at any depth) makes the whole config fall back to the classic editor and compiler, silently. Tested on three such keys: a hex string in `series[].color`, `series[].label`, and `domain` placed directly on `y` instead of under `y.axis`. A value outside an enum does the same: `legendPosition` takes `top`, `bottom`, `left`, `right` or `none`, and `"hidden"` sent the tile to classic. The tell-tale in every case was the same: the tile opens in the X-Axis / Left-Axis / Right-Axis editor instead of Setup / Style. Read the chart in view mode and you cannot tell; the legend and marks still draw.
 
 | Level | Keys the layer compiler accepts |
 |---|---|
@@ -472,6 +495,15 @@ Every row was written through the API with `behaviors.useLayerCompiler: true`, r
 | Chart-wide mark with one exception | Root `mark: { type: "line" }` and `mark: { type: "bar" }` on the one layer that differs |
 | Legend and stack order of folded measures | The order of `foldedFields`: list the measure that should sit at the bottom of the stack first |
 | A fold layer and a plain layer on one axis | Allowed: `[{ field: FV, bar, stacked }, { field: count, line, yAxis: "y" }]`; they share the axis scale |
+| Target line on the value axis | `y: { axis: { referenceLine: { enabled: true, value: 450000, label: "Target", line: { color: "#888888", dash: [4, 4] } } } }`, as on classic |
+| Bars shaded by a measure (gradient) | `series[].color: { field: { name: count } }` with `colorFields["<count>"]: { scaleDomain: { min: 8000, max: 12000 } }`; the legend is a gradient bar over that range |
+| Two scatter layers sized by the same measure | `size: { field: { name: count } }` on both point layers; one size legend |
+| Small multiples with their own value scales | `facet: { column: …, scaleYAxes: "independent" }` (`showYAxis: "once"` / `"every"` picks how often the axis is drawn) |
+| Category axis ordered by the measure | `x: { field: { name: status }, axis: { sort: { field: "<sales>", order: "descending" } } }` |
+| Hollow diamond markers | `mark: { type: "point", point: { shape: "diamond", filled: false, size: 150 } }` (shapes: `circle`, `square`, `diamond`, …) |
+| A capped, wrapped, untitled legend | `colorFields["<status>"]: { maxItems: 3, labelOverflow: "wrap", showTitle: false }`; the legend shows three entries and a "+ N more" row |
+| Formatted labels inside the bar tops | Root `dataLabel: { enabled: true, format: "$#,##0,\"K\"", position: "inside_end", fontSize: 10 }` |
+| No series legend on a multi-layer chart | Fieldless root `color: { legendPosition: "none" }`; the fieldless root `color` is where the series-identity legend and the chart palette live |
 
 Two results that are not errors but are worth knowing:
 
