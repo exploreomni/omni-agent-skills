@@ -619,7 +619,7 @@ Every X/Y chart created in the Omni UI now stores `behaviors.useLayerCompiler: t
 }
 ```
 
-Two rules that differ from the classic shapes above: layers never stack across layers, so measures that should stack or group go into one Measure values layer (`foldedFields` plus a series on `omni__field_value` colored by `omni__field_name`), and a `series[].color` hex string makes the tile fall back to the classic compiler without an error. The full shape, the Measure values fold, the per-layer and `colorFields` encodings, moving an existing tile in place, and which classic gotchas still hold: [visConfig.md → Layer-compiled cartesian charts](visConfig.md#layer-compiled-cartesian-charts-the-layers-editor).
+Two rules that differ from the classic shapes above: layers never stack across layers, so measures that should stack or group go into one Measure values layer (`foldedFields` plus a series on `omni__field_value` colored by `omni__field_name`), and a `series[].color` hex string makes the tile fall back to the classic compiler without an error. The full shape, the Measure values fold, the per-layer and `colorFields` encodings, moving an existing tile in place, and which classic gotchas still hold: [layers.md](layers.md).
 
 ## Quick Reference: chartType → visType → config
 
