@@ -118,7 +118,7 @@ The allowed tile keys — anything else is a 400:
 | `visConfig` | Yes (charts) | The envelope: `{ chartType, fields, version, visConfig: { visType, config } }` — see above. |
 | `query` | Yes | Query definition (see below). |
 | `description` | No | Tile description (≤ 500 characters). |
-| `subTitle` | No | Tile subtitle (≤ 250 characters). |
+| `subTitle` | No | Tile subtitle (≤ 250 characters). Shown only when the tile's container stack has a `{ "as": "metadata", "format": "subtitle" }` child after the name child. When `v2-create` builds the containers itself, it adds that child to every tile **except the first in `order`**, so the first tile's subtitle is stored but not shown; send your own `containers`, or patch the first tile's stack to add the child. |
 | `filterOrder` | No | Ordering of tile-level filters. |
 | `isSql` | No | `true` for SQL-mode tiles. |
 | `resultConfig` | No | Result display: `columnOrder`, `hiddenColumns`, `columnWidths`, `tableType`, `conditionalFormatters` — see [visConfig.md](visConfig.md). |
