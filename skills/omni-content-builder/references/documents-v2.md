@@ -169,6 +169,10 @@ An **app** is HTML content in place of a dashboard. A document carries at most o
 
 ## Behaviors to design around
 
+- **`--body` overrides the shorthand flags.** With `--body`, every shorthand flag (`--name`, `--summary`, `--branch-id`, …) is ignored with no warning. Put those fields in the JSON body of every create and patch; use flags without `--body` only when the flags are the whole request.
+- **The workbook model ID changes with every draft and publish** — each draft copies the workbook model (extensions included), and publishing switches the document to that copy. Don't cache a workbook model ID; read `workbookModelId` from `v2-get-draft` (or `omni documents list-drafts <identifier>`) each time you need it.
+- **Boolean filters may be silently dropped** when a `pivots` array is present (reported Omni bug). If boolean filters aren't applying, remove the pivot and test again.
+
 These are reproducible behaviors — code against them.
 
 ### 1. The inner vis config has one shape on read and write

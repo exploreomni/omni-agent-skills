@@ -1,21 +1,15 @@
 # visConfig Reference
 
-Complete reference for a tile's visualization config — the v2 `visConfig` envelope, accepted `chartType` values, the inner `config` object structure for each chart family, and worked examples.
+Reference for a tile's visualization config — the v2 `visConfig` envelope, accepted `chartType` values, the classic cartesian `config` shapes (line, column, bar, area, scatter, combo) with worked examples, `resultConfig`, `aiConfig`, rendering pitfalls and common mistakes. Layer-compiled charts are in [layers.md](layers.md); KPI tiles in [kpi-tiles.md](kpi-tiles.md); pie, heatmap, boxplot, funnel, sankey and maps in [other-chart-types.md](other-chart-types.md); markdown and AI tiles in [markdown-tiles.md](markdown-tiles.md).
 
 ## Table of Contents
 
 - [Where the visualization config lives](#where-the-visualization-config-lives)
-- [chartType Values](#charttype-values) — the authoritative enum
+- [chartType Values](#charttype-values)
 - [chartType → visType → configType mapping](#charttype--vistype--configtype-mapping)
-- [Config Object: Cartesian Charts](#config-object-cartesian-charts) — line, column, bar, area, scatter, combo
-- [Layer-compiled cartesian charts](#layer-compiled-cartesian-charts-the-layers-editor) — which compiler a config gets; the layer shapes themselves are in [layers.md](layers.md)
-- [Config Object: KPI](#config-object-kpi)
-- [Config Object: Pie / Donut](#config-object-pie--donut)
-- [Config Object: Heatmap](#config-object-heatmap)
-- [Config Object: Boxplot](#config-object-boxplot)
-- [Config Object: Funnel](#config-object-funnel)
-- [Config Object: Sankey](#config-object-sankey)
-- [Config Object: Map / Region Map](#config-object-map--region-map)
+- [Config Object: Cartesian Charts](#config-object-cartesian-charts)
+- [Layer-compiled cartesian charts (the layers editor)](#layer-compiled-cartesian-charts-the-layers-editor)
+- [KPI, pie, heatmap, boxplot, funnel, sankey, map, text and AI tiles](#kpi-pie-heatmap-boxplot-funnel-sankey-map-text-and-ai-tiles)
 - [Complete Examples](#complete-examples)
 - [Discovering Config for Advanced Chart Types](#discovering-config-for-advanced-chart-types)
 - [resultConfig](#resultconfig)
@@ -23,8 +17,6 @@ Complete reference for a tile's visualization config — the v2 `visConfig` enve
 - [Known rendering issues](#known-rendering-issues)
 - [Common Mistakes](#common-mistakes)
 - [Safe Defaults](#safe-defaults)
-
-> **Important**: The visualization config schema is not fully documented in Omni's public API docs. The cartesian structures below (axis, color, series, mark) are derived from Omni's visualization parser schema and cross-checked by reading dashboards back via `omni documents v2-get`. For uncommon chart types (funnel, sankey, map, boxplot, single-record), **always verify** by reading back an existing dashboard that uses the chart type before relying on these examples.
 
 ## Where the visualization config lives
 
@@ -303,191 +295,9 @@ Omni renders a cartesian config through one of two compilers, and the config dec
 
 An API-created cartesian tile opens in the classic editor until its config carries the flag. The per-layer shape, the Measure values fold, the recipes for creating a layer chart or moving a tile either way, the editor's labels mapped to keys, the keys the layer schema accepts (an undeclared key drops the tile back to classic with no error), a catalog of rendered shapes, and which classic gotchas still hold: **[layers.md](layers.md)**.
 
-## Config Object: KPI
+## KPI, pie, heatmap, boxplot, funnel, sankey, map, text and AI tiles
 
-KPI tiles use `chartType: "kpi"`, `visType: "omni-kpi"`, and **no `configType`**.
-
-> **Pick the right KPI mechanism — `omni-kpi` vs a markdown card. Both are legitimate; choose by what the card needs, and configure whichever you pick *cleanly*.**
->
-> **Native `omni-kpi` is the better default for a standard KPI card** — value + change-vs-prior + sparkline, and especially **gauges**: its comparison `swapColors`/`colorPositive`/`colorNegative` and its **`progress`** (gauge) section are first-class. (Markdown can do the lower-is-better swap too, via `swap-colors` — see *Reach for a markdown card* below; native's real edge is the built-in `progress` gauge and not templating the layout.) To make native `omni-kpi` look clean (config choices, not viz limitations):
-> - **Drop the tile-title child** — give the card's `containers` stack only the `{as:"chart"}` child (no `{as:"metadata", format:"name"}`), or the card shows its name **twice** (tile title + the number's own `label`).
-> - **Set `descriptionBefore`/`descriptionAfter` to `""`** (not absent) on the number/comparison sections — an *absent* description renders the literal word **`undefined`**.
-> - Size the row generously (`h≈26–28`) so the value + comparison + sparkline sections don't clip.
->
-> **Reach for a markdown card** ([markdown-tiles.md](markdown-tiles.md) → *Worked KPI card*) when you need what the KPI sections can't express: **value-level conditional colour** (recolour the *number* by threshold via a `color_class` calc + `<style>`), a **bespoke layout** (a 3-up percentile card, an inline-bar table), or **exact responsive `clamp(…cqw…)` typography**. Markdown can do the change arrow too — a markdown `<ChangeArrow>` supports the lower-is-better swap via **`swap-colors="true"`** (kebab-case — the camelCase `swapColors` is silently stripped by the sanitizer; see [markdown-tiles.md](markdown-tiles.md) → *kebab-case attributes*), and you can pair it with a `color_class` value for threshold colour, which native KPI can't. So markdown loses none of the status-card capability; the native-KPI advantage is mainly the built-in `progress` gauge and not having to template the layout.
->
-> **⚠️ Don't mix the two mechanisms in one KPI row.** A native `omni-kpi` tile and a markdown card render with **different label placement, typography, vertical alignment, and comparison style** — side by side in the same band one card looks visibly off (e.g. a native card shows no uppercase label and a pill-style delta while its markdown neighbours show a top label + sparkline). **Pick one mechanism for the whole row.** If the row is markdown (for the bespoke card look), keep the status cards markdown too and do their green-on-decrease with the direction calc — don't drop a single native KPI in for its `swapColors`.
->
-> A KPI **comparison** section's `comparison` (and a **progress** section's `comparison`) is a *full* value-field `{ row, field:{name,pivotMap}, label:{value} }` — a bare `{ "row": "_second" }` persists but crashes at render (see the value-field rule below).
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `alignment` | No | Horizontal: `"left"`, `"center"`, `"right"` |
-| `verticalAlignment` | No | Vertical: `"top"`, `"center"`, `"bottom"` |
-| `markdownConfig` | Yes | Array of KPI section entries |
-
-Each `markdownConfig` entry is `{ id, type, config, lastModified? }`. **`type`** is one of `number` / `comparison` / `sparkline` / `progress` / `text` / `image`, and `config` varies by type (camelCase fields). This is the **stable, intended way to get a sparkline, a comparison delta, or a progress gauge in a tile** — the KPI renderer compiles these sections into its internal components, so you configure them here rather than hand-authoring component tags into a markdown tile (a markdown tile supports only `<Sparkline>`/`<ChangeArrow>` — see [markdown-tiles.md](markdown-tiles.md)).
-
-A value-bearing field is `{ row, field: { name, pivotMap: {} }, label: { value } }` where `row` ∈ `_first | _second | _second_to_last | _last | _totals.0`.
-
-> **⚠️ The `sparkline` section's `field` must OMIT `row`** — it plots *all* rows, so its field is a plain `{ field: { name, pivotMap }, label }` (no `row`). If you copy a `number`/`comparison` field (which *do* carry `row`) into a sparkline, the compiler prefixes the row to the field reference (`_first.view.metric`), which doesn't resolve per-row — **every point reads as 0 and the sparkline renders as a flat line** (no error). `number`/`comparison`/`progress` need `row`; **sparkline must not have it.**
-
-| `type` | `config` fields |
-|---|---|
-| `number` | `field` (value field), `descriptionBefore?` |
-| `comparison` | `field`, `comparison` (the prior value field), `comparisonType` (`number` / `number_percent` / `percent`), **`colorPositive`**, **`colorNegative`**, **`swapColors?`** (true = "lower is better"), `decimals?`, `descriptionBefore?` / `descriptionAfter?` |
-| `sparkline` | `field`, `color`, `type` (`line` / `bar` / `area`), `reverse` (bool), `showAxis` (bool), `width?` / `height?` |
-| `progress` | `field`, `comparison` (drives `max`), `comparisonType`, `color`, `type` (`bar` / `circle`), `decimals?`, `descriptionBefore?` / `descriptionAfter?` |
-| `text` | `text` |
-| `image` | `url`, `width?` / `height?` |
-
-Top-level `KpiConfig` also takes `fontLabelSize?` / `fontBodySize?` / `fontKPISize?` and `dynamicFontSize?` (opt into container-query sizing of the big number) alongside `alignment` / `verticalAlignment` / `markdownConfig`.
-
-> The `comparison`/`progress` `field`/`comparison` objects nest a `SummaryValueConfig` (the same `{ field, label, … }` a number uses) plus `row`; the **exact nesting is easiest to get right by reading back an existing KPI tile** (`omni documents v2-get`) and reusing it. The colors here (`colorPositive`/`colorNegative`/`swapColors`) are the configuration-level way to recolor a delta **in a native KPI tile**; for a markdown *card*, the equivalent is the kebab `swap-colors` attribute (see [markdown-tiles.md](markdown-tiles.md)).
-
-> **⚠️ A malformed `markdownConfig` entry PERSISTS on write but CRASHES at render — the API won't catch it.** Two signatures, both from an incomplete value-field:
-> - **`Cannot read properties of undefined (reading 'name')`** — a `comparison` entry whose `comparison` (or `field`) is a bare `{ "row": "_second" }` with no `field: { name, pivotMap }`. The renderer reads `entry.config.comparison.field.name` → crash. The `comparison` value is a **full value-field**, not just a row pointer.
-> - **`Cannot read properties of undefined (reading 'row')`** — a `progress` entry with **no `comparison`** (the bar's max). The renderer reads `entry.config.comparison.row` and crashes. Supply a `comparison` value-field when the query has a field for the bar's maximum (a target, a total). When it does not, leave `progress` out and show the value another way.
->
-> **Every `markdownConfig` entry's `field` (and a `comparison`'s `comparison`) must be the complete `{ row, field: { name, pivotMap: {} }, label: { value } }`** — omitting `row`, `field.name`, or the wrapper crashes the tile. A complete card that renders (value, sparkline, and change versus the prior period; for "lower is better", add `"swapColors": true` to the comparison):
->
-> ```jsonc
-> "markdownConfig": [
->   { "id": "spark", "type": "sparkline",
->     "config": { "field": { "row": "_first", "field": { "name": "v.metric", "pivotMap": {} }, "label": { "value": "Metric" } },
->                 "color": "#7C3AED", "type": "line", "showAxis": false } },
->   { "id": "num", "type": "number",
->     "config": { "field": { "row": "_first", "field": { "name": "v.metric", "pivotMap": {} }, "label": { "value": "Metric" } } } },
->   { "id": "cmp", "type": "comparison",
->     "config": { "field":      { "row": "_first",  "field": { "name": "v.metric", "pivotMap": {} }, "label": { "value": "" } },
->                 "comparison": { "row": "_second", "field": { "name": "v.metric", "pivotMap": {} }, "label": { "value": "vs prior" } },
->                 "comparisonType": "percent", "colorPositive": "#1FAE7E", "colorNegative": "#E5484D" } }
-> ]
-> ```
->
-> **`_second`/comparison/sparkline need ≥2 rows** — a single-row **snapshot** query (point-in-time, `limit 1`, no time dimension) has no prior row, so use **`number` entries only** there; sparkline/comparison belong on a trend query (sorted desc so `_first` = latest, `_second` = prior).
-
-### Known-good native KPI tile (verified pattern + caveat checklist)
-
-A complete, **render-verified** status KPI — label + value + change-vs-prior (auto-computed %, green-on-decrease) + trend sparkline. Copy it and swap the measure/topic:
-
-```jsonc
-// queryPresentations.data["<key>"]
-{
-  "name": "Return Rate", "type": "query", "topicName": "operations_orders",
-  "prefersChart": true, "automaticVis": false,
-  "visConfig": { "chartType": "kpi", "fields": ["ecomm__order_items.created_at[month]", "ecomm__order_items.return_rate"], "version": 0,
-    "visConfig": { "visType": "omni-kpi", "config": {
-      "alignment": "left", "verticalAlignment": "top", "dynamicFontSize": true,
-      "markdownConfig": [
-        { "id": "num", "type": "number",
-          "config": { "field": { "row": "_first", "field": { "name": "ecomm__order_items.return_rate", "pivotMap": {} }, "label": { "value": "Return Rate" } }, "descriptionBefore": "" } },
-        { "id": "cmp", "type": "comparison",
-          "config": { "field":      { "row": "_first",  "field": { "name": "ecomm__order_items.return_rate", "pivotMap": {} }, "label": { "value": "" } },
-                      "comparison": { "row": "_second", "field": { "name": "ecomm__order_items.return_rate", "pivotMap": {} }, "label": { "value": "" } },
-                      "comparisonType": "percent", "decimals": 1, "colorPositive": "#1FAE7E", "colorNegative": "#DC2626",
-                      "swapColors": true, "descriptionBefore": "", "descriptionAfter": " vs prior mo" } },
-        { "id": "spark", "type": "sparkline",
-          "config": { "field": { "field": { "name": "ecomm__order_items.return_rate", "pivotMap": {} }, "label": { "value": "" } },
-                      "color": "#F59E0B", "type": "line", "width": "360", "height": "64", "reverse": true, "showAxis": false } }
-      ] } } },
-  "query": { "table": "ecomm__order_items", "fields": ["ecomm__order_items.created_at[month]", "ecomm__order_items.return_rate"],
-    "sorts": [{ "column_name": "ecomm__order_items.created_at[month]", "sort_descending": true }],
-    "filters": {}, "limit": 24, "join_paths_from_topic_name": "operations_orders",
-    "calculations": [], "column_totals": {}, "row_totals": {}, "fill_fields": [], "pivots": [], "userEditedSQL": "" }
-}
-```
-
-**Caveat checklist (each one bit during a real build; all silent — no API error):**
-1. **Drop the tile-title child.** The card's `containers` stack must have **only** the `{as:"chart"}` child — no `{as:"metadata", format:"name"}` — or the label shows **twice** (tile title + the number's label).
-2. **`number`/`comparison`/`progress` `field` (and `comparison`'s `comparison`) = a *complete* value-field** `{ row, field:{name,pivotMap}, label }`. A bare `{ "row": "_second" }` (missing `field`) **crashes at render** (`reading 'name'`); a `progress` with no `comparison` crashes (`reading 'row'`).
-3. **The `sparkline` `field` MUST OMIT `row`** (it plots all rows). A stray `row` becomes `_first.<field>` in the compiled reference → unresolvable → **every point reads 0 → flat line.**
-4. **Set `descriptionBefore`/`descriptionAfter` to `""`, not absent** — an absent one renders the literal word **`undefined`** around the comparison.
-5. **Query sorts DESCENDING** so `_first` = latest / `_second` = prior — therefore the **sparkline needs `reverse: true`** or it draws latest→oldest (backwards).
-6. **`swapColors: true`** = lower-is-better (green on a *decrease*); the comparison **auto-computes the %** — no table calc. **`comparisonType`**: `percent` / `number` / `number_percent`; `decimals` sets precision.
-7. **Sparkline `width`/`height` are fixed px, not responsive** (`%`→px; no container-fill) — match them across tiles you compare.
-8. **Snapshot (single-row) query → `number` sections only** (sparkline/comparison need ≥2 rows).
-9. **Native KPI canNOT threshold-recolor the *value*** — if you need a red-when-bad number, use a **markdown card** with a `color_class` calc instead (see [markdown-tiles.md](markdown-tiles.md)); everything else above a markdown card and native KPI do equally well.
-10. **Read it back** — confirm `visConfig.visConfig.config.markdownConfig` persisted before publishing.
-
-## Config Object: Pie / Donut
-
-`chartType: "pie"`, `visType: "basic"`, `config.configType: "polar"`.
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `configType` | Yes | `"polar"` |
-| `theta` | Yes | The measure field that sizes each slice (`{ "field": { "name": "..." } }`) |
-| `color` | Recommended | The dimension that defines the slices (`{ "field": { "name": "..." } }`) |
-| `pastry` | No | `"pie"` (default) or `"donut"` |
-| `innerRadiusPercent` | No | `0`–`100`, donut hole size = ring thinness. `66` ≈ thin ring, `~40` chunky, `0` = solid pie. |
-| `outerRadiusPercent` | No | `0`–`100`. **Defaults to 90 — but auto-shrinks to `90 × 0.7 ≈ 63` whenever `dataLabel.enabled`** (reserves label room). If labels are on and the donut looks small, set this explicitly (e.g. `80`). |
-| `dataLabel` | No | `{ enabled: true, field: { name } }`. `field` sets **what the slice label shows** — point it at the `color` dimension to label slices by category; omit `field` and it shows the `theta` value. |
-| `dataLabelPercentage` | No | `{ enabled: true, decimals: 1 }` — **appends the auto share** → `"Category (23.4%)"`. Separator is hardcoded parentheses (no dash). `percent` = ECharts' share of the `theta` total. |
-| `dataLabelPosition` | No | `"inside"` / `"outside"` — a **top-level polar key**, not `dataLabel.position`. |
-| `tooltip` | No | Fields for hover |
-
-> **No legend sizing.** The pie config exposes no legend-size control — the only legend option is `color.legendPosition`, lowercase: `right`, `left`, `top`, `bottom`, or `none` to hide it. A larger/custom legend requires a markdown tile.
-> **"Category — xx.y%" slice labels (value + share):** `dataLabel: { enabled: true, field: { name: "<the color dim>" } }` + `dataLabelPercentage: { enabled: true, decimals: 1 }`; keep `theta` as the raw count. The label renders the `dataLabel.field` value with the share appended in parentheses — `"Category (23.4%)"` — when `dataLabelPercentage.enabled`. (Verify by building it once in the UI and reading it back with `omni documents v2-get`.)
-
-## Config Object: Heatmap
-
-`chartType: "heatmap"`, `visType: "basic"`, `config.configType: "heatmap"`.
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `configType` | Yes | `"heatmap"` |
-| `x` | Yes | X-axis dimension field |
-| `y` | Yes | Y-axis dimension field |
-| `color` | Yes | The measure field that drives cell intensity |
-| `tooltip` | No | Fields for hover |
-
-## Config Object: Boxplot
-
-`chartType: "boxplot"`, `visType: "basic"`, `config.configType: "boxplot"`. Fields: `x` or `y` (category), `color`, `dataLabel`, `tooltip`.
-
-## Config Object: Funnel
-
-`chartType: "funnel"`, `visType: "funnel"`, **no `configType`**.
-
-> **Funnel and sankey still nest their spec under `config`:** `visConfig.visConfig = { visType: "funnel", config: { value, color, orient, … } }`. They only leave out the `configType` field inside `config`, which exists only for the `"basic"` renderer.
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `value` | Yes | The measure field (segment size), `{field:{name}}` |
-| `color` | Recommended | Dimension that defines/labels segments, `{field:{name}}` |
-| `orient` | No | `"vertical"` (default) / `"horizontal"` — note the key is `orient`, not `orientation` |
-| `funnelAlign` | No | `"center"` / `"left"` / `"right"` / `"top"` / `"bottom"` |
-| `sort` | No | `"descending"` (default) / `"ascending"` / `"none"` |
-| `dataLabel`, `tooltip` | No | Labels / hover |
-
-> In a wide, short dashboard tile a funnel can collapse to an unreadable sliver. Set `orient: "vertical"`, `funnelAlign: "center"`, `sort: "descending"`, and `dataLabel: { "enabled": true, "position": "inside" }` so it draws a clean funnel regardless of tile aspect.
-
-> **Funnel from multiple measures (stage = a measure, not a dimension).** The funnel needs a stage *dimension* + one measure, so a wide query of N separate measures (e.g. `units_sold`, `shipped_items`, `delivered_items`) won't funnel directly. Reshape it to long form with the query's **`transposed_measures`** (an array of those measure names — see `omni-query` → *Transpose measures into rows*): the result gains synthetic `measure_name` (renders as each measure's friendly label) + `measure_value` columns. Then set the funnel `color: { field: { name: "measure_name" } }` and `value: { field: { name: "measure_value" } }` with `sort: "descending"`.
-
-## Config Object: Sankey
-
-`chartType: "sankey"`, `visType: "sankey"`, **no `configType`**. Fields: `source`, `target` (node dimensions), `value` (flow measure), `color`, `tooltip`.
-
-## Config Object: Map / Region Map
-
-**Point map** — `chartType: "map"`, `visType: "map"`, no `configType`. Key fields: `latitudeFieldName`, `longitudeFieldName` (plain field-name strings), plus optional `markType` (`"circle"`/`"heatmap"`), `markRadius`, `color`, `size`, `tooltip`, `zoom`, `center`.
-
-**Region / choropleth map** — `chartType: "regionMap"`, `visType: "map"` (the Mapbox renderer), no `configType`.
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `regionType` | Yes | `"us-states"` or `"countries"` (not `"US"`) |
-| `regionFieldName` | Yes | Dimension holding the region names/codes (plain string) |
-| `sourceProperty` | Yes | Which layer property your values match. US states: `"NAME"` (full names) or `"CODE"` (2-letter). Countries: `"iso_3166_1"` (2-letter), `"iso_3166_1_alpha_3"` (3-letter), or `"name_en"`. **A mismatch renders the base map with no shading.** |
-| `color` | Yes | The measure, `{field:{name}}` |
-| `center`, `zoom` | Recommended | Viewport (e.g. `[-98.35, 39.5]` / `3` for the US). Without it the map fits to data and may zoom into a single locality. |
-
-> To capture a map spec, read back an existing dashboard with a map tile (`omni documents v2-get`) and reuse its config.
-
-> **Point maps auto-fit to the data's bounding box.** Set `center`/`zoom` to frame a region, but the map won't zoom *tighter* than the extent of your points — e.g. a US map of distribution centers spanning LA↔NY caps at a coast-to-coast frame; pushing `zoom` higher clips the edge points rather than enlarging the country. Tune `zoom` to taste (≈3.6–3.8 for the contiguous US) and accept that the data spread sets the floor.
-
----
+These families have their own references: [kpi-tiles.md](kpi-tiles.md) for the native KPI tile and its `markdownConfig` entry types; [other-chart-types.md](other-chart-types.md) for pie and donut, heatmap, boxplot, funnel, sankey, point map and region map; [markdown-tiles.md](markdown-tiles.md) for markdown and AI-summary tiles, including their config shape.
 
 ## Complete Examples
 
@@ -686,86 +496,6 @@ Same as the stacked column but `chartType: "areaStacked"` and `mark.type: "area"
 }
 ```
 
-### KPI (Single Value)
-
-```json
-"visConfig": {
-  "chartType": "kpi",
-  "fields": ["order_items.total_revenue"],
-  "version": 0,
-  "visConfig": {
-    "visType": "omni-kpi",
-    "config": {
-      "alignment": "left",
-      "verticalAlignment": "top",
-      "markdownConfig": [
-        {
-          "id": "kpi-1",
-          "type": "number",
-          "config": {
-            "field": {
-              "row": "_first",
-              "field": { "name": "order_items.total_revenue", "pivotMap": {} },
-              "label": { "value": "Total Revenue" }
-            },
-            "descriptionBefore": ""
-          }
-        }
-      ]
-    }
-  }
-}
-```
-
-### Pie / Donut
-
-```json
-"visConfig": {
-  "chartType": "pie",
-  "fields": ["products.category", "order_items.total_revenue"],
-  "version": 0,
-  "visConfig": {
-    "visType": "basic",
-    "config": {
-      "configType": "polar",
-      "theta": { "field": { "name": "order_items.total_revenue" } },
-      "color": { "field": { "name": "products.category" } },
-      "pastry": "pie",
-      "tooltip": [
-        { "field": { "name": "products.category" } },
-        { "field": { "name": "order_items.total_revenue" } }
-      ]
-    }
-  }
-}
-```
-
-For a donut, set `"pastry": "donut"` and optionally `"innerRadiusPercent": 50`.
-
-### Heatmap
-
-```json
-"visConfig": {
-  "chartType": "heatmap",
-  "fields": ["order_items.created_day_of_week", "order_items.created_hour", "order_items.count"],
-  "version": 0,
-  "visConfig": {
-    "visType": "basic",
-    "config": {
-      "configType": "heatmap",
-      "x": { "field": { "name": "order_items.created_hour" } },
-      "y": { "field": { "name": "order_items.created_day_of_week" } },
-      "color": { "field": { "name": "order_items.count" } },
-      "tooltip": [
-        { "field": { "name": "order_items.created_day_of_week" } },
-        { "field": { "name": "order_items.created_hour" } },
-        { "field": { "name": "order_items.count" } }
-      ]
-    }
-  }
-}
-```
-
 ### Table (No Chart)
 
 Set `prefersChart: false` on the tile; the inner `config` is an empty object.
@@ -861,18 +591,6 @@ Enables AI-generated descriptions/subtitles on tiles:
 | `regionMap` not shading | "No chart available" / blank map | Use `visType: "map"`, `regionType: "us-states"`/`"countries"`, a `sourceProperty` matching your field's values (`"NAME"`/`"CODE"`/iso codes), and `center`/`zoom` |
 | `chartType: "auto"` with empty config | "No chart available" | `auto` can't persist a render; populate a concrete spec from the recipes in this file. When no recipe covers the chart, copy the config from an existing dashboard that uses it (`v2-get`) |
 | `aiContext`/`markdown` on AI-summary tile | Renders blank/wrong | Use `ai_context` + `showWarning` (snake_case) |
-
-## Text & AI tiles
-
-- **Markdown** (`chartType: "markdown"`, `visType: "omni-markdown"`): `config: { markdown: "...", version: 1 }`. The markdown body is **mustache-templated against the tile's query** — loop rows with `{{#result}} … {{view_name.field_name.value_static}} … {{/result}}` and reference single values like `{{result._first.view_name.field_name.value_static}}` or `{{result._total.first.view_name.field_name.value_static}}`. Keep a real query on the tile so the template has data.
-  - **Use `.value_static` for a clean value**, not `.value`. `.value_static` is the formatted display string; `.value` is an interactive drill element (a clickable component, not plain text).
-  - Result rows are keyed by **field name** — there is **no positional column token** (you must name the field, not "column 1").
-  - **Set `automaticVis: false` and `prefersChart: false` on the tile**, or the published renderer ignores your markdown and tries to auto-derive a chart from the query → the tile renders **blank** with no error. Tell-tale: `{{result…}}` tokens resolve when tested but the whole tile is white.
-  - **The HTML sanitizer allows `style`, `className`, and `data-*` attributes plus `<style>` blocks**, so you can ship scoped CSS inside a markdown tile. (A sandboxed `<iframe>` with `allow-scripts` is also available for arbitrary JS if CSS isn't enough.)
-  - **`{{controls.<id>.summary}}`** injects a dashboard control's current selection (its friendly label) into the body — the basis of dynamic captions and the metric-switch pattern (see [markdown-tiles.md](markdown-tiles.md)). Only **dashboard** controls resolve here, not tile-embedded `query.controls`. See [controls.md](controls.md).
-- **AI summary** (`chartType: "omni-ai-summary-markdown"`, `visType: "omni-ai-summary-markdown"`): `config: { ai_context: "...", showWarning: true }` (snake_case `ai_context`, **not** `aiContext`; no `markdown`/`version`). Requires a query — the AI summarizes its results.
-
-> **Markdown-tile recipes live in [markdown-tiles.md](markdown-tiles.md)** — sizing/clipping, responsive `cqw` headline fonts, the metric-picker KPI switch, the data-driven funnel, and the [docs.omni.co/showcase](https://docs.omni.co/showcase) gallery pointer.
 
 ## Safe Defaults
 

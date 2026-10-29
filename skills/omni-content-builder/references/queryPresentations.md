@@ -228,7 +228,11 @@ A stacked **column** is vertical; a stacked **bar** is horizontal — Omni disti
 
 ## Tiles not built on a topic
 
-A tile **not** built on a topic still runs (a bare base-view query or a raw-SQL `userEditedSQL` tile uses the global `relationships` file), but restricted queriers and viewers can't see it; the two [Known Issues](../SKILL.md#known-issues--safe-defaults) rules in SKILL.md say when to ask and when to advise Access Boost. To author a raw-SQL tile and boost it end to end, see [references/queryPresentations.md](queryPresentations.md) → *Raw-SQL tiles*; for the boost commands and the org-level prerequisite, see **`omni-admin`** → *Document Permissions* (`add-permits` with `accessBoost`, or `update-permission-settings`).
+- **HARD RULE — no non-topic tile from handed-over SQL without an explicit user decision.** Map each query to a topic first (see `omni-query`). If none fits, **stop and ask** whether to extend a topic or create one (on a branch via `omni-model-builder`, merged only with confirmation). Build a non-topic / `userEditedSQL` tile only after the user **explicitly chooses** that path (declined modeling, a genuine one-off, or `userEditedSQL` is required); Access Boost is never the default for handed-over SQL. See *Build queries on a topic* in SKILL.md.
+- **Non-topic tiles are invisible to Viewers and Restricted Queriers.** A tile with a populated `userEditedSQL`, or a bare base-view query with no `join_paths_from_topic_name`, is non-topic. Before finalizing one, **ask whether the dashboard's audience includes those roles**. If it does, **advise** Access Boost (it makes the tiles viewable on the dashboard only, for chosen users, groups, or the org; it needs the org capability and Manager on the document) as a separate, explicitly confirmed step with the **narrowest scope** that works. Never enable it without that go-ahead. See the [Raw-SQL tiles](#raw-sql-tiles) recipe and **`omni-admin`** → *Document Permissions*.
+
+
+A tile **not** built on a topic still runs (a bare base-view query or a raw-SQL `userEditedSQL` tile uses the global `relationships` file), but restricted queriers and viewers can't see it; the two rules above say when to ask and when to advise Access Boost. To author a raw-SQL tile and boost it end to end, see [references/queryPresentations.md](queryPresentations.md) → *Raw-SQL tiles*; for the boost commands and the org-level prerequisite, see **`omni-admin`** → *Document Permissions* (`add-permits` with `accessBoost`, or `update-permission-settings`).
 
 **Authoring limit (distinct from the visibility above):** if *you* are a Restricted Querier, you **can't author a non-topic / raw-SQL tile at all** — `QUERY_TOPICS` queries topics only — so **every tile you build must be topic-based**. The non-topic + Access-Boost path is only for a `QUERY_FULL_MODEL` author building for a restricted *audience*. (Check with `whoami`; see **`omni-admin`** → *Model Roles & Caller Access*.)
 
@@ -416,15 +420,15 @@ Add more entries to `markdownConfig` (inside `visConfig.visConfig.config`), each
 
 ### KPI config fields
 
-> **The examples above show only the `number` entry — but a KPI tile is the workhorse "card" (value + change-vs-prior arrow + sparkline + gauge), and those come from the OTHER `markdownConfig` entry types.** Don't hand-roll a markdown tile for a sparkline/comparison/gauge — the full per-type `config` shapes (`comparison` with `colorPositive`/`colorNegative`/**`swapColors`** for "lower is better", `sparkline`, `progress` for a gauge, `text`, `image`) are tabulated in **[visConfig.md](visConfig.md) → Config Object: KPI**. Build a multi-section card by listing several entries (e.g. a `sparkline` + a `number` + a `comparison`) in one `markdownConfig` array. A status-colored "lower is better" KPI (return rate, cart abandonment) is a `comparison` entry with `swapColors: true`, **not** a custom CSS tile.
+> **The examples above show only the `number` entry — but a KPI tile is the workhorse "card" (value + change-vs-prior arrow + sparkline + gauge), and those come from the OTHER `markdownConfig` entry types.** Don't hand-roll a markdown tile for a sparkline/comparison/gauge — the full per-type `config` shapes (`comparison` with `colorPositive`/`colorNegative`/**`swapColors`** for "lower is better", `sparkline`, `progress` for a gauge, `text`, `image`) are tabulated in **[kpi-tiles.md](kpi-tiles.md)**. Build a multi-section card by listing several entries (e.g. a `sparkline` + a `number` + a `comparison`) in one `markdownConfig` array. A status-colored "lower is better" KPI (return rate, cart abandonment) is a `comparison` entry with `swapColors: true`, **not** a custom CSS tile.
 
 | Field | Required | Description |
 |-------|----------|-------------|
 | `alignment` | No | Horizontal: `"left"`, `"center"`, `"right"` |
 | `verticalAlignment` | No | Vertical: `"top"`, `"center"`, `"bottom"` |
-| `markdownConfig` | Yes | Array of KPI value entries — **mix types** (`number`/`comparison`/`sparkline`/`progress`/…); see [visConfig.md](visConfig.md) for each type's `config` |
+| `markdownConfig` | Yes | Array of KPI value entries — **mix types** (`number`/`comparison`/`sparkline`/`progress`/…); see [kpi-tiles.md](kpi-tiles.md) for each type's `config` |
 | `markdownConfig[].id` | Yes | Unique string ID for this entry |
-| `markdownConfig[].type` | Yes | `"number"` for a numeric value (other types: `comparison`, `sparkline`, `progress`, `text`, `image` — **full shapes in [visConfig.md](visConfig.md)**) |
+| `markdownConfig[].type` | Yes | `"number"` for a numeric value (other types: `comparison`, `sparkline`, `progress`, `text`, `image` — **full shapes in [kpi-tiles.md](kpi-tiles.md)**) |
 | `markdownConfig[].config.field.row` | Yes | Always `"_first"` |
 | `markdownConfig[].config.field.field.name` | Yes | Fully qualified field name (e.g., `"order_items.total_revenue"`) |
 | `markdownConfig[].config.field.field.pivotMap` | Yes | Empty object `{}` unless using pivots |
@@ -648,4 +652,4 @@ Two rules that differ from the classic shapes above: layers never stack across l
 | Point map | `"map"` | `"map"` | — | — | — |
 | Region map | `"regionMap"` | `"map"` | — | — | — |
 
-> For funnel, sankey, map, region map, heatmap, and boxplot, start from the known shapes in [visConfig.md](visConfig.md), and confirm the inner `config` field names by reading back an existing dashboard that uses the chart (`omni documents v2-get` returns the inner spec in the shape you write).
+> For funnel, sankey, map, region map, heatmap, and boxplot, start from the known shapes in [other-chart-types.md](other-chart-types.md), and confirm the inner `config` field names by reading back an existing dashboard that uses the chart (`omni documents v2-get` returns the inner spec in the shape you write).
