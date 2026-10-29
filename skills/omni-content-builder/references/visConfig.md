@@ -20,6 +20,7 @@ Complete reference for a tile's visualization config — the v2 `visConfig` enve
 - [Discovering Config for Advanced Chart Types](#discovering-config-for-advanced-chart-types)
 - [resultConfig](#resultconfig)
 - [aiConfig](#aiconfig)
+- [Known rendering issues](#known-rendering-issues)
 - [Common Mistakes](#common-mistakes)
 - [Safe Defaults](#safe-defaults)
 
@@ -828,6 +829,12 @@ Enables AI-generated descriptions/subtitles on tiles:
   "subTitle": { "enabled": true, "aiContext": "One-line summary of the key takeaway" }
 }
 ```
+
+## Known rendering issues
+
+- **Markdown tiles need `automaticVis: false`** — otherwise the renderer auto-derives a chart and the tile is blank. See [this reference](#table-of-contents); markdown KPI and card recipes are in [markdown-tiles.md](markdown-tiles.md).
+- **A tile with no real `visConfig` renders as "Item missing".** New tiles start with `visConfig.visType: null` and `automaticVis: false`, which draws nothing. Give each tile an explicit `visConfig` when the user asked for a specific chart or formatting (e.g. the table recipe in [this reference](#table-of-contents)), otherwise `automaticVis: true`. A create places every tile in `order`, so the fix is always in the tile's `visConfig`.
+- **"No chart available"** means the inner config, `visType`, or `prefersChart` is wrong. For a requested chart, send the complete config from [this reference](#table-of-contents) under `visConfig.visConfig.config`; use `chartType: "table"` only as a deliberate fallback.
 
 ## Common Mistakes
 

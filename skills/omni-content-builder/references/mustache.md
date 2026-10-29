@@ -195,6 +195,7 @@ The URL param targets the filter by its **control id** (`f--<filterId>`; an inte
 
 ## Pitfalls
 
+- **Mustache: read a filter's value from `filters`.** To caption a tile with a filter's current value, use **`{{filters.…summary}}`**; the `controls` namespace is for field switchers, pickers, and Top-N controls, and renders **empty** for a filter. The `filters` key is `view.field` in a markdown-viz tile and the control `id` in a dashboard text tile. Tokens and scenarios: [this reference](#table-of-contents).
 - **Wrong namespace (the classic):** a date/string filter is addressed via the **`filters`** namespace, not `controls` — `{{controls.<filterId>.summary}}`/`.value` render **empty** in both tile kinds (it's configured as a control, but mustache routes filters to `filters`; only non-filter interactive controls appear under `controls`). Use the `filters` namespace (keyed by `view.field` in a viz tile, by control `id` in a text tile).
 - **Wrong key form for the tile kind:** in a **viz** tile a filter is keyed by `view.field`, so `{{filters.<controlId>.…}}` is empty; in a **dashboard text** tile it's keyed by control `id`, so `{{filters.<view>.<field>.…}}` is empty. Match the key to the context (or run `{{inspect}}` to read the live keys).
 - **KPI tile text isn't mustache:** a `chartType:"kpi"` tile's `markdownConfig` text/number sections do **not** run mustache. For a dynamic caption use a **markdown viz tile** instead.
