@@ -4,6 +4,7 @@ The layers chart editor (Omni's "New X/Y chart builder") and the layer compiler 
 
 ## Table of Contents
 
+- [Choosing a shape](#choosing-a-shape)
 - [What the layer editor writes](#what-the-layer-editor-writes)
 - [Measure values: several measures in one layer](#measure-values-several-measures-in-one-layer)
 - [Creating a layer-compiled chart through the API](#creating-a-layer-compiled-chart-through-the-api)
@@ -26,6 +27,26 @@ Omni renders a cartesian config through one of two compilers, and the config dec
 Both compilers read the same envelope (`visConfig.chartType` / `fields` / `visConfig.visType: "basic"` / `config`), the same `configType: "cartesian"`, `_dependentAxis`, `x`, `y` / `y2`, `series[]` and `tooltip`. What differs is where the encodings live and how layers combine. Layers are documented at [docs.omni.co/visualize-present/visualizations/layers](https://docs.omni.co/visualize-present/visualizations/layers).
 
 **A config without the flag stays on the classic compiler.** Nothing about the GA of layers changes what an API-created tile gets: a cartesian config sent through `v2-create` or a draft patch opens in the classic editor and renders through the classic compiler until `behaviors.useLayerCompiler: true` is in its config. Confirm which one a tile is on by opening its workbook tab, clicking **Options** above the chart, and looking for the banner, or by reading the tile back and checking `behaviors.useLayerCompiler`.
+
+## Choosing a shape
+
+**Classic or layers for a new tile.** Write the layer shape for a new X/Y chart unless the request or the dashboard says otherwise. Every X/Y chart built in the UI is layer-compiled, so a layer tile opens in the same editor as its neighbors, while a classic tile beside them opens in the X-Axis / Left-Axis / Right-Axis editor and only reaches the layer features (a color field per layer, pinned colors in `colorFields`, `stackSort`, Measure names on an axis, legend slots) after a move. Write classic only when patching a tile that is already classic and nobody asked to move it, or when the shape you need is a classic recipe in [visConfig.md](visConfig.md) with no row in [Layer shapes](#layer-shapes-each-rendered-as-written). A dashboard can hold both; nothing forces a move.
+
+**Within a layer chart,** the question is how the measures and dimensions relate, and each answer is one shape:
+
+| The chart should show | Shape | Where it is |
+|---|---|---|
+| Several measures that add up: stacked, grouped or 100% on one axis | One Measure values layer (`foldedFields` + an `omni__field_value` series colored by `omni__field_name`), `color._stack` = `stack`, `group` or `stack_percentage` | [Measure values](#measure-values-several-measures-in-one-layer) |
+| Measures that do not add up, on one scale, with their own marks (bars and a line) | One layer per measure on `y`; the last `series[]` entry paints on top; one stack mode per axis | [Layer shapes](#layer-shapes-each-rendered-as-written) |
+| A measure on a different scale (a count beside revenue) | Its own layer on `y2`, left out of any fold; `alignAxisZeros: true` when the two zeros should line up | [Creating a layer-compiled chart](#creating-a-layer-compiled-chart-through-the-api) |
+| One measure split by a dimension's values (stacked or colored) | `series[].color.field` = the dimension, the dimension in `query.pivots`, `_stack` = `stack` or `group`; pinned colors in `colorFields` | [Layer shapes](#layer-shapes-each-rendered-as-written) |
+| Measures compared side by side with no time axis | Measure names on the X axis: `x.field.name: "omni__field_name"` with a fold and an `omni__field_value` bar layer | [Layer shapes](#layer-shapes-each-rendered-as-written) |
+| One panel per measure, or per category | `facet.column` (or `facet.row`) on `omni__field_name` or on the dimension (also in `query.pivots`); `scaleYAxes: "independent"` when the panels need their own scales | [Layer shapes](#layer-shapes-each-rendered-as-written) |
+| A smoothed or fitted line | `movingAverage` or `regression` on a plain layer, never on the fold | [Measure values](#measure-values-several-measures-in-one-layer) |
+| A third measure as point size | `mark.type: "point"` with `size.field` on that layer | [Layer shapes](#layer-shapes-each-rendered-as-written) |
+| A chart at coarser grain than the query (a line per month over a query grouped by month and status) | A layer that omits the dimension plus a `column_totals` subtotal on the last dimension it keeps | [Smart aggregation](#a-layer-that-uses-fewer-dimensions-than-the-query-smart-aggregation) |
+
+Two combinations do not work and have no shape: one fold split across the two axes (the measure that belongs on the other axis is its own layer), and two layers stacked on each other (stacking only happens inside one layer). Which chart *family* a question wants (line, horizontal bar, 100% stacked, scatter, KPI, table) is in [design-defaults.md](design-defaults.md#match-chart-to-question).
 
 ## What the layer editor writes
 
