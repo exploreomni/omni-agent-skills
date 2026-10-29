@@ -266,6 +266,13 @@ Every row was written through the API with `behaviors.useLayerCompiler: true`, r
 | A capped, wrapped, untitled legend | `colorFields["<status>"]: { maxItems: 3, labelOverflow: "wrap", showTitle: false }`; the legend shows three entries and a "+ N more" row |
 | Formatted labels inside the bar tops | Root `dataLabel: { enabled: true, format: "$#,##0,\"K\"", position: "inside_end", fontSize: 10 }` |
 | No series legend on a multi-layer chart | Fieldless root `color: { legendPosition: "none" }`; the fieldless root `color` is where the series-identity legend and the chart palette live |
+| Floating bars, a waterfall, a band or a goal corridor (a hidden base) | A stacked Measure values layer whose **last** folded field is the base, colored `"#00000000"` in `colorFields` (the word `transparent` draws nothing): `foldedFields: [<visible part>, <base>]`. The base can be a measure or a table calculation (a running total minus the value for a waterfall; a constant for a corridor). With `mark.type: "area"` the same fold is a band; put the line to compare as its own layer |
+| Variance bars colored by sign | A bar layer on a calculation colored by itself, `series[].color.field` = the calculation, with `colorFields["<calc>"]: { _scheme: "redBlue", scaleDomain: { min, mid: 0, max } }` and an explicit value-axis `domain` that includes the negatives; `_scheme` takes the chart palette names (`blues`, `redBlue`, `blueOrange`, `redYellowGreen`, `viridis`, …) |
+| One highlighted point on a line | A point layer on a table calculation that is null everywhere else, such as `OMNI_FX_IFS(OMNI_RANK(<measure>) = 1, <measure>)`, listed before the line layer; a per-row `OMNI_FX_MAX` comparison lights every point |
+| Burn-up, or the same field as a line and an area | The same field (here a running-total calculation) in two `series[]` entries, one `line` and one `area` with low opacity; the legend lists it twice |
+| Labels from another field | `series[].dataLabel.field` names the field whose values become the labels (a count on sales bars, a percent-of-total calculation on stacked segments) |
+| A category axis sorted by a measure, with points | `_dependentAxis: "x"`, the dimension on `y` with `axis.sort`, and `point` layers (a ranking dot plot; two point layers for a dumbbell; a hidden-base bar between them for the connector) |
+| Lines on a log axis | `y: { axis: { scale: { type: "log" } } }` with line or point layers only: a bar layer on a log axis draws nothing |
 
 Two results that are not errors but are worth knowing:
 
@@ -297,5 +304,6 @@ The layer then reads the month subtotal rows and draws one value per month (the 
 | `series[].title.value` for the legend label | Still works |
 | Axis styling under `<axis>.axis` | Still works |
 | `_dependentAxis`, `yAxis` / `xAxis`, `y2` for the right axis | Unchanged |
+| A table calculation on a tile | Unchanged, with two things a layer chart makes visible: a calculation must have every field it references in `query.fields`, or it is `#ERROR!` and a fold that includes it draws nothing; and a per-month total line beside a layer colored by a pivoted dimension is not reachable from that one query (the colorless layer draws every pivot row; `row_totals` on the measure blanks the chart; `column_totals` does not roll the pivot up) |
 | A query dimension the chart does not encode is simply ignored | A layer that omits a grouped dimension draws every row (a line zigzags) unless the query carries a `column_totals` subtotal on the last dimension the layer keeps |
 
