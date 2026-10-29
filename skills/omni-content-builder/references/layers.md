@@ -37,7 +37,7 @@ Both compilers read the same envelope (`visConfig.chartType` / `fields` / `visCo
 | The chart should show | Shape | Where it is |
 |---|---|---|
 | Several measures that add up: stacked, grouped or 100% on one axis | One Measure values layer (`foldedFields` + an `omni__field_value` series colored by `omni__field_name`), `color._stack` = `stack`, `group` or `stack_percentage` | [Measure values](#measure-values-several-measures-in-one-layer) |
-| Measures that do not add up, on one scale, with their own marks (bars and a line) | One layer per measure on `y`; the last `series[]` entry paints on top; one stack mode per axis | [Layer shapes](#layer-shapes-each-rendered-as-written) |
+| Measures that do not add up, on one scale, with their own marks (bars and a line) | One layer per measure on `y`; on one axis the **first** `series[]` entry paints on top, so list the line before the bars; one stack mode per axis | [Layer shapes](#layer-shapes-each-rendered-as-written) |
 | A measure on a different scale (a count beside revenue) | Its own layer on `y2`, left out of any fold; `alignAxisZeros: true` when the two zeros should line up | [Creating a layer-compiled chart](#creating-a-layer-compiled-chart-through-the-api) |
 | One measure split by a dimension's values (stacked or colored) | `series[].color.field` = the dimension, the dimension in `query.pivots`, `_stack` = `stack` or `group`; pinned colors in `colorFields` | [Layer shapes](#layer-shapes-each-rendered-as-written) |
 | Measures compared side by side with no time axis | Measure names on the X axis: `x.field.name: "omni__field_name"` with a fold and an `omni__field_value` bar layer | [Layer shapes](#layer-shapes-each-rendered-as-written) |
@@ -202,7 +202,7 @@ When a user asks in the editor's own terms, this is what to write. Every row was
 | **Axis options → Sort order: Automatic / Ascending / Descending** on a text X axis | `x.axis.sort: { field, order: "ascending" / "descending" }`; Automatic is no `sort` (query order) |
 | **Size: Fixed size** on a scatter layer | No `series[].size`; the point size is `mark.point.size` |
 | **Axes options (the menu on "Y-axes") → All values: Mark / Color / Size / Label** | The same key written onto every `series[]` entry (or the root broadcast key, which the parser copies onto each layer) |
-| **Axes options → Swap left and right**, **Display order: Left values on top / Right values on top** | Every `yAxis` flipped; the order of `series[]`: layers draw in array order, so the last entry is on top |
+| **Axes options → Swap left and right**, **Display order: Left values on top / Right values on top** | Every `yAxis` flipped; the order of `series[]` (see [Which layer draws on top](#layer-shapes-each-rendered-as-written)) |
 | **Measure values** section: drag a measure in or out, reorder | `foldedFields` membership and order (also the legend order and, on a Measure names axis or facet, the panel order) |
 | **Field properties…** on a layer's field (title, format) | `series[].title.value`; number formats stay on the field in the model or the query |
 | Trend line, moving average | `series[].regression`, `series[].movingAverage` |
@@ -254,7 +254,7 @@ Every row was written through the API with `behaviors.useLayerCompiler: true`, r
 | Legend and stack order of folded measures | The order of `foldedFields`: list the measure that should sit at the bottom of the stack first |
 | A Measure values layer colored by a real dimension | `series[].color.field` = the dimension on the `omni__field_value` layer: each segment is the measures added together for that value, so the measures cannot be told apart. Color by `omni__field_name` to see the measures; split by the dimension with a facet or a second layer instead |
 | Small multiples on two fields | `facet: { row: { field: { name: status } }, column: { field: { name: FN } } }` gives a grid, rows per status and a column per folded measure |
-| Which layer draws on top | `series[]` order: the last entry paints last. Bars listed after a line cover it; a line listed after bars runs over them |
+| Which layer draws on top | On **one axis**, the first `series[]` entry paints on top: `[bar, line]` hides the line inside the bars, `[line, bar]` runs it over them, and of two bar layers the first-listed one is in front. **Across the axes**, the axis whose layers come later in `series[]` paints on top: `[line y2, bar y]` hides the line, `[bar y, line y2]` shows it, `[bar y, bar y2]` puts the `y2` bars in front. One tested exception: a line on the primary axis listed before bars on the other axis still drew on top |
 | Segment labels and stack totals on folded measures | `dataLabel: { enabled: true, position: "inside_end" }` and `totals: { enabled: true, position: "outside_end" }` on the `omni__field_value` layer |
 | A fold layer and a plain layer on one axis | Allowed: `[{ field: FV, bar, stacked }, { field: count, line, yAxis: "y" }]`; they share the axis scale |
 | Target line on the value axis | `y: { axis: { referenceLine: { enabled: true, value: 450000, label: "Target", line: { color: "#888888", dash: [4, 4] } } } }`, as on classic |
