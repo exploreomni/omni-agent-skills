@@ -115,7 +115,7 @@ Layers do **not** stack across layers. Two bar layers on the same axis draw over
 }
 ```
 
-- `foldedFields` (root) lists the measures the layer draws, in legend order. They stay in `query.fields` and `visConfig.fields` as usual.
+- `foldedFields` (root) lists the measures the layer draws, in legend order; when the layer stacks, the first entry is the top segment and the last entry the bottom one. They stay in `query.fields` and `visConfig.fields` as usual.
 - The layer's `field.name` is the synthetic **`omni__field_value`** ("Measure values"); its `color.field.name` is **`omni__field_name`** ("Measure names"). `{ "name": … }` is enough — the full field objects the upgrade dialog writes (`label`, `isMeasure`, …) are not needed.
 - `color._stack` on this layer is the stacking of the measures: `stack`, `group`, `overlay` or `stack_percentage`.
 - A measure that should be its own layer (a line on the right axis beside stacked bars) is a separate `series` entry and must be left out of `foldedFields`.
@@ -251,7 +251,7 @@ Every row was written through the API with `behaviors.useLayerCompiler: true`, r
 | Mark styling per layer | `mark: { type: "area", area: { opacity: 0.3, line: true, interpolate: "monotone" } }`, `mark: { type: "line", line: { dash: [4, 4], point: true, width: 3 } }`, `mark: { type: "bar", bar: { cornerRadius: 6, opacity: 0.6 } }` |
 | Two color fields, two legends | A Measure values layer colored by `FN` plus a line layer colored by a real dimension (`series[].color.field`); each field gets its own legend |
 | Chart-wide mark with one exception | Root `mark: { type: "line" }` and `mark: { type: "bar" }` on the one layer that differs |
-| Legend and stack order of folded measures | The order of `foldedFields`: list the measure that should sit at the bottom of the stack first |
+| Legend and stack order of folded measures | The order of `foldedFields` is the legend order, and the **first** entry sits at the **top** of the stack: list the measure that should sit at the bottom last |
 | A Measure values layer colored by a real dimension | `series[].color.field` = the dimension on the `omni__field_value` layer: each segment is the measures added together for that value, so the measures cannot be told apart. Color by `omni__field_name` to see the measures; split by the dimension with a facet or a second layer instead |
 | Small multiples on two fields | `facet: { row: { field: { name: status } }, column: { field: { name: FN } } }` gives a grid, rows per status and a column per folded measure |
 | Which layer draws on top | On **one axis**, the first `series[]` entry paints on top: `[bar, line]` hides the line inside the bars, `[line, bar]` runs it over them, and of two bar layers the first-listed one is in front. **Across the axes**, the axis whose layers come later in `series[]` paints on top: `[line y2, bar y]` hides the line, `[bar y, line y2]` shows it, `[bar y, bar y2]` puts the `y2` bars in front. One tested exception: a line on the primary axis listed before bars on the other axis still drew on top |
