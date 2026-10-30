@@ -307,4 +307,3 @@ The layer then reads the month subtotal rows and draws one value per month (the 
 | `_dependentAxis`, `yAxis` / `xAxis`, `y2` for the right axis | Unchanged |
 | A table calculation on a tile | Unchanged, with two things a layer chart makes visible: a calculation must have every field it references in `query.fields`, or it is `#ERROR!` and a fold that includes it draws nothing; and a per-month total line beside a layer colored by a pivoted dimension is not reachable from that one query (the colorless layer draws every pivot row; `row_totals` on the measure blanks the chart; `column_totals` does not roll the pivot up) |
 | A query dimension the chart does not encode is simply ignored | A layer that omits a grouped dimension draws every row (a line zigzags) unless the query carries a `column_totals` subtotal on the last dimension the layer keeps |
-

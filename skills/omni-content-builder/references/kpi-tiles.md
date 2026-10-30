@@ -145,4 +145,3 @@ A complete, **render-verified** status KPI — label + value + change-vs-prior (
   }
 }
 ```
-

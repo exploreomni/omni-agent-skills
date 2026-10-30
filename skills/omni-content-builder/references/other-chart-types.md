@@ -140,4 +140,3 @@ For a donut, set `"pastry": "donut"` and optionally `"innerRadiusPercent": 50`.
   }
 }
 ```
-
