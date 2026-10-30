@@ -500,7 +500,7 @@ Status labels use `🟢 Pass`, `🟡 Warn`, `🔴 Fail`, and `⚫ Error`.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contributor guidance, including skill and agent authoring, validation, evals, versioning, changelog entries, and PR expectations.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contributor guidance, including skill and agent authoring, validation, evals, versioning, changelog entries, and PR expectations. Pull requests require a signed [CLA](CLA.md).
 
 ## License
 
