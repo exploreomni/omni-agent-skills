@@ -171,10 +171,11 @@ A filter keyed by a **measure** becomes a `HAVING` on the aggregate — comparis
 
 > **Ratio-measure null trap.** `num / NULLIF(denom, 0)` is SQL-null only when **denom = 0**. Grouping by the denominator's entity (e.g. `orders_per_customer` grouped by `users.id`, where the customer count per group is always 1) makes it never-null → `IS NULL` returns 0 rows. "No activity" is ratio **= 0**, not null — filter `= 0`, not `IS NULL`.
 
-## Two gotchas — always verify a filter *bound*
+## Three gotchas — always verify a filter *bound*
 
 1. **Malformed object → silently dropped.** A filter object with the wrong properties for its type (e.g. `kind`/`values` on a `boolean`, which needs `is_negative`) is **silently ignored**: the query returns `COMPLETE` but the filter never reaches the SQL. Confirm it bound via `cache: "SkipCache"` → `summary.display_sql` (check the `WHERE`), or that the row count actually changed.
 2. **Bare scalar → rejected** (`400 "Unable to parse data stream"`, above).
+3. **Date `BETWEEN` silently drops the last day.** The end bound is exclusive (`>= start AND < end`, see *Date filters*), so on a day-grain column `["2026-09-01","2026-09-30"]` omits everything that falls on Sep 30 — the query still returns `COMPLETE` and the number looks right. End on the first of the *next* period instead: `["2026-09-01","2026-10-01"]`. A pre-aggregated first-of-month field is unaffected (its only value in the period is the 1st), so a month-grain topic can tie out while a day-grain query over the *same* metric silently doesn't — when two numbers for one metric disagree, check the date bounds before suspecting the measure definitions.
 
 ## Get the exact shape for free — harvest from an agentic job
 
