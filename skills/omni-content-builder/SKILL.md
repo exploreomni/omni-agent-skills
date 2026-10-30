@@ -7,6 +7,8 @@ description: Create, update, and manage Omni Analytics documents and dashboards 
 
 Create, update, and manage Omni documents, dashboards, and apps programmatically via the Omni CLI — document lifecycle, drafts, workbook models, filters, controls, and dashboard content.
 
+> **Tip**: Use `omni-model-explorer` to understand available fields and `omni-content-explorer` to find existing dashboards to modify or learn from.
+
 Documents are created and edited through the **v2 documents API** (`omni documents v2-*`) — an explicit envelope of `queryPresentations`, `controls`, `containers`, and `settings`, edited through a **draft → publish** flow.
 
 ## Design defaults
