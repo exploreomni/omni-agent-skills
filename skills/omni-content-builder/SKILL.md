@@ -44,7 +44,8 @@ For an operational or exec dashboard, also apply [references/dashboard-style.md]
 - **Every query must include at least one measure** — a query with only dimensions produces empty/nonsense tiles (e.g., just months with no data).
 - **Use `identifier` not `id`** — get a document's `identifier` from the `v2-create`/patch responses or `omni documents list` records.
 - **Do not use `omni unstable documents-import` to update an existing dashboard** — import creates a new document and may drop newly-added tiles. Use the draft flow on the existing document.
-- **Recovery: one corrected retry at most, then discard the draft; never save a filter that failed to parse.** [references/updating-dashboards.md](references/updating-dashboards.md#recovery-rules).
+- **Do not persist invalid query-level filters** — if `omni query run` returns a server-side parsing error for a tile query filter, validate the unfiltered base query once. Do not save that broken filter into the tile. If a dashboard-level control can satisfy the request, use that path and verify by readback; otherwise leave the dashboard unchanged and report the blocker.
+- **Bound failed updates** — if a patch returns a validation error, stop after one corrected retry at most. Do not try repeated filter syntaxes or endpoint loops. Because edits happen on a draft, recovery is clean: **discard the draft** (`omni documents discard-draft <identifier>`) and report what was preserved — the published document was never touched. Full recovery steps: [references/updating-dashboards.md](references/updating-dashboards.md#recovery-rules).
 
 ## Prerequisites
 
