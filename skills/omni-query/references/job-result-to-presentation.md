@@ -2,6 +2,28 @@
 
 Converts an `omni ai job-submit` result into a `queryPresentation` object suitable for use in `omni documents v2-create` or a `v2-patch-draft` body.
 
+## Contents
+
+- [Using Job Results in a Dashboard](#using-job-results-in-a-dashboard)
+- [Why transformation is required](#why-transformation-is-required)
+- [Algorithm](#algorithm)
+- [How the discriminator works](#how-the-discriminator-works)
+  - [Concrete example (05-case CASE label)](#concrete-example-05-case-case-label)
+- [Aggregate calcs (SUMIF, COUNTIF patterns)](#aggregate-calcs-sumif-countif-patterns)
+- [Field ref injection](#field-ref-injection)
+- [Topic security](#topic-security)
+- [Sanity checking via extension model YAML](#sanity-checking-via-extension-model-yaml)
+
+## Using Job Results in a Dashboard
+
+The query object inside a job result is **not directly usable** as a dashboard `queryPresentation` — it requires a transformation. Key rules:
+
+- **Always strip `userEditedSQL`** — it makes the tile a non-topic query, so it bypasses **all** model controls (object-level access grants, row-level access filters, and `always_where`) and is invisible to restricted roles in a dashboard. The `${Order Items}` topic-name token it contains also fails outside the job execution context.
+- **When `calculations[]` is non-empty**, stripping `userEditedSQL` is sufficient — the structured calc renders correctly.
+- **When `calculations[]` is empty**, Blobby authored the calc as inline SQL. The parsed AST is available in `csvResultFields` (at `result` level, not inside `result["query"]`) and can be reconstructed as a proper `calculations[]` entry. Fields whose top-level expr operator is an aggregate (`SUM`, `COUNT`, etc.) cannot be reconstructed as table calcs — add them to the model as filtered measures instead.
+
+For the complete transformation algorithm, discriminator logic, field-ref injection, aggregate-skip handling, and sanity-check approach, see the sections below.
+
 ## Why transformation is required
 
 Blobby co-emits `userEditedSQL` alongside `calculations[]` on most job responses. When both are present, `userEditedSQL` takes precedence and shadows the structured calc. More critically, `userEditedSQL` silently bypasses topic-level `always_where_sql`, `always_where_filters`, and row-level access controls — the query executes as raw SQL against the base view, ignoring all topic filters. It must always be stripped.

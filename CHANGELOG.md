@@ -28,6 +28,15 @@ _Summary: every X/Y chart made in the Omni UI now saves a layer-compiled config,
 - **`omni-content-builder` — *A shorter SKILL.md*.** About 6.7k to 4.7k tokens, within the [Agent Skills specification](https://agentskills.io/specification#progressive-disclosure) limits: the command table, design defaults, non-topic tile rules, settings, docs links, rendering pitfalls and recovery rules move word for word into references, each with a pointer. No instruction changes.
 - **`omni-content-builder` — *Smaller references*.** `visConfig.md` split by family into `kpi-tiles.md`, `other-chart-types.md` and `markdown-tiles.md`; it keeps the envelope, `chartType` enum and classic cartesian shapes.
 
+## [1.23.2] - 2026-10-27
+
+### omni-analytics
+
+_Summary: `omni-query` gets a shorter SKILL.md, within the limits the [Agent Skills specification](https://agentskills.io/specification#progressive-disclosure) recommends: a body under 5k tokens and 500 lines, with every reference linked one level deep from SKILL.md. References over 100 lines open with a table of contents. Sections move word for word into references; no instruction changes._
+
+**Changed**
+- **`omni-query` — *A shorter SKILL.md*.** About 11.1k to 4.7k tokens (515 to 207 lines). Query parameters, raw SQL, request options, result handling, AI query generation and the docs links move into their own references; table calculations, the table-calc rules, composite-topic queries and job results move into the references that already covered them. The Filters section of `query-parameters.md` links to `filter-expressions.md`, which already covers it, instead of repeating it.
+
 ## [1.23.1] - 2026-10-25
 
 ### omni-analytics
