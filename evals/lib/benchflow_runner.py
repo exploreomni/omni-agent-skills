@@ -518,6 +518,28 @@ def expose_judge_reasoning(tasks_dir: Path) -> None:
             "        )\n"
             "    return text"
         )
+        parse_needle = (
+            "    try:\n"
+            "        result = json.loads(text)\n"
+        )
+        parse_replacement = (
+            "    try:\n"
+            "        cleaned = re.sub(r\"^\\s*```(?:json)?\\s*|\\s*```\\s*$\", \"\", text.strip())\n"
+            "        result = json.loads(cleaned)\n"
+        )
+        if "cleaned = re.sub(" not in text and parse_needle in text:
+            judge_path.write_text(text.replace(parse_needle, parse_replacement))
+            text = judge_path.read_text()
+
+        fallback_needle = "        # Try to extract score from partial JSON\n"
+        fallback_replacement = (
+            "        # Try to extract score from partial JSON\n"
+            "        print(\"Judge raw reply: \" + text[:6000])\n"
+        )
+        if "Judge raw reply:" not in text and fallback_needle in text:
+            judge_path.write_text(text.replace(fallback_needle, fallback_replacement))
+            text = judge_path.read_text()
+
         if "showing first {head_chars} and last {tail_chars}" not in text and truncation_needle in text:
             judge_path.write_text(text.replace(truncation_needle, truncation_replacement))
             text = judge_path.read_text()
@@ -556,8 +578,14 @@ def compact_trajectory_event(event: dict) -> str:
     if kind == "tool_call":
         title = event.get("title") or event.get("kind") or "tool"
         status = event.get("status", "")
+        raw_input = event.get("raw_input") or {}
+        if isinstance(raw_input, dict) and raw_input.get("command"):
+            tool_input = str(raw_input["command"])
+        else:
+            tool_input = json.dumps(raw_input) if raw_input else ""
+        tool_input = ("\\ninput: " + shorten_text(tool_input, 1500)) if tool_input else ""
         output = shorten_text(collect_text(event.get("content", "")), 2500)
-        return f"[tool_call] {title} status={status}\\n{output}"
+        return f"[tool_call] {title} status={status}{tool_input}\\n{output}"
     if kind == "agent_message":
         return "[agent_message]\\n" + shorten_text(str(event.get("text", "")), 6000)
     if kind == "user_message":

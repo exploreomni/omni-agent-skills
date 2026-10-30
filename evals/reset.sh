@@ -8,8 +8,8 @@
 #   - omni-admin eval 1: deletes the `newanalyst@company.com` test user
 #   - omni-content-builder eval 2: recreates the Sales Performance dashboard
 #     and updates EVAL_DASHBOARD_TILES in eval-env.local.json
-#   - omni-content-builder evals 4 & 9: recreates the Order Analysis dashboard
-#     (v2-create / advanced layout) and updates EVAL_DASHBOARD_WORKBOOK
+#   - omni-content-builder evals 4, 9, 12, 13 & 14: recreates the Order Analysis dashboard
+#     from evals/fixtures/order-analysis.json and updates EVAL_DASHBOARD_WORKBOOK
 #   - omni-content-explorer eval 3: removes `finance` label from EVAL_DASHBOARD_LABEL
 #   - omni-model-builder eval 1: removes `eval_completed_revenue` if it was
 #     accidentally merged into `public/order_items.view`
@@ -157,6 +157,8 @@ fi
 echo ""
 
 # ── 2b. Recreate Order Analysis dashboard ────────────────────────────────────
+# The fixture holds a 'Monthly Revenue' line tile, a 'Monthly Order Count' column
+# tile and a Status filter placed in the filter bar, which cases 9, 12, 13 and 14 edit.
 # EVAL_DASHBOARD_WORKBOOK is mutated by content-builder evals 4 (workbook-model
 # field) and 9 (running total), so it must be reset clean each run. It is created
 # via v2-create (advanced layout) — a v1 `documents create` empty doc is classic
@@ -169,13 +171,14 @@ elif [[ -z "$MODEL_ID" || "$MODEL_ID" == "replace-with-shared-model-id" ]]; then
   echo "  (EVAL_MODEL_ID not configured — skipping)"
 else
   if $DRY_RUN; then
-    echo "  omni documents v2-create $MODEL_ID \"Order Analysis\""
+    echo "  omni documents v2-create --body <evals/fixtures/order-analysis.json>"
     echo "  jq update EVAL_DASHBOARD_WORKBOOK in $CONFIG"
     if [[ -n "$DASHBOARD_WORKBOOK" && "$DASHBOARD_WORKBOOK" != "replace-with-dashboard-identifier" ]]; then
       echo "  omni documents delete $DASHBOARD_WORKBOOK"
     fi
   else
-    if CREATE_OUTPUT=$(omni documents v2-create "$MODEL_ID" "Order Analysis" -o json 2>&1); then
+    ORDER_ANALYSIS_BODY=$(jq --arg m "$MODEL_ID" '.modelId = $m' "$SCRIPT_DIR/fixtures/order-analysis.json")
+    if CREATE_OUTPUT=$(omni documents v2-create --body "$ORDER_ANALYSIS_BODY" -o json 2>&1); then
       if ! NEW_DASHBOARD_WORKBOOK=$(jq -r '.workbook.identifier // .identifier // ""' <<< "$CREATE_OUTPUT" 2>/dev/null); then
         echo "  (created document but Omni returned non-JSON output — skipping config update)"
         echo "$CREATE_OUTPUT" | sed 's/^/    /'
