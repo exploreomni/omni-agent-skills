@@ -21,6 +21,7 @@ In the [v2 documents API](documents-v2.md), `controls.data` holds dashboard filt
 - [Mustache control tokens (in markdown/text tiles)](#mustache-control-tokens-in-markdowntext-tiles)
 - [Filters and controls in a create body](#filters-and-controls-in-a-create-body)
 - [Model it or control it?](#model-it-or-control-it) — a filter-only field in the model vs a dashboard control
+- [Reusing a filter from another dashboard](#reusing-a-filter-from-another-dashboard)
 - [See also](#see-also)
 
 ## `map` — per-tile scoping
@@ -413,6 +414,10 @@ omni documents v2-create --body '{
 ## Model it or control it?
 
 A dashboard filter or control belongs to one document and is scoped to tiles through `map`. Model the filter instead, as a filter-only field (`omni-model-builder` → `references/templated-filters.md`), when every workbook and dashboard on the topic should get the same filter, when one control must drive several columns or a measure threshold (`bind_to`), or when a control must switch which column or measure a field uses (a templated `CASE`). The dashboard then binds an ordinary filter control to that field (`fieldName: <view>.<field>`) with no `map`, because the model defines what the filter applies to. Keep a dashboard control when the behavior is specific to one document, when viewers should pick the field themselves (`FIELD_SELECTION`, `FIELD_PICKER`), or when you cannot change the shared model. A **Restricted Querier** cannot branch or edit the shared model, but a filter-only field is a `.view` extension, so it can go in this document's **workbook model** (see [workbook-model.md](workbook-model.md)) when one dashboard needs the modeled form; otherwise use a dashboard control.
+
+## Reusing a filter from another dashboard
+
+Read the dashboard back with `omni documents v2-get`; its `controls` slice can go into a create body or a patch as is (keys merge like tiles, so pick ids that don't collide).
 
 ## See also
 

@@ -37,7 +37,7 @@ For an operational or exec dashboard, also apply [references/dashboard-style.md]
 - **HARD RULE — no non-topic tile from handed-over SQL without an explicit user decision.** Map each query to a topic first (see `omni-query`). If none fits, **stop and ask** whether to extend a topic or create one (on a branch via `omni-model-builder`, merged only with confirmation). Build a non-topic / `userEditedSQL` tile only after the user **explicitly chooses** that path (declined modeling, a genuine one-off, or `userEditedSQL` is required); Access Boost is never the default for handed-over SQL. See [Build queries on a topic](#build-queries-on-a-topic).
 - **Non-topic tiles are invisible to Viewers and Restricted Queriers.** A tile with a populated `userEditedSQL`, or a bare base-view query with no `join_paths_from_topic_name`, is non-topic. Before finalizing one, **ask whether the dashboard's audience includes those roles**. If it does, **advise** Access Boost (it makes the tiles viewable on the dashboard only, for chosen users, groups, or the org; it needs the org capability and Manager on the document) as a separate, explicitly confirmed step with the **narrowest scope** that works. Never enable it without that go-ahead. See the *Raw-SQL tiles* recipe in [references/queryPresentations.md](references/queryPresentations.md) and **`omni-admin`** → *Document Permissions*.
 - **`--body` overrides every shorthand flag; the workbook model ID changes with every draft and publish; boolean filters can drop when `pivots` is present.** [references/documents-v2.md](references/documents-v2.md#behaviors-to-design-around).
-- **Chart configs by family:** which chart a question wants is in [references/design-defaults.md](references/design-defaults.md#match-chart-to-question) and how measures combine in one X/Y chart (fold, second axis, separate layers, facets) in [references/layers.md](references/layers.md#choosing-a-shape); classic cartesian in [references/visConfig.md](references/visConfig.md), layer-compiled in [references/layers.md](references/layers.md), KPI in [references/kpi-tiles.md](references/kpi-tiles.md), pie / heatmap / boxplot / funnel / sankey / map in [references/other-chart-types.md](references/other-chart-types.md), markdown and AI tiles in [references/markdown-tiles.md](references/markdown-tiles.md).
+- **Chart configs by family:** which chart a question wants: [references/design-defaults.md](references/design-defaults.md#match-chart-to-question); how measures combine in one X/Y chart: [references/layers.md](references/layers.md#choosing-a-shape); then classic cartesian [references/visConfig.md](references/visConfig.md), layer-compiled [references/layers.md](references/layers.md), KPI [references/kpi-tiles.md](references/kpi-tiles.md), pie / heatmap / boxplot / funnel / sankey / map [references/other-chart-types.md](references/other-chart-types.md), markdown and AI tiles [references/markdown-tiles.md](references/markdown-tiles.md).
 - **Rendering and caption pitfalls** — a blank markdown tile, "Item missing", "No chart available": [references/visConfig.md](references/visConfig.md#known-rendering-issues); a caption that shows a filter's value: [references/mustache.md](references/mustache.md#pitfalls).
 - **`query.filters` needs the object form** — the relative-date shorthand (`"last 6 months"`) throws a 500; send `{type:"date", kind:"TIME_FOR_INTERVAL_DURATION", ui_type:"PAST", left_side, right_side}`. See [references/documents-v2.md](references/documents-v2.md).
 - **X/Y charts made in the UI are layer-compiled; an API-made tile is classic until its config carries `behaviors.useLayerCompiler: true`.** The recipes in [references/visConfig.md](references/visConfig.md) are classic. For a layer chart, or to move a tile in place, follow [references/layers.md](references/layers.md): the flag, encodings per layer, same-axis same-mark measures folded into one Measure values layer (separate layers never stack), no hex string in `series[].color` (the tile silently reverts to classic).
@@ -70,7 +70,7 @@ omni whoami whoami
 
 > **Auth**: if `whoami` or any call returns **401**, ask the user to run `! omni config login <profile>`. Profile setup, when you may run the login yourself, and `--schema`: the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule.
 
-## Discovering Commands
+## Commands
 
 ```bash
 omni documents --help              # Document operations (v2-* + lifecycle)
@@ -79,8 +79,6 @@ omni models yaml-create --help     # Writing model YAML
 omni documents v2-create --schema  # Body schema + example (add --depth 1 for an overview, --field PATH to drill in)
 ```
 
-## Commands
-
 **Build and edit documents with the `documents v2-*` commands — always.** The command for each task, and the document-management commands that have no v2 form (list, discard a draft, delete, move, duplicate, downloads, layout upgrade): [references/documents-v2.md](references/documents-v2.md#commands-by-task).
 
 ## Dashboard Architecture
@@ -88,11 +86,9 @@ omni documents v2-create --schema  # Body schema + example (add --depth 1 for an
 Omni dashboards are built from **documents**. A document's v2 state is an envelope of four slices, `queryPresentations`, `controls`, `containers`, and `settings` (annotated in [references/documents-v2.md](references/documents-v2.md#envelope)):
 
 - **Tiles** live in `queryPresentations.data`, keyed by record key (`"1"`, `"2"`, …); `order` is the tab order. **Tile keys must be NUMERIC strings** (`"1"`, `"42"`) — a descriptive key like `"revenue_kpi"` or `"probe"` is rejected with `400 … Invalid key in record`. Track the tile↔meaning mapping in your build script, not in the key.
-- **Filters and interactive controls** are one map: `controls` (see [references/controls.md](references/controls.md)). **Unlike tile keys, control ids here ARE arbitrary strings** (`"date_filter"`, `"granularity"`) — don't carry that freedom over to tile keys, or vice-versa.
+- **Filters and interactive controls** are one map: `controls` (see [references/controls.md](references/controls.md)). **Unlike tile keys, control ids here ARE arbitrary strings** (`"date_filter"`, `"granularity"`)
 - **Layout** is the `containers` tree — a tile renders only where a container references it (see [references/containers.md](references/containers.md)).
 - Each document also has a **workbook model** for per-dashboard model changes (see [references/workbook-model.md](references/workbook-model.md)).
-
-A document is edited through **drafts** (see [Update Existing Dashboard](#update-existing-dashboard)), which can also be bound to a **model branch**: [references/branch-bound-drafts.md](references/branch-bound-drafts.md).
 
 ## Build queries on a topic
 
@@ -116,10 +112,8 @@ Dashboard-specific fields go in the document's **workbook model**, which extends
 
 Filters and interactive controls share one envelope slice: `controls: {data, order}`. Each entry is `{config, map}` — `config` holds the filter/control definition, `map` optionally scopes it per tile. Include them at create time or patch them in later (controls merge by key like tiles); a create-body example is in [references/controls.md](references/controls.md#filters-and-controls-in-a-create-body).
 
-- The keys in `controls.data` are arbitrary IDs and must match `order`.
 - **Filter shapes** (date / string / number / boolean, required) and **interactive controls** (field/timeframe switchers) are documented with examples in [references/controls.md](references/controls.md).
 - **Every filter MUST include `fieldName`** with the fully qualified field name (no timeframe bracket for date filters), or it won't bind to any column.
-- To reuse a filter from an existing dashboard, read it back with `omni documents v2-get`; its `controls` slice can go into a patch as is.
 
 **Model it or control it?** Whether a filter belongs in the model as a filter-only field or on the dashboard as a control, including what a Restricted Querier can do: [references/controls.md](references/controls.md#model-it-or-control-it).
 
@@ -129,23 +123,11 @@ Filters and interactive controls share one envelope slice: `controls: {data, ord
 
 ## Layout (containers)
 
-The `containers` tree decides where tiles and controls render: a reserved `"filter-bar"` stack, then one `page` container per page, each holding a 24-column `grid` of tile stacks with `gridPosition {x,y,w,h}`. When to send it, and that it replaces the whole layout, are in Known Issues above. Multi-page dashboards, page switchers, grouped bands, in-tile controls, and sizing rules: [references/containers.md](references/containers.md).
+The `containers` tree decides where tiles and controls render: a reserved `"filter-bar"` stack, then one `page` container per page, each holding a 24-column `grid` of tile stacks with `gridPosition {x,y,w,h}`. Multi-page dashboards, page switchers, grouped bands, in-tile controls, and sizing rules: [references/containers.md](references/containers.md).
 
 ## URL Patterns
 
-After creating or finding content, always provide the user a direct link:
-
-```
-Dashboard: {OMNI_BASE_URL}/dashboards/{identifier}
-Workbook:  {OMNI_BASE_URL}/w/{identifier}
-Draft:     {OMNI_BASE_URL}/dashboards/{draftIdentifier}
-```
-
-The `identifier` comes from the `v2-create`/patch responses or `omni documents list`; the `draftIdentifier` comes from the `v2-patch-draft` response or `omni documents list-drafts`.
-Replace `{OMNI_BASE_URL}` with the actual base URL from the active profile or
-environment, normalized without a trailing slash. Do not return the literal
-placeholder string unless credentials are unavailable and you explicitly say the
-URL is a template.
+After creating or finding content, always give the user a direct link on the active profile's base URL (no trailing slash): `/dashboards/{identifier}` for a dashboard, `/w/{identifier}` for a workbook, `/dashboards/{draftIdentifier}` for a draft. Never return a literal placeholder unless credentials are unavailable and you say the URL is a template. Where each identifier comes from: [references/document-lifecycle.md](references/document-lifecycle.md#links-to-share).
 
 ## Validation Loops
 
@@ -153,14 +135,14 @@ Every build or update must be validated **before publishing**: broken tiles, bad
 
 1. **Validate the model** with `omni models validate <modelId>`.
 2. **Test every query first** with `omni query run`, including the filters the dashboard will use.
-3. **Check each viz spec**: `prefersChart: true`, the spec under `visConfig.visConfig.config`, and a `chartType` that matches its `visType` and `configType`. On a layer-compiled spec (`behaviors.useLayerCompiler: true`) also check that each `series[]` entry has its own `mark`, that stacked measures share one Measure values layer, and that no `series[].color` is a hex string.
+3. **Check each viz spec**: `prefersChart: true`, the spec under `visConfig.visConfig.config`, and a `chartType` that matches its `visType` and `configType`. For a layer-compiled spec, the extra checks are in [references/layers.md](references/layers.md#gotchas-that-change-on-a-layer-chart).
 4. **Verify the draft before publishing**: read it back with `v2-get-draft`, run each tile's query (`omni documents get-queries` + `omni query run`), and report each tile's status and row count.
 
 What to check in each response, the full viz-spec table, the checklist, and an optional browser check with its own waiting rules: [references/validation-and-testing.md](references/validation-and-testing.md).
 
 ## Dashboard Downloads
 
-Downloads are asynchronous: start one with `omni dashboards download`, poll `download-status` until the job reaches a terminal state, then fetch the file with `download-file`. Single-tile and data formats, the one-page limit on multi-page dashboards, and what "Job failed to render" means: [references/downloads.md](references/downloads.md).
+Downloads are asynchronous: `omni dashboards download`, poll `download-status` to a terminal state, then `download-file`. Formats, the one-page limit on multi-page dashboards, and "Job failed to render": [references/downloads.md](references/downloads.md).
 
 ## Docs Reference
 
