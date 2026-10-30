@@ -1,6 +1,6 @@
 # Markdown Tile Recipes
 
-Patterns for **markdown viz tiles** (`chartType: "markdown"`, `visType: "omni-markdown"`) — the two documented data components (`<Sparkline>`/`<ChangeArrow>` — see *Native data components* below), sizing, responsive fonts, control-driven KPIs, and data-driven shapes no native chart type gives you. (For a progress gauge / comparison delta, configure a **KPI vis** instead — [visConfig.md](visConfig.md) → *Config Object: KPI* — not a markdown tile.) For the markdown tile's **config shape** (and the `automaticVis:false`/`prefersChart:false` blank-tile trap) see [visConfig.md](visConfig.md) → *Text & AI tiles*; for the mustache token namespaces and contexts see [mustache.md](mustache.md); for a *dashboard text tile* (no query) see [containers.md](containers.md).
+Patterns for **markdown viz tiles** (`chartType: "markdown"`, `visType: "omni-markdown"`) — the two documented data components (`<Sparkline>`/`<ChangeArrow>` — see *Native data components* below), sizing, responsive fonts, control-driven KPIs, and data-driven shapes no native chart type gives you. (For a progress gauge / comparison delta, configure a **KPI vis** instead — [kpi-tiles.md](kpi-tiles.md) — not a markdown tile.) For the markdown tile's **config shape** (and the `automaticVis:false`/`prefersChart:false` blank-tile trap) see [Text & AI tile config](#text--ai-tile-config) below; for the mustache token namespaces and contexts see [mustache.md](mustache.md); for a *dashboard text tile* (no query) see [containers.md](containers.md).
 
 > **Recipe source for advanced markdown vizzes — [docs.omni.co/showcase](https://docs.omni.co/showcase).** Working CSS/mustache for things no native chart type gives you: **symmetric funnel** (clip-path trapezoids + step-conversion labels — more informative than the built-in echarts funnel), **conditional-color KPI** (CASE calc → class name → `<style>`), **table with tiny inline bars**, **gauges/thermometer**, **dumbbell plot**, **waffle/square-fill** charts. For a "stages as rows" viz (funnel, tiny-bar table) shape the query with `transposed_measures` (see `omni-query`) so stages become `measure_value` rows, or compute step ratios as their own measures and read them via `result._first`.
 
@@ -11,6 +11,7 @@ Patterns for **markdown viz tiles** (`chartType: "markdown"`, `visType: "omni-ma
 - [Responsive KPI headline numbers — scale font to the *card*, not the viewport](#responsive-kpi-headline-numbers--scale-font-to-the-card-not-the-viewport)
 - [A markdown KPI card that follows a metric picker](#a-markdown-kpi-card-that-follows-a-metric-picker)
 - [Data-driven funnel (proportional widths, no table calc)](#data-driven-funnel-proportional-widths-no-table-calc)
+- [Text & AI tile config](#text--ai-tile-config)
 
 ## Native data components — `<Sparkline>` and `<ChangeArrow>`
 
@@ -171,3 +172,13 @@ Segment widths track the data, so the taper *is* the conversion:
 6. **White-gap + delta-colored arrow between stages.** Between segments put a small white `.gap` div holding a down-arrow (`&#8595;`, ~26px bold). Color it by the step's retention with **`hsl(clamp(…))` over raw tokens** — no calc field: `color: hsl(clamp(0, ( {{…next.raw}} / {{…this.raw}} - 0.5 ) / 0.5 * 120, 120), 75%, 42%)` maps retention 50%→100% across red→green (stretch the floor to taste; funnels retain a lot, so a 0-floor leaves everything green). `hsl(clamp(calc…))` evaluates in the markdown renderer.
 
 **Discover the context with `{{inspect}}`** as the **bare** markdown body (not wrapped — see [mustache.md](mustache.md)).
+
+## Text & AI tile config
+
+- **Markdown** (`chartType: "markdown"`, `visType: "omni-markdown"`): `config: { markdown: "...", version: 1 }`. The markdown body is **mustache-templated against the tile's query** — loop rows with `{{#result}} … {{view_name.field_name.value_static}} … {{/result}}` and reference single values like `{{result._first.view_name.field_name.value_static}}` or `{{result._total.first.view_name.field_name.value_static}}`. Keep a real query on the tile so the template has data.
+  - **Use `.value_static` for a clean value**, not `.value`. `.value_static` is the formatted display string; `.value` is an interactive drill element (a clickable component, not plain text).
+  - Result rows are keyed by **field name** — there is **no positional column token** (you must name the field, not "column 1").
+  - **Set `automaticVis: false` and `prefersChart: false` on the tile**, or the published renderer ignores your markdown and tries to auto-derive a chart from the query → the tile renders **blank** with no error. Tell-tale: `{{result…}}` tokens resolve when tested but the whole tile is white.
+  - **The HTML sanitizer allows `style`, `className`, and `data-*` attributes plus `<style>` blocks**, so you can ship scoped CSS inside a markdown tile. (A sandboxed `<iframe>` with `allow-scripts` is also available for arbitrary JS if CSS isn't enough.)
+  - **`{{controls.<id>.summary}}`** injects a dashboard control's current selection (its friendly label) into the body — the basis of dynamic captions and the metric-switch pattern (see [markdown-tiles.md](markdown-tiles.md)). Only **dashboard** controls resolve here, not tile-embedded `query.controls`. See [controls.md](controls.md).
+- **AI summary** (`chartType: "omni-ai-summary-markdown"`, `visType: "omni-ai-summary-markdown"`): `config: { ai_context: "...", showWarning: true }` (snake_case `ai_context`, **not** `aiContext`; no `markdown`/`version`). Requires a query — the AI summarizes its results.

@@ -270,6 +270,34 @@
         "The agent verifies the tile's query with the filter value applied before publishing"
       ],
       "expected_skill": "omni-content-builder"
+    },
+    {
+      "id": "19",
+      "question": "Add a tile to a new dashboard that plots monthly revenue as bars on the left axis and order count as a line on the right axis, with the two axes' zero lines aligned. Build it for the new layers chart editor so it opens there, not in the classic chart editor.",
+      "ground_truth": "The agent validates the query with omni query run, then writes a cartesian visConfig with behaviors.useLayerCompiler: true, a bar mark on the revenue series (yAxis y) and a line mark on the count series (yAxis y2), alignAxisZeros: true at the config root, and no hex string in series[].color. It creates or patches through the draft flow, reads the tile back and confirms behaviors.useLayerCompiler is still true, and reports that the tile opens in the layers (Setup / Style) editor rather than the classic one.",
+      "expected_behavior": [
+        "The agent runs omni query run for the tile's query before building the tile and checks cache_metadata.num_rows",
+        "The config carries behaviors.useLayerCompiler: true — the agent does not assume a new API tile opens in the layers editor without it",
+        "Each series carries its own mark: {type: \"bar\"} on the revenue series with yAxis \"y\" and {type: \"line\"} on the count series with yAxis \"y2\"",
+        "Aligned zero lines are expressed as alignAxisZeros: true at the config root, not as an axis domain",
+        "The agent does not put a hex string in series[].color (that drops the tile back to the classic compiler); a solid color, if any, is series[].mark._mark_color with manual: true",
+        "The agent reads the tile back (v2-get or v2-get-draft) and confirms behaviors.useLayerCompiler is true and the inner config is non-empty"
+      ],
+      "expected_skill": "omni-content-builder"
+    },
+    {
+      "id": "20",
+      "question": "Create a dashboard with one tile: a column chart of total revenue and completed revenue by month, stacked on one axis, written with the classic chart config. Then move that tile to the new layers chart editor through the API, in place, keeping its tile key and leaving the rest of the dashboard alone.",
+      "ground_truth": "The agent validates the query, creates the dashboard with a classic columnStacked-style config (root mark, two series on yAxis y, no behaviors.useLayerCompiler), reads it back, then patches only that tile on a draft: it adds behaviors.useLayerCompiler: true and, because the two measures share one axis and one mark, folds them into one Measure values layer (foldedFields listing both measures; a single series on omni__field_value colored by omni__field_name with color._stack: \"stack\") instead of leaving two bar layers, which would overlay rather than stack under the layer compiler. It keeps the key and order unchanged, reads the draft back, confirms the flag and the fold, and publishes.",
+      "expected_behavior": [
+        "The agent runs omni query run for the tile's query before creating the dashboard",
+        "The first write is a classic cartesian config: a root mark, both measures as series on yAxis \"y\", and no behaviors.useLayerCompiler",
+        "The move is a draft patch that sends only that tile key, with behaviors.useLayerCompiler: true added to its config",
+        "The agent folds the two same-mark same-axis measures into one Measure values layer (foldedFields plus an omni__field_value series colored by omni__field_name with _stack \"stack\") rather than relying on the flag alone, which would make the bars overlay",
+        "The agent does not duplicate the tile or create a new one — the change is in place, like the dashboard's own 'Upgrade charts to the new chart editor' action",
+        "The agent reads the draft back and confirms behaviors.useLayerCompiler is true and foldedFields lists both measures, then publishes and confirms with v2-get"
+      ],
+      "expected_skill": "omni-content-builder"
     }
   ]
 }

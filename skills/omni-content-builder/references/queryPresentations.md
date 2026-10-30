@@ -22,10 +22,12 @@ Every chart queryPresentation requires: `name`, `prefersChart: true`, a `visConf
 - [queryPresentation Object Parameters](#querypresentation-object-parameters)
 - [Query Object Parameters](#query-object-parameters)
 - [chartType values (summary)](#charttype-values-summary)
+- [Tiles not built on a topic](#tiles-not-built-on-a-topic)
 - [Discovering the Full Structure from Existing Dashboards](#discovering-the-full-structure-from-existing-dashboards)
 - [Caveats When Reusing queryPresentations](#caveats-when-reusing-querypresentations)
 - [Chart Type Examples](#chart-type-examples)
 - [Cartesian Config Fields](#cartesian-config-fields-visconfigvisconfigconfig)
+- [Layer-compiled cartesian tiles](#layer-compiled-cartesian-tiles)
 - [Quick Reference: chartType → visType → config](#quick-reference-charttype--vistype--config)
 
 ## Keyed map & order semantics
@@ -116,7 +118,7 @@ The allowed tile keys — anything else is a 400:
 | `visConfig` | Yes (charts) | The envelope: `{ chartType, fields, version, visConfig: { visType, config } }` — see above. |
 | `query` | Yes | Query definition (see below). |
 | `description` | No | Tile description (≤ 500 characters). |
-| `subTitle` | No | Tile subtitle (≤ 250 characters). |
+| `subTitle` | No | Tile subtitle (≤ 250 characters). Shown only when the tile's container stack has a `{ "as": "metadata", "format": "subtitle" }` child after the name child. When `v2-create` builds the containers itself, it adds that child to every tile **except the first in `order`**, so the first tile's subtitle is stored but not shown; send your own `containers`, or patch the first tile's stack to add the child. |
 | `filterOrder` | No | Ordering of tile-level filters. |
 | `isSql` | No | `true` for SQL-mode tiles. |
 | `resultConfig` | No | Result display: `columnOrder`, `hiddenColumns`, `columnWidths`, `tableType`, `conditionalFormatters` — see [visConfig.md](visConfig.md). |
@@ -223,6 +225,16 @@ A stacked **column** is vertical; a stacked **bar** is horizontal — Omni disti
 | `table` | Data table |
 
 > **Not valid**: `barColor`, `areaColor`, `stackedBarColor`, `scatter`, `lineColor`-style names for bar/area. Earlier versions of this doc used `barColor`/`areaColor`/`stackedBarColor` — those are **not** in Omni's `chartType` enum and will be rejected. Use `column`/`bar`, `area`, and `columnStacked`/`barStacked` respectively. (`lineColor`, `pointColor`, `pointSize`, `pointSizeColor` *are* valid.)
+
+## Tiles not built on a topic
+
+- **HARD RULE — no non-topic tile from handed-over SQL without an explicit user decision.** Map each query to a topic first (see `omni-query`). If none fits, **stop and ask** whether to extend a topic or create one (on a branch via `omni-model-builder`, merged only with confirmation). Build a non-topic / `userEditedSQL` tile only after the user **explicitly chooses** that path (declined modeling, a genuine one-off, or `userEditedSQL` is required); Access Boost is never the default for handed-over SQL. See *Build queries on a topic* in SKILL.md.
+- **Non-topic tiles are invisible to Viewers and Restricted Queriers.** A tile with a populated `userEditedSQL`, or a bare base-view query with no `join_paths_from_topic_name`, is non-topic. Before finalizing one, **ask whether the dashboard's audience includes those roles**. If it does, **advise** Access Boost (it makes the tiles viewable on the dashboard only, for chosen users, groups, or the org; it needs the org capability and Manager on the document) as a separate, explicitly confirmed step with the **narrowest scope** that works. Never enable it without that go-ahead. See the [Raw-SQL tiles](#raw-sql-tiles) recipe and **`omni-admin`** → *Document Permissions*.
+
+
+A tile **not** built on a topic still runs (a bare base-view query or a raw-SQL `userEditedSQL` tile uses the global `relationships` file), but restricted queriers and viewers can't see it; the two rules above say when to ask and when to advise Access Boost. To author a raw-SQL tile and boost it end to end, see [references/queryPresentations.md](queryPresentations.md) → *Raw-SQL tiles*; for the boost commands and the org-level prerequisite, see **`omni-admin`** → *Document Permissions* (`add-permits` with `accessBoost`, or `update-permission-settings`).
+
+**Authoring limit (distinct from the visibility above):** if *you* are a Restricted Querier, you **can't author a non-topic / raw-SQL tile at all** — `QUERY_TOPICS` queries topics only — so **every tile you build must be topic-based**. The non-topic + Access-Boost path is only for a `QUERY_FULL_MODEL` author building for a restricted *audience*. (Check with `whoami`; see **`omni-admin`** → *Model Roles & Caller Access*.)
 
 ## Discovering the Full Structure from Existing Dashboards
 
@@ -408,15 +420,15 @@ Add more entries to `markdownConfig` (inside `visConfig.visConfig.config`), each
 
 ### KPI config fields
 
-> **The examples above show only the `number` entry — but a KPI tile is the workhorse "card" (value + change-vs-prior arrow + sparkline + gauge), and those come from the OTHER `markdownConfig` entry types.** Don't hand-roll a markdown tile for a sparkline/comparison/gauge — the full per-type `config` shapes (`comparison` with `colorPositive`/`colorNegative`/**`swapColors`** for "lower is better", `sparkline`, `progress` for a gauge, `text`, `image`) are tabulated in **[visConfig.md](visConfig.md) → Config Object: KPI**. Build a multi-section card by listing several entries (e.g. a `sparkline` + a `number` + a `comparison`) in one `markdownConfig` array. A status-colored "lower is better" KPI (return rate, cart abandonment) is a `comparison` entry with `swapColors: true`, **not** a custom CSS tile.
+> **The examples above show only the `number` entry — but a KPI tile is the workhorse "card" (value + change-vs-prior arrow + sparkline + gauge), and those come from the OTHER `markdownConfig` entry types.** Don't hand-roll a markdown tile for a sparkline/comparison/gauge — the full per-type `config` shapes (`comparison` with `colorPositive`/`colorNegative`/**`swapColors`** for "lower is better", `sparkline`, `progress` for a gauge, `text`, `image`) are tabulated in **[kpi-tiles.md](kpi-tiles.md)**. Build a multi-section card by listing several entries (e.g. a `sparkline` + a `number` + a `comparison`) in one `markdownConfig` array. A status-colored "lower is better" KPI (return rate, cart abandonment) is a `comparison` entry with `swapColors: true`, **not** a custom CSS tile.
 
 | Field | Required | Description |
 |-------|----------|-------------|
 | `alignment` | No | Horizontal: `"left"`, `"center"`, `"right"` |
 | `verticalAlignment` | No | Vertical: `"top"`, `"center"`, `"bottom"` |
-| `markdownConfig` | Yes | Array of KPI value entries — **mix types** (`number`/`comparison`/`sparkline`/`progress`/…); see [visConfig.md](visConfig.md) for each type's `config` |
+| `markdownConfig` | Yes | Array of KPI value entries — **mix types** (`number`/`comparison`/`sparkline`/`progress`/…); see [kpi-tiles.md](kpi-tiles.md) for each type's `config` |
 | `markdownConfig[].id` | Yes | Unique string ID for this entry |
-| `markdownConfig[].type` | Yes | `"number"` for a numeric value (other types: `comparison`, `sparkline`, `progress`, `text`, `image` — **full shapes in [visConfig.md](visConfig.md)**) |
+| `markdownConfig[].type` | Yes | `"number"` for a numeric value (other types: `comparison`, `sparkline`, `progress`, `text`, `image` — **full shapes in [kpi-tiles.md](kpi-tiles.md)**) |
 | `markdownConfig[].config.field.row` | Yes | Always `"_first"` |
 | `markdownConfig[].config.field.field.name` | Yes | Fully qualified field name (e.g., `"order_items.total_revenue"`) |
 | `markdownConfig[].config.field.field.pivotMap` | Yes | Empty object `{}` unless using pivots |
@@ -584,7 +596,41 @@ All line, column/bar, area, scatter, and combo charts use this structure:
 | `series` | Yes | Measure fields. Each has `"yAxis": "y"` (vertical) or `"xAxis": "x"` (horizontal). Per-series `mark` overrides enable combo charts. |
 | `tooltip` | Yes | Fields shown on hover — include all dimensions and measures. |
 | `behaviors.stackMultiMark` | No | `true` for stacked, `false` for grouped/overlay. |
+| `behaviors.useLayerCompiler` | No | `true` routes the tile to the layer compiler and the layers editor (what the UI's X/Y chart builder now creates); absent keeps the classic compiler. Per-layer `mark`, `color` and `dataLabel` then sit on each `series[]` entry, several measures in one layer use `foldedFields`, per-value colors go in root `colorFields`, and `alignAxisZeros: true` aligns the two value axes' zeros. See below. |
 | `size` | No | Field for bubble size (scatter `pointSize`/`pointSizeColor`). |
+
+## Layer-compiled cartesian tiles
+
+Every X/Y chart created in the Omni UI now stores `behaviors.useLayerCompiler: true` and keeps its encodings per layer; a tile you create through the API stays on the classic compiler (and the classic editor) unless you set that flag. Bars on the left axis and a line on the right, zeros aligned, as a layer-compiled tile:
+
+```json
+"visConfig": {
+  "chartType": "barLine",
+  "fields": ["order_items.created_at[month]", "order_items.total_revenue", "order_items.count"],
+  "version": 0,
+  "visConfig": {
+    "visType": "basic",
+    "config": {
+      "x": { "field": { "name": "order_items.created_at[month]" } },
+      "series": [
+        { "field": { "name": "order_items.total_revenue" }, "yAxis": "y",  "mark": { "type": "bar" } },
+        { "field": { "name": "order_items.count" },         "yAxis": "y2", "mark": { "type": "line" } }
+      ],
+      "tooltip": [
+        { "field": { "name": "order_items.created_at[month]" } },
+        { "field": { "name": "order_items.total_revenue" } },
+        { "field": { "name": "order_items.count" } }
+      ],
+      "alignAxisZeros": true,
+      "behaviors": { "stackMultiMark": false, "useLayerCompiler": true },
+      "configType": "cartesian",
+      "_dependentAxis": "y"
+    }
+  }
+}
+```
+
+Two rules that differ from the classic shapes above: layers never stack across layers, so measures that should stack or group go into one Measure values layer (`foldedFields` plus a series on `omni__field_value` colored by `omni__field_name`), and a `series[].color` hex string makes the tile fall back to the classic compiler without an error. The full shape, the Measure values fold, the per-layer and `colorFields` encodings, moving an existing tile in place, and which classic gotchas still hold: [layers.md](layers.md).
 
 ## Quick Reference: chartType → visType → config
 
@@ -606,4 +652,4 @@ All line, column/bar, area, scatter, and combo charts use this structure:
 | Point map | `"map"` | `"map"` | — | — | — |
 | Region map | `"regionMap"` | `"map"` | — | — | — |
 
-> For funnel, sankey, map, region map, heatmap, and boxplot, start from the known shapes in [visConfig.md](visConfig.md), and confirm the inner `config` field names by reading back an existing dashboard that uses the chart (`omni documents v2-get` returns the inner spec in the shape you write).
+> For funnel, sankey, map, region map, heatmap, and boxplot, start from the known shapes in [other-chart-types.md](other-chart-types.md), and confirm the inner `config` field names by reading back an existing dashboard that uses the chart (`omni documents v2-get` returns the inner spec in the shape you write).

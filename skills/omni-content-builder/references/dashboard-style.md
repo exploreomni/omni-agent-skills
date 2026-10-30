@@ -90,7 +90,7 @@ Use a relative window on the dashboard date control **and** on every tile-level 
 Three pages, each answering the next question:
 
 1. **Overview** — the KPI that says whether there is a problem.
-2. **Breakdown** — where it is: a `heatmap` of department × business unit ([visConfig.md](visConfig.md#config-object-heatmap)), clickable to drill.
+2. **Breakdown** — where it is: a `heatmap` of department × business unit ([visConfig.md](other-chart-types.md#config-object-heatmap)), clickable to drill.
 3. **Deep dive** — "pick a team": a single-select string filter placed **in the page**, and a "View by" filter **inside the chart tile** that changes which dimension the chart breaks down by.
 
 **Build "View by" as a templated dimension.** A cartesian chart pins its category field in `visConfig` (`y.field` / `x.field`, plus the axis `sort`), so a `FIELD_SELECTION` switcher swaps the field in the tile's query without changing what the chart plots. Use a filter-only field and a templated `CASE` dimension ([omni-model-builder → templated-filters.md](../../omni-model-builder/references/templated-filters.md)). The chart always plots `breakdown`, and "View by" is an ordinary single-select filter:

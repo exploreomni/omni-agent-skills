@@ -1,11 +1,13 @@
 # Documents v2 API Reference
 
-The `omni documents v2-*` commands are the **only** surface for creating, reading, and editing documents — an explicit envelope of `queryPresentations`, `controls`, `containers`, and `settings`, edited through a **draft → publish** flow. Never fall back to the v1 `documents create`/`get` path (v1 `put`/`update` were removed in CLI 1.2.2). A few document-management operations (list, delete, move, duplicate, discard-draft, get-queries, downloads) have no v2 form and are the only command for that job — see the command list in [SKILL.md](../SKILL.md). Always read your result back with `v2-get` / `v2-get-draft` and verify.
+The `omni documents v2-*` commands are the **only** surface for creating, reading, and editing documents — an explicit envelope of `queryPresentations`, `controls`, `containers`, and `settings`, edited through a **draft → publish** flow. Never fall back to the v1 `documents create`/`get` path (v1 `put`/`update` were removed in CLI 1.2.2). A few document-management operations (list, delete, move, duplicate, discard-draft, get-queries, downloads) have no v2 form and are the only command for that job — see [Commands by task](#commands-by-task). Always read your result back with `v2-get` / `v2-get-draft` and verify.
 
 ## Contents
 
 - [Commands](#commands)
+- [Commands by task](#commands-by-task)
 - [Envelope](#envelope)
+- [Settings](#settings)
 - [Tile (queryPresentation) shape](#tile-querypresentation-shape)
 - [Apps (alpha, CLI ≥ 1.4.0)](#apps-alpha-cli--140)
 - [Behaviors to design around](#behaviors-to-design-around)
@@ -34,6 +36,21 @@ The `omni documents v2-*` commands are the **only** surface for creating, readin
 - Patch responses return `{identifier, name, description, draftIdentifier}` — capture `draftIdentifier` for `v2-get-draft`, `v2-patch-draft-by-identifier`, and the draft URL.
 
 > **Which patch command:** use **`v2-patch-draft`** to *open* a draft (the first patch — it creates the draft and applies your changes); use **`v2-patch-draft-by-identifier`** for *every subsequent* patch to that same draft (pure apply, no new draft). Calling `v2-patch-draft` again creates *another* draft; passing a draft identifier to `v2-patch-draft` 404s.
+
+## Commands by task
+
+| Operation | Command |
+|---|---|
+| Create document | `documents v2-create` |
+| Read document / draft state | `documents v2-get` / `v2-get-draft` |
+| Edit document (tiles, controls, layout, settings, rename) | `documents v2-patch-draft` (+ `v2-patch-draft-by-identifier`) |
+| Get the workbook model ID | `workbookModelId` on `documents v2-get` (published) or `v2-get-draft` (that draft's); also on `documents list-drafts` |
+| Rename a document's identifier (slug) | `documents v2-update-identifier <identifier>` |
+| Bind a tile to a query model, or unbind it | `documents v2-bind-query-model` / `v2-unbind-query-model` on a draft (CLI ≥ 1.1.2); see [references/documents-v2.md](documents-v2.md) |
+| Publish a draft | `documents v2-publish-draft` |
+| Read or edit an **app** (HTML instead of a dashboard) | `documents get-app` / `put-app` / `patch-app` / `remove-app` (+ the draft and auto-draft forms) — alpha, CLI ≥ 1.4.0; see [references/documents-v2.md](documents-v2.md) |
+
+A handful of **document-management** operations have no v2 form — they aren't alternatives to the v2 build path, just the only command for that job: `documents list` / `list-drafts` (find documents and drafts), `documents discard-draft` (abandon a draft), `documents delete` / `move` / `duplicate` (lifecycle), `documents get-queries` (extract a tile's runnable query for validation), `dashboards download` / `download-status`, `documents upgrade-layout` (move a classic-layout dashboard to the advanced layout; it publishes, so confirm first), and `models yaml-create` / `validate` (model writes).
 
 ## Envelope
 
@@ -94,6 +111,10 @@ On create, the server mints a per-document **workbook** model extending the shar
 
 Since the binding is server-owned on the PATCH surface, changing a tile's query-model binding goes through the dedicated draft-scoped commands (CLI ≥ 1.1.2): `v2-bind-query-model <identifier> <draftIdentifier> <queryKey>` (body carries the `queryModelId` — see `--schema`) and `v2-unbind-query-model` (no body; keeps the tile's query). The `queryModelId` must be a live query model layered on this draft's workbook model and not already bound to another tile — a query model is dedicated to a single query. A LINKED tile inherits its query model from its source and can't be bound directly. Because each draft re-clones its query models, bind against a draft you have already read.
 
+## Settings
+
+`settings` is a shallow-merged object: `crossfilterEnabled` (click a value in one tile to filter the others), `facetFilters`, `refreshInterval` (seconds, `null` disables), `runQueriesOn` (`"current-page"` / `"all-pages"` / `null`), and `customText` (`{queryError, queryNoResults}` overrides). Patch only the keys you're changing.
+
 ## Tile (queryPresentation) shape
 
 ```jsonc
@@ -147,6 +168,10 @@ An **app** is HTML content in place of a dashboard. A document carries at most o
 - Alpha — the app sub-resource may change shape without a deprecation cycle. Run `--help` / `--schema` on the command before your first write.
 
 ## Behaviors to design around
+
+- **`--body` overrides the shorthand flags.** With `--body`, every shorthand flag (`--name`, `--summary`, `--branch-id`, …) is ignored with no warning. Put those fields in the JSON body of every create and patch; use flags without `--body` only when the flags are the whole request.
+- **The workbook model ID changes with every draft and publish** — each draft copies the workbook model (extensions included), and publishing switches the document to that copy. Don't cache a workbook model ID; read `workbookModelId` from `v2-get-draft` (or `omni documents list-drafts <identifier>`) each time you need it.
+- **Boolean filters may be silently dropped** when a `pivots` array is present (reported Omni bug). If boolean filters aren't applying, remove the pivot and test again.
 
 These are reproducible behaviors — code against them.
 

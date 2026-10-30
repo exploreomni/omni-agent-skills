@@ -125,6 +125,11 @@ omni documents v2-patch-draft <identifier> --name "New Name" --summary "rename"
 
 When `--body` is present, the CLI **silently ignores every shorthand flag** (`--name`, `--summary`, `--branch-id`, …) — verified in the CLI source (the body short-circuits before flag assembly) and live. With `--body`, put everything in the JSON. Flags-only (no `--body`) works for metadata edits.
 
+## Recovery rules
+
+- **Do not persist invalid query-level filters** — if `omni query run` returns a server-side parsing error for a tile query filter, validate the unfiltered base query once. Do not save that broken filter into the tile. If a dashboard-level control can satisfy the request, use that path and verify by readback; otherwise leave the dashboard unchanged and report the blocker.
+- **Bound failed updates** — if a patch returns a validation error, stop after one corrected retry at most. Do not try repeated filter syntaxes or endpoint loops. Because edits happen on a draft, recovery is clean: **discard the draft** (`omni documents discard-draft <identifier>`) and report what was preserved — the published document was never touched.
+
 ## Errors
 
 | Status | Trigger | Notes |

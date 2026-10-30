@@ -6,6 +6,28 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.24.0] - 2026-10-28
+
+### omni-analytics
+
+_Summary: every X/Y chart made in the Omni UI now saves a layer-compiled config, while a chart created through the API stays classic until its config says `behaviors.useLayerCompiler: true`. `omni-content-builder` describes both shapes. No command or flag changed._
+
+**Added**
+- **`omni-content-builder` — *Layer-compiled charts*.** New `references/layers.md`:
+  - which compiler a config gets, and the per-layer shape the layers editor writes (`series[].mark`, `series[].color`, `series[].dataLabel`, root `colorFields`, `alignAxisZeros`);
+  - the Measure values fold (`foldedFields` + an `omni__field_value` series colored by `omni__field_name`) for measures that stack or group;
+  - creating a layer chart through the API, and moving a tile either way (UI actions, or a draft patch);
+  - the editor's labels mapped to keys, the keys the layer schema accepts, and twenty-seven shapes rendered as written;
+  - smart aggregation: a layer that omits a grouped dimension needs a `column_totals` subtotal on the last dimension it keeps.
+- **`omni-content-builder` — *Choosing a shape*.** `layers.md` opens with a decision table (layer shape for a new X/Y chart; fold, second axis, separate layers or facets by what the chart should show); `design-defaults.md` maps each question to a chart and its config.
+- **`omni-content-builder` — *Evals*.** A two-axis layer chart with aligned zeros; moving a stacked two-measure tile to layers in place.
+
+**Changed**
+- **`omni-content-builder` — *Gotchas on a layer chart*.** An undeclared key (`series[].color` hex, `series[].label`, `domain` on an axis) drops the tile back to classic silently; two bar layers overlay instead of stacking; `chartType` is not updated by the layers editor, so read `series[].mark.type`.
+- **`omni-content-builder` — *Validation*.** The viz-spec check covers both compilers, and the readback confirms the flag survived.
+- **`omni-content-builder` — *A shorter SKILL.md*.** About 6.7k to 4.9k tokens, within the [Agent Skills specification](https://agentskills.io/specification#progressive-disclosure) limits: the command table, design defaults, settings, docs links, rendering pitfalls, URL patterns and the filter-reuse recipe move word for word into references, each with a pointer. The non-topic tile rules and the recovery rules stay in SKILL.md. No instruction changes.
+- **`omni-content-builder` — *Smaller references*.** `visConfig.md` split by family into `kpi-tiles.md`, `other-chart-types.md` and `markdown-tiles.md`; it keeps the envelope, `chartType` enum and classic cartesian shapes.
+
 ## [1.23.2] - 2026-10-27
 
 ### omni-analytics

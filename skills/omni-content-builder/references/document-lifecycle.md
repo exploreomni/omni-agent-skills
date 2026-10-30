@@ -11,6 +11,7 @@ Creating, renaming, deleting, moving, and duplicating documents, and the end-to-
 - [Move Document](#move-document)
 - [Duplicate Document](#duplicate-document)
 - [Build Workflows](#build-workflows)
+- [Links to share](#links-to-share)
 
 ## Create Document (Name Only)
 
@@ -134,4 +135,20 @@ Only published documents can be duplicated. Draft documents return 404.
 4. **Validate viz specs** — check each tile's `chartType`/`visType`/inner `config`/`prefersChart` against the consistency rules before assembling the payload
 5. **Create document** — single `omni documents v2-create` with `queryPresentations` + `controls` + `settings` in one body (add `containers` only to set the layout yourself)
 6. **Verify the dashboard** — read it back with `omni documents v2-get`, confirm all tiles are present and placed, then run each tile's query via `omni documents get-queries` + `omni query run` to verify no broken tiles
-7. **Share the link** — return `{OMNI_BASE_URL}/dashboards/{identifier}` to the user (only after verification passes)
+7. **Share the link** — return the dashboard URL to the user (only after verification passes); see [Links to share](#links-to-share)
+
+## Links to share
+
+After creating or finding content, always give the user a direct link:
+
+```
+Dashboard: {OMNI_BASE_URL}/dashboards/{identifier}
+Workbook:  {OMNI_BASE_URL}/w/{identifier}
+Draft:     {OMNI_BASE_URL}/dashboards/{draftIdentifier}
+```
+
+The `identifier` comes from the `v2-create`/patch responses or `omni documents list`; the `draftIdentifier` comes from the `v2-patch-draft` response or `omni documents list-drafts`.
+Replace `{OMNI_BASE_URL}` with the actual base URL from the active profile or
+environment, normalized without a trailing slash. Do not return the literal
+placeholder string unless credentials are unavailable and you explicitly say the
+URL is a template.
