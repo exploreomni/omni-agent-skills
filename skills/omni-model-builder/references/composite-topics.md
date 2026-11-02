@@ -60,7 +60,8 @@ shared_dimensions:
 | `shared_measures` | Measures computed over the joined result from the member topics' measures. Syntax and limits below. |
 | `unrelated_dimension_handling` | What a member topic's own dimensions (neither shared dimensions nor on a shared view) can do in a query: `filter_only` (default), `null_fill`, or `repeat`. Below. |
 | `always_join_all_topics` | By default only topics with selected fields are included in the join; `true` includes every member. |
-| `fields`, `ai_context`, `sample_queries`, `required_access_grants` | As on a regular topic. |
+| `fields`, `ai_context`, `required_access_grants` | As on a regular topic. |
+| `sample_queries` | As on a regular topic, with `topic` and `base_view` both set to the composite's name. The validator doesn't check them. Full reference: `references/sample-queries.md` in the `omni-ai-optimizer` skill. |
 
 Constraints:
 

@@ -13,7 +13,7 @@
       "expected_behavior": [
         "The agent reads the current order_items topic state before making any changes, either via topic YAML or a structured topic read such as omni models get-topic",
         "The agent ensures topic-level ai_context maps business terms (revenue, sales) to specific field names (total_revenue) \u2014 not just a general description of what the topic does",
-        "If changes are needed, the ai_context is added via omni models yaml-create with mode: extension on a branch, not directly to production",
+        "If changes are needed, the ai_context is added via omni models yaml-create on a branch (the whole topic file read with --mode combined and written back with mode: combined), not directly to production",
         "If the mapping already exists, the agent reports that no duplicate write is needed instead of adding redundant synonyms or production edits",
         "The ai_context entries are concise \u2014 the agent does not write paragraph-length explanations when a single mapping line would suffice"
       ],
@@ -22,9 +22,9 @@
     {
       "id": "2",
       "question": "Check whether the order_items topic is near Blobby's AI context limit. If it is, curate what AI can see; if it is already comfortably below the limit, explain that no ai_fields change is needed.",
-      "ground_truth": "Agent evaluates the topic against the real cap — roughly 75K characters of field definitions per topic — rather than a fixed field count, noting that per-field metadata cost varies. It adds ai_fields only if needed; otherwise it reports that the topic is already below the threshold.",
+      "ground_truth": "Agent evaluates the topic against the real cap — 75K characters of field definitions per topic by default, or the topic's ai_prune_characters / the model's ai_settings.topic_prune_characters — rather than a fixed field count, noting that per-field metadata cost varies. It adds ai_fields only if needed; otherwise it reports that the topic is already below the threshold.",
       "expected_behavior": [
-        "The agent reasons about the ~75K character cap on a topic's field definitions (or points to the workbook inspector to see delivered context) rather than asserting a fixed maximum field count",
+        "The agent reasons about the topic's character budget for field definitions (75K by default, or ai_prune_characters / ai_settings.topic_prune_characters), or reads the validator's topic_ai_context_too_large estimate, rather than asserting a fixed maximum field count",
         "The agent inspects the current topic/model field set before changing ai_fields",
         "If curation is needed, the agent uses the ai_fields property (not hidden: true on individual fields)",
         "If curation is needed, the agent uses wildcard and negation operators (e.g., all_views.*, -tag:internal) rather than enumerating every field individually",
