@@ -312,7 +312,7 @@ Generate, read, triage and schedule suggestions: [references/ai-model-suggestion
 
 A skill is a saved set of instructions the Omni Agent loads when a user invokes its slash-command handle (e.g. `/quarterly-report`), or on its own when a request fits it. Where `ai_context` shapes every answer on a topic, a skill packages one repeatable task. Manage them with `omni skills` (CLI ≥ 1.3.1; experimental, so fields may still change). Run `create` / `update` with `--schema` for the body.
 
-List, get, create, update and delete skills: [references/agent-skills.md](references/agent-skills.md).
+How a skill runs, how to write one, and the commands: [references/agent-skills.md](references/agent-skills.md).
 
 - **`list` is scoped to the caller.** An org admin sees every skill in the organization; anyone else sees their own and any shared with them, and `--creator-id` / `--q` narrow within that — neither widens it. An empty list from a non-admin key is not evidence that no skill holds a handle — `create` still 409s on a handle held by someone else's skill.
 - **`list` never returns `body`.** Read a skill's instructions with `get`, not from the list.

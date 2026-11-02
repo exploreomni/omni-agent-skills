@@ -27,7 +27,7 @@ _Summary: `omni-ai-optimizer` fact-checked against Omni's code, CLI 1.5.0 and do
 - **`omni-ai-optimizer` — *AI settings*.** `references/ai-settings.md`.
 - **`omni-ai-optimizer` — *Sample queries*.** `references/sample-queries.md` covers topic, composite-topic and model sample queries; `omni-model-builder` points to it.
 - **`omni-ai-optimizer` — *Model `ai_context` on a branch*.** Never write `ai_context_patch`.
-- **`omni-ai-optimizer` — *Skills and suggestions*.** Roles and field limits for skills; what suggestions need.
+- **`omni-ai-optimizer` — *Skills and suggestions*.** How a skill runs and how to write one; roles and limits; what suggestions need.
 
 ## [1.24.2] - 2026-11-04
 
