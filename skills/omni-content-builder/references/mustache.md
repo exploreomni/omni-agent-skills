@@ -66,7 +66,7 @@ So the *same* dashboard date filter is addressed two different ways depending on
 | reference a filter | `{{filters.ecomm__order_items.created_at.summary}}` (by `view.field`) | `{{filters.my_date_filter.summary}}` (by control **id**) |
 | two filters on one field | one OR composite at the field key, `.value` empty | two separate id keys, each its own `.summary` + `.value` |
 
-Controls are keyed by **`id`** in **both** contexts; `PERIOD_OVER_PERIOD` is in **neither** (above). This is current behavior, not a bug — the viz tile reads the consolidated `query.filters`, the text tile reads the unconsolidated dashboard controls.
+Controls are keyed by **`id`** in **both** contexts; `PERIOD_OVER_PERIOD` is in **neither** (above). The viz tile reads the consolidated `query.filters`, the text tile reads the unconsolidated dashboard controls.
 
 **Rule of thumb:** viz tile → filters by **`view.field`**; text tile → filters by control **`id`**; controls by `id` everywhere. When unsure, drop `{{inspect}}` into the body and read the exact keys for *that* tile.
 

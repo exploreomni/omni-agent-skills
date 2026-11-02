@@ -10,7 +10,7 @@ Since 1.11.0 both plugins share one version, held in `versions.json` and stamped
 
 ### omni-analytics
 
-_Summary: every X/Y chart made in the Omni UI now saves a layer-compiled config, while a chart created through the API stays classic until its config says `behaviors.useLayerCompiler: true`. `omni-content-builder` describes both shapes. No command or flag changed._
+_Summary: every X/Y chart made in the Omni UI saves a layer-compiled config, and `omni-content-builder` now writes that shape for every new X/Y tile (`behaviors.useLayerCompiler: true`) and upgrades a classic tile when it edits one. The classic shape stays documented for tiles saved before layers. No command or flag changed._
 
 **Added**
 - **`omni-content-builder` — *Layer-compiled charts*.** New `references/layers.md`:

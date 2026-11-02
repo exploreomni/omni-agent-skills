@@ -14,7 +14,7 @@ By question, with the chart and the config that answers it. A requested chart ty
 
 | The question | Chart | Config |
 |---|---|---|
-| How has it moved over time? | Line, area or column on a date axis | Cartesian ([layers.md](layers.md) for a new tile, [visConfig.md](visConfig.md) for a classic one) |
+| How has it moved over time? | Line, area or column on a date axis | Cartesian, layer-compiled ([layers.md](layers.md); [visConfig.md](visConfig.md) only for an existing classic tile) |
 | Which is biggest? | Horizontal bar, sorted by the measure | `_dependentAxis: "x"`, the category on `y`, `axis.sort` by the measure |
 | How do the parts make the whole? | 100% stacked; a pie only for a handful of parts | `_stack: "stack_percentage"` on the Measure values layer or the colored layer; pie in [other-chart-types.md](other-chart-types.md#config-object-pie--donut) |
 | Do two measures move together? | Scatter, a third measure as size | `mark.type: "point"`, `size.field` |

@@ -596,12 +596,12 @@ All line, column/bar, area, scatter, and combo charts use this structure:
 | `series` | Yes | Measure fields. Each has `"yAxis": "y"` (vertical) or `"xAxis": "x"` (horizontal). Per-series `mark` overrides enable combo charts. |
 | `tooltip` | Yes | Fields shown on hover — include all dimensions and measures. |
 | `behaviors.stackMultiMark` | No | `true` for stacked, `false` for grouped/overlay. |
-| `behaviors.useLayerCompiler` | No | `true` routes the tile to the layer compiler and the layers editor (what the UI's X/Y chart builder now creates); absent keeps the classic compiler. Per-layer `mark`, `color` and `dataLabel` then sit on each `series[]` entry, several measures in one layer use `foldedFields`, per-value colors go in root `colorFields`, and `alignAxisZeros: true` aligns the two value axes' zeros. See below. |
+| `behaviors.useLayerCompiler` | No | Send `true` on every X/Y tile you create: the layer compiler and the layers editor, which every X/Y chart made in the UI uses; absent is the classic compiler, for tiles saved before layers. Per-layer `mark`, `color` and `dataLabel` then sit on each `series[]` entry, several measures in one layer use `foldedFields`, per-value colors go in root `colorFields`, and `alignAxisZeros: true` aligns the two value axes' zeros. See below. |
 | `size` | No | Field for bubble size (scatter `pointSize`/`pointSizeColor`). |
 
 ## Layer-compiled cartesian tiles
 
-Every X/Y chart created in the Omni UI now stores `behaviors.useLayerCompiler: true` and keeps its encodings per layer; a tile you create through the API stays on the classic compiler (and the classic editor) unless you set that flag. Bars on the left axis and a line on the right, zeros aligned, as a layer-compiled tile:
+Every X/Y chart created in the Omni UI stores `behaviors.useLayerCompiler: true` and keeps its encodings per layer, and so should every X/Y tile you create; the API does not add the flag, and a tile without it lands on the classic compiler and editor. Bars on the left axis and a line on the right, zeros aligned, as a layer-compiled tile:
 
 ```json
 "visConfig": {

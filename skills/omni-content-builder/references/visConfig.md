@@ -9,6 +9,7 @@ Reference for a tile's visualization config — the v2 `visConfig` envelope, acc
 - [chartType → visType → configType mapping](#charttype--vistype--configtype-mapping)
 - [Config Object: Cartesian Charts](#config-object-cartesian-charts)
 - [Layer-compiled cartesian charts (the layers editor)](#layer-compiled-cartesian-charts-the-layers-editor)
+- [Classic rules that change on a layer chart](#classic-rules-that-change-on-a-layer-chart)
 - [KPI, pie, heatmap, boxplot, funnel, sankey, map, text and AI tiles](#kpi-pie-heatmap-boxplot-funnel-sankey-map-text-and-ai-tiles)
 - [Complete Examples](#complete-examples)
 - [Discovering Config for Advanced Chart Types](#discovering-config-for-advanced-chart-types)
@@ -129,7 +130,7 @@ These are the supported `chartType` values for building tiles with a structured 
 
 Line, column, bar, area, scatter, and combo charts use the cartesian config (`configType: "cartesian"`). This is the most common config type.
 
-The shapes in this section are read by the **classic** compiler, which is what a config gets unless it carries `behaviors.useLayerCompiler: true`. Charts built in the UI's X/Y chart editor are now **layer-compiled** and store their encodings per layer — see [layers.md](layers.md) for that shape, how it differs, and how to move a tile between the two.
+The shapes in this section are the **classic** compiler's, kept for tiles saved before layers. A new X/Y tile is layer-compiled: start from [layers.md](layers.md), or add `behaviors.useLayerCompiler: true` to a recipe here and fold same-axis same-mark measures as layers.md describes. A config without the flag renders through the classic compiler.
 
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
@@ -142,7 +143,7 @@ The shapes in this section are read by the **classic** compiler, which is what a
 | `series` | Yes | array | Measure fields, each with `"yAxis": "y"` (vertical) or `"xAxis": "x"` (horizontal) |
 | `tooltip` | Yes | array | Fields shown on hover |
 | `behaviors.stackMultiMark` | No | boolean | `true` for stacked, `false` for grouped/overlay |
-| `behaviors.useLayerCompiler` | No | boolean | `true` routes the config to the layer compiler and the layers editor; absent or `false` keeps the classic compiler. See [layers.md](layers.md) |
+| `behaviors.useLayerCompiler` | No | boolean | Send `true` on every new X/Y tile (the layer compiler and the layers editor); absent or `false` is the classic compiler, for existing tiles only. See [layers.md](layers.md) |
 | `size` | No | object | Field for bubble sizing (`pointSize` / `pointSizeColor`) |
 
 ### Axis fields (`x` / `y`)
@@ -291,9 +292,24 @@ Omni renders a cartesian config through one of two compilers, and the config dec
 | | Classic compiler | Layer compiler (the layers editor) |
 |---|---|---|
 | Selected by | `behaviors.useLayerCompiler` absent or `false` | `behaviors.useLayerCompiler: true` |
-| Who writes it | Every recipe in this file unless it says otherwise; any config saved before layers; every API-created tile without the flag | Every X/Y chart created in the UI since layers went on, and the UI's upgrade actions |
+| Who writes it | Any config saved before layers; an API-created tile sent without the flag | Every X/Y chart created in the UI since layers went on, the UI's upgrade actions, and every X/Y tile you create |
 
-An API-created cartesian tile opens in the classic editor until its config carries the flag. The per-layer shape, the Measure values fold, the recipes for creating a layer chart or moving a tile either way, the editor's labels mapped to keys, the keys the layer schema accepts (an undeclared key drops the tile back to classic with no error), a catalog of rendered shapes, and which classic gotchas still hold: **[layers.md](layers.md)**.
+Send the flag on every tile you create; without it the tile opens in the classic editor. The per-layer shape, the Measure values fold, the recipes for creating a layer chart or moving a tile either way, the editor's labels mapped to keys, the keys the layer schema accepts (an undeclared key drops the tile back to classic with no error), a catalog of rendered shapes, and which classic gotchas still hold: **[layers.md](layers.md)**.
+
+## Classic rules that change on a layer chart
+
+| Classic rule (this file) | On a layer-compiled chart |
+|---|---|
+| `series[].color: "#hex"` is ignored; `series[].label` is ignored; `domain` directly on `y` is ignored | **Worse than ignored: any key the layer schema does not declare drops the tile back to the classic editor and compiler**, flag and all, with no error; the chart still draws through the classic path. All three were tested. When a layer chart opens in the X-Axis / Left-Axis / Right-Axis editor, remove the undeclared key (see [What a layer can carry](layers.md#what-a-layer-can-carry)) and read back. A solid layer color is `mark._mark_color` + `manual: true`; per-value colors go in `colorFields`; the legend label is `title.value`; axis styling goes under `axis` |
+| Two same-mark bar series default to STACK; set `color._stack: "overlay"` to overlay | Layers never stack across layers: two bar layers on one axis **overlay** whatever `_stack` says at the root or on the layers. To stack them, fold them into one Measure values layer |
+| Stack dimension goes in root `color.field` + `query.pivots` | The pivot is still required; the color field lives on the layer (`series[].color.field`). A root `color.field` still works when you move a classic config over |
+| `series[].mark._mark_color` + `manual: true` | Still the per-layer solid color (and what the editor writes) |
+| A grouped dimension the chart does not encode: bars stack the rows into a sum, lines zigzag; no fix | Same rendering with the flag alone; `query.column_totals` on the last dimension the layer keeps draws the subtotal rows instead, the only correct result for a non-additive measure ([fewer dimensions than the query](layers.md#a-layer-that-uses-fewer-dimensions-than-the-query-smart-aggregation)) |
+| `series[].title.value` for the legend label | Still works |
+| Axis styling under `<axis>.axis` | Still works |
+| `_dependentAxis`, `yAxis` / `xAxis`, `y2` for the right axis | Unchanged |
+| A table calculation on a tile | Unchanged, with two things a layer chart makes visible: a calculation must have every field it references in `query.fields`, or it is `#ERROR!` and a fold that includes it draws nothing; and a per-month total line beside a layer colored by a pivoted dimension is not reachable from that one query (the colorless layer draws every pivot row; `row_totals` on the measure blanks the chart; `column_totals` does not roll the pivot up) |
+| A query dimension the chart does not encode is simply ignored | A layer that omits a grouped dimension draws every row (a line zigzags) unless the query carries a `column_totals` subtotal on the last dimension the layer keeps |
 
 ## KPI, pie, heatmap, boxplot, funnel, sankey, map, text and AI tiles
 
