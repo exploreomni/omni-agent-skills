@@ -57,7 +57,7 @@ Omni fills the AI's context window in a fixed priority order and leaves `hidden:
 All context is passed to the LLM together, and the LLM decides how to weight it:
 
 - **Model-level `ai_context` does not reliably override topic-level `ai_context`.** Don't design around precedence that isn't guaranteed.
-- **Context from outside the model reaches the agent too** — org-wide [global context](https://docs.omni.co/ai/settings/global-context) and each user's personal context — with no guaranteed precedence either way.
+- **Global and personal context reach the agent too**, from outside the model, with no guaranteed precedence over it.
 - Instructions may be followed partially or not at all, especially when complex or self-contradictory.
 - **Behavior is non-deterministic** — the same question can pull different context on different runs.
 
@@ -222,7 +222,7 @@ sample_queries:
           desc: true
 ```
 
-Topic, composite-topic and model sample queries, every key, inheritance and validation: [references/sample-queries.md](references/sample-queries.md). The validator checks only topic sample queries; run any other once before relying on it.
+Every kind of sample query, its keys and validation: [references/sample-queries.md](references/sample-queries.md). Only topic sample queries are validated; run any other once before relying on it.
 
 Focus on questions users actually ask — if you don't know which those are, ask the user rather than guessing at plausible-sounding ones.
 
@@ -298,7 +298,7 @@ Prioritize high-impact changes. Improve wording without changing semantics.
 9. Remove duplication between `ai_context` and `description`; consolidate shared context at view level, and shared blocks into `constants`
 10. Consider `extends` for AI-specific topic variants
 11. Remove `omni_llm` sections (ignored, so their tier-only text never reaches the AI) and don't add `omni_agent` ones (deprecated)
-12. Test iteratively — ask Blobby and refine
+12. Measure before and after on the branch with `omni-ai-eval`, then refine
 
 > **Troubleshooting order** when Blobby answers wrong: confirm the topic is reachable (`ai_chat_topics`) → confirm the field is in context (check it isn't excluded by `ai_fields`/`hidden`, and that `omni models validate` doesn't flag the topic as over budget) → then add or sharpen `ai_context`. Writing more context for a field the AI never received fixes nothing.
 
@@ -316,7 +316,7 @@ How a skill runs, how to write one, and the commands: [references/agent-skills.m
 
 - **`list` is scoped to the caller.** An org admin sees every skill in the organization; anyone else sees their own and any shared with them, and `--creator-id` / `--q` narrow within that — neither widens it. An empty list from a non-admin key is not evidence that no skill holds a handle — `create` still 409s on a handle held by someone else's skill.
 - **`list` never returns `body`.** Read a skill's instructions with `get`, not from the list.
-- **`description` is what the agent chooses between skills on**, so write it the way you would a good `ai_context` line: what the skill is for and when it applies. The skill catalog in the agent's prompt shows only its first 300 characters, so lead with that.
+- **`description` is what the agent chooses between skills on**, so write it the way you would a good `ai_context` line: what the skill is for and when it applies. The agent sees only its first 300 characters, so lead with that.
 - `delete` is a soft delete: the skill vanishes from every read and its handle is free to reuse.
 
 ## Docs Reference
@@ -328,3 +328,4 @@ Omni docs pages for each AI setting: [docs-links.md](references/docs-links.md).
 - **omni-model-explorer** — inspect existing AI context
 - **omni-model-builder** — modify views and topics
 - **omni-query** — test queries to verify Blobby's output
+- **omni-ai-eval** — score Blobby's answers before and after a change
