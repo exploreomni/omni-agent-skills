@@ -6,6 +6,18 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.24.1] - 2026-11-02
+
+### omni-analytics
+
+_Summary: `omni-ai-optimizer` gets a shorter SKILL.md, within the limits the [Agent Skills specification](https://agentskills.io/specification#progressive-disclosure) recommends: a body under 5k tokens and 500 lines, with every reference linked one level deep from SKILL.md. Sections move word for word into references; no instruction changes._
+
+**Changed**
+- **`omni-ai-optimizer` — *A shorter SKILL.md*.** About 6.6k to 4.9k tokens (513 to 371 lines). The intro Tip and the rules stay in SKILL.md; moved word for word into references, each with a pointer:
+  - the context priority order, pruning order and caps (`context-window.md`);
+  - `ai_context` templating (`ai-context-templating.md`);
+  - the categorical-value examples, the model-suggestion and `omni skills` commands, and the docs links.
+
 ## [1.24.0] - 2026-10-28
 
 ### omni-analytics
