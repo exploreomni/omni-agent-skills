@@ -277,7 +277,7 @@
       "ground_truth": "The agent validates the query with omni query run, then writes a cartesian visConfig with behaviors.useLayerCompiler: true, a bar mark on the revenue series (yAxis y) and a line mark on the count series (yAxis y2), alignAxisZeros: true at the config root, and no hex string in series[].color. It creates or patches through the draft flow, reads the tile back and confirms behaviors.useLayerCompiler is still true, and reports that the tile opens in the layers (Setup / Style) editor rather than the classic one.",
       "expected_behavior": [
         "The agent runs omni query run for the tile's query before building the tile and checks cache_metadata.num_rows",
-        "The config carries behaviors.useLayerCompiler: true — the agent does not assume a new API tile opens in the layers editor without it",
+        "The config carries behaviors.useLayerCompiler: true — the agent does not assume a new API tile opens in the Layers editor without it",
         "Each series carries its own mark: {type: \"bar\"} on the revenue series with yAxis \"y\" and {type: \"line\"} on the count series with yAxis \"y2\"",
         "Aligned zero lines are expressed as alignAxisZeros: true at the config root, not as an axis domain",
         "The agent does not put a hex string in series[].color (that drops the tile back to the classic compiler); a solid color, if any, is series[].mark._mark_color with manual: true",

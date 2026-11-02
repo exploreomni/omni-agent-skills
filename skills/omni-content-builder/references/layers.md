@@ -9,7 +9,7 @@ The Layers chart editor and the layer compiler behind it: what selects it, the p
 - [Measure values: several measures in one layer](#measure-values-several-measures-in-one-layer)
 - [Creating a layer-compiled chart through the API](#creating-a-layer-compiled-chart-through-the-api)
 - [Moving a tile between the two compilers through the API](#moving-a-tile-between-the-two-compilers-through-the-api)
-- [The layers editor's words, and the keys they set](#the-layers-editors-words-and-the-keys-they-set)
+- [The Layers editor's words, and the keys they set](#the-layers-editors-words-and-the-keys-they-set)
 - [What a layer can carry](#what-a-layer-can-carry)
 - [Layer shapes, each rendered as written](#layer-shapes-each-rendered-as-written)
 - [A layer that uses fewer dimensions than the query ("smart aggregation")](#a-layer-that-uses-fewer-dimensions-than-the-query-smart-aggregation)
@@ -178,11 +178,11 @@ omni documents v2-patch-draft <identifier> --body @to-layers.json   # a body lik
 
 Then `v2-get-draft` to confirm the config came back as sent, and `v2-publish-draft`.
 
-## The layers editor's words, and the keys they set
+## The Layers editor's words, and the keys they set
 
 When a user asks in the editor's own terms, this is what to write. Every row was read back after the editor set it, or written and seen in the editor.
 
-| What the user says (layers editor label) | Where it lives in the config |
+| What the user says (Layers editor label) | Where it lives in the config |
 |---|---|
 | "Left axis" / "Right axis" (the **Y-axes** section) | `series[].yAxis: "y"` / `"y2"`; on a horizontal chart `xAxis: "x"` / `"x2"` |
 | "Add a field" to an axis, a layer's **Mark** (Bar / Line / Area / Scatter) | A new `series[]` entry; `series[].mark.type: "bar"` / `"line"` / `"area"` / `"point"` |
