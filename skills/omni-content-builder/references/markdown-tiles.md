@@ -60,7 +60,7 @@ Computes the percent change itself (`current / comparison − 1`) and picks the 
 >
 > The markdown sanitizer passes each data component a **fixed, kebab-case attribute allowlist**; any attribute *not* on it (including the camelCase spelling of one that is) is **stripped before the component sees it** — no error, it just no-ops. This is the single biggest gotcha with these tags, and it's silent.
 >
-> - `swap-colors` ✅ — `swapColors` ❌ (stripped → arrow never swaps; you'll swear `swapColors` "doesn't work")
+> - `swap-colors` ✅ — `swapColors` ❌ (stripped; the arrow never swaps)
 > - `color-negative` / `color-positive` / `comparison-type` ✅ — `colorNegative` / `colorPositive` / `comparisonType` ❌
 > - `<Sparkline>`: `show-axis` ✅ — `showAxis` ❌
 > - `<comparison>` (and `<single-value>`/`<progress>`): `description-before` / `description-after` ✅ — `descriptionBefore` / `descriptionAfter` ❌

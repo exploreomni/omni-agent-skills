@@ -135,7 +135,7 @@ Binds to tiles whose query uses that timeframed field.
 
 > Unlike `FIELD_SELECTION` (which *swaps* one field), a field picker **adds** its selected `values` to a tile's query, so the tile's query doesn't need to contain any of those fields already; the picker applies to the tiles it's mapped to. `isDimension` marks whether each option is a dimension; `values` is the current selection. Optional `fieldOrder` sets column order: `"query"` (the default) keeps the query's order, and `"control"` reorders the picked fields to match `values`, including fields the query already had.
 >
-> **Known cosmetic bug:** a field picker's chip renders with the string-filter verb — e.g. `is Category,Order Count` — because it falls through to the string-EQUALS summary instead of having its own. Functionality is unaffected (the fields are added correctly).
+> **Cosmetic only:** a field picker's chip renders with the string-filter verb, e.g. `is Category,Order Count`. The fields are added correctly.
 
 ### Top-N (TOP_N — override the limit)
 

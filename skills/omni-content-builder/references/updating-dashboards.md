@@ -123,7 +123,7 @@ omni documents v2-patch-draft <identifier> --name "New Name" --summary "rename"
 
 ## The `--body` vs flags gotcha
 
-When `--body` is present, the CLI **silently ignores every shorthand flag** (`--name`, `--summary`, `--branch-id`, …) — verified in the CLI source (the body short-circuits before flag assembly) and live. With `--body`, put everything in the JSON. Flags-only (no `--body`) works for metadata edits.
+When `--body` is present, the CLI **silently ignores every shorthand flag** (`--name`, `--summary`, `--branch-id`, …). With `--body`, put everything in the JSON. Flags-only (no `--body`) works for metadata edits.
 
 ## Recovery rules
 
