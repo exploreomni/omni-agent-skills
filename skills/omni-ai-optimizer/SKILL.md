@@ -255,7 +255,7 @@ When the [dbt integration](https://docs.omni.co/integrations/dbt/setup) is enabl
 
 ## Adding synonyms
 
-Map alternative names, abbreviations, and domain-specific terminology so Blobby matches user queries to the correct field. Works on both dimensions and measures. Examples: [references/synonyms.md](references/synonyms.md).
+Map alternative names, abbreviations, and domain-specific terminology so Blobby matches user queries to the correct field. Works on dimensions, measures and filter-only fields. Examples: [references/synonyms.md](references/synonyms.md).
 
 **Synonyms vs ai_context**: Use `synonyms` for field-level name mapping. Use `ai_context` for topic-level behavioral guidance, data nuances, and multi-field relationships.
 
@@ -291,7 +291,7 @@ Prioritize high-impact changes. Improve wording without changing semantics.
 2. Check model-level `ai_chat_topics` — ensure the right topics are visible to AI
 3. Curate with `ai_fields` down to the fields users actually ask about, rather than to a field count
 4. Write `ai_context` mapping business terms to fields (keep to 1-2 sentences; it is never pruned)
-5. Add `synonyms` to key dimensions and measures (skip if they duplicate the label)
+5. Add `synonyms` to key dimensions, measures and filter-only fields (skip if they duplicate the label)
 6. Improve field `description` and `label` values
 7. Add `sample_values` for categorical fields
 8. Add `sample_queries` for top 3-5 questions

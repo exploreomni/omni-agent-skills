@@ -28,6 +28,7 @@ _Summary: `omni-ai-optimizer` fact-checked against Omni's code, CLI 1.5.0 and do
 - **`omni-ai-optimizer` — *Model `ai_context` on a branch*.** Never write `ai_context_patch`.
 - **`omni-ai-optimizer` — *Suggestions*.** What generating suggestions needs, and what a suggestion may change.
 - **`omni-ai-optimizer` — *Measuring changes*.** The checklist and related skills point to `omni-ai-eval`.
+- **`omni-ai-optimizer` — *Filter-only fields*.** `synonyms` work on them too.
 
 **Removed**
 - **`omni-ai-optimizer` — *Agent skills*.** The section and `references/agent-skills.md`.

@@ -1,6 +1,6 @@
 # Synonyms Examples
 
-`synonyms` works on both dimensions and measures:
+`synonyms` works on dimensions, measures and filter-only fields (a view's `filters:`):
 
 ```yaml
 dimensions:
@@ -14,4 +14,9 @@ measures:
     synonyms: [sales, income, earnings, gross revenue, top line]
   average_order_value:
     synonyms: [AOV, avg order, basket size]
+
+filters:
+  region_filter:
+    type: string
+    synonyms: [territory, market]
 ```
