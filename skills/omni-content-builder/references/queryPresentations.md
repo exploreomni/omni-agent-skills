@@ -596,7 +596,7 @@ All line, column/bar, area, scatter, and combo charts use this structure:
 | `series` | Yes | Measure fields. Each has `"yAxis": "y"` (vertical) or `"xAxis": "x"` (horizontal). Per-series `mark` overrides enable combo charts. |
 | `tooltip` | Yes | Fields shown on hover — include all dimensions and measures. |
 | `behaviors.stackMultiMark` | No | `true` for stacked, `false` for grouped/overlay. |
-| `behaviors.useLayerCompiler` | No | Send `true` on every X/Y tile you create: the layer compiler and the layers editor, which every X/Y chart made in the UI uses; absent is the classic compiler, for tiles saved before layers. Per-layer `mark`, `color` and `dataLabel` then sit on each `series[]` entry, several measures in one layer use `foldedFields`, per-value colors go in root `colorFields`, and `alignAxisZeros: true` aligns the two value axes' zeros. See below. |
+| `behaviors.useLayerCompiler` | No | Send `true` on every X/Y tile you create: the layer compiler and the Layers editor, which every X/Y chart made in the UI uses; absent is the classic compiler, for tiles saved before Layers. Per-layer `mark`, `color` and `dataLabel` then sit on each `series[]` entry, several measures in one layer use `foldedFields`, per-value colors go in root `colorFields`, and `alignAxisZeros: true` aligns the two value axes' zeros. See below. |
 | `size` | No | Field for bubble size (scatter `pointSize`/`pointSizeColor`). |
 
 ## Layer-compiled cartesian tiles

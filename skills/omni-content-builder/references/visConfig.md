@@ -8,7 +8,7 @@ Reference for a tile's visualization config — the v2 `visConfig` envelope, acc
 - [chartType Values](#charttype-values)
 - [chartType → visType → configType mapping](#charttype--vistype--configtype-mapping)
 - [Config Object: Cartesian Charts](#config-object-cartesian-charts)
-- [Layer-compiled cartesian charts (the layers editor)](#layer-compiled-cartesian-charts-the-layers-editor)
+- [Layer-compiled cartesian charts (the Layers editor)](#layer-compiled-cartesian-charts-the-layers-editor)
 - [Classic rules that change on a layer chart](#classic-rules-that-change-on-a-layer-chart)
 - [KPI, pie, heatmap, boxplot, funnel, sankey, map, text and AI tiles](#kpi-pie-heatmap-boxplot-funnel-sankey-map-text-and-ai-tiles)
 - [Complete Examples](#complete-examples)
@@ -130,7 +130,7 @@ These are the supported `chartType` values for building tiles with a structured 
 
 Line, column, bar, area, scatter, and combo charts use the cartesian config (`configType: "cartesian"`). This is the most common config type.
 
-The shapes in this section are the **classic** compiler's, kept for tiles saved before layers. A new X/Y tile is layer-compiled: start from [layers.md](layers.md), or add `behaviors.useLayerCompiler: true` to a recipe here and fold same-axis same-mark measures as layers.md describes. A config without the flag renders through the classic compiler.
+The shapes in this section are the **classic** compiler's, kept for tiles saved before Layers. A new X/Y tile is layer-compiled: start from [layers.md](layers.md), or add `behaviors.useLayerCompiler: true` to a recipe here and fold same-axis same-mark measures as layers.md describes. A config without the flag renders through the classic compiler.
 
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
@@ -143,7 +143,7 @@ The shapes in this section are the **classic** compiler's, kept for tiles saved 
 | `series` | Yes | array | Measure fields, each with `"yAxis": "y"` (vertical) or `"xAxis": "x"` (horizontal) |
 | `tooltip` | Yes | array | Fields shown on hover |
 | `behaviors.stackMultiMark` | No | boolean | `true` for stacked, `false` for grouped/overlay |
-| `behaviors.useLayerCompiler` | No | boolean | Send `true` on every new X/Y tile (the layer compiler and the layers editor); absent or `false` is the classic compiler, for existing tiles only. See [layers.md](layers.md) |
+| `behaviors.useLayerCompiler` | No | boolean | Send `true` on every new X/Y tile (the layer compiler and the Layers editor); absent or `false` is the classic compiler, for existing tiles only. See [layers.md](layers.md) |
 | `size` | No | object | Field for bubble sizing (`pointSize` / `pointSizeColor`) |
 
 ### Axis fields (`x` / `y`)
@@ -285,14 +285,14 @@ Split one chart into per-category panels with `config.facet`:
 
 Use `column` and/or `row`; `wrap: true` + `wrapColumns` controls trellis wrapping. Scales/axes default to shared.
 
-## Layer-compiled cartesian charts (the layers editor)
+## Layer-compiled cartesian charts (the Layers editor)
 
 Omni renders a cartesian config through one of two compilers, and the config decides which:
 
-| | Classic compiler | Layer compiler (the layers editor) |
+| | Classic compiler | Layer compiler (the Layers editor) |
 |---|---|---|
 | Selected by | `behaviors.useLayerCompiler` absent or `false` | `behaviors.useLayerCompiler: true` |
-| Who writes it | Any config saved before layers; an API-created tile sent without the flag | Every X/Y chart created in the UI since layers went on, the UI's upgrade actions, and every X/Y tile you create |
+| Who writes it | Any config saved before Layers; an API-created tile sent without the flag | Every X/Y chart created in the UI since Layers went on, the UI's upgrade actions, and every X/Y tile you create |
 
 Send the flag on every tile you create; without it the tile opens in the classic editor. The per-layer shape, the Measure values fold, the recipes for creating a layer chart or moving a tile either way, the editor's labels mapped to keys, the keys the layer schema accepts (an undeclared key drops the tile back to classic with no error), a catalog of rendered shapes, and which classic gotchas still hold: **[layers.md](layers.md)**.
 
@@ -600,8 +600,8 @@ Enables AI-generated descriptions/subtitles on tiles:
 | `series[].color: "#hex"` for a solid series color | No effect (ignored per-layer slot) | Use `series[].mark._mark_color` + `manual: true`; for color-by-value use `config.color.values` |
 | `series[].color: "#hex"` on a layer-compiled chart (`behaviors.useLayerCompiler: true`) | The tile silently falls back to the classic editor and compiler | Remove it; a solid layer color is `series[].mark._mark_color` + `manual: true`, per-value colors go in root `colorFields` |
 | Two measures of the same mark on one axis of a layer-compiled chart | They overlay instead of stacking; root or per-layer `_stack` does not help | Fold them into one Measure values layer (`foldedFields` + an `omni__field_value` series colored by `omni__field_name` with `_stack`) |
-| Reading a layer chart's kind from `chartType` | Stale — the layers editor does not update it | Read `series[].mark.type`; set `chartType` yourself when authoring |
-| Expecting an API-created cartesian tile to open in the layers editor | It opens in the classic editor | Add `behaviors.useLayerCompiler: true` (and fold same-axis same-mark measures) |
+| Reading a layer chart's kind from `chartType` | Stale — the Layers editor does not update it | Read `series[].mark.type`; set `chartType` yourself when authoring |
+| Expecting an API-created cartesian tile to open in the Layers editor | It opens in the classic editor | Add `behaviors.useLayerCompiler: true` (and fold same-axis same-mark measures) |
 | `series[].label` to rename a legend entry | No effect — legend keeps the field label | Set `series[].title.value` (the legend reads `title.value`, falling back to the field label) |
 | Stack dimension not pivoted | Single un-split series | Add the `color.field` dimension to `query.pivots` |
 | Missing measure in query | Empty tile, no error | Every query must include at least one measure |

@@ -1,6 +1,6 @@
 # Layer-compiled cartesian charts
 
-The layers chart editor and the layer compiler behind it: what selects it, the per-layer shape it stores, the Measure values fold, the recipes for creating a layer chart or moving a tile through the API, the editor's labels mapped to config keys, the keys the layer schema accepts, a catalog of shapes rendered as written, and the classic gotchas that change. Everything here was built in the UI and read back with `omni documents v2-get`, or written through the API and checked in the editor and the render. The classic cartesian shapes stay in [visConfig.md](visConfig.md); the envelope and tile fields are in [queryPresentations.md](queryPresentations.md).
+The Layers chart editor and the layer compiler behind it: what selects it, the per-layer shape it stores, the Measure values fold, the recipes for creating a layer chart or moving a tile through the API, the editor's labels mapped to config keys, the keys the layer schema accepts, a catalog of shapes rendered as written, and the classic gotchas that change. Everything here was built in the UI and read back with `omni documents v2-get`, or written through the API and checked in the editor and the render. The classic cartesian shapes stay in [visConfig.md](visConfig.md); the envelope and tile fields are in [queryPresentations.md](queryPresentations.md).
 
 ## Table of Contents
 
@@ -15,21 +15,23 @@ The layers chart editor and the layer compiler behind it: what selects it, the p
 - [A layer that uses fewer dimensions than the query ("smart aggregation")](#a-layer-that-uses-fewer-dimensions-than-the-query-smart-aggregation)
 
 
+**Two words.** *Layers*, capitalized, is the feature: the layer compiler and the Setup / Style editor. *A layer*, lowercase, is one `series[]` entry, which the compiler emits as one Vega-Lite layer; a chart is a stack of those.
+
 Omni renders a cartesian config through one of two compilers, and the config decides which:
 
-| | Classic compiler | Layer compiler ("layers") |
+| | Classic compiler | Layer compiler ("Layers") |
 |---|---|---|
 | Selected by | `behaviors.useLayerCompiler` absent or `false` | `behaviors.useLayerCompiler: true` |
 | Editor shown in the workbook | **X-Axis / Left-Axis / Right-Axis / Color and legend** panel | **Setup / Style** tabs; each measure is a layer with its own **Mark**, **Color** and **Label** |
-| Who writes it | Any config saved before layers; an API-created tile sent without the flag | Every X/Y chart created in the UI since layers went on, the UI's upgrade actions, and every X/Y tile you create |
+| Who writes it | Any config saved before Layers; an API-created tile sent without the flag | Every X/Y chart created in the UI since Layers went on, the UI's upgrade actions, and every X/Y tile you create |
 
 Both compilers read the same envelope (`visConfig.chartType` / `fields` / `visConfig.visType: "basic"` / `config`), the same `configType: "cartesian"`, `_dependentAxis`, `x`, `y` / `y2`, `series[]` and `tooltip`. What differs is where the encodings live and how layers combine. Layers are documented at [docs.omni.co/visualize-present/visualizations/layers](https://docs.omni.co/visualize-present/visualizations/layers).
 
-**Send the flag on every new X/Y tile.** Layers are the compiler every X/Y chart in the UI uses; the classic compiler exists for configs saved before layers. The API adds nothing for you: a cartesian config sent through `v2-create` or a draft patch without `behaviors.useLayerCompiler: true` opens in the classic editor and renders through the classic compiler. Confirm which compiler a tile is on by reading it back and checking `behaviors.useLayerCompiler`; in the workbook, **Options** above the chart shows which editor opens.
+**Send the flag on every new X/Y tile.** Layers are the compiler every X/Y chart in the UI uses; the classic compiler exists for configs saved before Layers. The API adds nothing for you: a cartesian config sent through `v2-create` or a draft patch without `behaviors.useLayerCompiler: true` opens in the classic editor and renders through the classic compiler. Confirm which compiler a tile is on by reading it back and checking `behaviors.useLayerCompiler`; in the workbook, **Options** above the chart shows which editor opens.
 
 ## Choosing a shape
 
-**Layers for every new tile; upgrade a classic tile when you edit it.** Write the layer shape for every new X/Y chart. Every X/Y chart built in the UI is layer-compiled, so a layer tile opens in the same editor as its neighbors and has the layer features (a color field per layer, pinned colors in `colorFields`, `stackSort`, Measure names on an axis, legend slots). When you patch a tile that is still classic, move it to layers in the same patch (the flag, plus a fold for same-axis same-mark measures: [Moving a tile](#moving-a-tile-between-the-two-compilers-through-the-api)) unless the owner asked to keep it as it is. The classic recipes in [visConfig.md](visConfig.md) describe the shape those older tiles hold; they are not a starting point for a new one.
+**Layers for every new tile; upgrade a classic tile when you edit it.** Write the layer shape for every new X/Y chart. Every X/Y chart built in the UI is layer-compiled, so a layer tile opens in the same editor as its neighbors and has the layer features (a color field per layer, pinned colors in `colorFields`, `stackSort`, Measure names on an axis, legend slots). When you patch a tile that is still classic, move it to Layers in the same patch (the flag, plus a fold for same-axis same-mark measures: [Moving a tile](#moving-a-tile-between-the-two-compilers-through-the-api)) unless the owner asked to keep it as it is. The classic recipes in [visConfig.md](visConfig.md) describe the shape those older tiles hold; they are not a starting point for a new one.
 
 **Within a layer chart,** the question is how the measures and dimensions relate, and each answer is one shape:
 
@@ -49,7 +51,7 @@ Two combinations do not work and have no shape: one fold split across the two ax
 
 ## What the layer editor writes
 
-A chart built in the layers editor reads back in this shape (a bar colored by a dimension, stacked):
+A chart built in the Layers editor reads back in this shape (a bar colored by a dimension, stacked):
 
 ```json
 "config": {
@@ -90,7 +92,7 @@ Differences from the classic shape, each confirmed by building the chart in the 
 
 ## Measure values: several measures in one layer
 
-Layers do **not** stack across layers. Two bar layers on the same axis draw over each other (the taller one hides the shorter), and a root `color._stack: "stack"` does not change that. To stack or group several measures, put them in **one** layer through the Measure values fold, which is what the editor does when it draws measures together and what the upgrade actions do to a classic multi-measure chart:
+Vega-Lite layers do **not** stack across each other. Two bar layers (two `series[]` entries) on the same axis draw over each other (the taller one hides the shorter), and a root `color._stack: "stack"` does not change that. To stack or group several measures, put them in **one** Vega-Lite layer through the Measure values fold, which is what the editor does when it draws measures together and what the upgrade actions do to a classic multi-measure chart:
 
 ```json
 "config": {
@@ -157,7 +159,7 @@ Take any cartesian recipe in [visConfig.md](visConfig.md), add `"useLayerCompile
 }
 ```
 
-This tile opened in the layers editor and rendered as authored. Layer-compiled tiles render in deliveries too: a dashboard of layer charts downloaded as PNG (`omni dashboards download`) drew every tile as the workbook did. Read the tile back afterwards and confirm `behaviors.useLayerCompiler` is still `true` and the editor is the layers one; see the fallback below.
+This tile opened in the Layers editor and rendered as authored. Layer-compiled tiles render in deliveries too: a dashboard of layer charts downloaded as PNG (`omni dashboards download`) drew every tile as the workbook did. Read the tile back afterwards and confirm `behaviors.useLayerCompiler` is still `true` and the editor is the layers one; see the fallback below.
 
 ## Moving a tile between the two compilers through the API
 
@@ -165,12 +167,12 @@ Both directions are a draft patch of the tile's config, in place, keeping its ke
 
 **Classic to layers.** Add `behaviors.useLayerCompiler: true`. That alone is enough when every measure has its own mark or axis, and when the chart is colored by a dimension through the root `color` (a classic `columnStacked` config with the flag added rendered stacked by its dimension as before: the chart-wide color is applied to the layer). The one case the flag alone gets wrong is two or more measures of the same mark on one axis: they stacked under the classic compiler and now overlay. Fold them into a Measure values layer with `color._stack: "stack"` (the shape in [Measure values](#measure-values-several-measures-in-one-layer)); that is also what the UI's upgrade writes for such a chart. A chart whose query groups by a dimension it does not encode renders the same on both compilers (bars summed, lines zigzagging), so the flag alone changes nothing there, but only a layer can fix it: see [fewer dimensions than the query](#a-layer-that-uses-fewer-dimensions-than-the-query-smart-aggregation).
 
-**Layers to classic, only when the owner asks for the classic editor.** Removing the flag is not enough when the chart has a Measure values layer: a fold shape (`foldedFields` plus an `omni__field_value` series) with the flag absent or `false` renders **"No chart available"**, because the classic compiler does not read the synthetic fields. Unfold it yourself, which is what the UI writes when a chart leaves layers: one `series[]` entry per folded measure, each with the layer's `mark` and axis; the fold's `color` minus its `field` moved to the root `color` (so `_stack` and the legend title survive); the shared mark type on the root `mark`; `foldedFields` and `useLayerCompiler` removed. Per-layer encodings every layer shared (a color field, a size field, a mark type) move to the root; ones that differ stay on their series, where the classic compiler reads only the mark.
+**Layers to classic, only when the owner asks for the classic editor.** Removing the flag is not enough when the chart has a Measure values layer: a fold shape (`foldedFields` plus an `omni__field_value` series) with the flag absent or `false` renders **"No chart available"**, because the classic compiler does not read the synthetic fields. Unfold it yourself, which is what the UI writes when a chart leaves Layers: one `series[]` entry per folded measure, each with the layer's `mark` and axis; the fold's `color` minus its `field` moved to the root `color` (so `_stack` and the legend title survive); the shared mark type on the root `mark`; `foldedFields` and `useLayerCompiler` removed. Per-layer encodings every layer shared (a color field, a size field, a mark type) move to the root; ones that differ stay on their series, where the classic compiler reads only the mark.
 
 ```bash
 # the tile as it is, from v2-get or v2-get-draft, with only the config changed
 omni documents v2-patch-draft <identifier> --body @to-layers.json   # a body like:
-# { "summary": "move Revenue vs orders to the layers editor",
+# { "summary": "move Revenue vs orders to the Layers editor",
 #   "queryPresentations": { "data": { "3": { …the tile with behaviors.useLayerCompiler: true… } }, "order": [ …unchanged… ] } }
 ```
 
@@ -205,7 +207,7 @@ When a user asks in the editor's own terms, this is what to write. Every row was
 | **Measure values** section: drag a measure in or out, reorder | `foldedFields` membership and order (also the legend order and, on a Measure names axis or facet, the panel order) |
 | **Field properties…** on a layer's field (title, format) | `series[].title.value`; number formats stay on the field in the model or the query |
 | Trend line, moving average | `series[].regression`, `series[].movingAverage` |
-| **Auto-charting on / off** | `automaticVis: true` / `false` on the presentation; the layers editor turns it off once a layer is edited |
+| **Auto-charting on / off** | `automaticVis: true` / `false` on the presentation; the Layers editor turns it off once a layer is edited |
 | "Test the new chart editor…" / "Upgrade charts to the new chart editor…" / "Leave the new chart editor…" | The compiler moves in [Moving a tile between the two compilers through the API](#moving-a-tile-between-the-two-compilers-through-the-api): the first copies the tab, the other two change the tile in place |
 
 ## What a layer can carry
