@@ -10,45 +10,24 @@ Since 1.11.0 both plugins share one version, held in `versions.json` and stamped
 
 ### omni-analytics
 
-_Summary: `omni-ai-optimizer` checked claim by claim against Omni's code, the released CLI (1.5.0), docs.omni.co and a live model branch. `omni_llm` sections are now ignored, `all_values` is deprecated in favor of `sample_values`, the field pruning order changed, the topic context budget is configurable, and the workbook inspector no longer shows AI context. New: `ai_settings`, the validator's topic-size warning, skill sharing and invocation modes, and one reference for every kind of sample query. SKILL.md stays under 5k tokens (4,979)._
+_Summary: `omni-ai-optimizer` fact-checked against Omni's code, CLI 1.5.0 and docs.omni.co. SKILL.md stays under 5k tokens; examples move word for word into references._
 
 **Fixed**
-- **`omni-ai-optimizer` — *`omni_llm` is ignored*.** Sections always render their else branch, `{{ omni_llm.model }}` renders empty, and the validator warns.
-  - Dropped from the description; checklist step 11 now says to remove them.
-  - `omni_agent` sections still render but the docs deprecate them: don't add new ones.
-- **`omni-ai-optimizer` — *`all_values` is deprecated*.** Use `sample_values`; an existing `all_values` still reaches the agent as a complete value list.
-  - The field-description example, checklist step 7 and `categorical-values.md` now use `sample_values`.
-  - `omni-model-builder`'s dimension and measure tables mark `all_values` deprecated.
-- **`omni-ai-optimizer` — *Pruning order*.** `all_values` → `sql` → `links` → `enum_fill` → `sample_values` → `description` → `required_fields` → `group_label` → `label` → `aggregate_type` → `data_type` → `synonyms` → `format`.
-  - `format` is pruned last, not `synonyms`.
-  - Never pruned: also a custom calendar's timeframe names. A field's `name` is listed under its view.
-- **`omni-ai-optimizer` — *Templating scope*.** Attributes and constants also work in composite-topic and sample-query `ai_context`; dimension and measure `ai_context` substitutes neither.
-- **`omni-ai-optimizer` — *Checking delivered context*.** The workbook inspector has no AI section; the skill and eval 2 now point to `omni models validate` and its `topic_ai_context_too_large` warning.
-- **`omni-ai-optimizer` — *Caps*.** The topic field budget is 75,000 characters by default, not fixed; a topic fetches at most 2,000 fields, and views past that arrive without fields for the agent to search; topic-selection trimming also covers composite-topic text and the views section, with topic `ai_context` last.
-- **`omni-ai-optimizer` — *Where context applies*.** `ai_chat_topics` doesn't apply to the Workbook Agent, and a composite topic matches on its own name or tag. "Dashboard Agent summaries" is now Chat with Content.
-- **`omni-ai-optimizer` — *Sample queries*.** UI click path replaced with keys:
-  - a YAML sample query reaches the AI unless `exclude_from_ai_context: true`; `hidden` only hides it from the example list;
-  - a topic's sample query must use that topic's `topic` and `base_view`, or the validator errors;
-  - the example's key is now a Title Case name: the key is the name users and the agent see;
-  - the filter-syntax link pointed at the create-model API page.
-- **`omni-ai-optimizer` — *Agent skills*.** Non-admins also list skills shared with them; the agent may load a skill on its own when a request fits; its prompt shows the first 300 characters of a description.
-- **`omni-ai-optimizer` — *Smaller fixes*.** dbt `accepted_values` with a `where:` config becomes `sample_values`; model `ai_context` is model-wide, not instance-wide; the Model YAML API link redirected to the create-model page; eval 1 writes in `combined` mode, as `omni-model-builder` does.
+- **`omni-ai-optimizer` — *Templating*.** `omni_llm` sections are ignored and `omni_agent` is deprecated; attributes and constants also work in composite-topic and sample-query `ai_context`.
+- **`omni-ai-optimizer`, `omni-model-builder` — *`all_values`*.** Deprecated; use `sample_values`.
+- **`omni-ai-optimizer` — *Pruning*.** `format` is pruned last, after `synonyms`.
+- **`omni-ai-optimizer` — *Limits*.** 75K characters is a default you can change; a topic loads at most 2,000 fields.
+- **`omni-ai-optimizer` — *Checking context*.** The workbook inspector no longer shows it; use `omni models validate`.
+- **`omni-ai-optimizer` — *`ai_chat_topics`*.** Doesn't apply to the Workbook Agent.
+- **`omni-ai-optimizer` — *Sample queries*.** YAML keys instead of a UI path.
+- **`omni-ai-optimizer` — *Skills*.** `list` also returns skills shared with you.
+- **`omni-ai-optimizer` — *Links and evals*.** Two broken docs links; eval 1 writes in `combined` mode.
 
 **Added**
-- **`omni-ai-optimizer` — *`ai_settings`*.** New `references/ai-settings.md`: every key with its values and default; the three `*_configuration` keys are accepted but ignored.
-- **`omni-ai-optimizer` — *Topic context budget*.** `ai_prune_characters` (topic) and `ai_settings.topic_prune_characters` (model), 10,000–200,000; which topics the validator checks, and its autofix.
-- **`omni-ai-optimizer` — *Model `ai_context` on a branch*.** Omni stores a server-managed `ai_context_patch`; never write it.
-- **`omni-ai-optimizer` — *Context outside the model*.** Global and personal context reach the agent with no guaranteed precedence.
-- **`omni-ai-optimizer` — *`ai_fields`*.** View-scoped tags (`view:tag:x`); it narrows on top of `fields` and limits what the AI sees, not access.
-- **`omni-ai-optimizer` — *Skills and suggestions references*.**
-  - `omni skills invocation-mode-set` (CLI ≥ 1.5.0), roles per action, field limits, `--user-id`, and the deprecation of `skills:` in model YAML;
-  - suggestions: `--status`, admin and shared-model requirements, the daily schedule, what a suggestion may change, and no apply command.
-- **`omni-ai-optimizer` — *Sample queries reference*.** `references/sample-queries.md` covers topic, composite-topic and model sample queries:
-  - the `topic` and `base_view` each needs, when the agent sees it (only model ones while it picks a topic), and what the validator checks (only topic ones);
-  - every key: the map key is the name, `hidden` still reaches the agent, `ignored` removes an inherited one, `vis_config` is never sent;
-  - the query keys, relative dates, and inheritance through `extends` (inherited ones are re-pointed to the extending topic).
-- **`omni-model-builder` — *Sample-query pointers*.** The topic and composite-topic tables point to that reference; a composite's sample queries use the composite's name as `topic` and `base_view`.
-- **`omni-ai-optimizer` — *New references for size*.** Examples moved word for word to `ai-context-examples.md`, `synonyms.md` and `topic-extensions.md`, and the workbook-JSON mapping to `sample-queries.md`.
+- **`omni-ai-optimizer` — *AI settings*.** `references/ai-settings.md`.
+- **`omni-ai-optimizer` — *Sample queries*.** `references/sample-queries.md` covers topic, composite-topic and model sample queries; `omni-model-builder` points to it.
+- **`omni-ai-optimizer` — *Model `ai_context` on a branch*.** Never write `ai_context_patch`.
+- **`omni-ai-optimizer` — *Skills and suggestions*.** Invocation modes (CLI ≥ 1.5.0), roles and limits; what suggestions need.
 
 ## [1.24.2] - 2026-11-04
 
