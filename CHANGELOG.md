@@ -20,15 +20,17 @@ _Summary: `omni-ai-optimizer` fact-checked against Omni's code, CLI 1.5.0 and do
 - **`omni-ai-optimizer` — *Checking context*.** The workbook inspector no longer shows it; use `omni models validate`.
 - **`omni-ai-optimizer` — *`ai_chat_topics`*.** Doesn't apply to the Workbook Agent.
 - **`omni-ai-optimizer` — *Sample queries*.** YAML keys instead of a UI path.
-- **`omni-ai-optimizer` — *Skills*.** `list` also returns skills shared with you.
 - **`omni-ai-optimizer` — *Links and evals*.** Two broken docs links; eval 1 writes in `combined` mode.
 
 **Added**
 - **`omni-ai-optimizer` — *AI settings*.** `references/ai-settings.md`.
 - **`omni-ai-optimizer` — *Sample queries*.** `references/sample-queries.md` covers topic, composite-topic and model sample queries; `omni-model-builder` points to it.
 - **`omni-ai-optimizer` — *Model `ai_context` on a branch*.** Never write `ai_context_patch`.
-- **`omni-ai-optimizer` — *Skills and suggestions*.** How a skill runs and how to write one; roles and limits; what suggestions need.
+- **`omni-ai-optimizer` — *Suggestions*.** What generating suggestions needs, and what a suggestion may change.
 - **`omni-ai-optimizer` — *Measuring changes*.** The checklist and related skills point to `omni-ai-eval`.
+
+**Removed**
+- **`omni-ai-optimizer` — *Agent skills*.** The section and `references/agent-skills.md`.
 
 ## [1.24.2] - 2026-11-04
 
