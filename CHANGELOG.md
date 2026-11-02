@@ -18,7 +18,7 @@ _Summary: every X/Y chart made in the Omni UI now saves a layer-compiled config,
   - the Measure values fold (`foldedFields` + an `omni__field_value` series colored by `omni__field_name`) for measures that stack or group;
   - creating a layer chart through the API, and moving a tile either way (UI actions, or a draft patch);
   - the editor's labels mapped to keys, the keys the layer schema accepts, and twenty-seven shapes rendered as written;
-  - smart aggregation: a layer that omits a grouped dimension needs a `column_totals` subtotal on the last dimension it keeps.
+  - smart aggregation: a layer that omits a grouped dimension needs a `column_totals` subtotal on the last dimension it keeps; without it bars sum the rows and lines zigzag on both compilers, and the sum is wrong for a non-additive measure.
 - **`omni-content-builder` — *Choosing a shape*.** `layers.md` opens with a decision table (layer shape for a new X/Y chart; fold, second axis, separate layers or facets by what the chart should show); `design-defaults.md` maps each question to a chart and its config.
 - **`omni-content-builder` — *Evals*.** A two-axis layer chart with aligned zeros; moving a stacked two-measure tile to layers in place.
 
