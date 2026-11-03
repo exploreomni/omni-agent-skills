@@ -31,7 +31,7 @@ _Summary: `omni-ai-optimizer` fact-checked against Omni's code, CLI 1.5.0 and do
 - **`omni-ai-optimizer` — *Measuring changes*.** The checklist and related skills point to `omni-ai-eval`.
 - **`omni-ai-optimizer` — *Filter-only fields*.** `synonyms` work on them too.
 - **`omni-ai-optimizer` — *Where `ai_context` goes*.** A table by level.
-- **`omni-ai-optimizer` — *Choosing sample queries*.** Source them from the most-used dashboard tiles and confirm each question with the user.
+- **`omni-ai-optimizer` — *Choosing sample queries*.** Source them from the most-used dashboard tiles, confirm each question with the user, and stop adding when an eval batch no longer helps.
 
 **Removed**
 - **`omni-ai-optimizer` — *Agent skills*.** The section and `references/agent-skills.md`.

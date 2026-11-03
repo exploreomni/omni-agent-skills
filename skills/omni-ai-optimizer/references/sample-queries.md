@@ -6,6 +6,7 @@ The reference for every kind of sample query: on a topic, a composite topic, or 
 
 - [Where they live](#where-they-live)
 - [Choosing sample queries](#choosing-sample-queries)
+- [Cost, and how many to add](#cost-and-how-many-to-add)
 - [Keys](#keys)
 - [What the agent receives](#what-the-agent-receives)
 - [The query](#the-query)
@@ -37,6 +38,14 @@ The best sample queries reproduce the dashboard tiles people already rely on, ph
 3. **Confirm with the user.** Show each tile next to the proposed question, and have the user confirm or rewrite it. Write only confirmed questions.
 4. **Write the sample query.** The key and `prompt` are the confirmed question, `description` names the dashboard and tile it reproduces, and `query` is the tile's query ([mapped to YAML](#mapping-workbook-json-to-yaml)). Put it on the tile's topic, and also on the model when the agent picks the wrong topic for that question.
 5. **Decide what users see.** Leave a good starter question visible. Set `hidden: true` on an example meant only to teach the agent (an edge case, a date pattern, an odd phrasing). Set `exclude_from_ai_context: true` on a starter question the agent shouldn't copy.
+
+## Cost, and how many to add
+
+- **Size**: each sample query reaches the agent as one JSON line: its name, `prompt`, `description`, `ai_context` and the query. Across 52 dashboard tiles measured, each came to 430–670 characters, about 110–170 tokens; tiles with many filters or calculations cost more.
+- **Topic and composite-topic sample queries** go with their topic on every turn it's in play, with no cap and no pruning. They don't count against `ai_prune_characters`, so they never push field metadata out, but every one adds tokens and latency to each turn and brings conversation pruning sooner.
+- **Model sample queries** share the topic-selection summary's ~100K-character cap and are trimmed there when it's tight.
+- **Returns diminish.** A sample query earns its place by covering a distinct question the agent gets wrong or users ask often. Near-duplicates of a pattern it already handles add cost and can anchor it on one shape.
+- **Measure, don't guess**: on a branch, run `omni-ai-eval`, add sample queries in small batches, and stop when a batch no longer fixes failing prompts.
 
 ## Keys
 
