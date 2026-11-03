@@ -11,12 +11,12 @@ Complete reference for authoring the `calculations[]` array in an Omni query spe
 2. [The AST: `SerializedSqlExpr`](#2-the-ast-serializedsqlexpr) — node types (`call`, `field`, literals)
 3. [Operator namespaces](#3-operator-namespaces) — `Omni.*` and `SqlStdOperatorTable.*`
 4. [Canonical examples](#4-canonical-examples) — ratio, % of total, running total, chained, CASE, moving average, IFS/concat, pivot totals, DATEDIF, SUM_IF, VLOOKUP
-5. [Validation rules and gotchas](#5-validation-rules-and-gotchas) — `calc_name` in `fields`, `swallow_errors`, pivot/limit
+5. [Validation rules and gotchas](#5-validation-rules-and-gotchas) — `calc_name` in `fields`, query API vs model YAML forms, `swallow_errors`, pivot/limit
 6. [Authoring strategy](#6-authoring-strategy) — template → compose → harvest-from-agentic-job order
 
 ## Table Calculations
 
-Post-query computed columns (running totals, % of total, ratios, conditionals). Authored as AST objects in `calculations[]`. The query API requires the parsed AST — it does **not** accept the workbook-frontend `{name, formula}` shape.
+Post-query computed columns (running totals, % of total, ratios, conditionals). Authored as AST objects in `calculations[]`. The query API takes the parsed AST in `sql_expression`; it does **not** accept the workbook-frontend `{name, formula}` shape. Model YAML takes Omni function text in `sql:` instead ([§5 rule 9](#5-validation-rules-and-gotchas)).
 
 Minimum calc — one `calculations[]` entry (its `calc_name` must also be in `query.fields`):
 
@@ -52,19 +52,19 @@ At execution, calcs compile into an outer `SELECT` wrapping the base aggregation
 
 ## 1. Wire shape
 
-The query API accepts **one** shape per calculation: an object with `calc_name` + a parsed AST in `sql_expression`. The workbook-frontend `{name, formula}` style is NOT accepted by the query API — it exists only in YAML / UI input layers and is translated to the AST before the query runs.
+The query API takes an object with `calc_name` + a parsed AST in `sql_expression`. Sent without `sql_expression`, `original_formula` is parsed by the server instead (§5 rule 9). The workbook-frontend `{name, formula}` keys are NOT accepted.
 
 At execution time, the calc engine wraps the base aggregation query in an outer `SELECT` and emits each calc as a column there. Window-style operators (`OMNI_RUNNING_TOTAL`, `OMNI_OFFSET_MULTI`, `OMNI_PERCENT_OF_TOTAL`, etc.) compile to a SQL `... OVER (...)` clause in that outer layer, so the shared data model never needs window functions to support them.
 
 ```ts
 type OmniCalculation = {
   calc_name: string                          // required — identifier; becomes the column alias
-  sql_expression: SerializedSqlExpr          // required — the AST (see §2); the server does not parse original_formula in its place, despite what --schema says
+  sql_expression: SerializedSqlExpr          // required unless original_formula is sent alone — the AST (see §2)
   label?: string                             // UI display label
   format?: string                            // e.g. "currency_2", "#,##0.00", "0.0%"
   description?: string
-  original_formula?: string                  // optional Excel-style source (informational only)
-  sql?: string                               // compiled SQL — set by backend; do not author
+  original_formula?: string                  // Excel-style source; the server parses it only when sql_expression is omitted
+  sql?: string                               // compiled SQL — set by the server; do not author (§5 rule 8)
   outside_pivot?: boolean                    // evaluate outside pivot grouping
   swallow_errors?: boolean                   // true → calc errors become "#ERROR!" cells & the query still COMPLETEs; keep false while authoring/validating (see §5.11, §6.5)
   allow_refs_to_unselected_fields?: boolean  // permit refs to fields not in query.fields
@@ -72,7 +72,7 @@ type OmniCalculation = {
 }
 ```
 
-**Required pair every time:** `calc_name` + `sql_expression`. Everything else is optional.
+**Required pair every time:** `calc_name` + `sql_expression` (or `calc_name` + a lone `original_formula`; §5 rule 9). Everything else is optional.
 
 ### The non-obvious requirement that breaks tiles
 
@@ -688,8 +688,11 @@ status-by-revenue tables and avoids `userEditedSQL`.
 5. **Circular references** — calcs can reference other calcs by `field_name`, but cycles error out.
 6. **Cross-row operators are opaque to drill** — `OMNI_PERCENT_OF_TOTAL`, `OMNI_PERCENT_OF_PREVIOUS`, `OMNI_PERCENT_CHANGE_FROM_PREVIOUS`, `OMNI_RUNNING_TOTAL`, `OMNI_RANK`, `OMNI_OFFSET_*`, `OMNI_PIVOT_OFFSET`, `VLOOKUP`/`XLOOKUP`/`TLOOKUP` skip same-row reference extraction. Set `drill_disabled: true` if you want the drill menu suppressed.
 7. **`outside_pivot: true`** — evaluates the calc once per pivoted row across the column axis instead of once per pivot segment. Outside-pivot calcs almost always wrap an aggregator (`OMNI_FX_SUM`, `OMNI_FX_AVERAGE`, etc.) around `OMNI_PIVOT_OFFSET` to sweep across the column-index range — see §4.9. Default `false` (engine auto-partitions template operators by pivot column — see §4.8).
-8. **Don't author `sql:`** — the backend compiles it; it's read-only output.
-9. **YAML vs API asymmetry** — workbook YAML accepts the friendly form `calc_1: { sql: "=SUM(B$1:B1)", label: "..." }` and parses it to the AST on load. The query API and dashboard tile renderers require the AST in `sql_expression` — they do not run the formula→AST translator.
+8. **`sql` is output in the query API, input in model YAML** — in a query API calc the server compiles `sql`; don't author it. A calc that sends only `sql` (no `sql_expression` or `original_formula`) gets a 400. In model YAML, `sql:` is the calc's only formula key, and you write it (rule 9).
+9. **Which form each surface takes:**
+   - **Query API** (`omni query run`): the AST in `sql_expression`. Without `sql_expression`, the server parses `original_formula` instead: it must start with `=`, column letters follow the order of `query.fields` (A = the first; pivot fields move to the end), and a formula that doesn't parse gets a 400 naming the calc.
+   - **Model YAML** (sample queries, query views' `query:`, measure `drill_queries`, any other query in a model file): `calculations: <name>: { sql: …, label: … }`, where `sql:` is Omni function text with `${view.field}` references, the form Omni writes when it saves a workbook query to the model. For example `${orders.count} * 2`, `OMNI_FX_SAFE_DIVIDE(${orders.revenue}, ${orders.count})`, `OMNI_PERCENT_OF_TOTAL(${orders.revenue})`, `OMNI_RUNNING_TOTAL(${orders.revenue})`, `OMNI_FX_AVERAGE(OMNI_OFFSET(${orders.revenue}, -2, 0, 3, 1))`. Text names can differ from AST operators: that `OMNI_OFFSET(…)` loads as `Omni.OMNI_OFFSET_MULTI`.
+   - **A spreadsheet formula in YAML `sql:`** (`=B1/C1`, `=SUM(B$1:B1)`) is not parsed: the file saves, the read-back shows `!!ERROR!! Could not parse …`, and the query fails with `Could not parse SQL`. The validator flags it in a query view but not in a sample query or drill query, so run those once after writing them.
 10. **Pivoted queries reject `limit: null`** — when `pivots[]` is non-empty, pass an explicit numeric limit (e.g., `5000`). `null` returns `400 Bad Request: query.limit: Unlimited limit (null) cannot be used with pivoted queries`. Not calc-specific but bites every calc-on-pivot example.
 11. **`#ERROR!` cells are a *swallowed error*, not data.** With `swallow_errors: true`, a calc that fails to compile or evaluate stores the literal string `#ERROR!` in its column and the query still returns `COMPLETE` — trivially mistaken for real values, a blank calc, or an engine bug. To get the actual cause, **re-run with `swallow_errors: false` (or omit it)** so the query fails with the real message. The most common trigger is a missing referenced field: a calc with `allow_refs_to_unselected_fields: false` (the default — rule 4) requires *every* field it references to be present in `query.fields`, so a calc that reads e.g. `last_order_date` errors unless that field is selected. Corollary: **when you re-run a calc query you extracted from a document, dashboard tile, or `omni ai` job to verify it, run it _verbatim_** — reducing the field list can drop a field the calc references and manufacture an `#ERROR!`/failure that looks like the calc's fault but is your reduction's.
 
