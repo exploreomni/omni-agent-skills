@@ -45,7 +45,7 @@ The best sample queries reproduce the dashboard tiles people already rely on, ph
 - **Topic and composite-topic sample queries** go with their topic on every turn it's in play, with no cap and no pruning. They don't count against `ai_prune_characters`, so they never push field metadata out, but every one adds tokens and latency to each turn and brings conversation pruning sooner.
 - **Model sample queries** share the topic-selection summary's ~100K-character cap and are trimmed there when it's tight.
 - **Returns diminish.** A sample query earns its place by covering a distinct question the agent gets wrong or users ask often. Near-duplicates of a pattern it already handles add cost and can anchor it on one shape.
-- **Measure, don't guess**: on a branch, run `omni-ai-eval`, add sample queries in small batches, and stop when a batch no longer fixes failing prompts.
+- **Measure, don't guess**: on a branch, run `omni-ai-eval` with a prompt set that mixes each sample query's exact question with adjacent ones: the same shape with another metric, period, filter or grouping. Exact questions show the agent reproduces the example; adjacent ones show whether the example helps it answer similar questions. Add sample queries in small batches, and stop when a batch no longer improves the adjacent questions.
 
 ## Keys
 
