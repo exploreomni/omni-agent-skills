@@ -21,6 +21,7 @@ _Summary: `omni-ai-optimizer` fact-checked against Omni's code, CLI 1.5.0 and do
 - **`omni-ai-optimizer` — *`ai_chat_topics`*.** Doesn't apply to the Workbook Agent.
 - **`omni-ai-optimizer` — *Sample queries*.** YAML keys instead of a UI path.
 - **`omni-ai-optimizer` — *Links and evals*.** Two broken docs links; eval 1 writes in `combined` mode.
+- **`omni-ai-optimizer` — *`description`*.** It reaches the agent too, and is pruned early; `ai_context` never is.
 
 **Added**
 - **`omni-ai-optimizer` — *AI settings*.** `references/ai-settings.md`.
@@ -29,6 +30,8 @@ _Summary: `omni-ai-optimizer` fact-checked against Omni's code, CLI 1.5.0 and do
 - **`omni-ai-optimizer` — *Suggestions*.** What generating suggestions needs, and what a suggestion may change.
 - **`omni-ai-optimizer` — *Measuring changes*.** The checklist and related skills point to `omni-ai-eval`.
 - **`omni-ai-optimizer` — *Filter-only fields*.** `synonyms` work on them too.
+- **`omni-ai-optimizer` — *Where `ai_context` goes*.** A table by level.
+- **`omni-ai-optimizer` — *Choosing sample queries*.** Source them from the most-used dashboard tiles and confirm each question with the user.
 
 **Removed**
 - **`omni-ai-optimizer` — *Agent skills*.** The section and `references/agent-skills.md`.

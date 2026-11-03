@@ -5,6 +5,7 @@ The reference for every kind of sample query: on a topic, a composite topic, or 
 ## Contents
 
 - [Where they live](#where-they-live)
+- [Choosing sample queries](#choosing-sample-queries)
 - [Keys](#keys)
 - [What the agent receives](#what-the-agent-receives)
 - [The query](#the-query)
@@ -23,6 +24,19 @@ The reference for every kind of sample query: on a topic, a composite topic, or 
 - **Model sample queries are trimmed early.** When the topic-selection summary passes its ~100K-character cap, they go after view metadata and composite-topic text, before topic metadata ([context window](context-window.md#the-real-limits)).
 - **None of them count against a topic's field budget** (`ai_prune_characters`).
 - **Check what the validator doesn't.** For a composite or model sample query, run the query once (`omni-query`) before relying on it.
+
+## Choosing sample queries
+
+The best sample queries reproduce the dashboard tiles people already rely on, phrased as the business question each tile answers.
+
+1. **Find the tiles and questions that matter.**
+   - With usage analytics (an Organization Admin, with the **Usage analytics** setting on in AI Hub > Features), ask the Omni Agent, or call the MCP server's `queryUsageAnalytics` tool with `analytics_getData` and a plain-language prompt: the most-run dashboard tiles on the topic, the most-viewed dashboards, and the questions users asked the AI. Tile results carry the tile name, its topic and how often it ran.
+   - Without it, `omni documents list --sort-field visits --sort-direction desc` ranks documents by visits.
+   - `omni documents get-queries <dashboardId>` returns each tile's `name` and its query.
+2. **Draft the business question each tile answers.** A tile's title often isn't the question ("Query 1", "MTD Sales"), so read its fields, filters and sorts. Skip tiles with no question behind them, such as headers. From AI prompts, keep only data questions; drop follow-ups like "yes" and requests to change the model.
+3. **Confirm with the user.** Show each tile next to the proposed question, and have the user confirm or rewrite it. Write only confirmed questions.
+4. **Write the sample query.** The key and `prompt` are the confirmed question, `description` names the dashboard and tile it reproduces, and `query` is the tile's query ([mapped to YAML](#mapping-workbook-json-to-yaml)). Put it on the tile's topic, and also on the model when the agent picks the wrong topic for that question.
+5. **Decide what users see.** Leave a good starter question visible. Set `hidden: true` on an example meant only to teach the agent (an edge case, a date pattern, an odd phrasing). Set `exclude_from_ai_context: true` on a starter question the agent shouldn't copy.
 
 ## Keys
 

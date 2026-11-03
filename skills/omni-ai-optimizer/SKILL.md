@@ -83,6 +83,17 @@ omni models yaml-create <modelId> --body '{
 
 This body creates the topic file. To add `ai_context` to an existing topic, read it with `--mode combined`, add the key, and send the whole file back (see `omni-model-builder` → Step 1).
 
+### Where ai_context Goes
+
+| Level | Put here | Example |
+|---|---|---|
+| Model | Conventions for every topic, and which topic answers which kind of question | "Fiscal year starts in February. Use Order Transactions for revenue questions." |
+| Topic | Business terms mapped to fields, and guardrails | "revenue" → `order_items.total_revenue` |
+| View | Facts every field in the view shares: grain, units, time zone | "One row per order line. Amounts in USD." |
+| Field | One field's gotcha, or when to pick it over a sibling | "Excludes refunds; use for profitability." |
+
+Put each fact at the highest level it holds for, once.
+
 ### What Makes Good ai_context
 
 **Terminology mapping** — map business language to field names:
@@ -224,7 +235,7 @@ sample_queries:
 
 Every kind of sample query, its keys and validation: [references/sample-queries.md](references/sample-queries.md). Only topic sample queries are validated; run any other once before relying on it.
 
-Focus on questions users actually ask — if you don't know which those are, ask the user rather than guessing at plausible-sounding ones.
+Focus on questions users actually ask — if you don't know which those are, ask the user rather than guessing at plausible-sounding ones. Confirm each question's wording with the user before writing it. Finding candidates from the most-used dashboard tiles: [references/sample-queries.md](references/sample-queries.md#choosing-sample-queries).
 
 ## AI-Specific Topic Extensions
 
@@ -265,7 +276,7 @@ Map alternative names, abbreviations, and domain-specific terminology so Blobby 
 
 ## Avoiding Duplication
 
-`ai_context` and `description` serve different audiences. `description` is human-facing (shown in the field picker and docs). `ai_context` is an AI-only hint. Don't put the same text in both — `ai_context` should add guidance the description doesn't cover (disambiguation, gotchas, when to use one field over another).
+`ai_context` and `description` serve different audiences. `description` is shown to people (the field picker and docs) and also sent to the agent, which prunes it early when space runs short. `ai_context` is sent only to the agent and never pruned. Don't put the same text in both — `ai_context` should add guidance the description doesn't cover (disambiguation, gotchas, when to use one field over another).
 
 **Consolidate shared context at the view level.** If multiple fields in a view share the same `ai_context` (e.g., "all monetary values are in USD"), move it to the view-level `ai_context` instead of repeating it on each field. Field-level `ai_context` should be specific to that field.
 
