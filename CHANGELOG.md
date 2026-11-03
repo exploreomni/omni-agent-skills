@@ -32,6 +32,7 @@ _Summary: `omni-ai-optimizer` fact-checked against Omni's code, CLI 1.5.0 and do
 - **`omni-ai-optimizer` — *Filter-only fields*.** `synonyms` work on them too.
 - **`omni-ai-optimizer` — *Where `ai_context` goes*.** A table by level.
 - **`omni-ai-optimizer` — *Choosing sample queries*.** Source them from the most-used dashboard tiles, confirm each question with the user, and stop adding when evals on exact and adjacent questions stop improving.
+- **`omni-ai-optimizer` — *Sample-query calculations and composites*.** Write calculations in Omni's function form and explain them in `ai_context`; composite sample queries use `@` field addresses.
 
 **Removed**
 - **`omni-ai-optimizer` — *Agent skills*.** The section and `references/agent-skills.md`.

@@ -212,7 +212,7 @@ Check this first — if a topic isn't in `ai_chat_topics`, no amount of `ai_cont
 
 Teach Blobby by example. Especially effective for recurring questions and for date-filter patterns Blobby tends to get wrong.
 
-Build the query that returns the correct answer in a workbook, retrieve its structure, then add it to the topic. The key is the name users and the agent see (there is no `label:`), and a topic's sample query must use that topic's `topic` and `base_view`.
+Build the query that returns the correct answer in a workbook, retrieve its structure, then add it to the topic. The key is the name users and the agent see (there is no `label:`), and a topic's sample query must use that topic's `topic` and `base_view`. The agent sees a calculation's name and label, never its formula, so say what each one computes in the sample query's `ai_context`.
 
 ```yaml
 # order_transactions.topic (base_view: order_items)

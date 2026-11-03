@@ -5,6 +5,7 @@ The reference for every kind of sample query: on a topic, a composite topic, or 
 ## Contents
 
 - [Where they live](#where-they-live)
+- [Composite topic sample queries](#composite-topic-sample-queries)
 - [Choosing sample queries](#choosing-sample-queries)
 - [Cost, and how many to add](#cost-and-how-many-to-add)
 - [Keys](#keys)
@@ -18,13 +19,43 @@ The reference for every kind of sample query: on a topic, a composite topic, or 
 | Placement | `query.topic` and `query.base_view` | When the agent sees it | What the validator checks |
 |---|---|---|---|
 | Topic (`<topic>.topic`) | The topic's name and the topic's base view | With that topic's metadata: when the agent searches the topic, and in the context Omni injects when a chat starts on it | A mismatched `topic` or `base_view` is an error (`sample_query_wrong_topic`, with an autofix). Warnings for fields that don't exist (`sample_query_field_not_found`), can't be queried in the topic (`sample_query_field_not_in_topic`) or form an invalid query (`sample_query_invalid`), and for `ai_context` templates |
-| Composite topic (`<name>.composite_topic`) | The composite's name, for both | With the composite's metadata, the same way | Nothing: a wrong `topic` or a missing field saves without a warning |
+| Composite topic (`<name>.composite_topic`) | The composite's name, for both; fields use composite addresses ([below](#composite-topic-sample-queries)) | With the composite's metadata, the same way | Nothing: a wrong `topic` or a missing field saves without a warning |
 | Model (`model` file) | The topic it runs on | In the topic-selection summary of every topic, and appended to the context injected when a chat starts on one topic | Only the deprecated-`omni_llm` warning on its `ai_context`: a missing topic or field saves without a warning |
 
 - **Pick the placement by what the example teaches.** Topic and composite sample queries reach the agent only after it has chosen that topic. The model's are the only ones it sees while choosing, so an example meant to steer topic choice belongs on the model.
 - **Model sample queries are trimmed early.** When the topic-selection summary passes its ~100K-character cap, they go after view metadata and composite-topic text, before topic metadata ([context window](context-window.md#the-real-limits)).
 - **None of them count against a topic's field budget** (`ai_prune_characters`).
 - **Check what the validator doesn't.** For a composite or model sample query, run the query once (`omni-query`) before relying on it.
+- **Saving from a workbook** writes the sample query to that workbook's model layer. Other users get it only once the workbook's model changes are promoted.
+
+## Composite topic sample queries
+
+A composite's sample query differs from a topic's in two ways: `base_view` is the composite's name rather than a real view, and fields use composite addresses.
+
+```yaml
+# order_transactions.topic: a topic sample query
+sample_queries:
+  "Orders by Status":
+    query:
+      base_view: order_items            # the topic's base view
+      topic: order_transactions         # the topic's name
+      fields: [order_items.status, order_items.count]
+
+# sales_vs_returns.composite_topic: a composite sample query
+sample_queries:
+  "Sales and Returns by Month":
+    query:
+      base_view: sales_vs_returns       # the composite's name, not a view
+      topic: sales_vs_returns           # the composite's name
+      fields:
+        - "@_shared_dimensions_.reporting_date[month]"
+        - "@sales.order_items.total_sale_price"
+        - "@returns.order_items.count"
+```
+
+- **Addresses**: `@_shared_dimensions_.<name>`, `@_shared_views_.<view>.<field>`, and `@<member topic>.<view>.<field>` for a member topic's measure. Quote them: a plain YAML value can't start with `@`. Inside a calculation's `sql`, write `${@<member topic>.<view>.<field>}`.
+- **Plain `view.field` names** save without a warning, then fail when the query runs (the field is ambiguous across member topics).
+- Saving a composite query from a workbook writes this same shape.
 
 ## Choosing sample queries
 
@@ -64,7 +95,7 @@ sample_queries:
 |---|---|
 | *the map key* | The sample query's name, shown in the UI and sent to the agent. There is no `label:`. Use a Title Case name that reads like the question, quoted when it holds punctuation. |
 | `query` | The query. An entry without one saves, but the agent skips it. |
-| `description` | A human-readable summary, also sent to the agent. |
+| `description` | A human-readable summary, also sent to the agent. Optional in YAML; the workbook's save dialog requires one. |
 | `prompt` | How a user would ask for it. |
 | `ai_context` | What the example demonstrates. Takes `{{omni_attributes.<name>}}` and `@{constant_name}` ([templating](ai-context-templating.md)). An unknown constant is a warning on a topic sample query, and passes silently on a model one. |
 | `exclude_from_ai_context: true` | Keeps it away from the agent. |
@@ -96,6 +127,9 @@ query:
 - **Fields** are `view.field`, with a timeframe in brackets where one applies (`order_items.created_at[month]`).
 - **Filters** take the YAML filter syntax: [docs](https://docs.omni.co/modeling/filters), or `references/yaml-filter-syntax.md` in the `omni-model-builder` skill.
 - **Use relative dates** (`time_for_duration: [1 complete months ago, 1 months]`), here and in `ai_context`. A fixed date goes stale and teaches the agent the wrong default period.
+- **Calculations** are written `calculations: <name>: sql: …` with an optional `label`, and the name listed in `fields`. Use Omni's functions in this text form, the same operators `omni-query` recommends: `OMNI_FX_SAFE_DIVIDE(${a}, ${b})`, `OMNI_PERCENT_OF_TOTAL(${a})`, `OMNI_RUNNING_TOTAL(${a})`, `OMNI_PERCENT_CHANGE_FROM_PREVIOUS(${a})`, `OMNI_FX_AVERAGE(OMNI_OFFSET(${a}, -2, 0, 3, 1))`, `OMNI_FX_IFS(${a} > 1000000, 'High', ${a} > 100000, 'Mid', 1 = 1, 'Low')`. A spreadsheet formula (`=B1/C1`) saves without a warning and fails when the query runs, and the validator doesn't check calculations, so run the query once.
+- **The agent never sees a calculation's formula**, only its name and `label`; saving from a workbook drops the spreadsheet formula too. Say what each calculation computes in the sample query's `ai_context` (the tier cut-offs, what's divided by what). Without it, an agent asked a similar question has to guess.
+- **A calculation users keep asking for** belongs in the model as a measure, where the agent sees its definition.
 
 ## Inheritance
 
