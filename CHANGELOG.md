@@ -6,6 +6,17 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.24.2] - 2026-11-04
+
+### omni-analytics
+
+_Summary: `omni-query` now says which calculation form each surface takes. The query API takes the AST in `sql_expression`; model YAML takes Omni function text in `sql:`, not a spreadsheet formula._
+
+**Fixed**
+- **`omni-query` — *Calculations in model YAML*.** `sql:` takes function text such as `OMNI_FX_SAFE_DIVIDE(${a}, ${b})`; an `=` formula saves but fails at run time.
+- **`omni-query` — *`original_formula` on the query API*.** The server parses it when `sql_expression` is omitted; a calc that sends only `sql` gets a 400.
+- **`omni-query`, `omni-content-builder` — *Cross-references*.** References link to headings by name instead of section-sign numbers.
+
 ## [1.24.1] - 2026-11-02
 
 ### omni-analytics
