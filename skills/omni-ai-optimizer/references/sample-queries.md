@@ -23,7 +23,7 @@ The reference for every kind of sample query: on a topic, a composite topic, or 
 | Model (`model` file) | The topic it runs on | In the topic-selection summary of every topic, and appended to the context injected when a chat starts on one topic | Only the deprecated-`omni_llm` warning on its `ai_context`: a missing topic or field saves without a warning |
 
 - **Pick the placement by what the example teaches.** Topic and composite sample queries reach the agent only after it has chosen that topic. The model's are the only ones it sees while choosing, so an example meant to steer topic choice belongs on the model.
-- **Model sample queries are trimmed early.** When the topic-selection summary passes its ~100K-character cap, they go after view metadata and composite-topic text, before topic metadata ([context window](context-window.md#the-real-limits)).
+- **Model sample queries are trimmed early.** When the topic-selection summary passes its ~100K-character cap, they are trimmed after view metadata and composite-topic text and before topic metadata ([context window](context-window.md#limits)).
 - **None of them count against a topic's field budget** (`ai_prune_characters`).
 - **Check what the validator doesn't.** For a composite or model sample query, run the query once (`omni-query`) before relying on it.
 - **Saving from a workbook** writes the sample query to that workbook's model layer. Other users get it only once the workbook's model changes are promoted.
@@ -62,7 +62,7 @@ sample_queries:
 The best sample queries reproduce the dashboard tiles people already rely on, phrased as the business question each tile answers.
 
 1. **Find the tiles and questions that matter.**
-   - With usage analytics (an Organization Admin, with the **Usage analytics** setting on in AI Hub > Features), ask the Omni Agent, or call the MCP server's `queryUsageAnalytics` tool with `analytics_getData` and a plain-language prompt: the most-run dashboard tiles on the topic, the most-viewed dashboards, and the questions users asked the AI. Tile results carry the tile name, its topic and how often it ran.
+   - With usage analytics (needs an Organization Admin and the **Usage analytics** setting in AI Hub), ask the Omni Agent, or call the MCP server's `queryUsageAnalytics` tool with `analytics_getData` and a plain-language prompt: the most-run dashboard tiles on the topic, the most-viewed dashboards, and the questions users asked the AI. Tile results carry the tile name, its topic and how often it ran.
    - Without it, `omni documents list --sort-field visits --sort-direction desc` ranks documents by visits.
    - `omni documents get-queries <dashboardId>` returns each tile's `name` and its query.
 2. **Draft the business question each tile answers.** A tile's title often isn't the question ("Query 1", "MTD Sales"), so read its fields, filters and sorts. Skip tiles with no question behind them, such as headers. From AI prompts, keep only data questions; drop follow-ups like "yes" and requests to change the model.
@@ -72,11 +72,11 @@ The best sample queries reproduce the dashboard tiles people already rely on, ph
 
 ## Cost, and how many to add
 
-- **Size**: each sample query reaches the agent as one JSON line: its name, `prompt`, `description`, `ai_context` and the query. Across 52 dashboard tiles measured, each came to 430–670 characters, about 110–170 tokens; tiles with many filters or calculations cost more.
-- **Topic and composite-topic sample queries** go with their topic on every turn it's in play, with no cap and no pruning. They don't count against `ai_prune_characters`, so they never push field metadata out, but every one adds tokens and latency to each turn and brings conversation pruning sooner.
+- **Size**: each sample query reaches the agent as one JSON line: its name, `prompt`, `description`, `ai_context` and the query. A typical one is 430–670 characters (about 110–170 tokens); many filters or calculations make it longer.
+- **Topic and composite-topic sample queries** are sent with their topic on every turn that uses it, with no cap and no pruning. They don't count against `ai_prune_characters`, so they never push field metadata out, but each one adds tokens and latency to every turn and makes conversation pruning start sooner.
 - **Model sample queries** share the topic-selection summary's ~100K-character cap and are trimmed there when it's tight.
-- **Returns diminish.** A sample query earns its place by covering a distinct question the agent gets wrong or users ask often. Near-duplicates of a pattern it already handles add cost and can anchor it on one shape.
-- **Measure, don't guess**: on a branch, run `omni-ai-eval` with a prompt set that mixes each sample query's exact question with adjacent ones: the same shape with another metric, period, filter or grouping. Exact questions show the agent reproduces the example; adjacent ones show whether the example helps it answer similar questions. Add sample queries in small batches, and stop when a batch no longer improves the adjacent questions.
+- **Add only distinct examples.** Each sample query should cover a question the agent gets wrong or users ask often. Near-duplicates add cost and can make the agent copy one query shape where it shouldn't.
+- **Measure the effect**: on a branch, run `omni-ai-eval` with a prompt set that mixes each sample query's exact question with adjacent ones: the same shape with another metric, period, filter or grouping. Exact questions show the agent reproduces the example; adjacent ones show whether the example helps it answer similar questions. Add sample queries in small batches, and stop when a batch no longer improves the adjacent questions.
 
 ## Keys
 
@@ -93,7 +93,7 @@ sample_queries:
 
 | Key | Meaning |
 |---|---|
-| *the map key* | The sample query's name, shown in the UI and sent to the agent. There is no `label:`. Use a Title Case name that reads like the question, quoted when it holds punctuation. |
+| *the map key* | The sample query's name, shown in the UI and sent to the agent. Use a Title Case name that reads like the question, quoted when it holds punctuation. |
 | `query` | The query. An entry without one saves, but the agent skips it. |
 | `description` | A human-readable summary, also sent to the agent. Optional in YAML; the workbook's save dialog requires one. |
 | `prompt` | How a user would ask for it. |
@@ -105,7 +105,7 @@ sample_queries:
 
 ## What the agent receives
 
-Each sample query that has a `query` and isn't excluded goes to the agent as one JSON line: `name`, `prompt`, `description`, `context` (its `ai_context`) and the query. Model sample queries come with an instruction to treat them as a verified golden dataset and learn structure, intent and vocabulary from them. Write every sample query as a known-correct answer.
+Each sample query that has a `query` and isn't excluded goes to the agent as one JSON line: `name`, `prompt`, `description`, `context` (its `ai_context`) and the query. Omni tells the agent to treat model sample queries as verified examples and learn their structure, intent and vocabulary. Make every sample query a known-correct answer.
 
 ## The query
 
@@ -138,9 +138,9 @@ query:
 
 ## Mapping workbook JSON to YAML
 
-When exporting queries from Omni's workbook, you'll get JSON with `table`, `join_paths_from_topic_name`, and `sorts` using `column_name`/`sort_descending`. Map these to YAML as follows:
+A workbook query's JSON has `table`, `join_paths_from_topic_name`, and `sorts` with `column_name`/`sort_descending`. Map them to YAML:
 
 - `table` → `base_view`
 - `join_paths_from_topic_name` → `topic`
 - `column_name` → `field`, `sort_descending` → `desc`
-- Workbook JSON includes `filters`, `pivots`, `limit`, `column_limit` which you can include in YAML (filters take the YAML [filter syntax](https://docs.omni.co/modeling/filters), not the workbook JSON shape)
+- `filters`, `pivots`, `limit` and `column_limit` carry over; write filters in the YAML [filter syntax](https://docs.omni.co/modeling/filters)

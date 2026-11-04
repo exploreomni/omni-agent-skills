@@ -22,6 +22,7 @@ _Summary: `omni-ai-optimizer` fact-checked against Omni's code, CLI 1.5.0 and do
 - **`omni-ai-optimizer` — *Sample queries*.** YAML keys instead of a UI path.
 - **`omni-ai-optimizer` — *Links and evals*.** Two broken docs links; eval 1 writes in `combined` mode.
 - **`omni-ai-optimizer` — *`description`*.** It reaches the agent too, and is pruned early; `ai_context` never is.
+- **`omni-ai-optimizer` — *Wording*.** Plainer text throughout; no deprecated examples or UI paths.
 
 **Added**
 - **`omni-ai-optimizer` — *AI settings*.** `references/ai-settings.md`.

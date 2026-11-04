@@ -280,7 +280,7 @@ Use D3 time format strings: `"%Y-%m"`, `"%Y-%m-%d"`, `"%Y-%m-%d %H:%M:%S"`
 | `fields` | Field curation: `[order_items.*, users.name, -users.internal_id]` |
 | `ai_context` | Guides Blobby's field mapping and behavior |
 | `ai_fields` | Curates fields visible to AI (supports `*`, `-`, `tag:`) |
-| `sample_queries` | Example questions with correct queries for AI. Each key is the name shown in the UI (there is no `label:`), so use a quoted Title Case key such as `"Revenue by Region, Last Month":`. Use relative dates (`time_for_duration: [1 complete months ago, 1 months]`) here and in `ai_context`: fixed dates go stale and teach the AI the wrong default period. Full reference for topic, composite-topic and model sample queries: `references/sample-queries.md` in the `omni-ai-optimizer` skill |
+| `sample_queries` | Example questions with correct queries for AI. Each key is the name shown in the UI, so use a quoted Title Case key such as `"Revenue by Region, Last Month":`. Use relative dates (`time_for_duration: [1 complete months ago, 1 months]`) here and in `ai_context`: fixed dates go stale and teach the AI the wrong default period. Full reference for topic, composite-topic and model sample queries: `references/sample-queries.md` in the `omni-ai-optimizer` skill |
 | `default_filters` | User-visible, removable filters applied to all queries |
 | `always_where_sql` | Non-removable SQL filter on all rows |
 | `always_where_filters` | Non-removable filter using filter syntax |

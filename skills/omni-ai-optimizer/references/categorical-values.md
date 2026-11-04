@@ -14,6 +14,6 @@ dimensions:
     sample_values: [New York, Los Angeles, Chicago, Houston, Phoenix]
 ```
 
-`all_values` is deprecated. An existing `all_values` still loads and still reaches the agent as the field's complete value list, which can make it treat any other value as invalid. Don't add new ones, and don't set both on one field: when Omni writes the field back, it keeps only `sample_values`.
+`all_values` is deprecated. An existing one still reaches the agent as the field's complete value list, so the agent may treat any other value as invalid. To replace it, move its values to `sample_values`; when a field has both, Omni keeps only `sample_values` the next time it writes the field.
 
 Fields that already define their values don't need either: a grouped or binned dimension sends its group or bin names, and a filter `suggestion_list` of up to 25 values is sent as the field's values ([context window](context-window.md#pruning-order)).

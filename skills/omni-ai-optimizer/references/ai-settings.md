@@ -20,4 +20,4 @@ ai_settings:
 | [`allow_ctes`](https://docs.omni.co/modeling/models/parameters/ai-settings/allow-ctes) | `always`, `never`, `not_for_restricted_queriers` (always) | Whether AI-generated queries may use CTEs and derived tables. |
 | [`show_progress_narration`](https://docs.omni.co/modeling/models/parameters/ai-settings/show-progress-narration) | `enabled`, `disabled`, `default` (enabled) | How much of its working narration the agent shows. Display only. |
 
-`analyze_configuration`, `build_configuration` and `simple_summarize_configuration` are still accepted but ignored: the LLM and thinking level now come from the organization's LLM settings or the user's pick in chat. Leave them out of new YAML.
+`analyze_configuration`, `build_configuration` and `simple_summarize_configuration` are accepted but ignored: the organization's LLM settings, or the user's choice in chat, set the LLM and thinking level. Don't add them.

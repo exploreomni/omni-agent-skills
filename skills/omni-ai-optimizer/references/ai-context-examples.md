@@ -1,6 +1,6 @@
 # More ai_context Examples
 
-**Behavioral guidance** — direct common patterns:
+**Behavioral guidance.** Set defaults for common patterns:
 
 ```yaml
 ai_context: |
@@ -8,7 +8,7 @@ ai_context: |
   For "top N", sort descending and limit to 10.
 ```
 
-**Persona prompting** — set the analytical perspective:
+**Persona prompting.** Set the analytical perspective:
 
 ```yaml
 ai_context: |
