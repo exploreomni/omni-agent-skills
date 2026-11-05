@@ -17,7 +17,7 @@ _Summary: `omni-ai-optimizer` fact-checked against Omni's code, CLI 1.5.0 and do
 - **`omni-ai-optimizer`, `omni-model-builder` — *`all_values`*.** Deprecated; use `sample_values`.
 - **`omni-ai-optimizer` — *Pruning*.** `format` is pruned last, after `synonyms`; `description` reaches the agent but is pruned early, and `ai_context` never is.
 - **`omni-ai-optimizer` — *Limits*.** 75K characters is a default you can change; a topic loads at most 2,000 fields; check size with `omni models validate`, not the workbook inspector.
-- **`omni-ai-optimizer` — *`ai_chat_topics`*.** Doesn't apply to the Workbook Agent.
+- **`omni-ai-optimizer` — *`ai_chat_topics` and `ai_fields`*.** `ai_chat_topics` doesn't apply to the Workbook Agent; the agent can query a field `ai_fields` leaves out when a user names it.
 - **`omni-ai-optimizer` — *Sample queries*.** YAML keys instead of a UI path.
 - **`omni-ai-optimizer` — *Links and evals*.** Two broken docs links; eval 1 writes in `combined` mode.
 - **`omni-model-builder` — *Composite `@` addresses*.** `omni query run` also accepts shorter forms; saved queries still need `@`.
@@ -32,7 +32,7 @@ _Summary: `omni-ai-optimizer` fact-checked against Omni's code, CLI 1.5.0 and do
 - **`omni-ai-optimizer` — *Where `ai_context` goes*.** A table by level.
 
 **Removed**
-- **`omni-ai-optimizer` — *Agent skills*.** The section and `references/agent-skills.md`.
+- **`omni-ai-optimizer` — *Agent skills and AI-only topics*.** The agent skills section and `references/agent-skills.md`; the `extends` topic example, which adds nothing over `ai_fields` and `ai_context`.
 
 ## [1.24.2] - 2026-11-04
 

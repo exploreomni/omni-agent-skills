@@ -1,6 +1,6 @@
 ---
 name: omni-ai-optimizer
-description: Optimize an Omni Analytics model for Blobby, the Omni Agent — configure ai_context, ai_fields, synonyms, sample_queries, ai_settings, and AI-specific topic extensions. Use this skill whenever someone wants to improve AI accuracy in Omni, make Blobby smarter, add AI context or example questions, curate which fields the AI sees, personalize AI context by user attribute, diagnose context-window pruning or truncation, raise a topic's AI context budget, control which topics AI can reach, troubleshoot why Blobby gives wrong answers, or any variant of "make the AI better", "Blobby isn't answering correctly", "optimize for AI", or "teach the AI about our data".
+description: Optimize an Omni Analytics model for Blobby, the Omni Agent — configure ai_context, ai_fields, synonyms, sample_queries, and ai_settings. Use this skill whenever someone wants to improve AI accuracy in Omni, make Blobby smarter, add AI context or example questions, curate which fields the AI sees, personalize AI context by user attribute, diagnose context-window pruning or truncation, raise a topic's AI context budget, control which topics AI can reach, troubleshoot why Blobby gives wrong answers, or any variant of "make the AI better", "Blobby isn't answering correctly", "optimize for AI", or "teach the AI about our data".
 ---
 
 # Omni AI Optimizer
@@ -188,7 +188,7 @@ ai_fields:
   - products.category
 ```
 
-Same operators as topic `fields`: wildcard (`*`), negation (`-`), tags (`tag:`), and tags within one view (`order_items:tag:use_for_ai`). `ai_fields` applies after `fields` and changes only what the AI sees; users can still query every field in `fields`.
+Same operators as topic `fields`: wildcard (`*`), negation (`-`), tags (`tag:`), and tags within one view (`order_items:tag:use_for_ai`). `ai_fields` applies after `fields` and changes only what the AI reads: users can still query every field in `fields`, and so can the agent when a user names one.
 
 Tags are the easiest to maintain: tag the fields users ask about, then select the tag:
 
@@ -236,12 +236,6 @@ sample_queries:
 Every kind of sample query, what each one teaches and where users see it, its keys and validation: [references/sample-queries.md](references/sample-queries.md). Only topic sample queries are validated; run any other once before relying on it.
 
 Use questions users really ask. If you don't know them, ask the user instead of guessing, and confirm each question's wording before writing it. To find candidates in the most-used dashboard tiles: [references/sample-queries.md](references/sample-queries.md#choosing-sample-queries).
-
-## AI-Specific Topic Extensions
-
-Create a curated topic variant for Blobby using `extends: [order_items]` in a new topic file. Example: [references/topic-extensions.md](references/topic-extensions.md).
-
-The extended topic inherits the base topic's joins and filters, so add only what differs: a narrower field set, extra `ai_context`, or `sample_queries` (same shape as above).
 
 ## Improving Field Descriptions
 
@@ -307,9 +301,8 @@ Prioritize high-impact changes. Improve wording without changing semantics.
 7. Add `sample_values` for categorical fields
 8. Add `sample_queries` for top 3-5 questions
 9. Remove duplication between `ai_context` and `description`; consolidate shared context at view level, and shared blocks into `constants`
-10. Consider `extends` for AI-specific topic variants
-11. Remove `omni_llm` sections (ignored, so their tier-only text never reaches the AI) and don't add `omni_agent` ones (deprecated)
-12. Measure before and after on the branch with `omni-ai-eval`, then refine
+10. Remove `omni_llm` sections (ignored, so their tier-only text never reaches the AI) and don't add `omni_agent` ones (deprecated)
+11. Measure before and after on the branch with `omni-ai-eval`, then refine
 
 > **Troubleshooting order** when Blobby answers wrong: confirm the topic is reachable (`ai_chat_topics`) → confirm the field is in context (check it isn't excluded by `ai_fields`/`hidden`, and that `omni models validate` doesn't flag the topic as over budget) → then add or sharpen `ai_context`. Context on a field the AI never receives has no effect.
 
