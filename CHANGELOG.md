@@ -10,31 +10,26 @@ Since 1.11.0 both plugins share one version, held in `versions.json` and stamped
 
 ### omni-analytics
 
-_Summary: `omni-ai-optimizer` fact-checked against Omni's code, CLI 1.5.0 and docs.omni.co. SKILL.md stays under 5k tokens; examples move word for word into references._
+_Summary: `omni-ai-optimizer` fact-checked against Omni's code, CLI 1.5.0 and docs.omni.co, with plainer wording. SKILL.md stays under 5k tokens; examples move word for word into references._
 
 **Fixed**
 - **`omni-ai-optimizer` — *Templating*.** `omni_llm` sections are ignored and `omni_agent` is deprecated; attributes and constants also work in composite-topic and sample-query `ai_context`.
 - **`omni-ai-optimizer`, `omni-model-builder` — *`all_values`*.** Deprecated; use `sample_values`.
-- **`omni-ai-optimizer` — *Pruning*.** `format` is pruned last, after `synonyms`.
-- **`omni-ai-optimizer` — *Limits*.** 75K characters is a default you can change; a topic loads at most 2,000 fields.
-- **`omni-ai-optimizer` — *Checking context*.** The workbook inspector no longer shows it; use `omni models validate`.
+- **`omni-ai-optimizer` — *Pruning*.** `format` is pruned last, after `synonyms`; `description` reaches the agent but is pruned early, and `ai_context` never is.
+- **`omni-ai-optimizer` — *Limits*.** 75K characters is a default you can change; a topic loads at most 2,000 fields; check size with `omni models validate`, not the workbook inspector.
 - **`omni-ai-optimizer` — *`ai_chat_topics`*.** Doesn't apply to the Workbook Agent.
 - **`omni-ai-optimizer` — *Sample queries*.** YAML keys instead of a UI path.
 - **`omni-ai-optimizer` — *Links and evals*.** Two broken docs links; eval 1 writes in `combined` mode.
-- **`omni-ai-optimizer` — *`description`*.** It reaches the agent too, and is pruned early; `ai_context` never is.
-- **`omni-ai-optimizer` — *Wording*.** Plainer text throughout; no deprecated examples or UI paths.
 - **`omni-model-builder` — *Composite `@` addresses*.** `omni query run` also accepts shorter forms; saved queries still need `@`.
 
 **Added**
 - **`omni-ai-optimizer` — *AI settings*.** `references/ai-settings.md`.
-- **`omni-ai-optimizer` — *Sample queries*.** `references/sample-queries.md` covers topic, composite-topic and model sample queries; `omni-model-builder` points to it.
-- **`omni-ai-optimizer` — *Model `ai_context` on a branch*.** Never write `ai_context_patch`.
+- **`omni-ai-optimizer` — *Sample queries*.** `references/sample-queries.md` covers topic, composite-topic and model sample queries: where each goes, choosing them from the most-used dashboard tiles, cost, calculations and composite `@` addresses. `omni-model-builder` points to it.
+- **`omni-ai-optimizer` — *Model `ai_context` on a branch*.** Omni manages `ai_context_patch`; edit `ai_context` only.
 - **`omni-ai-optimizer` — *Suggestions*.** What generating suggestions needs, and what a suggestion may change.
 - **`omni-ai-optimizer` — *Measuring changes*.** The checklist and related skills point to `omni-ai-eval`.
 - **`omni-ai-optimizer` — *Filter-only fields*.** `synonyms` work on them too.
 - **`omni-ai-optimizer` — *Where `ai_context` goes*.** A table by level.
-- **`omni-ai-optimizer` — *Choosing sample queries*.** Source them from the most-used dashboard tiles, confirm each question with the user, and stop adding when evals on exact and adjacent questions stop improving.
-- **`omni-ai-optimizer` — *Sample-query calculations and composites*.** Write calculations in Omni's function form and explain them in `ai_context`; composite sample queries use `@` field addresses.
 
 **Removed**
 - **`omni-ai-optimizer` — *Agent skills*.** The section and `references/agent-skills.md`.
