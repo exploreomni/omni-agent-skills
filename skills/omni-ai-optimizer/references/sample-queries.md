@@ -54,7 +54,7 @@ sample_queries:
 ```
 
 - **Addresses**: `@_shared_dimensions_.<name>`, `@_shared_views_.<view>.<field>`, and `@<member topic>.<view>.<field>` for a member topic's measure. Quote them: a plain YAML value can't start with `@`. Inside a calculation's `sql`, write `${@<member topic>.<view>.<field>}`.
-- **Plain `view.field` names** save without a warning, then fail when the query runs (the field is ambiguous across member topics).
+- **Write the `@` on every field.** Without it, a member-topic field is refused when you save, and any other field saves but fails when the sample query runs in a workbook, even when only one member topic has it. `omni query run` accepts the shorter forms; saved sample queries don't.
 - Saving a composite query from a workbook writes this same shape.
 
 ## Choosing sample queries

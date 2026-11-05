@@ -61,7 +61,7 @@ shared_dimensions:
 | `unrelated_dimension_handling` | What a member topic's own dimensions (neither shared dimensions nor on a shared view) can do in a query: `filter_only` (default), `null_fill`, or `repeat`. Below. |
 | `always_join_all_topics` | By default only topics with selected fields are included in the join; `true` includes every member. |
 | `fields`, `ai_context`, `required_access_grants` | As on a regular topic. |
-| `sample_queries` | As on a regular topic, with `topic` and `base_view` both set to the composite's name. The validator doesn't check them. Full reference: `references/sample-queries.md` in the `omni-ai-optimizer` skill. |
+| `sample_queries` | As on a regular topic, with `topic` and `base_view` both set to the composite's name and every field in its `@` form. The validator doesn't check them. Full reference: `references/sample-queries.md` in the `omni-ai-optimizer` skill. |
 
 Constraints:
 
@@ -140,7 +140,7 @@ The request names the composite in `join_paths_from_topic_name` and carries no `
 | `@<topic>.<view>.<field>` | A measure of one member topic, or a filter on one member topic. |
 | `@_shared_measures_.<name>` | A shared measure. |
 
-The `@` is required in query field specs and filter keys (a spec without it is rejected as an invalid field specification); it is optional only in model SQL, where `${<topic>.<view>.<field>}` and `${@<topic>.<view>.<field>}` both resolve.
+Write the `@` form in queries. `omni query run` also accepts `<topic>.<view>.<field>`, a bare shared dimension name and an unambiguous `view.field`, and rewrites them to `@` addresses. Saved queries don't: sample queries and aggregate-table (`materialized_query`) fields need the `@` form. In model SQL, `${<topic>.<view>.<field>}` and `${@<topic>.<view>.<field>}` both resolve.
 
 ```json
 {

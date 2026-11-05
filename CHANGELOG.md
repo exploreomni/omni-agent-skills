@@ -23,6 +23,7 @@ _Summary: `omni-ai-optimizer` fact-checked against Omni's code, CLI 1.5.0 and do
 - **`omni-ai-optimizer` — *Links and evals*.** Two broken docs links; eval 1 writes in `combined` mode.
 - **`omni-ai-optimizer` — *`description`*.** It reaches the agent too, and is pruned early; `ai_context` never is.
 - **`omni-ai-optimizer` — *Wording*.** Plainer text throughout; no deprecated examples or UI paths.
+- **`omni-model-builder` — *Composite `@` addresses*.** `omni query run` also accepts shorter forms; saved queries still need `@`.
 
 **Added**
 - **`omni-ai-optimizer` — *AI settings*.** `references/ai-settings.md`.
