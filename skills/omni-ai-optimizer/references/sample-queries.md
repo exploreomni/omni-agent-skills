@@ -22,8 +22,10 @@ The reference for every kind of sample query: on a topic, a composite topic, or 
 | Composite topic (`<name>.composite_topic`) | The composite's name, for both; fields use composite addresses ([below](#composite-topic-sample-queries)) | With the composite's metadata, the same way | Nothing: a wrong `topic` or a missing field saves without a warning |
 | Model (`model` file) | The topic it runs on | In the topic-selection summary of every topic, and appended to the context injected when a chat starts on one topic | Only the deprecated-`omni_llm` warning on its `ai_context`: a missing topic or field saves without a warning |
 
-- **Pick the placement by what the example teaches.** Topic and composite sample queries reach the agent only after it has chosen that topic. The model's are the only ones it sees while choosing, so an example meant to steer topic choice belongs on the model.
-- **Model sample queries are trimmed early.** When the topic-selection summary passes its ~100K-character cap, they are trimmed after view metadata and composite-topic text and before topic metadata ([context window](context-window.md#limits)).
+- **Topic and composite sample queries teach how to query the topic.** The agent gets them only after it has chosen that topic, so they show which fields, filters, calculations and date patterns to use there. They are never trimmed.
+- **Model sample queries steer topic choice.** They are the only sample queries the agent sees while choosing a topic. They are also added when a chat starts on one topic, so they show query shape too. They share the topic-selection summary's ~100K-character cap and are trimmed early when it's tight: after view metadata and composite-topic text, before topic metadata ([context window](context-window.md#limits)).
+- **Put the full example on the topic.** Add a model copy only for a question where the agent picks the wrong topic.
+- **Where users see them.** An empty workbook tab shows the sample queries of its topic or composite topic as starter cards, and the model's when no topic is chosen. The AI chat offers up to five as starter prompts: the chosen topic's, or the model's when there is no topic or it has none.
 - **None of them count against a topic's field budget** (`ai_prune_characters`).
 - **Check what the validator doesn't.** For a composite or model sample query, run the query once (`omni-query`) before relying on it.
 - **Saving from a workbook** writes the sample query to that workbook's model layer. Other users get it only once the workbook's model changes are promoted.
@@ -96,10 +98,10 @@ sample_queries:
 | *the map key* | The sample query's name, shown in the UI and sent to the agent. Use a Title Case name that reads like the question, quoted when it holds punctuation. |
 | `query` | The query. An entry without one saves, but the agent skips it. |
 | `description` | A human-readable summary, also sent to the agent. Optional in YAML; the workbook's save dialog requires one. |
-| `prompt` | How a user would ask for it. |
+| `prompt` | How a user would ask for it. The AI chat's starter prompts show it; a sample query without one isn't offered there. |
 | `ai_context` | What the example demonstrates. Takes `{{omni_attributes.<name>}}` and `@{constant_name}` ([templating](ai-context-templating.md)). An unknown constant is a warning on a topic sample query, and passes silently on a model one. |
-| `exclude_from_ai_context: true` | Keeps it away from the agent. |
-| `hidden: true` | Drops it from the example list shown to users. It still reaches the agent. |
+| `exclude_from_ai_context: true` | Keeps it away from the agent and out of the AI chat's starter prompts. It still shows on the empty workbook tab. |
+| `hidden: true` | Drops it from the starter cards and prompts shown to users. It still reaches the agent. |
 | `ignored: true` | Removes a sample query of the same name inherited from a parent topic or model layer. |
 | `vis_config` | The chart a workbook copies along with the query. Never sent to the agent. |
 
