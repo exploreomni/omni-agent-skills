@@ -32,7 +32,7 @@ _Summary: `omni-ai-optimizer` fact-checked against Omni's code, CLI 1.5.0 and do
 - **`omni-ai-optimizer` — *Where `ai_context` goes*.** A table by level.
 
 **Removed**
-- **`omni-ai-optimizer` — *Agent skills and AI-only topics*.** The agent skills section and `references/agent-skills.md`; the `extends` topic example, which adds nothing over `ai_fields` and `ai_context`.
+- **`omni-ai-optimizer` — *Agent skills and AI-only topics*.** The agent skills section and `references/agent-skills.md`; the `extends` topic example, since `ai_fields` and `ai_context` on the topic cover what it showed.
 
 ## [1.24.2] - 2026-11-04
 
