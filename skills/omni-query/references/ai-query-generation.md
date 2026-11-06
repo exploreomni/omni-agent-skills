@@ -80,6 +80,10 @@ Additional job commands:
 - `omni ai job-visualization <jobId>` — get the visualization output
 - `omni ai job-feedback-submit <jobId> --body '{"rating":"good"}'` — record a thumbs up/down on a finished job (CLI ≥ 1.2.2). `rating` is **required** (`good` / `bad`); `comment` is optional free text. Only once the poll reports `COMPLETE`/`FAILED` — any other state is a 409. Append-only and never read back, so submit once per job. With an org-scoped key, pass `--user-id` to attribute the feedback to the user the job was submitted with.
 
+### Data-only job profile (CLI ≥ 1.6.0)
+
+Submit with `"executionProfile": "data"` when you want a single data answer without dashboards, reports, or model edits — the job runs with a query-only toolset, and the completed `job-result` carries a `dataResult` object that summarises the final query without row data: `outcome` is `query` (final query executed) or `no_query` (none produced, see `reason`: `no_query_generated`, `final_query_failed`, or `context_limit`). When `outcome` is `query`, `dataResult.query` is the final executed query in `omni query run`'s body shape so you can re-run it for rows, with `topic` or `baseView` naming where it ran and `resultId` pointing at the `generate_query` action in `actions[]`. The profile applies to this job only, so it can continue any conversation; on a new conversation, the conversation is also hidden from conversation listings. When the organization's AI credit downgrade applied, `dataResult.downgradedLlm` names the LLM the job ran on.
+
 ## When to Use Which Approach
 
 | Approach | Best For |

@@ -156,6 +156,14 @@ Use it for instance-wide conventions (currency, fiscal calendar, tone, privacy r
 
 There is also a model-level [`sample_queries`](https://docs.omni.co/modeling/models/sample-queries) parameter for example queries that span the model's topics.
 
+## Context Files (experimental, CLI ≥ 1.6.0)
+
+Context files are markdown the AI reads as standing guidance, separate from the model. `omni context-files list|read|create|update` manages them; consult `--schema` for bodies, and the commands' `--help` warns the resource is still gaining fields and may change without a version bump. Scope `organization` is files at the Hub root the caller can view through ordinary permits (not all-access), the organization context every member's AI reads; scope `personal` is files at the caller's own space that only the caller's AI reads. Caps the schema enforces: 20,000 characters per file, blank or whitespace-only bodies are refused, and a duplicate name in a scope is a 409 whose message gives the existing file's `id`. Creating an organization file requires org admin.
+
+Reach for a context file when the guidance belongs **outside a model** — it crosses topics or models, applies to one user only, or isn't about one field or topic. Keep field- and topic-scoped mappings in `ai_context` on the model, where they travel with the topic and shape topic selection.
+
+`update` replaces the whole body, so always `read` the file first and send it back with your edit.
+
 ## Advanced ai_context Templating
 
 Model, topic, and view `ai_context` can insert the current user's attribute values (`{{omni_attributes.<attribute_name>}}`), scope a passage to an AI model tier (`omni_llm`) or to the agent reading it (`omni_agent`), and reuse text defined once in `constants` (`@{constant_name}`). Dimension and measure `ai_context` does not substitute attribute values; the placeholder text is used as written. Syntax and examples: [references/ai-context-templating.md](references/ai-context-templating.md).

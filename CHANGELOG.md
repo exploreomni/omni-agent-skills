@@ -6,6 +6,20 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.25.0] - 2026-11-06
+
+### omni-analytics
+
+_Summary: sync with Omni CLI v1.6.0. Documents new surfaces — context files, org-wide branches, the data-only AI execution profile — and corrects the `swallow_errors` default in `omni-query`._
+
+**Fixed**
+- **`omni-query` — *`swallow_errors` default*.** The field defaults to `true` on write, matching UI-authored calcs; the SKILL and `references/table-calculations.md` previously called `false` the default. Agents that omit it get `#ERROR!` cells on a `COMPLETE` query instead of a loud failure, so guidance now says to set `false` explicitly while authoring and validating.
+
+**Added**
+- **`omni-ai-optimizer` — *Context files* (experimental, CLI ≥ 1.6.0).** New section in SKILL.md on `omni context-files list|read|create|update`: the `organization` and `personal` scopes and who may create each, the 20,000-character and non-blank-body caps, the 409-on-duplicate-name behavior, and when to reach for a context file instead of topic `ai_context`. `update` replaces the whole body, so read first.
+- **`omni-query` — *Data-only AI execution profile* (CLI ≥ 1.6.0).** New subsection in `references/ai-query-generation.md` covering `"executionProfile": "data"` on `omni ai job-submit`: the query-only toolset, the `dataResult` object on the completed `job-result` (`outcome`, `reason`, `query`, `topic`/`baseView`, `resultId`, `downgradedLlm`), and the per-job conversation-listing hiding.
+- **`omni-model-explorer` — *Org-wide branches* (CLI ≥ 1.6.0).** Brief note alongside the existing model-branch guidance: `omni branches list|get|update` works at the org-wide branch (`orgBranchId`), not the per-model `branchId`; `get` returns the branch with its parts (changed models and drafts, with per-part `allowed`); `update` only toggles `openToViewers` and resets whenever a model is added.
+
 ## [1.24.2] - 2026-11-04
 
 ### omni-analytics
