@@ -85,7 +85,7 @@
     },
     {
       "id": "7",
-      "question": "Analysts want returns and sales side by side by month and by user country. Build it so one query can show sales revenue and returned revenue per month per country.",
+      "question": "Analysts want returns and sales side by side by month and by user country, with returns counted in the month they were returned. Build it so one query can show sales revenue and returned revenue per month per country.",
       "ground_truth": "On a branch, two regular topics on order_items exist (sales and returns, the returns topic restricted to returned rows) both joining users. A .composite_topic file lists both topics, declares users as a shared view, and defines a shared dimension mapping to each topic's date field. Validation is clean. A test query on the composite selects the shared dimension at month grain, @_shared_views_.users.country, and one measure per member topic addressed as @<topic>.order_items.<measure>, sends no table, and returns rows.",
       "expected_behavior": [
         "The agent creates a branch before writing any YAML",
@@ -226,7 +226,7 @@
       "expected_behavior": [
         "The agent works on a branch and declares the table with a day timeframe mapping",
         "The agent flags the > midnight comparison in always_where_sql as returning wrong months from the table",
-        "The agent rewrites the boundary as >= or < after confirming which boundary was meant",
+        "The agent flags the > boundary and asks which boundary was meant, or proposes >= and asks, before rewriting it",
         "The agent confirms the rewrite with a planOnly SkipCache query and compares the result with the fact table",
         "The agent does not merge without explicit confirmation"
       ],

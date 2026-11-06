@@ -104,6 +104,7 @@ If you add or modify query-related skill behavior, add or update BenchFlow `case
 
 ```text
 skills/<skill-name>/evals/evals.json
+skills/omni-integrations/skills/<skill-name>/evals/evals.json   # integration skills
 ```
 
 Use the shared eval instance setup in `evals/SETUP.md` when a case depends on mutable Omni fixtures.

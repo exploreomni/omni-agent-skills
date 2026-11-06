@@ -137,7 +137,7 @@
     },
     {
       "id": "12",
-      "question": "Show each order's created date, shipped date, and the number of days between them.",
+      "question": "Show each order's created date, shipped date, and the number of days between them as a table calculation.",
       "ground_truth": "A table where each row has a date diff column populated with integer day counts, not blanks.",
       "expected_behavior": [
         "The calc uses Omni.OMNI_FX_DATEDIF with operands in the order (unit_literal, start_date, end_date) \u2014 NOT the Excel formula order (start, end, unit)",
@@ -162,11 +162,11 @@
     {
       "id": "14",
       "question": "Show order status, total revenue, and a VLOOKUP column that retrieves the Complete-status revenue on every row.",
-      "ground_truth": "A status-by-revenue table where the lookup column shows the Complete-status revenue value on every row. If static-string OMNI_FX_VLOOKUP fails because Omni treats the string as a referenced query id, the agent should report that concrete limitation and use OMNI_FX_SUM_IF as the validated in-result equivalent rather than falling back to raw SQL.",
+      "ground_truth": "A status-by-revenue table where the lookup column shows the Complete-status revenue value on every row. OMNI_FX_VLOOKUP looks up each row's value, so a constant key is not a lookup value: placed in the first operand it is read as another query's id and fails ('No referenced query with id Complete found in query'). The agent reports that and uses OMNI_FX_SUM_IF as the validated in-result equivalent rather than falling back to raw SQL.",
       "expected_behavior": [
         "The agent attempts or explains the Omni table-calc approach rather than using userEditedSQL or raw SQL",
-        "If using OMNI_FX_VLOOKUP, the calc uses FOUR operands (not three): lookup_value, key_field, range_OFFSET_MULTI, column_number",
-        "If static-string VLOOKUP fails with an error like 'No referenced query with id Complete found in query', the agent reports that concrete limitation and stops retrying VLOOKUP variants",
+        "If using OMNI_FX_VLOOKUP, the calc uses FOUR operands: the query to look in (null for the current query), the per-row value to search for, the range OFFSET_MULTI, and the column number",
+        "If a static string in the first operand fails with an error like 'No referenced query with id Complete found in query', the agent recognizes that operand names a query, stops retrying VLOOKUP variants, and says so",
         "The final validated query returns the Complete-status revenue on every row, either through working OMNI_FX_VLOOKUP or through the OMNI_FX_SUM_IF broadcast pattern"
       ],
       "expected_skill": "omni-query"
