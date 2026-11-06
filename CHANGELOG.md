@@ -6,6 +6,16 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.27.0] - 2026-11-06
+
+### omni-analytics
+
+_Summary: `omni-query` and `omni-model-builder` descriptions now separate asking for the data from asking for a field, so a label on each row routes to `omni-query`._
+
+**Changed**
+- **`omni-query` — *Description*.** Names tier labels and adds a row-label example in place of a redundant analysis one.
+- **`omni-model-builder` — *Description*.** Hands requests for the data itself to `omni-query`; requests that name a field or measure stay here.
+
 ## [1.25.0] - 2026-11-06
 
 ### omni-analytics
