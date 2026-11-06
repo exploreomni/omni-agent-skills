@@ -32,7 +32,7 @@ These caps, not the LLM's context window, are what trigger pruning:
 
 | Cap | Value | What happens past it |
 |---|---|---|
-| A topic's field definitions | 75,000 characters by default (~19K tokens) | Field properties are pruned in the [pruning order](#pruning-order). If every property is gone and it still doesn't fit, Omni keeps the views that fit (at least one) and tells the AI which views it left out. |
+| A topic's field definitions | 75,000 characters by default | Field properties are pruned in the [pruning order](#pruning-order). If every property is gone and it still doesn't fit, Omni keeps the views that fit (at least one) and tells the AI which views it left out. |
 | Fields fetched for one topic | 2,000 | Views past the limit come back without their fields. The agent is told which views were cut and has to search them separately; dashboard filter and control builders look a cut field up by its exact name. Only `ai_fields` (or a narrower topic) fixes this; a bigger character budget doesn't. |
 | Topic-selection summaries (all topics) | ~100K characters | Trimmed in this order: view metadata (`description`, `label`, view-level `ai_context`), composite-topic `description` and `ai_context`, model-level sample queries, the whole views section, then topic metadata, with topic `ai_context` last. Topics themselves are never dropped. Trimmed detail is recovered once a topic is selected. |
 | Searches outside a topic | 100 fields per search | The AI runs narrower repeat searches rather than pruning properties. Applies when [`query_all_views_and_fields`](https://docs.omni.co/modeling/models/parameters/ai-settings/query-all-views-and-fields) is enabled. |
@@ -48,7 +48,7 @@ Conversation history has its own budget: [`conversation_prune_length`](https://d
 
 ## The validator estimate
 
-`omni models validate <modelId> --branch-id <branchId>` warns with `topic_ai_context_too_large` when a topic's estimated field context exceeds its budget or the topic has more than 2,000 fields. The message gives the estimated characters and tokens. It is an estimate, not a measurement.
+`omni models validate <modelId> --branch-id <branchId>` warns with `topic_ai_context_too_large` when a topic's estimated field context exceeds its budget or the topic has more than 2,000 fields. The size in the message is an estimate.
 
 The check only runs for a topic that:
 
