@@ -75,7 +75,7 @@ Start with the five or so questions users ask most, taken from AI usage analytic
 ## Cost, and how many to add
 
 - **Size**: each sample query reaches the agent as one JSON line: its name, `prompt`, `description`, `ai_context` and the query. A typical one is 430–670 characters; many filters or calculations make it longer.
-- **Topic and composite-topic sample queries** are sent with their topic on every turn that uses it, with no cap and no pruning. They don't count against `ai_prune_characters`, so they never push field metadata out, but each one adds tokens and latency to every turn and makes conversation pruning start sooner.
+- **Topic and composite-topic sample queries** are sent with their topic on every turn that uses it, with no cap and no pruning. They don't count against `ai_prune_characters`, so they never push field metadata out, but each one adds credit cost and latency to every turn and makes conversation pruning start sooner.
 - **Model sample queries** share the topic-selection summary's ~100K-character cap and are trimmed there when it's tight.
 - **Add only distinct examples.** Each sample query should cover a question the agent gets wrong or users ask often. Near-duplicates add cost and can make the agent copy one query shape where it shouldn't.
 - **Measure the effect**: on a branch, run `omni-ai-eval` with a prompt set that mixes each sample query's exact question with adjacent ones: the same shape with another metric, period, filter or grouping. Exact questions show the agent reproduces the example; adjacent ones show whether the example helps it answer similar questions. Add sample queries in small batches, and stop when a batch no longer improves the adjacent questions.

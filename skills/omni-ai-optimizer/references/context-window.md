@@ -58,4 +58,4 @@ The check only runs for a topic that:
 
 So on a model with neither setting and no `ai_chat_topics`, no topic is checked. To check every AI-visible topic, validate a branch that sets `ai_settings.topic_prune_characters: 75000` (the default budget).
 
-The warning carries an autofix that raises `ai_prune_characters` to the estimate plus 10%. It doesn't offer one when the topic is over 2,000 fields or the raise would pass 200,000. Before raising the budget, check whether `ai_fields` can cut the topic instead: a bigger budget costs tokens on every request.
+The warning carries an autofix that raises `ai_prune_characters` to the estimate plus 10%. It doesn't offer one when the topic is over 2,000 fields or the raise would pass 200,000. Before raising the budget, check whether `ai_fields` can cut the topic instead: a bigger budget uses more credits on every request.
