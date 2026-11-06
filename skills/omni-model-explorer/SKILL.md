@@ -66,6 +66,8 @@ omni models list --include activeBranches
 
 Each model in the response will include a `branches` array. Each branch has an `id` (UUID) and `name` — use the `id` as the `branchId` parameter in other API calls.
 
+> **Org-wide branches (CLI ≥ 1.6.0) are a different surface.** `omni branches list|get|update` enumerates every branch the caller can see across models, and `omni branches get <orgBranchId>` returns the branch with its parts (changed models and the drafts that publish on merge, with per-part `allowed` saying whether the caller may merge it). The id those commands take is the **org-wide branch id**: `id` in `omni branches list`, or `orgBranchId` next to each branch's `id` in `omni models list --include activeBranches`. Passing the per-model `id` returns a 404 saying the branch does not exist, even though it does. In `omni branches get`, `parts[].id` is the per-model id to use as `branchId`. `omni branches update` only toggles `openToViewers`, which opens the branch to Viewers and Restricted Queriers of its models and turns itself off whenever a model is added to the branch.
+
 ### Step 2: List Topics in a Model
 
 Topics are entry points for querying. Each topic defines a base view and the set of joined views available.
