@@ -6,6 +6,26 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.25.0] - 2026-11-06
+
+### omni-analytics
+
+_Summary: `omni-ai-optimizer` fact-checked against Omni's code, CLI 1.5.0 and docs.omni.co._
+
+**Fixed**
+- **`omni-ai-optimizer`, `omni-model-builder` — *Deprecated guidance*.** Stop recommending `omni_llm`, `omni_agent` and `all_values`.
+- **`omni-ai-optimizer` — *Context limits*.** Current pruning order and budgets; check size with `omni models validate`.
+- **`omni-ai-optimizer` — *`ai_chat_topics` and `ai_fields`*.** What each one limits, and where it applies.
+- **`omni-model-builder` — *Composite `@` addresses*.** Saved queries need `@`; `omni query run` also accepts shorter forms.
+
+**Added**
+- **`omni-ai-optimizer` — *Sample queries*.** One reference for topic, composite-topic and model sample queries.
+- **`omni-ai-optimizer` — *AI settings*.** `references/ai-settings.md`.
+- **`omni-ai-optimizer` — *Tuning guidance*.** Where `ai_context` goes, `ai_context_patch` on branches, suggestions, and measuring with `omni-ai-eval`.
+
+**Removed**
+- **`omni-ai-optimizer` — *Agent skills and the `extends` example*.** Agent skills get their own skill; `ai_fields` and `ai_context` cover what the example showed.
+
 ## [1.24.2] - 2026-11-04
 
 ### omni-analytics
