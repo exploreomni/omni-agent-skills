@@ -154,7 +154,7 @@ Use it for model-wide conventions (currency, fiscal calendar, tone, privacy rule
 
 On a branch, Omni stores a model-level `ai_context` change as an `ai_context_patch` next to the text. Omni manages the patch: edit `ai_context` from a `combined` read and leave `ai_context_patch` as it is.
 
-Model-level [`sample_queries`](https://docs.omni.co/modeling/models/sample-queries) are the only examples the agent sees while choosing a topic. Put the full example on the topic, and add a model copy only for a question where Blobby picks the wrong topic. Model-level `ai_settings` holds the AI switches (context budget, views outside topics, analysis validation, disabled tools): [references/ai-settings.md](references/ai-settings.md).
+Model-level [`sample_queries`](https://docs.omni.co/modeling/models/sample-queries) are the only examples the agent sees while choosing a topic. Put the full example on the topic, and add a model copy only for a question where Blobby picks the wrong topic. Model-level `ai_settings` holds the AI switches (context budget, views outside topics, disabled tools): [references/ai-settings.md](references/ai-settings.md).
 
 ## Advanced ai_context Templating
 
