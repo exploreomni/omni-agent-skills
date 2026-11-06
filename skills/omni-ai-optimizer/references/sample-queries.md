@@ -61,15 +61,15 @@ sample_queries:
 
 ## Choosing sample queries
 
-The best sample queries reproduce the dashboard tiles people already rely on, phrased as the business question each tile answers.
+Start with the five or so questions users ask most, taken from AI usage analytics or from stakeholders. Tiles on widely used dashboards are another source: each is a query people already rely on, though its title may not state the business question.
 
-1. **Find the tiles and questions that matter.**
-   - With usage analytics (needs an Organization Admin and the **Usage analytics** setting in AI Hub), ask the Omni Agent, or call the MCP server's `queryUsageAnalytics` tool with `analytics_getData` and a plain-language prompt: the most-run dashboard tiles on the topic, the most-viewed dashboards, and the questions users asked the AI. Tile results carry the tile name, its topic and how often it ran.
+1. **Find the questions and tiles that matter.**
+   - With usage analytics (needs an Organization Admin and the **Usage analytics** setting in AI Hub), ask the Omni Agent, or call the MCP server's `queryUsageAnalytics` tool with `analytics_getData` and a plain-language prompt: the questions users asked the AI, the most-run dashboard tiles on the topic, and the most-viewed dashboards. Tile results carry the tile name, its topic and how often it ran.
    - Without it, `omni documents list --sort-field visits --sort-direction desc` ranks documents by visits.
    - `omni documents get-queries <dashboardId>` returns each tile's `name` and its query.
-2. **Draft the business question each tile answers.** A tile's title often isn't the question ("Query 1", "MTD Sales"), so read its fields, filters and sorts. Skip tiles with no question behind them, such as headers. From AI prompts, keep only data questions; drop follow-ups like "yes" and requests to change the model.
-3. **Confirm with the user.** Show each tile next to the proposed question, and have the user confirm or rewrite it. Write only confirmed questions.
-4. **Write the sample query.** The key and `prompt` are the confirmed question, `description` names the dashboard and tile it reproduces, and `query` is the tile's query ([mapped to YAML](#mapping-workbook-json-to-yaml)). Put it on the tile's topic, and also on the model when the agent picks the wrong topic for that question.
+2. **Turn each one into a business question.** A tile's title often isn't the question ("Query 1", "MTD Sales"), so read its fields, filters and sorts. Skip tiles with no question behind them, such as headers. From AI prompts, keep only data questions; drop follow-ups like "yes" and requests to change the model.
+3. **Confirm with the user.** Show each tile or prompt next to the proposed question, and have the user confirm or rewrite it. Write only confirmed questions.
+4. **Write the sample query.** The key and `prompt` are the confirmed question, and `query` is the tile's query or one you build in a workbook ([mapped to YAML](#mapping-workbook-json-to-yaml)). For a tile, `description` names the dashboard and tile it reproduces. Put it on its topic, and add a model copy only when the agent picks the wrong topic for that question.
 5. **Decide what users see.** Leave a good starter question visible. Set `hidden: true` on an example meant only to teach the agent (an edge case, a date pattern, an odd phrasing). Set `exclude_from_ai_context: true` on a starter question the agent shouldn't copy.
 
 ## Cost, and how many to add

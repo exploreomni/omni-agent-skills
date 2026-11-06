@@ -24,7 +24,7 @@ _Summary: `omni-ai-optimizer` fact-checked against Omni's code, CLI 1.5.0 and do
 
 **Added**
 - **`omni-ai-optimizer` — *AI settings*.** `references/ai-settings.md`.
-- **`omni-ai-optimizer` — *Sample queries*.** `references/sample-queries.md` covers topic, composite-topic and model sample queries: what each teaches the agent, where users see them, choosing them from the most-used dashboard tiles, cost, calculations and composite `@` addresses. `omni-model-builder` points to it.
+- **`omni-ai-optimizer` — *Sample queries*.** `references/sample-queries.md` covers topic, composite-topic and model sample queries: what each teaches the agent, where users see them, choosing them from real user questions and top dashboard tiles, cost, calculations and composite `@` addresses. `omni-model-builder` points to it.
 - **`omni-ai-optimizer` — *Model `ai_context` on a branch*.** Omni manages `ai_context_patch`; edit `ai_context` only.
 - **`omni-ai-optimizer` — *Suggestions*.** What generating suggestions needs, and what a suggestion may change.
 - **`omni-ai-optimizer` — *Measuring changes*.** The checklist and related skills point to `omni-ai-eval`.

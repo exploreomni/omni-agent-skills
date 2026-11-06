@@ -235,7 +235,7 @@ sample_queries:
 
 Every kind of sample query, what each one teaches and where users see it, its keys and validation: [references/sample-queries.md](references/sample-queries.md). Only topic sample queries are validated; run any other once before relying on it.
 
-Use questions users really ask. If you don't know them, ask the user instead of guessing, and confirm each question's wording before writing it. To find candidates in the most-used dashboard tiles: [references/sample-queries.md](references/sample-queries.md#choosing-sample-queries).
+Use questions users really ask. If you don't know them, ask the user instead of guessing, and confirm each question's wording before writing it. To find candidates in usage data and the most-used dashboard tiles: [references/sample-queries.md](references/sample-queries.md#choosing-sample-queries).
 
 ## Improving Field Descriptions
 
