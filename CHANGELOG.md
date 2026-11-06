@@ -6,7 +6,7 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
-## [1.25.0] - 2026-11-04
+## [1.25.0] - 2026-11-06
 
 ### omni-analytics
 
