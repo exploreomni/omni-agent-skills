@@ -6,6 +6,16 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.26.5] - 2026-11-11
+
+### omni-analytics
+
+_Summary: `omni-model-explorer` reads models that use `extends` fully resolved before saying what they contain._
+
+**Fixed**
+- **`omni-model-explorer` — *Read the Model YAML*.** On `extends` models, read with `--fully-resolved true` to see inherited views, fields and topics.
+- **`omni-model-explorer` — *Expected view missing*.** Check the fully resolved read first; an inherited view appears only there.
+
 ## [1.26.4] - 2026-11-11
 
 ### omni-analytics
