@@ -19,7 +19,7 @@ command -v omni >/dev/null || echo "ERROR: Omni CLI is not installed."
 
 ```bash
 # Show available profiles and select the appropriate one
-omni config show
+omni config list
 # If multiple profiles exist, ask the user which to use, then switch:
 omni config use <profile-name>
 
@@ -162,7 +162,7 @@ Context files are markdown the AI reads as standing guidance, separate from the 
 
 Reach for a context file when the guidance belongs **outside a model** — it crosses topics or models, applies to one user only, or isn't about one field or topic. Keep field- and topic-scoped mappings in `ai_context` on the model, where they travel with the topic and shape topic selection.
 
-`update` replaces the whole body, so always `read` the file first and send it back with your edit. Neither the CLI nor the API can delete a context file, and every file goes to the AI with every message, so don't create throwaway or test files.
+`update` replaces the whole body, so always `read` the file first and send it back with your edit. Neither the CLI nor the API can delete a context file, so don't create throwaway or test files. A file's `type` (read-only) says whether the AI gets it with every message (`always_context`) or sees only its name and opens it when needed (`on_demand_context`).
 
 ## Advanced ai_context Templating
 

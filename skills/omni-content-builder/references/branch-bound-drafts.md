@@ -6,7 +6,7 @@ How to build a dashboard tile whose query references a field that is **not in th
 
 ## v2 removed the old `modelId` gotcha
 
-The v1 problem — `documents create` stamping the shared model onto every tile's `query.modelId`, producing a spurious restricted-querier *"Invalid model"* warning on drafts that had to be fixed by re-`put`ting with the workbook model id — is **gone in the v2 path**. v2 tile queries carry **no `modelId` at all** (`modelId`/`model_extension_id` are not in the tile-query schema); the server anchors every tile to the draft's workbook model. There is nothing to stamp and nothing to fix.
+The v1 problem — `documents create` stamping the shared model onto every tile's `query.modelId`, producing a spurious restricted-querier *"Invalid model"* warning on drafts that had to be fixed by re-`put`ting with the workbook model id — is **gone in the v2 path**. v2 tile queries carry **no `modelId`**, and `model_extension_id` is server-owned (ignored on write); the server anchors every tile to the draft's workbook model. There is nothing to stamp and nothing to fix.
 
 ## Creating a branch-bound draft
 
@@ -27,7 +27,7 @@ omni documents v2-patch-draft <identifier> --body '{
 # → response includes draftIdentifier
 ```
 
-> **Put `branchId` inside the body.** With `--body` present, the CLI ignores `--branch-id` and every other shorthand flag with no warning; `--branch-id` works only when there is no `--body`. `branchId` is accepted only by `v2-patch-draft`, the call that creates the draft. `v2-patch-draft-by-identifier` rejects it, so a draft's branch is fixed when the draft is created.
+> **Put `branchId` inside the body.** The CLI rejects `--branch-id` combined with `--body`; `--branch-id` works only when there is no `--body`. `branchId` is accepted only by `v2-patch-draft`, the call that creates the draft. `v2-patch-draft-by-identifier` rejects it, so a draft's branch is fixed when the draft is created.
 
 ### Verify the binding — always
 
@@ -37,7 +37,7 @@ omni documents list-drafts <identifier>
 ```
 
 - A bound draft shows `branch: {id, name}`; an unbound draft shows `branch: null`.
-- **Check this immediately after creating the draft.** A draft that failed to bind is a silently-**mainline** draft — publishing it would publish to main with the branch fields unresolvable. This exact mistake happened in live testing when `--branch-id` was combined with `--body`.
+- **Check this immediately after creating the draft.** A draft that failed to bind is a silently-**mainline** draft — publishing it would publish to main with the branch fields unresolvable.
 
 `list-drafts` is keyed off the **published** document, so it's also your lookup for the draft's `identifier` and `workbookModelId`.
 
@@ -52,10 +52,10 @@ omni documents v2-patch-draft-by-identifier <identifier> <draftIdentifier> --bod
 
 The draft's workbook model extends the **branch** model, so branch-only fields resolve on the draft's tiles with no per-tile model wiring. To verify a branch field runs, take the tile's query and run it via `omni query run` with `modelId` set to the draft's `workbookModelId` (from `list-drafts`) — branch-authored fields resolve against the workbook model, not the shared model.
 
-## Publishing: branch drafts can't be CLI-published
+## Publishing: branch drafts publish with the branch merge
 
 - `omni documents v2-publish-draft <identifier>` only sees the **main** draft. When only a branch-bound draft exists, it returns **404 "Document draft does not exist"**.
-- A branch-bound draft goes live by **merging the model branch** (so the field lands in the shared model) and publishing the draft — that merge + publish close-out happens in the Omni UI. The CLI builds and verifies the draft; it cannot finish the job.
+- A branch-bound draft goes live by **merging the model branch**: `omni models merge-branch` publishes the branch's drafts by default (body `publish_drafts`, see `--schema`) and reports `published_drafts_count` / `failed_drafts_count`. Check both. Merging is a separate decision the user confirms (see `omni-model-builder`).
 - `omni documents discard-draft <identifier>` likewise targets the **main** draft and 404s when only a branch draft exists. Deleting the model branch does **not** auto-discard the branch draft (verified). The CLI has no verified way to discard a branch-bound draft — abandon it in the UI.
 
 ### Tell the creator it's a branch-bound draft
@@ -64,9 +64,9 @@ A branch-bound draft is **not a live, published dashboard** — it exists only a
 
 - that the result is a **draft**, and the link points to the draft (not a published dashboard);
 - the **branch it depends on**, and that the tile relies on a field that isn't in the published shared model yet;
-- that it **publishes only when that branch is merged** and the draft is published in the UI — until then, others (especially Viewers/Restricted Queriers) won't see it as a normal dashboard.
+- that it **publishes only when that branch is merged** — until then, others (especially Viewers/Restricted Queriers) won't see it as a normal dashboard.
 
-This sets expectations and names the one action that finishes the job (merge + publish), which the CLI can't do.
+This sets expectations and names the one action that finishes the job: merging the branch.
 
 ## Workbook-model fields on a draft
 
@@ -86,12 +86,10 @@ omni documents v2-patch-draft-by-identifier <identifier> <draftIdentifier> --bod
 
 When the draft is also branch-bound, its workbook model extends the branch — one model resolves branch-only fields **and** workbook fields together, even in the same tile.
 
-**Workbook-model rotation:** every draft → publish cycle **mints a new workbook model id**. Extensions written to a draft's workbook model are carried into the published doc and later drafts, but a given draft's model is a different id — never cache one across a publish. Read it fresh from `list-drafts` (the draft's `workbookModelId`) each time. **Within a single *unpublished* draft the id is stable, though**: repeated `v2-patch-draft-by-identifier` edits keep the same `workbookModelId`, and re-invoking `v2-patch-draft` reuses the open draft rather than minting a second clone — so the write-field-then-patch-tile sequence above is safe. Rotation happens **only at the publish boundary**.
+**Workbook-model rotation:** every draft → publish cycle **mints a new workbook model id**. Extensions written to a draft's workbook model are carried into the published doc and later drafts, but a given draft's model is a different id — never cache one across a publish. Read it fresh from `list-drafts` (the draft's `workbookModelId`) each time. **Within a single *unpublished* draft the id is stable, though**: repeated `v2-patch-draft-by-identifier` edits keep the same `workbookModelId` (a second `v2-patch-draft` on the same branch is a 409, not a new clone) — so the write-field-then-patch-tile sequence above is safe. Rotation happens **only at the publish boundary**.
 
 > These recipes wire the field into the right model; the tile still needs a valid `visConfig` to render. A query that runs cleanly via `query run` can still show "No chart available" if the viz spec is off. See [validation-and-testing.md](validation-and-testing.md).
 
 ## Table calculations ride along
 
-Running totals, moving averages, etc. work on these tiles unchanged — they compute on the result set, independent of branch/model wiring. Put the calc in `query.calculations[]` and list its `calc_name` in `query.fields` and `visConfig.fields`.
-
-A calc entry is `{ "calc_name": "<name>", "sql_expression": <AST> }`, where the AST is a nested `{ "type": "call", "operator": "Omni.<FN>", "operands": [...] }` tree — **not** a workbook-style `{name, formula}` string. A running total of `order_items.count`, for example, wraps the field in `Omni.OMNI_FX_SUM(Omni.OMNI_OFFSET_MULTI(...))`. The full operator catalog and AST shapes are owned by the **`omni-query`** skill — consult it for anything beyond a simple running total. 
+Running totals, moving averages, etc. work on these tiles unchanged — they compute on the result set, independent of branch/model wiring. Put the calc in `query.calculations[]` and list its `calc_name` in `query.fields` and `visConfig.fields`. Calc shapes (`sql_expression` AST, or a lone `original_formula` the server parses) are owned by **`omni-query`** → `references/table-calculations.md`.

@@ -52,7 +52,7 @@ Set `prefersChart: true` to default the tile to chart (vs. table) view, and `aut
 |--------------|--------------|
 | Inner spec **flat** beside `visType` | Accepted and moved under `config` on write. |
 | `chartType` / `config` / `fields` at the presentation top level (v1 shape) | **400** "Unrecognized key". |
-| `modelId` / `model_extension_id` inside `query` (or the v1 `query.visConfig` hint) | **Silently ignored/rewritten** — tile queries are server-anchored to the workbook model. Omit them. |
+| `modelId` / `model_extension_id` inside `query` (or the v1 `query.visConfig` hint) | **Silently dropped** — tile queries are server-anchored to the workbook model. Omit them. |
 | `query` missing required collection fields (`sorts`, `filters`, `calculations`, …) | **400** listing each missing field. |
 | `barColor` / `areaColor` / `stackedBarColor` | Rejected — not in the `chartType` enum. |
 
@@ -353,7 +353,7 @@ These families have their own references: [kpi-tiles.md](kpi-tiles.md) for the n
     "table": "order_items",
     "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
     "sorts": [{ "column_name": "order_items.created_at[month]", "sort_descending": false }],
-    "filters": { "order_items.created_at": "last 6 months" },
+    "filters": { "order_items.created_at": { "type": "date", "kind": "TIME_FOR_INTERVAL_DURATION", "ui_type": "PAST", "left_side": "6 months ago", "right_side": "6 months" } },
     "limit": 100,
     "join_paths_from_topic_name": "order_items",
     "calculations": [], "column_totals": {}, "row_totals": {},
@@ -588,7 +588,7 @@ Enables AI-generated descriptions/subtitles on tiles:
 | Mistake | Symptom | Fix |
 |---------|---------|-----|
 | `chartType` / `config` / `fields` at the presentation top level (v1 shape) | **400** "Unrecognized key" | Move them into the `visConfig` envelope |
-| `modelId` / `model_extension_id` (or v1 `visConfig` hint) in the tile query | Silently ignored/rewritten | Remove — tile queries are server-anchored to the workbook model |
+| `modelId` / `model_extension_id` (or v1 `visConfig` hint) in the tile query | Silently dropped | Remove — tile queries are server-anchored to the workbook model |
 | Query missing required collection fields | **400** listing each missing field | Include `sorts`, `filters`, `calculations`, `column_totals`, `row_totals`, `fill_fields`, `pivots`, `userEditedSQL` (empty fine) plus `table`, `fields`, and always send `limit`, `join_paths_from_topic_name` |
 | `barColor` / `areaColor` / `stackedBarColor` | Request rejected (invalid enum) | Use `column`/`bar`, `area`, `columnStacked`/`barStacked` |
 | `configType: "pie"` / `"funnel"` / `"map"` | Wrong/missing config | Pie → `configType: "polar"`; funnel/sankey/map have **no** `configType` (use the right `visType`) |

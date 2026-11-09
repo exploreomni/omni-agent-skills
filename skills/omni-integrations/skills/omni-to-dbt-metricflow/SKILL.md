@@ -15,7 +15,7 @@ Read [FIELD-MAPPING.md](./references/FIELD-MAPPING.md) for mappings and worked e
 
 ```bash
 command -v omni >/dev/null || echo "ERROR: Omni CLI is not installed."
-omni config show
+omni config list
 omni config use <profile-name>
 omni whoami whoami
 ```
@@ -295,7 +295,7 @@ This skill owns only the dbt-specific steps. Branch creation, YAML read-modify-w
 1. **Branch** — `omni-model-builder` Step 0. First run `omni whoami whoami --model-id <modelId>` to make sure you can branch. Use a unique branch name. Do not delete a branch you did not create.
 2. **dbt environment (this skill)** — if the dbt YAML is merged to the default dbt branch, keep the production environment; the Omni branch already isolates your change. If the YAML is still on an unmerged dbt branch, list the environments, show them to the user, and ask which one to bind (see "Choose the dbt environment" in [FALLBACK-TO-DBT.md](./references/FALLBACK-TO-DBT.md) for the selection rule). Bind it together with that Git branch and read it back: `branch-dbt-get` must show the requested Git branch before you sync. The production environment ignores `--dbt-git-branch`. Do not create an environment without user approval.
 3. **Sync (this skill)** — run `dbt-sync` on the branch and poll the job to `COMPLETED` or `FAILED`. The status response has only `job_id`, `job_type`, and `status`. Read failures in the IDE dbt Sync page. If the warehouse tables behind the exported views also changed, run a targeted soft refresh instead: `omni models refresh <modelId> --hard-refresh false --schemas <schema> --tables <table,...>` (`--branch-id` is required when the connection has branch-based schema refresh enabled and rejected when it does not; without it the refresh writes to the shared schema model, so ask the user first). Never run an unfiltered refresh for this step: it reloads every schema and pulls every warehouse change into the branch.
-4. **Find the override** — `omni-model-builder` Step 1 read-modify-write, with two dbt-branch differences: read and write the view with `--mode merged` (not `extension`), and reuse the flat returned key (`omni_dbt_ecomm__order_items.view`). Also read the topic file for a topic-scoped `fields:` override.
+4. **Find the override** — `omni-model-builder` Step 1 read-modify-write, with two dbt-branch differences: read and write the view with `--mode merged` (not `extension`), and reuse the returned key (`omni_dbt_ecomm/order_items.view`). Also read the topic file for a topic-scoped `fields:` override.
 5. **Remove only the override** that must yield to dbt. Also remove a dimension override that an imported measure depends on (Step 5 checkpoint). Write the complete file back.
 6. **Check** — `omni-model-builder` Step 2: `models validate` on the branch and one branch query on the field. Then confirm the dbt provenance comment in `--mode combined`. Re-sync only if the dbt manifest changed.
 7. **Ship** — `omni-model-builder` Step 3 (`git-get` → `commit` and PR, or `merge-branch`). Ask the user before either path.
@@ -317,7 +317,7 @@ The precedence is schema/dbt, model extension, topic `fields:` override, then wo
 |---|---|---|
 | MetricFlow cannot resolve a filter | Wrong qualifier | Use `entity__dimension`. Run `mf query --explain`. |
 | `dbt-sync` fails with no detail in `jobs-get-status` | The Git branch was not applied (production environment ignores `--dbt-git-branch`), or the dbt project does not compile | Check `branch-dbt-get`. For an unmerged dbt branch, bind a non-production environment. Read the IDE dbt Sync page for compile errors. |
-| Branch write succeeds but changes nothing | Used `mode: extension` | Read and write the flat branch file key with `mode: merged`. |
+| Branch write succeeds but changes nothing | Used `mode: extension` | Read and write the returned branch file key with `mode: merged`. |
 | dbt field is missing from combined output | Extension has `ignored: true` | Find that extension entry. Remove `ignored` only with user approval. |
 | Imported field retains Omni label, SQL, or filters | Extension key wins during merge | Remove only the conflicting extension key. dbt-only keys still fill in. |
 | `column "<dim>" not found` or `invalid identifier` at query time (DuckDB: `Binder Error`), but `mf validate-configs --skip-dw` passed | A measure `expr` names a semantic dimension | Use the physical column, or materialize the transform in the dbt model SQL. Run `mf validate-configs` without `--skip-dw`. |
@@ -341,7 +341,7 @@ The precedence is schema/dbt, model extension, topic `fields:` override, then wo
 5. **Do not re-export dbt fields.** Provenance comments identify imported definitions.
 6. **Expect key-by-key re-import merges.** Extension keys win. `ignored: true` hides the field.
 7. **Match the dbt environment to where the YAML lives.** Merged YAML: production environment. Unmerged dbt branch: a non-production environment bound to that branch. Confirm with `branch-dbt-get` before sync.
-8. **Use `merged` for a branch override write.** Reuse the exact returned flat key.
+8. **Use `merged` for a branch override write.** Reuse the exact returned key.
 9. **Check with a query.** `mf validate-configs` does not catch every bad filter qualifier.
 10. **Do not promote without confirmation.** A Git PR and `merge-branch` both change shared state.
 11. **Write model YAML through `omni-model-builder`.** This skill adds only the dbt environment, sync, and merge-mode rules on top of its workflow.

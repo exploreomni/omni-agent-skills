@@ -21,7 +21,7 @@ command -v omni >/dev/null || echo "ERROR: Omni CLI is not installed."
 
 ```bash
 # Show available profiles and select the appropriate one
-omni config show
+omni config list
 # If multiple profiles exist, ask the user which to use, then switch:
 omni config use <profile-name>
 

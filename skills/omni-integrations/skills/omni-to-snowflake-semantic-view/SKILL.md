@@ -19,7 +19,7 @@ command -v omni >/dev/null || echo "ERROR: Omni CLI is not installed."
 
 ```bash
 # Show available profiles and select the appropriate one
-omni config show
+omni config list
 # If multiple profiles exist, ask the user which to use, then switch:
 omni config use <profile-name>
 
@@ -149,10 +149,10 @@ omni models yaml-get <modelId> --file-name relationships
 For every view in `base_view` and `joins`, fetch its YAML:
 
 ```bash
-omni models yaml-get <modelId> --file-name <view_name>.view
+omni models yaml-get <modelId> --file-name '<view_name>\.view'
 ```
 
-> If a view is prefixed with `omni_dbt_`, fetch the file that also starts with `omni_dbt_` (e.g. `omni_dbt_ecomm__order_items.view`).
+> File keys carry the schema as a folder, and `--file-name` is a regex. View `omni_dbt_ecomm__order_items` is the file `omni_dbt_ecomm/order_items.view`, so match it with `--file-name 'order_items\.view'`.
 
 ---
 

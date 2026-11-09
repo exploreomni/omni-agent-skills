@@ -37,7 +37,7 @@ omni query run --body '{
 
 > **Two complementary validation tools:**
 > - `omni query run` — structured validation using explicit field expressions; use to precisely test specific dimensions, measures, and join paths
-> - `omni ai job-submit --branch-id <branchId> --topic-name <topicName>` — natural language validation; use to confirm the topic answers business questions correctly against live branch data. `omni ai generate-query --run-query true` does not resolve branch-only topics at execution time and should not be used for branch validation.
+> - `omni ai job-submit <modelId> "<question>" --branch-id <branchId> --topic-name <topicName>` — natural language validation; use to confirm the topic answers business questions correctly against live branch data. `omni ai generate-query --run-query true` does not resolve branch-only topics at execution time and should not be used for branch validation.
 
 **What to check:**
 - **No error in response** — if the query returns an error, the field SQL is broken (bad column reference, wrong aggregate, dialect mismatch)

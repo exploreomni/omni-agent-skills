@@ -6,6 +6,26 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.26.3] - 2026-11-09
+
+### omni-analytics
+
+_Summary: `omni-content-builder`, `omni-model-builder` and `omni-model-explorer` checked against CLI 1.6.0 `--schema` and a live instance. Restated schema facts that had drifted now point to `--schema`._
+
+**Fixed**
+- **`omni-content-builder`.** `--body` with a shorthand flag or positional argument is a CLI error, not silently ignored. A second `v2-patch-draft` on the same branch is a 409, not a new draft. `models merge-branch` publishes branch-bound drafts (`publish_drafts`). String-shorthand filters are a 400 everywhere; examples use filter objects. Downloads can select pages (`containerPages`) and per-chart pngs (`elements`). Absolute date controls use `BETWEEN`; `by_query` is `query`; the parent control is `MULTI_FIELD_SELECTION`. `foreign` tabs can be created with `foreignModelId`. Calcs take `sql_expression` or a lone `original_formula`; `known_type` removed. PoP entries need `time_unit_name` and `periods_ago`, not `time_unit`. `query run` returns results inline. Container examples carry `instanceKey`.
+- **`omni-model-builder`.** `refresh --branch-id` is required only with branch-based schema refresh and a 400 without it. `allow_branch_exists`/`require_branch_exists` are body fields. `cloneUrl` replaces deprecated `sshUrl`. Isolated extension branches can't be deleted through the CLI.
+- **`omni-model-explorer`.** The `get-topic` field list is replaced by `--schema`; fields are under `topic`. Impact checks use `content-validator-get --content-filter-mode WITH_ISSUES`. `--include-schemas` also returns views with no schema.
+- **`omni-ai-optimizer`.** Context files are sent with every message or opened on demand, per their `type`.
+- **Profile listing.** Prerequisites list profiles with `omni config list` (`config show` prints the current configuration).
+
+### omni-integrations
+
+**Fixed**
+- **`omni-to-dbt-metricflow`.** Merged-mode file keys are `<schema>/<view>.view`, as in combined mode.
+- **`omni-to-snowflake-semantic-view`.** View files are keyed `<schema>/<view>.view`; match them with a `--file-name` regex.
+- **All three.** Prerequisites use `omni config list`.
+
 ## [1.26.2] - 2026-11-09
 
 ### omni-analytics
@@ -32,6 +52,7 @@ _Summary: `omni-admin` and `omni-content-explorer` write examples that the API r
 - **`omni-content-explorer`.** Alert example adds the required `subject` and uses string recipients; recency sort moves to `documents list` (`content list` sorts by name or favorites); `--scope restricted` needs `--creator-id`.
 - **`omni-api-conventions` rule.** `whoami` field is `orgRole`; drops a stale `--schema` casing example.
 ||||||| parent of aad1405 (fix(omni-query, omni-ai-eval): correct CLI 1.6.0 response and filter shapes (1.26.2))
+||||||| parent of e601d73 (fix(omni-content-builder, omni-model-builder, omni-model-explorer): correct CLI 1.6.0 schema drift (1.26.3))
 
 ## [1.26.0] - 2026-11-09
 

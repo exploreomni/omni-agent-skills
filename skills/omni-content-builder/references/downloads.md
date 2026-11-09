@@ -30,6 +30,6 @@ omni dashboards download <dashboardId> --body '{ "format": "png", "queryIdentifi
 
 Format matrix: **pdf / png / xlsx / csv / json** — `json` is **single-tile only** (requires `queryIdentifierMapKey`), and for a full dashboard `csv` returns a **ZIP of one CSV per tile**. `pdf`/`png` give the image; `csv`/`xlsx`/`json` give the tile's data. For the authoritative `paperFormat` values and the full PDF/PNG + data option set (`paperOrientation`, `hideTitle`, `showFilters`, formatting/row-limit flags, `filename`, `filterConfig`, …), run **`omni dashboards download --schema`** — don't rely on this list staying exhaustive.
 
-## Multi-page dashboards — the public download API renders ONE page
+## Multi-page dashboards
 
-`POST /v1/dashboards/{id}/download` has **no `pages`/`pageId` parameter**. PNG is inherently one page, and a PDF of a multi-page dashboard returns only the **default/active page** — page *selection* exists only in the **UI download** form, not this endpoint (and not the schedules/deliveries API). There is no robust public-API way to render a chosen page today — tracked as an upstream API gap.
+Without a selection, pdf and png render the first page. On an advanced-layout dashboard, `containerPages` takes page `instanceKey`s (from `v2-get` → `containers`) to choose pages, and `elements` (png only) captures listed tiles as their own pngs. Neither combines with `queryIdentifierMapKey`. Options: `omni dashboards download --schema`.

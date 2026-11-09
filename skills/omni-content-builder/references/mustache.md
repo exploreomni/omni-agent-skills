@@ -40,14 +40,14 @@ KPI tile text components (`markdownConfig` of type `"number"`/`"text"`) are mark
 ## control vs filter — the decision
 
 > **Before writing the token, check the entry's `config.type`.** Filters and controls are both stored in `controls.data`, so the key name doesn't tell you the namespace; **`config.type`** does. With the document JSON, look it up in `controls.data`. With only the rendered tile, or when the keys don't match what you expect, put `{{inspect}}` in the tile body and read the template context. Then:
-> - `type` is `date`/`string`/`number`/`boolean`/`null`/`by_query`/`user_attribute`/`composite` → it's a **filter** → `{{filters.<view>.<field>.…}}`
-> - `type` is `FIELD_SELECTION`/`FIELD_PICKER`/`TOP_N`/`PARENT`/`MULTI_FIELD_FILTER`/`DYNAMIC_FILTER` → it's an **interactive control** → `{{controls.<id>.…}}`
+> - `type` is `date`/`string`/`number`/`boolean`/`null`/`query`/`user_attribute`/`composite` → it's a **filter** → `{{filters.<view>.<field>.…}}`
+> - `type` is `FIELD_SELECTION`/`FIELD_PICKER`/`TOP_N`/`MULTI_FIELD_SELECTION`/`MULTI_FIELD_FILTER`/`DYNAMIC_FILTER` → it's an **interactive control** → `{{controls.<id>.…}}`
 >
 > Skipping this and copying a `controls.<id>` example onto a `type:"date"` filter is the #1 cause of a silently‑empty token.
 
 Both kinds live in `controls.data`; the `config.type` only decides which **namespace** exposes them to mustache:
-- **Filter-type** — `date`, `string`, `number`, `boolean`, `null`, `by_query`, `user_attribute`, `composite`. → **`{{filters.<view>.<field>.…}}`**
-- **Interactive-control-type** — `FIELD_SELECTION` (field **and** timeframe switchers), `FIELD_PICKER`, `TOP_N`, `PARENT`, `MULTI_FIELD_FILTER`, `DYNAMIC_FILTER`. → **`{{controls.<id>.…}}`**
+- **Filter-type** — `date`, `string`, `number`, `boolean`, `null`, `query`, `user_attribute`, `composite`. → **`{{filters.<view>.<field>.…}}`**
+- **Interactive-control-type** — `FIELD_SELECTION` (field **and** timeframe switchers), `FIELD_PICKER`, `TOP_N`, `MULTI_FIELD_SELECTION`, `MULTI_FIELD_FILTER`, `DYNAMIC_FILTER`. → **`{{controls.<id>.…}}`**
 - `PERIOD_OVER_PERIOD` (the "Compare to" control) is **visible in the filter bar but unreachable from mustache.** Even though it renders as a control, it never appears in the `controls` template context **in either tile context** (viz *or* text) — *every* `{{controls.<pop_id>.…}}` form (`.summary`, `.value`, `.label`, even `.json`) comes back empty, and it isn't under `filters` either. There is no token for the comparison period; the prior-period columns come from the tile query's `period_over_period_computations` instead (see [queryPresentations.md](queryPresentations.md)). Confirm with `{{inspect}}` — there is no `pop` key under `controls`.
 
 > "Filter" vs "control" here is about the **mustache namespace, not ontology** — both kinds are entries in the same `controls.data` slice and both render as filter-bar widgets. A `type:"date"` filter is still routed to **`filters`** (keyed by `view.field` in a viz tile, by control `id` in a text tile — see the keying gotcha below), while an interactive control is routed to **`controls`** (keyed by id). So reference a date filter under `filters`, not `controls` — even though it *is* a control entry in the document.
@@ -90,7 +90,7 @@ The key is `<view>.<field>` in a **viz** tile and the control **`id`** in a **te
 | Token | Resolves to |
 |---|---|
 | `.summary` | the selected option's **friendly label** (e.g. `"Total Revenue"`) |
-| `.value` | `FIELD_SELECTION` → field name · `TOP_N` → number (string) · `FIELD_PICKER` → array · `PARENT` → value |
+| `.value` | `FIELD_SELECTION` → field name · `TOP_N` → number (string) · `FIELD_PICKER` → array · `MULTI_FIELD_SELECTION` → value |
 | `.label` | the control's title |
 | `.value_url_encoded`, `.json` | URL‑encoded value / full control JSON |
 
