@@ -55,6 +55,8 @@ Start the body with **Prerequisites** and **Discovering Commands** sections. Use
 
 Put non-obvious constraints, current bugs, and safe defaults near the top under **Known Issues & Safe Defaults** so agents see them before workflow details.
 
+Don't restate what `omni <command> --help` or `--schema` already says. Agents can run both, and copied field lists, enums and defaults drift. Point to them instead, e.g. `omni schedules create --schema --field recipients`. Write down only what they can't tell an agent: silent failures and other live-tested behavior, risky defaults turned into guidance, which command to use when, workflow order, and short worked examples where the schema is loose. When a stated schema fact turns out wrong, delete it and point to `--schema` rather than correcting it.
+
 Supporting material belongs beside the skill in focused subdirectories such as `references/`, `evals/`, `scripts/`, or `assets/`. Keep `SKILL.md` references shallow and relative to the skill root.
 
 ## Agent Authoring

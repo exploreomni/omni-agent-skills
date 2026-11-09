@@ -39,7 +39,7 @@ omni folders --help     # Folder operations
 
 ## Known Issues & Safe Defaults
 
-- `omni content list --labels <name>[,<name>]` filters **dashboards and apps** by label (CLI ≥ 1.5.0). Without `--scope` it returns organization content only, so restricted content with the label is left out without warning; run it again with `--scope restricted` for a complete list. For workbook-only documents, which `content list` does not return, fall back to `omni documents list --include labels -o json` and filter client-side on the `labels` array.
+- `omni content list --labels <name>[,<name>]` filters **dashboards and apps** by label (CLI ≥ 1.5.0). Without `--scope` it returns organization content only, so restricted content with the label is left out without warning. `--scope restricted` also needs `--creator-id <userId>` (400 without it), so restricted content is listed one creator at a time. For workbook-only documents, which `content list` does not return, fall back to `omni documents list --include labels -o json` and filter client-side on the `labels` array.
 - Some dashboard exports can fail before a job is created, for example with `Cannot use 'in' operator to search for 'query_id' in ...`. If `omni dashboards download` returns an error and no job ID, do not call `download-status` or claim the export completed. Report the dashboard identifier, the exact API error, and that no downloadable job was created.
 
 ## Searching Content
@@ -73,15 +73,13 @@ omni content list --include '_count,labels'
 # Covers dashboards and apps; workbook-only documents are not returned by content list,
 # so for those fall back to `omni documents list --include labels -o json` + client-side filter.
 omni content list --labels "Weekly Digest,Finance"
-omni content list --labels "Weekly Digest,Finance" --scope restricted   # the default scope is organization only
+omni content list --labels "Weekly Digest,Finance" --scope restricted --creator-id <userId>   # the default scope is organization only
 
-# By scope
-omni content list --scope organization
-
-# Sort by popularity or recency
+# Sort by popularity
 omni content list --sort-field favorites
 
-omni content list --sort-field updatedAt
+# Sort by recency (content list sorts by name or favorites only)
+omni documents list --sort-field updatedAt --sort-direction desc
 ```
 
 ### Pagination
@@ -103,9 +101,7 @@ omni documents list
 omni documents list --creator-id <userId>
 ```
 
-Each document includes: `identifier`, `name`, `type`, `scope`, `owner`, `folder`, `labels`, `updatedAt`, `hasDashboard`.
-
-> **Important**: Always use the `identifier` field for API calls, not `id`. The `id` field is null for workbook-type documents and will cause silent failures.
+Use each record's `identifier` for API calls. `hasDashboard` / `hasApp` tell a workbook-only document from a dashboard or app; `omni documents list --schema` has the full record shape.
 
 ### Get Document Queries
 
@@ -179,9 +175,9 @@ omni dashboards download <identifier> --body '{ "format": "pdf" }'
 omni dashboards download-status <identifier> <jobId>
 ```
 
-Formats: `pdf`, `png`
+`omni dashboards download --schema --field format` lists the formats.
 
-**Apps download separately** (CLI ≥ 1.5.0). `omni dashboards download` renders dashboards; a published app uses the parallel `omni apps` family. Same `download` → `download-status` → `download-file` async flow and the same body shape as `dashboards download`; a job is visible only to the user it runs as, so pass the same `--user-id` through all three calls when using an org-scoped API key.
+**Apps download separately** (CLI ≥ 1.5.0). `omni dashboards download` renders dashboards; a published app uses the parallel `omni apps` family. Same `download` → `download-status` → `download-file` async flow; a job is visible only to the user it runs as, so pass the same `--user-id` through all three calls when using an org-scoped API key.
 
 ```bash
 omni apps download <identifier> --body '{ "format": "pdf" }'
@@ -189,7 +185,7 @@ omni apps download-status <identifier> <jobId>
 omni apps download-file <identifier> <jobId>
 ```
 
-Formats: `pdf`, `png`, `xlsx`, `csv` (full-app `csv` is a ZIP of one CSV per query). Queries on models the user cannot query are left out of the file without an error, so a file missing sheets is an access issue, not a failed job.
+Formats are in `omni apps download --schema --field format`; full-app `csv` is a ZIP of one CSV per query. Queries on models the user cannot query are left out of the file without an error, so a file missing sheets is an access issue, not a failed job.
 
 ## Alerts
 

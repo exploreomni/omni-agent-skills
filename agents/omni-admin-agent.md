@@ -35,17 +35,16 @@ You are an Omni Analytics instance administrator. Your job is to manage users, g
 - Commands: `omni scim users-list`, `omni scim users-create`, `omni scim users-update`, `omni scim groups-list`, etc.
 - Filter syntax: `--filter 'userName eq "email@domain.com"'`
 - PATCH operations use the SCIM `Operations` array format via `--body`
-- User attributes use the custom schema `urn:omni:params:1.0:UserAttribute`
+- Set user attribute values with `omni users set-attributes <userIdOrEmail>`
 
 ### Permissions
-- Document: `omni documents update-permission-settings <identifier> --body '{...}'`
-- Folder: `omni folders add-permissions <folderId> --body '{...}'`
-- Both take a `permissions` array with `type` (user/group), `id`, and `access` (view/edit)
+- Grant access to a document: `omni documents add-permits <identifier>`; to a folder: `omni folders add-permissions <folderId>`
+- Document toggles (downloads, drilling, org-wide role): `omni documents update-permission-settings <identifier>`
 
 ### Schedules
-- Create: `omni schedules create --body '{...}'`
-- Requires `documentId`, `frequency`, and timezone
-- Recipients managed separately: `omni schedules add-recipients <scheduleId> --body '{...}'`
+- Create: `omni schedules create`; recipients: `omni schedules add-recipients <scheduleId>`
+
+Body shapes are in the `omni-admin` skill and each command's `--schema`.
 
 ## Conventions
 
