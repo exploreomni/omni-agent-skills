@@ -18,15 +18,15 @@ Converts an `omni ai job-submit` result into a `queryPresentation` object suitab
 
 The query object inside a job result is **not directly usable** as a dashboard `queryPresentation` — it requires a transformation. Key rules:
 
-- **Always strip `userEditedSQL`** — it makes the tile a non-topic query, so it bypasses **all** model controls (object-level access grants, row-level access filters, and `always_where`) and is invisible to restricted roles in a dashboard. The `${Order Items}` topic-name token it contains also fails outside the job execution context.
-- **When `calculations[]` is non-empty**, stripping `userEditedSQL` is sufficient — the structured calc renders correctly.
-- **When `calculations[]` is empty**, Blobby authored the calc as inline SQL. The parsed AST is available in `csvResultFields` (at `result` level, not inside `result["query"]`) and can be reconstructed as a proper `calculations[]` entry. Fields whose top-level expr operator is an aggregate (`SUM`, `COUNT`, etc.) cannot be reconstructed as table calcs — add them to the model as filtered measures instead.
+- **Always blank `userEditedSQL`** (set it to `""`; a v2 tile query requires the key, and deleting it is a 400) — the job's SQL makes the tile a non-topic query, so it bypasses **all** model controls (object-level access grants, row-level access filters, and `always_where`) and is invisible to restricted roles in a dashboard. The `${Order Items}` topic-name token it contains also fails outside the job execution context.
+- **When `calculations[]` is non-empty**, blanking `userEditedSQL` is sufficient — the structured calc renders correctly.
+- **When `calculations[]` is empty**, Blobby authored the calc as inline SQL. The parsed AST is available in the action's `result.csvResultFields` (beside `result.query`, not inside it) and can be reconstructed as a proper `calculations[]` entry. Fields whose top-level expr operator is an aggregate (`SUM`, `COUNT`, etc.) cannot be reconstructed as table calcs — add them to the model as filtered measures instead.
 
 For the complete transformation algorithm, discriminator logic, field-ref injection, aggregate-skip handling, and sanity-check approach, see the sections below.
 
 ## Why transformation is required
 
-Blobby co-emits `userEditedSQL` alongside `calculations[]` on most job responses. When both are present, `userEditedSQL` takes precedence and shadows the structured calc. More critically, `userEditedSQL` silently bypasses topic-level `always_where_sql`, `always_where_filters`, and row-level access controls — the query executes as raw SQL against the base view, ignoring all topic filters. It must always be stripped.
+Blobby co-emits `userEditedSQL` alongside `calculations[]` on most job responses. When both are present, `userEditedSQL` takes precedence and shadows the structured calc. More critically, `userEditedSQL` silently bypasses topic-level `always_where_sql`, `always_where_filters`, and row-level access controls — the query executes as raw SQL against the base view, ignoring all topic filters. It must always be blanked.
 
 The `${Order Items}` topic-display-name token inside `userEditedSQL` resolves only in the jobs API execution context. It fails in `omni query run` and in the dashboard tile renderer and is not a safe rewrite target.
 
@@ -49,15 +49,17 @@ def extract_field_refs(expr):
         refs |= extract_field_refs(op)
     return refs
 
-def job_result_to_presentation(name, topic_display_name, job_result):
+def job_result_to_presentation(name, job_result):
     gqs = [a for a in job_result["actions"] if a["type"] == "generate_query"]
-    result = gqs[-1]["result"]
+    action = gqs[-1]
+    result = action["result"]
     q = result["query"]
     crf = result.get("csvResultFields", {})   # at result level, not inside query
 
-    # 1. Strip presentation cruft and the SQL override — always
-    for k in ("metadata", "parsed", "model_extension_id", "userEditedSQL"):
+    # 1. Strip AI/presentation keys and the server-owned modelId; blank the SQL override — always
+    for k in ("metadata", "parsed", "model_extension_id", "modelId", "aiGenerated", "rewriteSql"):
         q.pop(k, None)
+    q["userEditedSQL"] = ""
 
     # 2. When calculations[] is empty, reconstruct invented fields from csvResultFields.
     #    Signal: extension_model_id set + expr.type == "call".
@@ -92,15 +94,13 @@ def job_result_to_presentation(name, topic_display_name, job_result):
             q["calculations"] = rebuilt
             q["fields"] = new_fields
 
-    fields = q.get("fields", [])
+    # v2 queryPresentations.data entry; add a visConfig per omni-content-builder
     return {
+        "type": "query",
         "name": name,
-        "topicName": topic_display_name,
+        "topicName": action["topic_name"],
         "prefersChart": False,
-        "visType": "basic",
-        "fields": fields,
         "query": q,
-        "config": {},
     }
 ```
 
@@ -187,7 +187,7 @@ When a calc's `expr` references a field not already in `fields[]` — e.g. ROUND
 
 ## Topic security
 
-The structured path (no `userEditedSQL`) routes through `join_paths_from_topic_name`, applying `always_where_sql`, `always_where_filters`, and row-level access controls correctly. Confirmed: a topic with `always_where_sql: "${status} = 'Complete'"` produces the correct `WHERE "STATUS" = 'Complete'` clause through the reconstructed path; `userEditedSQL` with a view-name FROM clause returns all rows with no WHERE.
+The structured path (empty `userEditedSQL`) routes through `join_paths_from_topic_name`, applying `always_where_sql`, `always_where_filters`, and row-level access controls correctly. Confirmed: a topic with `always_where_sql: "${status} = 'Complete'"` produces the correct `WHERE "STATUS" = 'Complete'` clause through the reconstructed path; `userEditedSQL` with a view-name FROM clause returns all rows with no WHERE.
 
 ## Sanity checking via extension model YAML
 

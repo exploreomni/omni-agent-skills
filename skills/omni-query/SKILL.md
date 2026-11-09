@@ -36,8 +36,8 @@ You also need a **model ID** and knowledge of available **topics and fields**.
 ```bash
 omni query --help              # List query operations
 omni query run --help          # Show flags for running a query
-omni query run --schema        # Body schema + example (CLI ≥ 1.5.0 types the `query` object — `fields` and `modelId` are required, `calculations`/`filters`/`sorts`/`pivots` are enumerated; keys outside the typed set are still accepted but not shown)
-omni query run --schema --field query  # Just the typed query sub-fields
+omni query run --schema        # Request body and response shape
+omni query run --schema --field query.filters  # One sub-field, e.g. the filter union
 omni ai --help                 # AI-powered query generation
 ```
 
@@ -94,7 +94,7 @@ Each `query.filters` entry maps a field name to a typed object such as `{ "type"
 
 ### Table Calculations
 
-Table calculations are AST objects in `calculations[]`, and each `calc_name` must also be in `query.fields`, or the column never shows. Copy each request's AST from [table-calculations.md](references/table-calculations.md#table-calculations); after lifting a calc from an agentic job's `actions[].generate_query`, re-run your assembled query and compare its values with the job's `csvResult`. Query tasks are read-only unless the user explicitly asks to change the model: when a field seems missing, find the right model, topic, or branch or report the missing field, and do not create branches, add measures, or edit YAML to make a query work.
+Table calculations are AST objects in `calculations[]`, and each `calc_name` must also be in `query.fields`, or the column never shows. Copy each request's AST from [table-calculations.md](references/table-calculations.md#table-calculations); after lifting a calc from an agentic job's `generate_query` action (`result.query`), re-run your assembled query and compare its values with the job's `csvResult`. Query tasks are read-only unless the user explicitly asks to change the model: when a field seems missing, find the right model, topic, or branch or report the missing field, and do not create branches, add measures, or edit YAML to make a query work.
 
 ## Running Raw SQL (`userEditedSQL`)
 
@@ -106,9 +106,9 @@ Request options such as `resultType`, `cache`, `userId`, `branchId`, and `planOn
 
 ## Handling and Validating Results
 
-> **`omni query run` streams NDJSON — it is NOT one JSON object.** In JSON mode (pass `-o json` when parsing — a human default from `config set-format` or `OMNI_OUTPUT_FORMAT` applies even when piped, and prints a table instead) the CLI prints **multiple JSON objects, one per line**: first a `{"jobs_submitted":{…}}` line, then one or more `{"job_id":…,"status":"COMPLETE","summary":{…}}` job lines (and, with `resultType`, the result payload). A naive `json.loads(entire_stdout)` throws `JSONDecodeError: Extra data`. **Don't write a single-object parser** — iterate lines and pick the one you need, or slurp with `jq -s` / read the **last** non-empty line. `--compact` puts each object on one tidy line.
+> **`omni query run` streams NDJSON — it is NOT one JSON object.** In JSON mode (pass `-o json` when parsing — a human default from `config set-format` or `OMNI_OUTPUT_FORMAT` applies even when piped, and prints a table instead) the CLI prints **multiple JSON objects, one per line**: first a `{"jobs_submitted":{…}}` line, then one `{"job_id":…,"status":…,"summary":{…}}` line per job, then a `{"remaining_job_ids":[…],"timed_out":"false"}` footer. (With a top-level `resultType` the body is a single JSON/CSV document instead.) A naive `json.loads(entire_stdout)` throws `JSONDecodeError: Extra data`. **Don't write a single-object parser** — iterate lines and pick the ones with `job_id`, or slurp with `jq -s`. The last line is the footer, not the result. `--compact` puts each object on one tidy line.
 
-Default response: base64-encoded Apache Arrow table. Arrow results are binary — you cannot parse individual row data from the raw response. The row count is at **`cache_metadata.num_rows`** (not `summary.row_count`). The `summary` object holds validation metadata: `invalid_calculations`, `missing_fields`, `display_sql` (the compiled SQL), `omni_sql_parse_failed`. (`--schema` won't show any of this — it describes the request body only; response shape comes from a live response. See the [`omni-api-conventions`](../../rules/omni-api-conventions.mdc) rule.)
+Without `resultType`, each job line carries the rows as base64 Arrow in `result`, unreadable inline. The row count is **`cache_metadata.num_rows`** (not `summary.row_count`); `summary` has `invalid_calculations`, `missing_fields` and `display_sql`. `omni query wait --schema` describes the job line and footer.
 
 **To read rows yourself, always set `resultType: "json"` (or `"csv"`) at the body's TOP LEVEL — then stdout is a clean, directly-parseable JSON array (or CSV), with none of the Arrow/NDJSON envelope to unpack.** This is the single reliable way to spot-check values; reaching for the default Arrow path and trying to decode rows from it is the common time-waster.
 
@@ -124,24 +124,24 @@ Check every response before trusting or presenting it, using the checklist below
 
 | Check | How | When |
 |-------|-----|------|
-| No error in response | Check for `error` key | Every query |
+| Query succeeded | Job line `status` is `COMPLETE`. A failed job carries `error_type`/`error_message` and the CLI still exits 0; with `resultType`, a failure is an `error` object and a non-zero exit | Every query |
 | Calcs/fields valid | `summary.invalid_calculations` and `summary.missing_fields` empty | Every query (esp. with calculations) |
 | Data was returned | `cache_metadata.num_rows > 0` | Every query |
 | Results not truncated | `cache_metadata.num_rows < limit` | When completeness matters |
 | Columns are correct | CSV column headers match requested fields | When building dashboards or reports |
 | Values are reasonable | Spot-check CSV output | When presenting to users |
 | Filters are applied | Compare filtered vs unfiltered row counts | When using filters |
-| Long-running query completed | No `remaining_job_ids` in final response | Queries on large tables |
+| Long-running query completed | Footer `remaining_job_ids` is empty | Queries on large tables |
 
 ### Long-Running Queries
 
-If the response includes `remaining_job_ids`, poll until complete:
+If the footer's `remaining_job_ids` is non-empty (`timed_out` is `"true"`), poll those ids:
 
 ```bash
 omni query wait --job-ids job-id-1,job-id-2
 ```
 
-JSON mode never polls for you: the stream ends at the wait window and the footer's `remaining_job_ids` is the only sign the result is incomplete. (Human-mode output on CLI ≥ 1.3.0 does poll.)
+JSON mode never polls for you: the stream ends at the wait window, and a non-empty `remaining_job_ids` is the only sign the result is incomplete. (Human-mode output on CLI ≥ 1.3.0 does poll.)
 
 Streaming large results (CLI ≥ 1.5.0): `omni query wait --completion-only true` completes a job without its result, or set `"completionOnly": true` at the body's top level on `query run`, never with `resultType`; then `omni query results` reads the result in slices for about an hour. [handling-results.md](references/handling-results.md#streaming-large-results-in-chunks-cli--150) has the steps.
 
@@ -174,7 +174,7 @@ Submit with `omni ai job-submit`, poll `omni ai job-status` on its `state` field
 
 ### Using Job Results in a Dashboard
 
-Before a job's query becomes a dashboard `queryPresentation`, always strip `userEditedSQL`. When `calculations[]` is empty, rebuild the calc from the result's `csvResultFields`, except aggregates such as `SUM`, which become filtered measures in the model; [job-result-to-presentation.md](references/job-result-to-presentation.md#using-job-results-in-a-dashboard) has the full algorithm.
+Before a job's query becomes a dashboard `queryPresentation`, always set `userEditedSQL` to `""` (a tile query requires the key). When `calculations[]` is empty, rebuild the calc from the action's `result.csvResultFields`, except aggregates such as `SUM`, which become filtered measures in the model; [job-result-to-presentation.md](references/job-result-to-presentation.md#using-job-results-in-a-dashboard) has the full algorithm.
 
 ### When to Use Which Approach
 

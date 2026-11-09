@@ -47,7 +47,7 @@ You also need the **model ID** of a shared model to evaluate. Evals require at l
 | **Eval run** | Executes a prompt set against a model branch (or `main`). Each prompt runs as a full async agentic AI job (the same engine as production Blobby), then the accuracy judge scores the result. |
 | **Accuracy judge** | A fixed judge model that reads the evaluated AI's full conversation and returns a **pass/fail** verdict per prompt, plus confidence and a rationale. It targets high-impact analysis errors (hallucinations, date/time filtering, row-limit handling, mental math, period-over-period mistakes, wrong topic). It does **not** grade wording or formatting. |
 
-All commands accept `-o json` (or `--compact`) to force structured output for parsing, and `--profile <name>` / `--branch-id` style global flags. Run `omni ai-eval <command> --help` for the full flag list. Run any command with `--schema` to print its args, flags, request-body schema (with a filled example) and response shape instead of guessing.
+All commands accept `-o json` (or `--compact`) and `--profile <name>`. No `ai-eval` command has a `--branch-id` flag; the branch goes in the `runs-create` body as `run_config.branch_id`. Run any command with `--schema` for its body and response fields instead of guessing.
 
 ## Step 1 — Build a prompt set
 
@@ -118,7 +118,7 @@ omni ai-eval runs-create --compact --body '{
 }'
 ```
 
-The response returns `run.id` and `job_count` (one agentic job per prompt). Omit `run_config.branch_id` to run against the live shared model.
+The response returns `run.id` and `job_count` (prompts × `run_config.repeat_count`, default 1). Omit `run_config.branch_id` to run against the live shared model.
 
 > **Concurrency cap**: at most **2 eval runs in flight at once**. A `429` means the per-user active-run cap is reached — wait for an in-flight run to finish or cancel one. A `503` means eval is paused for the org. Check `runs-list` before launching.
 
@@ -128,39 +128,17 @@ The response returns `run.id` and `job_count` (one agentic job per prompt). Omit
 omni ai-eval runs-get <runId> --compact
 ```
 
-Poll with backoff (e.g. 5s, 10s, 20s) until the run's `status` is terminal — `COMPLETE` or `CANCELLED`. Track progress with each result's `agentic_job.state` (`QUEUED` → `EXECUTING` → `COMPLETE`/`FAILED`). Don't hammer the endpoint.
+Poll with backoff (e.g. 5s, 10s, 20s) until the run's `status` is terminal — `COMPLETE` or `CANCELLED`. Each result's `agentic_job.state` tracks its job. Don't hammer the endpoint.
 
 ## Step 3 — Read results
 
-`runs-get` returns `results[]`, one row per prompt:
+`runs-get` returns `run.results[]`, one row per prompt execution. `omni ai-eval runs-get --schema` describes every field; the ones to read:
 
-```json
-{
-  "run": {
-    "status": "COMPLETE",
-    "branch_id": null,
-    "results": [
-      {
-        "prompt": "What are the top 5 products by revenue?",
-        "score": 1,
-        "error_reason": null,
-        "cost": 0.0021,
-        "scoring_cost": 0.0004,
-        "timing_ms": 4321,
-        "agentic_job": { "state": "COMPLETE", "conversation_id": "conv-uuid", "id": "job-uuid" }
-      }
-    ]
-  }
-}
-```
-
-| Field | Meaning |
-|-------|---------|
-| `score` | Judge verdict for the prompt — pass = `1`, fail = `0` |
-| `error_reason` | Set when the underlying agentic job failed |
-| `cost` / `scoring_cost` | LLM cost (USD) for the answer vs. for judging it |
-| `timing_ms` | Total **AI time** in ms — all LLM processing and tool calls (matches the "AI time" column in the UI), not wall-clock duration |
-| `agentic_job.conversation_id` | The conversation behind the answer — read it for the judge's full verdict, confidence, and rationale |
+- `score` — `1` pass, `0` fail. A `0` with a null `scoring_cost` means the job produced no response and no judge ran.
+- `outcome` — null when the job answered and was scored; otherwise why not (`JOB_FAILED`, `NO_TEXT`, `JUDGE_ERROR`, …). `ASKED_CLARIFICATION` is still scored.
+- `error_reason` — why there is no usable answer or score, when known. A reason starting with `judge error` means the answer exists and only scoring failed.
+- `ai_timing_ms` — the UI's "AI time". `timing_ms` is the total including tool time; warehouse time is `query_timing_ms`.
+- `agentic_job.conversation_id` — the conversation behind the answer, for the judge's rationale.
 
 **Overall accuracy = the pass rate** (mean of `score` across results). Report it with the per-prompt breakdown, and for any failure, point to the `conversation_id` so the user can read *why* the judge failed it — that rationale is where the actionable signal lives.
 
@@ -168,7 +146,7 @@ Poll with backoff (e.g. 5s, 10s, 20s) until the run's `status` is terminal — `
 Eval run "Baseline on main" — 9/12 passed (75.0%)
   ✗ "Revenue by quarter"        — judge: summed a row-limited result as a total
   ✗ "Top products this year"    — judge: date filter used calendar instead of fiscal year
-  ✗ "Churn rate by segment"     — agentic job FAILED (error_reason)
+  ✗ "Churn rate by segment"     — not judged: outcome JOB_FAILED
   (omni ai conversation-detail <conversation_id> for the full rationale)
 ```
 
@@ -214,7 +192,7 @@ Notes for an auditable comparison:
 
 ```bash
 omni ai-eval runs-list --prompt-set-id <promptSetId> --compact   # runs for a set, newest first
-omni ai-eval runs-cancel <runId>                                 # cancel an in-flight run (also archives it)
+omni ai-eval runs-cancel <runId>                                 # cancel an in-flight run
 omni ai-eval runs-archive <runId>                                # archive a finished run
 omni ai-eval runs-unarchive <runId>                              # restore an archived run
 
@@ -222,13 +200,13 @@ omni ai-eval prompt-sets-archive <promptSetId>                   # archive a set
 omni ai-eval prompt-sets-unarchive <promptSetId>                 # restore an archived set
 ```
 
-Archiving is a soft delete — sets and runs are preserved and can be restored. Cancelling a run marks it `CANCELLED` and archives it; use `runs-unarchive` to surface it in the default list again. Use `--archived true` on the `*-list` commands to see archived items.
+Archiving is a soft delete — sets and runs are preserved and can be restored. Cancelling a run marks it `CANCELLED` but does not archive it (despite `runs-cancel --help`); it stays in the default list until you `runs-archive` it. Use `--archived true` on the `*-list` commands to see archived items.
 
 ## Gotchas
 
 - **Right profile, right instance** — the eval runs against whatever model lives on the active profile's instance. Confirm the profile before creating sets or runs.
 - **Judge is binary and fixed** — a pass means the answer avoided the high-impact analysis errors, not that it's the single best possible answer. The judge model isn't configurable per run.
-- **Failed job ≠ failed judgment** — a result with `error_reason` set means the agentic job itself failed (it never produced an answer to score); treat that separately from a judge `score` of `0`.
+- **Failed job ≠ failed judgment** — a result whose `outcome` is set (other than `ASKED_CLARIFICATION`) was not judged on an answer; report it separately from a judge `score` of `0`.
 - **Snapshotting** — to keep runs reproducible, capture the model state alongside results: `omni models yaml-get <modelId> --compact` and `omni models validate <modelId>`. Branch runs already pin the change to a branch.
 
 ## Docs reference

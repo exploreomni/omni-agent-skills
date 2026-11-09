@@ -9,7 +9,7 @@ Complete reference for the `filters` object in Omni query API calls (`query run`
   "users.state":            { "type": "string", "kind": "EQUALS",       "values": ["California", "New York"] },
   "products.category":      { "type": "string", "kind": "CONTAINS",      "values": ["Jeans"] },
   "order_items.sale_price": { "type": "number", "kind": "GREATER_THAN",  "values": [100] },
-  "order_items.created_at": { "type": "date",   "kind": "BEFORE",        "values": ["2024-01-01"] },
+  "order_items.created_at": { "type": "date",   "kind": "BEFORE",        "right_side": "2024-01-01" },
   "order_items.shipped_at": { "type": "date",   "kind": "TIME_FOR_INTERVAL_DURATION", "ui_type": "PAST", "left_side": "12 months ago", "right_side": "12 months" },
   "order_items.is_shipped": { "type": "boolean", "is_negative": false },
   "users.email":            { "type": "null",   "is_negative": true }
@@ -18,11 +18,7 @@ Complete reference for the `filters` object in Omni query API calls (`query run`
 
 > **Do NOT use bare-string shorthand.** `{ "order_items.status": "complete" }` (or `"last 90 days"`, `"not null"`, `123`, `true`) is **rejected** — as of Omni CLI 1.1.2 / August 2026 with `400 "Unable to parse data stream"` (verified for value, date, null-string, number, and boolean forms; older builds returned `500 "Cannot use 'in' operator to search for 'query_id' in <value>"` from the query-reference probe). The `filters` map has **always** required object values — bare scalars are never valid.
 
-> **Authoritative source for the full filter union.** `query run --schema` does *not* describe filters (its `query` object is an opaque pass-through). The exhaustive, typed union lives in the **documents** schema at the same path a tile uses:
-> ```
-> omni documents v2-create --schema --field queryPresentations.data.query.filters
-> ```
-> It returns a closed `oneOf` of **8 `type`s** — `string`, `number`, `date`, `boolean`, `null`, `composite`, `user_attribute`, `query` — each with its `kind`/`ui_type` enums and required props. It's the same `query.filters` shape `query run` consumes (verified by binding each), and it's future-proof.
+> **Every `type`, `kind` and `ui_type`, with required props:** `omni query run --schema --field query.filters`. This page covers what the schema can't: which shapes bind, and the silent failures.
 
 ## Contents
 
@@ -62,19 +58,21 @@ Complete reference for the `filters` object in Omni query API calls (`query run`
 | `EQUALS` | exactly N | `{ "type":"number", "kind":"EQUALS", "values":[100] }` |
 | `GREATER_THAN` | `> N` | `{ "type":"number", "kind":"GREATER_THAN", "values":[100] }` |
 | `LESS_THAN` | `< N` | `{ "type":"number", "kind":"LESS_THAN", "values":[1000] }` |
-| `BETWEEN` | inclusive range | `{ "type":"number", "kind":"BETWEEN", "values":[50, 200] }` |
+| `BETWEEN` | inclusive at both ends (`>= 50 AND <= 200`); `is_inclusive` has no effect | `{ "type":"number", "kind":"BETWEEN", "values":[50, 200] }` |
 
 `is_negative: true` negates (e.g. `EQUALS` → not-equal).
 
 ## Date filters (`type: "date"`)
 
-**Point/range kinds** take `values`:
+**Point/range kinds** take the date in `left_side` / `right_side`, the shape the schema types and the AI emits:
 
 | `kind` | Meaning | Example |
 |---|---|---|
-| `BEFORE` | before a date | `{ "type":"date", "kind":"BEFORE", "values":["2024-01-01"] }` |
-| `ON_OR_AFTER` | on/after a date | `{ "type":"date", "kind":"ON_OR_AFTER", "values":["2024-01-01"] }` |
-| `BETWEEN` | start inclusive, **end exclusive** (`>= start AND < end`); for a whole year end on the first day of the next year | `{ "type":"date", "kind":"BETWEEN", "values":["2024-01-01","2025-01-01"] }` |
+| `BEFORE` | before a date — the date goes in **`right_side`**; `left_side` alone fails with `Need rhs for BEFORE filter` | `{ "type":"date", "kind":"BEFORE", "right_side":"2024-01-01" }` |
+| `ON_OR_AFTER` | on/after a date | `{ "type":"date", "kind":"ON_OR_AFTER", "left_side":"2024-01-01" }` |
+| `BETWEEN` | start inclusive, **end exclusive** (`>= start AND < end`); for a whole year end on the first day of the next year | `{ "type":"date", "kind":"BETWEEN", "left_side":"2024-01-01", "right_side":"2025-01-01" }` |
+
+A `values` array (`["2024-01-01"]`, or `[start, end]` for `BETWEEN`) also binds for these three kinds, though the schema doesn't list it.
 
 **Rolling windows** use `ui_type` + `left_side`/`right_side` (no `values`):
 
@@ -132,7 +130,7 @@ Bind a field to the **running user's** attribute value (resolves at query time t
 "users.email": { "type": "user_attribute", "user_attribute_name": "omni_user_email" }
 // → WHERE EMAIL = '<caller's email>'   (omni_user_email = built-in "current user's email")
 ```
-Add `"is_negative": true` for `!=`. Works standalone in `query run` (resolves to the API key's user).
+There is no negated form: `"is_negative": true` is silently ignored and still binds `=`. Works standalone in `query run` (resolves to the API key's user).
 
 ## Combining filters
 
@@ -178,7 +176,7 @@ A filter keyed by a **measure** becomes a `HAVING` on the aggregate — comparis
 
 ## Get the exact shape for free — harvest from an agentic job
 
-Omni's AI emits these typed objects exactly. For any non-trivial filter, run `omni ai job-submit <modelId> "<NL prompt that names the filter>"`, then lift `actions[].generate_query.query.filters` verbatim — it's guaranteed-valid (e.g. a "not null" prompt returns `{ "type":"null", "is_negative":true }`).
+Omni's AI emits these typed objects exactly. For any non-trivial filter, run `omni ai job-submit <modelId> "<NL prompt that names the filter>"`, then lift `result.query.filters` from the `type: "generate_query"` action verbatim — it's guaranteed-valid (e.g. a "not null" prompt returns `{ "type":"null", "is_negative":true }`).
 
 ## Complete query example
 
