@@ -36,7 +36,7 @@ Complete parameter reference for views, topics, dimensions, and measures. Use th
 | `tags` | Metadata for field search and curation (e.g., `[internal, pii]`) |
 | `synonyms` | Alternative names for AI matching (e.g., `[client, account, buyer]`) |
 | `ai_context` | Free text providing context to the Omni Agent |
-| `all_values` | Complete list of possible values for the Omni Agent |
+| `all_values` | Deprecated: use `sample_values`. An existing list still reaches the Omni Agent as the complete set of values |
 | `sample_values` | Representative values for AI content understanding |
 | `display_order` | Overrides sort order in field picker |
 | `view_label` | Nests field under a different view in the picker |
@@ -122,7 +122,7 @@ dimensions:
 | `tags` | Metadata for field search and curation |
 | `synonyms` | Alternative names for AI matching |
 | `ai_context` | Free text providing context to the Omni Agent |
-| `all_values` | Complete list of possible values for the Omni Agent |
+| `all_values` | Deprecated: use `sample_values`. An existing list still reaches the Omni Agent as the complete set of values |
 | `sample_values` | Sample values for AI to understand magnitude |
 | `filters` | Filtered aggregations (see Measure Filters below) |
 | `custom_primary_key_sql` | Custom dedup key for `*_distinct_on` aggregate types |
@@ -280,7 +280,7 @@ Use D3 time format strings: `"%Y-%m"`, `"%Y-%m-%d"`, `"%Y-%m-%d %H:%M:%S"`
 | `fields` | Field curation: `[order_items.*, users.name, -users.internal_id]` |
 | `ai_context` | Guides Blobby's field mapping and behavior |
 | `ai_fields` | Curates fields visible to AI (supports `*`, `-`, `tag:`) |
-| `sample_queries` | Example questions with correct queries for AI. Each key is the name shown in the UI (there is no `label:`), so use a quoted Title Case key such as `"Revenue by Region, Last Month":`. Use relative dates (`time_for_duration: [1 complete months ago, 1 months]`) here and in `ai_context`: fixed dates go stale and teach the AI the wrong default period |
+| `sample_queries` | Example questions with correct queries for AI. Each key is the name shown in the UI, so use a quoted Title Case key such as `"Revenue by Region, Last Month":`. Use relative dates (`time_for_duration: [1 complete months ago, 1 months]`) here and in `ai_context`: fixed dates go stale and teach the AI the wrong default period. Full reference for topic, composite-topic and model sample queries: `references/sample-queries.md` in the `omni-ai-optimizer` skill |
 | `default_filters` | User-visible, removable filters applied to all queries |
 | `always_where_sql` | Non-removable SQL filter on all rows |
 | `always_where_filters` | Non-removable filter using filter syntax |

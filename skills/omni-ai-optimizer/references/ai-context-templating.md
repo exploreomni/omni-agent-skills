@@ -1,10 +1,10 @@
 # Advanced ai_context Templating
 
-These apply to `ai_context` at the **model, topic, and view levels only**.
+User attributes and constants work in `ai_context` on the **model, topics (including composite topics), views and sample queries**.
 
 ## Personalize with user attributes
 
-`{{omni_attributes.<attribute_name>}}` is substituted with the current user's [attribute value](https://docs.omni.co/administration/users/attributes) at query time:
+`{{omni_attributes.<attribute_name>}}` is replaced with the current user's [attribute value](https://docs.omni.co/administration/users/attributes) at query time. Use only attributes that exist: `omni user-attributes list` returns each one's `name`.
 
 ```yaml
 ai_context: |
@@ -13,49 +13,13 @@ ai_context: |
   and account.region = {{omni_attributes.region}}.
 ```
 
-> **Caveat**: Not supported in dimension or measure `ai_context` — there the value is used verbatim, un-substituted. Field references and filter conditions are also unsupported and raise a validation warning.
+A multi-value attribute is joined with commas.
 
-## Target specific model tiers with omni_llm
-
-Scope instructions to the AI model tier — `smartest`, `standard`, or `fastest` — so expensive reasoning instructions don't burden fast models. Sections use Mustache syntax: `{{# ... }}` for "when", `{{^ ... }}` for "when not".
-
-```yaml
-ai_context: |
-  This topic focuses on financial transactions.
-
-  {{# omni_llm.smartest }}
-  For complex multi-table queries, consider indirect relationships and provide rationale for join path selection.
-  {{/ omni_llm.smartest }}
-
-  {{# omni_llm.fastest }}
-  Prefer single-table queries when possible.
-  {{/ omni_llm.fastest }}
-```
-
-## Target specific agents with omni_agent
-
-Scope context to the agent that will read it, so bulky agent-specific content doesn't inflate the window for the others:
-
-- `analyze` — model search and query generation
-- `build` — topic metadata generation, learn-from-conversation
-- `simple_summarize` — tile/visualization summaries, query metadata
-
-```yaml
-ai_context: |
-  {{# omni_agent.build }}
-  Modeling conventions: Always define primary keys. Use snake_case for field names.
-  {{/ omni_agent.build }}
-
-  {{^ omni_agent.build }}
-  Keep queries focused and efficient.
-  {{/ omni_agent.build }}
-```
-
-`{{ omni_agent.name }}` interpolates the reading agent's name.
+> **Dimension and measure `ai_context`** is used as written, with no substitution. The filter and field templates that work in SQL (`{{ filters.view.field.value }}`, `{{ view.field.in_query }}`, `{{# view.field.filter }}` sections) don't work in any `ai_context`, and the validator warns on them.
 
 ## Reuse blocks with constants
 
-Define [`constants`](https://docs.omni.co/modeling/models/constants#reusable-ai-context) once and reference them with `@{constant_name}` across model, topic, view, and sample-query `ai_context` — the fix for the same tone/privacy/domain paragraph duplicated in a dozen places:
+Define [`constants`](https://docs.omni.co/modeling/models/constants#reusable-ai-context) once and reference them with `@{constant_name}` across model, topic, view and sample-query `ai_context`, so a paragraph used in many places (tone, privacy rules) is written once:
 
 ```yaml
 constants:
@@ -67,3 +31,19 @@ constants:
 ai_context: |
   @{tone} @{privacy_high}
 ```
+
+Constants are substituted first, so a constant's value can itself hold an `{{omni_attributes.<attribute_name>}}` reference. An unknown `@{name}` stays in the text as written, and the validator warns (`ai_context_unknown_constant`). Dimension and measure `ai_context` doesn't substitute constants either.
+
+## Deprecated: omni_llm
+
+`{{# omni_llm.<tier> }}` sections no longer select anything: Omni always renders a section's else branch (`{{^ omni_llm.<tier> }}`) and never its `{{# }}` branch, and `{{ omni_llm.model }}` renders empty. The validator warns on every use (`ai_context_deprecated_omni_llm`). The organization's LLM settings now choose the LLM.
+
+When you find one, move any text the AI needs out of the `{{# }}` branch and delete the tags.
+
+## Deprecated: omni_agent
+
+`omni_agent` sections still render but are deprecated, so don't add new ones. To read existing ones:
+
+- `{{# omni_agent.<name> }}…{{/ omni_agent.<name> }}` renders only for that agent, and `{{^ omni_agent.<name> }}` for every other.
+- `{{ omni_agent.name }}` renders the reading agent's name, or nothing when no agent is named.
+- The names are `analyze` (chat, model search and query generation), `build` (the Modeling Agent and learn-from-conversation) and `simple_summarize` (tile and query summaries).
