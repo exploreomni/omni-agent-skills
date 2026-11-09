@@ -321,6 +321,10 @@ omni schedules add-recipients <scheduleId> --body '{ "recipients": ["team@compan
 > `omni schedules update --schema` and carry across every value you mean to
 > keep.
 
+`omni schedules restore <scheduleId>` (CLI ≥ 1.6.0) takes a deleted schedule out of
+the trash, unless its document is also in the trash. It runs again unless it was paused
+or disabled by the system.
+
 **Email-only users** are the recipients that exist only to receive deliveries:
 `omni users list-email-only` / `create-email-only` / `create-email-only-bulk`,
 and `delete-email-only-bulk` (CLI ≥ 1.4.0). The bulk delete is **partially
