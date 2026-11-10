@@ -35,7 +35,7 @@
       "expected_behavior": [
         "The agent creates a model branch and removes the field there, or verifies that an existing branch actually has the field removed \u2014 it does not touch the production model to assess impact",
         "The agent reads branch YAML or validates the branch setup before treating content-validator output as deletion impact",
-        "The agent runs omni models content-validator-get --branch-id to find broken dashboards and tiles",
+        "The agent runs omni models content-validator-get --branch-id --content-filter-mode WITH_ISSUES to find broken dashboards and tiles",
         "The agent also searches the model YAML for references to sale_price in other views, topics, or calculated fields",
         "The agent reports both broken content (from the validator) and model references (from YAML search) before recommending any action"
       ],
