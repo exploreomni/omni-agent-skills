@@ -43,10 +43,9 @@
     {
       "id": "4",
       "question": "Set a user attribute 'region' to 'West Coast' for the user with email {{EVAL_EXISTING_USER}}.",
-      "ground_truth": "User found by email, attribute set via SCIM update, and verification confirms the attribute was applied.",
+      "ground_truth": "User attribute set via omni users set-attributes (or an equivalent SCIM update), and verification confirms the attribute was applied.",
       "expected_behavior": [
-        "The agent first looks up the user by email using omni scim users-list with a filter before attempting to set the attribute",
-        "The SCIM update uses the Omni user attribute path format: urn:omni:params:1.0:UserAttribute:region",
+        "The agent sets the attribute with omni users set-attributes, identifying the user by email or SCIM user ID, with --attr region=\"West Coast\" (or --attr-json)",
         "The agent verifies the attribute was set after the update"
       ],
       "expected_skill": "omni-admin"

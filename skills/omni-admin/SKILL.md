@@ -146,10 +146,8 @@ omni user-attributes create --body '{
 omni user-attributes update <id> --body '{ "default_value": "us-west" }'
 omni user-attributes delete <id>
 
-# Find the user by email before setting an attribute
-omni scim users-list --filter 'userName eq "user@company.com"'
-
-# Set attribute values on a user (by SCIM user id or email); only the named attributes change
+# Set attribute values on a user (by SCIM user id or email — an email is resolved
+# via SCIM automatically, no separate lookup needed); only the named attributes change
 omni users set-attributes user@company.com --attr region="West Coast"
 omni users set-attributes user@company.com --attr-json '{"level": 3, "regions": ["us", "eu"]}'
 ```
@@ -177,7 +175,7 @@ and type rules are in `--help` and fail loudly. Two behaviors do not:
   stored, and returned, as `"9007199254740992"`. Send large numbers as strings.
 
 When the user explicitly asks to set or update a user attribute, converge the
-user record with a SCIM update even if the initial user lookup already shows the
+user record with `omni users set-attributes` even if the user already shows the
 requested value. This keeps the operation idempotent while still honoring the
 requested admin action.
 
