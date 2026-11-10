@@ -19,7 +19,7 @@ command -v omni >/dev/null || echo "ERROR: Omni CLI is not installed."
 
 ```bash
 # Show available profiles and select the appropriate one
-omni config show
+omni config list
 # If multiple profiles exist, ask the user which to use, then switch:
 omni config use <profile-name>
 
@@ -41,7 +41,7 @@ Before writing any SQL expression, look up the connection's dialect: find the mo
 
 ## Schema Refresh: Syncing with Database Changes
 
-When the database schema changes (new, deleted or renamed columns, type changes), refresh the schema layer with `omni models refresh <modelId>` (`--branch-id <branchId>` scopes it to a branch; requires **Connection Admin**). When to run it, its side effects, the impact check for deleted or renamed columns, and connection errors: [schema-refresh.md](references/schema-refresh.md).
+When the database schema changes (new, deleted or renamed columns, type changes), refresh the schema layer with `omni models refresh <modelId>` (requires **Connection Admin**; `--branch-id` is required when the connection has branch-based schema refresh and rejected when it doesn't). When to run it, its side effects, the impact check for deleted or renamed columns, and connection errors: [schema-refresh.md](references/schema-refresh.md).
 
 If the columns haven't changed but SQL field or view errors remain after their cause was fixed elsewhere, such as a warehouse grant, run `omni models reparse <modelId>` (CLI ≥ 1.6.0) on the shared model or shared extension.
 

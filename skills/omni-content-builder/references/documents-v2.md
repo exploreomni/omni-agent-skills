@@ -35,7 +35,7 @@ The `omni documents v2-*` commands are the **only** surface for creating, readin
 - `v2-get` also accepts a **draft's own identifier**. The response then carries `draftOf`, naming the published document the draft belongs to — the way to build the `<identifier> <draftIdentifier>` argument pair when all you were handed is a draft.
 - Patch responses return `{identifier, name, description, draftIdentifier}` — capture `draftIdentifier` for `v2-get-draft`, `v2-patch-draft-by-identifier`, and the draft URL.
 
-> **Which patch command:** use **`v2-patch-draft`** to *open* a draft (the first patch — it creates the draft and applies your changes); use **`v2-patch-draft-by-identifier`** for *every subsequent* patch to that same draft (pure apply, no new draft). Calling `v2-patch-draft` again creates *another* draft; passing a draft identifier to `v2-patch-draft` 404s.
+> **Which patch command:** use **`v2-patch-draft`** to *open* a draft (the first patch — it creates the draft and applies your changes); use **`v2-patch-draft-by-identifier`** for *every subsequent* patch to that same draft (pure apply, no new draft). A document has at most one draft per branch, so a second `v2-patch-draft` on the same branch is a 409 naming the open draft's identifier; passing a draft identifier to `v2-patch-draft` 404s.
 
 ## Commands by task
 
@@ -107,7 +107,7 @@ For anything non-trivial, write the body to a file and pass `--body "$(cat body.
 
 ### The server anchors tiles to the workbook model
 
-On create, the server mints a per-document **workbook** model extending the shared `modelId` you pass. Tile queries carry **no `modelId`** — reads never expose one, and a `modelId` or `model_extension_id` you send in a tile query is **rewritten** to the workbook model with no warning, so omit them. The workbook model id is returned as `workbookModelId` by `v2-get` (the published document's), by `v2-get-draft` (that draft's), and by `documents list-drafts`. It **changes**: each draft copies the workbook model (extensions included), and publishing switches the document to that copy, so the id is different after **every** publish. Don't cache it; read it each time. Reads include `modelId` and `workbookModelId` so that a GET body can be sent back as a PATCH: the same values change nothing, and a different value is rejected. `draftOf` works the same way; naming a different document returns 409.
+On create, the server mints a per-document **workbook** model extending the shared `modelId` you pass. Tile queries carry **no `modelId`** — reads never expose one, and a `modelId` or `model_extension_id` you send in a tile query is dropped with no warning, so omit them. The workbook model id is returned as `workbookModelId` by `v2-get` (the published document's), by `v2-get-draft` (that draft's), and by `documents list-drafts`. It **changes**: each draft copies the workbook model (extensions included), and publishing switches the document to that copy, so the id is different after **every** publish. Don't cache it; read it each time. Reads include `modelId` and `workbookModelId` so that a GET body can be sent back as a PATCH: the same values change nothing, and a different value is rejected. `draftOf` works the same way; naming a different document returns 409.
 
 Since the binding is server-owned on the PATCH surface, changing a tile's query-model binding goes through the dedicated draft-scoped commands (CLI ≥ 1.1.2): `v2-bind-query-model <identifier> <draftIdentifier> <queryKey>` (body carries the `queryModelId` — see `--schema`) and `v2-unbind-query-model` (no body; keeps the tile's query). The `queryModelId` must be a live query model layered on this draft's workbook model and not already bound to another tile — a query model is dedicated to a single query. A LINKED tile inherits its query model from its source and can't be bound directly. Because each draft re-clones its query models, bind against a draft you have already read.
 
@@ -169,7 +169,7 @@ An **app** is HTML content in place of a dashboard. A document carries at most o
 
 ## Behaviors to design around
 
-- **`--body` overrides the shorthand flags.** With `--body`, every shorthand flag (`--name`, `--summary`, `--branch-id`, …) is ignored with no warning. Put those fields in the JSON body of every create and patch; use flags without `--body` only when the flags are the whole request.
+- **`--body` can't be combined with shorthand flags** (`--name`, `--summary`, `--branch-id`, positional arguments, …); the CLI exits with an error. Put those fields in the JSON body of every create and patch; use flags without `--body` only when the flags are the whole request.
 - **The workbook model ID changes with every draft and publish** — each draft copies the workbook model (extensions included), and publishing switches the document to that copy. Don't cache a workbook model ID; read `workbookModelId` from `v2-get-draft` (or `omni documents list-drafts <identifier>`) each time you need it.
 - **Boolean filters may be silently dropped** when a `pivots` array is present. If boolean filters aren't applying, remove the pivot and test again.
 
@@ -197,7 +197,7 @@ Related: tile `"1"` in a create body **is merged into the server's seed tile**, 
 
 ### 4. `query.filters` needs the object form, not the shorthand string
 
-A tile `query.filters` value must be a **filter object**, not the relative-date shorthand. Sending `{ "ecomm__order_items.created_at": "last 6 months" }` throws a 500 (`Cannot use 'in' operator to search for 'query_id' in last 6 months` — the value is parsed as a filter object and the string fails). Use the object form:
+A tile `query.filters` value must be a **filter object**, not the relative-date shorthand. Sending `{ "ecomm__order_items.created_at": "last 6 months" }` is a 400 (`expected object, received string`). Use the object form:
 
 ```jsonc
 "filters": {
@@ -223,14 +223,13 @@ omni query run --body '{"query": { … same query object … }}'   # NOTE: wrapp
 ```
 
 - The body must be wrapped in a top-level `query` object.
-- `run` returns `{"jobs_submitted": {"<jobId>": "<clientId>"}}` — the query runs **async**.
-- Poll with `omni query wait --job-ids <jobId>`.
+- `run` streams results inline as NDJSON; poll with `omni query wait --job-ids` only for ids left in a non-empty `remaining_job_ids`.
 - The completed result's `result` field is **base64-encoded Arrow IPC** — decode with pyarrow (`pa.ipc.open_stream(io.BytesIO(base64.b64decode(result))).read_all()`).
 - To verify a built document's tiles, `omni documents get-queries <identifier>` returns each tile's query **with the workbook `modelId` filled in** — directly runnable via `query run`. (Tile queries inside the v2 envelope carry no `modelId`; standalone `query run` bodies need one.)
 
 ## Branch-bound drafts
 
-To bind a draft to a model branch, put `branchId` **in the `v2-patch-draft` body**. It cannot go via `--branch-id` when you also pass `--body` — the CLI silently ignores **all** shorthand flags whenever `--body` is present (verified in source and live). `--branch-id` alone (no body) works. Full flow, including publishing via branch merge: [branch-bound-drafts.md](branch-bound-drafts.md).
+To bind a draft to a model branch, put `branchId` **in the `v2-patch-draft` body**. `--branch-id` can't be combined with `--body`; `--branch-id` alone (no body) works. Full flow, including publishing via branch merge: [branch-bound-drafts.md](branch-bound-drafts.md).
 
 ## Error map
 

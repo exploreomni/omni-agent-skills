@@ -150,14 +150,14 @@
       "expected_behavior": [
         "The agent creates its own model branch (omni models create-branch) and adds the measure to order_items on that branch in extension mode — it does not write the measure to the shared model",
         "The agent recognizes the branch-only field does not exist in the published shared model, so the tile must live on a branch-bound draft — not a plain published document",
-        "The agent creates a published shell document, then binds a draft to its branch via omni documents v2-patch-draft with branchId INSIDE the JSON body — not via the --branch-id flag combined with --body, which the CLI silently ignores",
+        "The agent creates a published shell document, then binds a draft to its branch via omni documents v2-patch-draft with branchId INSIDE the JSON body — not via the --branch-id flag combined with --body, which the CLI rejects",
         "The agent verifies the binding with omni documents list-drafts — the draft record shows branch: {id, name} (a branch: null draft is a silently-mainline draft and must not be published)",
         "The tile query carries no modelId — the draft's workbook model extends the branch, so the branch field resolves with no per-tile model wiring",
         "The running total is a table calculation using OMNI_RUNNING_TOTAL with its calc_name included in query.fields",
         "The agent validates the tile query resolves by running it with modelId set to the draft's workbookModelId from list-drafts via omni query run",
-        "The agent reads the draft back (v2-get-draft, identifier first then draft id) and confirms the tile persisted; it does not attempt to publish the branch draft via v2-publish-draft (which only sees the main draft and returns 404) — branch drafts go live by merging the branch and publishing in the UI",
+        "The agent reads the draft back (v2-get-draft, identifier first then draft id) and confirms the tile persisted; it does not attempt to publish the branch draft via v2-publish-draft (which only sees the main draft and returns 404) — branch drafts go live when the branch is merged (omni models merge-branch publishes branch drafts by default)",
         "Any draft link uses the draft's own identifier in the format {OMNI_BASE_URL}/dashboards/{draftIdentifier}",
-        "The agent tells the user the result is a branch-bound draft that publishes only when the branch is merged (and the draft published in the UI) — it does not present it as a finished, live dashboard"
+        "The agent tells the user the result is a branch-bound draft that publishes only when the branch is merged — it does not present it as a finished, live dashboard"
       ],
       "expected_skill": "omni-content-builder",
       "depends_on": [

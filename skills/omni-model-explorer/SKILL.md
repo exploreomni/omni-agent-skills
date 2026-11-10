@@ -21,7 +21,7 @@ command -v omni >/dev/null || echo "ERROR: Omni CLI is not installed."
 
 ```bash
 # Show available profiles and select the appropriate one
-omni config show
+omni config list
 # If multiple profiles exist, ask the user which to use, then switch:
 omni config use <profile-name>
 
@@ -54,7 +54,7 @@ Explore top-down: **List models → Pick a model → List topics → Inspect a t
 omni models list
 ```
 
-Returns models (under the `records` key — `{pageInfo, records:[…]}`, not the top level) with `id`, `name`, `connectionId`, and `modelKind` (SCHEMA or SHARED). Use the SHARED model — it contains the curated semantic layer.
+Returns models (under the `records` key — `{pageInfo, records:[…]}`, not the top level) with `id`, `name`, `connectionId`, and `modelKind`. Use the SHARED model — it contains the curated semantic layer.
 
 > **On a busy instance the bare call paginates (20/page) and is mostly WORKBOOK models with `name: null` — don't page through them.** Filter server-side: `omni models list --model-kind SHARED --name "<exact name>"` resolves the shared model by name in one call.
 
@@ -84,14 +84,9 @@ Get full detail including all views, dimensions, measures, relationships, and AI
 omni models get-topic <modelId> <topicName>
 ```
 
-The response includes:
-- `base_view_name` — the primary table
-- `views[]` — all accessible views, each with `dimensions[]` and `measures[]`
-- `relationships[]` — how views join together
-- `default_filters` — filters applied by default
-- `ai_context` — instructions for Blobby (Omni's AI)
-- `sample_queries` and AI field-selection metadata when configured
-- For a composite topic: the member `topics`, `shared_views`, `shared_dimensions` with their per-topic mappings, and the addressable field surface (`@_shared_dimensions_.<name>`, `@_shared_views_.<view>.<field>`, `@<topic>.<view>.<field>`); there is no `base_view_name`
+The response is `{success, topic}`; every field is under `topic`. Run `omni models get-topic --schema` for the field list.
+
+A composite topic's fields are addressed as `@_shared_dimensions_.<name>`, `@_shared_views_.<view>.<field>`, and `@<topic>.<view>.<field>`.
 
 ### Step 4: Read the Model YAML
 
@@ -139,9 +134,9 @@ When exploring, use the `combined` view to see everything available.
 
 **"What data do we have about X?"** — List topics → inspect the most relevant one → review views and fields.
 
-**"How do these tables relate?"** — Inspect the topic's `relationships[]` — check `join_from_view`, `join_to_view`, `on_sql`, and `relationship_type`.
+**"How do these tables relate?"** — Inspect `topic.relationships[]`.
 
-**"What measures are available for Y?"** — Inspect the topic containing view Y → review the `measures[]` array with `aggregate_type` and `sql` definitions.
+**"What measures are available for Y?"** — Inspect the topic containing view Y → review the measures in `topic.views[]`.
 
 ## Fallback: Expected View Missing from `yaml-get`
 
@@ -164,8 +159,8 @@ omni models yaml-get <modelId> --include-schemas PUBLIC
 
 **Rules for `--include-schemas`:**
 - Accepts exactly **one schema name** per call — commas are rejected by the API. Load schemas one at a time if you need multiple.
-- When set, the response contains only views belonging to that schema. Relationships are preserved even when they reference views in other schemas.
-- To scope to a branch, add `--branch-id <id>` to `yaml-get` or `--branch-id <id>` to `get-schemas` (the flag names differ per command — this matches the API's underlying casing).
+- When set, the response contains only views from that schema plus views with no schema. Relationships are preserved even when they reference views in other schemas.
+- To scope to a branch, add `--branch-id <id>` to either command.
 
 ## Calculation Fields
 
@@ -180,7 +175,7 @@ omni models get-topic <modelId> <topicName>
 omni models yaml-get <modelId> --file-name '<topicName>\.topic'
 ```
 
-Read `ai_context`, `sample_queries`, and AI field-selection values. Depending on CLI/API shape, `get-topic` may wrap these under a top-level `topic` object; if a top-level `ai_context` is null, check `topic.ai_context` before concluding none exists. If `get-topic` does not expose the full `ai_fields` list, read the topic YAML and report the configured `ai_fields` there. Include configured sample query names/prompts and the fields they exercise when present.
+Read `ai_context`, `sample_queries`, and AI field-selection values under `topic`. If `get-topic` does not expose the full `ai_fields` list, read the topic YAML and report the configured `ai_fields` there. Include configured sample query names/prompts and the fields they exercise when present.
 
 ## Field Impact Analysis
 
@@ -219,10 +214,10 @@ Verify the field definition precisely, not with a whole-file substring search. F
 3. **Run the content validator** against the verified branch:
 
 ```bash
-omni models content-validator-get <modelId> --branch-id <branchId>
+omni models content-validator-get <modelId> --branch-id <branchId> --content-filter-mode WITH_ISSUES
 ```
 
-This returns all dashboards and tiles with broken references to the removed field.
+This returns the dashboards and tiles with broken references to the removed field. Without `WITH_ISSUES` it returns every document that has a query.
 
 > **A clean result on large content may be references-only.** When the content is large, the validator checks field, view, and topic references without planning each query, so a query that references valid fields but no longer plans still reports clean. Pass `--force-full-validation true` (CLI ≥ 1.3.1) to plan every query; it is slower on large models.
 

@@ -31,7 +31,7 @@ omni query run --body '{
     "modelId": "your-model-id",
     "table": "order_items",
     "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
-    "filters": { "order_items.created_at": "last 90 days" },
+    "filters": { "order_items.created_at": { "type": "date", "kind": "TIME_FOR_INTERVAL_DURATION", "ui_type": "PAST", "left_side": "90 days ago", "right_side": "90 days" } },
     "limit": 10,
     "join_paths_from_topic_name": "order_items"
   }

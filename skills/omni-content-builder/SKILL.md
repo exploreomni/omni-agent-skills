@@ -33,13 +33,13 @@ For an operational or exec dashboard, also apply [references/dashboard-style.md]
 - **New tiles are auto-placed when a create or patch carries no `containers`** — each dashboard-eligible tile goes on the first page. Send `containers` only to set the layout yourself, and then reference every tile that should be visible. See [references/containers.md](references/containers.md).
 - **Tile `"1"` on create is merged into a server seed tile**, which keeps `automaticVis: true` even when you send `false` (tiles `"2"` onward keep `false`). If it matters, patch tile `"1"` again on a draft.
 - **A control is shown only where a container places it.** To hide a control, leave it out of every container; it keeps applying its value. See [references/controls.md](references/controls.md#hiding-a-control).
-- **Tile queries carry no `modelId`.** Don't send `modelId` or `model_extension_id` in a tile query; the server anchors tiles to the document's workbook model and rewrites any value you send with no warning. The other required query fields are listed in [references/documents-v2.md](references/documents-v2.md); leaving one out returns a 400 that names it.
+- **Tile queries carry no `modelId`.** Don't send `modelId` or `model_extension_id` in a tile query; the server anchors tiles to the document's workbook model and ignores any value you send. The other required query fields are listed in [references/documents-v2.md](references/documents-v2.md); leaving one out returns a 400 that names it.
 - **HARD RULE — no non-topic tile from handed-over SQL without an explicit user decision.** Map each query to a topic first (see `omni-query`). If none fits, **stop and ask** whether to extend a topic or create one (on a branch via `omni-model-builder`, merged only with confirmation). Build a non-topic / `userEditedSQL` tile only after the user **explicitly chooses** that path (declined modeling, a genuine one-off, or `userEditedSQL` is required); Access Boost is never the default for handed-over SQL. See [Build queries on a topic](#build-queries-on-a-topic).
 - **Non-topic tiles are invisible to Viewers and Restricted Queriers.** A tile with a populated `userEditedSQL`, or a bare base-view query with no `join_paths_from_topic_name`, is non-topic. Before finalizing one, **ask whether the dashboard's audience includes those roles**. If it does, **advise** Access Boost (it makes the tiles viewable on the dashboard only, for chosen users, groups, or the org; it needs the org capability and Manager on the document) as a separate, explicitly confirmed step with the **narrowest scope** that works. Never enable it without that go-ahead. See the *Raw-SQL tiles* recipe in [references/queryPresentations.md](references/queryPresentations.md) and **`omni-admin`** → *Document Permissions*.
-- **`--body` overrides every shorthand flag; the workbook model ID changes with every draft and publish; boolean filters can drop when `pivots` is present.** [references/documents-v2.md](references/documents-v2.md#behaviors-to-design-around).
+- **`--body` can't be combined with shorthand flags; the workbook model ID changes with every draft and publish; boolean filters can drop when `pivots` is present.** [references/documents-v2.md](references/documents-v2.md#behaviors-to-design-around).
 - **Chart configs by family:** which chart a question wants: [references/design-defaults.md](references/design-defaults.md#match-chart-to-question); how measures combine in one X/Y chart: [references/layers.md](references/layers.md#choosing-a-shape); then classic cartesian [references/visConfig.md](references/visConfig.md), layer-compiled [references/layers.md](references/layers.md), KPI [references/kpi-tiles.md](references/kpi-tiles.md), pie / heatmap / boxplot / funnel / sankey / map [references/other-chart-types.md](references/other-chart-types.md), markdown and AI tiles [references/markdown-tiles.md](references/markdown-tiles.md).
 - **Rendering and caption pitfalls** — a blank markdown tile, "Item missing", "No chart available": [references/visConfig.md](references/visConfig.md#known-rendering-issues); a caption that shows a filter's value: [references/mustache.md](references/mustache.md#pitfalls).
-- **`query.filters` needs the object form** — the relative-date shorthand (`"last 6 months"`) throws a 500; send `{type:"date", kind:"TIME_FOR_INTERVAL_DURATION", ui_type:"PAST", left_side, right_side}`. See [references/documents-v2.md](references/documents-v2.md).
+- **`query.filters` needs the object form** — a string value such as `"last 6 months"` is a 400; send `{type:"date", kind:"TIME_FOR_INTERVAL_DURATION", ui_type:"PAST", left_side, right_side}`. See [references/documents-v2.md](references/documents-v2.md).
 - **Every new X/Y tile is layer-compiled: put `behaviors.useLayerCompiler: true` in its config.** The API adds nothing, so a cartesian config sent without the flag renders through the classic compiler, which exists for tiles saved before Layers; when you edit such a tile, upgrade it in the same patch unless the owner asks to keep it. Follow [references/layers.md](references/layers.md): encodings per layer, same-axis same-mark measures folded into one Measure values layer (separate layers never stack), no hex string in `series[].color` (the tile silently reverts to classic). The recipes in [references/visConfig.md](references/visConfig.md) are the classic shape.
 - **Every query must include at least one measure** — a query with only dimensions produces empty/nonsense tiles (e.g., just months with no data).
 - **Use `identifier` not `id`** — get a document's `identifier` from the `v2-create`/patch responses or `omni documents list` records.
@@ -60,7 +60,7 @@ omni documents v2-get --help >/dev/null 2>&1 || echo "ERROR: CLI is too old for 
 
 ```bash
 # Show available profiles and select the appropriate one
-omni config show
+omni config list
 # If multiple profiles exist, ask the user which to use, then switch:
 omni config use <profile-name>
 
@@ -142,7 +142,7 @@ What to check in each response, the full viz-spec table, the checklist, and an o
 
 ## Dashboard Downloads
 
-Downloads are asynchronous: `omni dashboards download`, poll `download-status` to a terminal state, then `download-file`. Formats, the one-page limit on multi-page dashboards, and "Job failed to render": [references/downloads.md](references/downloads.md).
+Downloads are asynchronous: `omni dashboards download`, poll `download-status` to a terminal state, then `download-file`. Formats, page and per-chart selection, and "Job failed to render": [references/downloads.md](references/downloads.md).
 
 ## Docs Reference
 

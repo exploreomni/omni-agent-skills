@@ -50,7 +50,7 @@
       "expected_behavior": [
         "The agent triggers omni models refresh to sync the schema layer with the database change; if --branch-id is rejected because branch-based schema refresh is unsupported, it retries without --branch-id and states that constraint",
         "The agent creates a branch to safely test the impact before touching production",
-        "The agent runs omni models content-validator-get --branch-id to identify broken dashboards and tiles",
+        "The agent runs omni models content-validator-get --branch-id --content-filter-mode WITH_ISSUES to identify broken dashboards and tiles",
         "The agent reports the blast radius before recommending any merge; if content-validator returns an empty content array, it clearly says no broken dashboards or tiles were found",
         "The agent reports validation warnings separately and does not claim they were caused by the deleted column unless validation or content-validator output identifies the missing table or column"
       ],

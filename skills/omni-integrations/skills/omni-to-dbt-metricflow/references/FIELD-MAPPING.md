@@ -369,4 +369,4 @@ Skip and report these constructs:
 | Aggregate time dimension | The model's time dimension for `agg_time_dimension` |
 | dbt project YAML layout | Legacy or flattened |
 | dbt YAML file layout | `models/semantic-models/` or the project's semantic-YAML location |
-| Omni file keys | `<schema>/<view>.view` in combined mode; `<schema>__<view>.view` in merged mode |
+| Omni file keys | `<schema>/<view>.view` in combined and merged mode |

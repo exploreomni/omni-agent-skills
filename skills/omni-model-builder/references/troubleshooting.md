@@ -15,7 +15,7 @@ omni models yaml-get <modelId> --include-schemas PUBLIC
 
 **Rules for `--include-schemas`:**
 - Accepts exactly **one schema name** per call — commas are rejected. Load schemas one at a time.
-- The response will contain only views from that schema; relationships to other schemas are preserved.
+- The response will contain only views from that schema plus views with no schema; relationships to other schemas are preserved.
 - To scope to a branch, add `--branch-id <id>` to `yaml-get` or `get-schemas`.
 
 If the schema isn't in the `get-schemas` list at all, the connection likely doesn't have access or the schema isn't synced — check with a Connection Admin.

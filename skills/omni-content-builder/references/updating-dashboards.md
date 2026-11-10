@@ -123,7 +123,7 @@ omni documents v2-patch-draft <identifier> --name "New Name" --summary "rename"
 
 ## The `--body` vs flags gotcha
 
-When `--body` is present, the CLI **silently ignores every shorthand flag** (`--name`, `--summary`, `--branch-id`, …). With `--body`, put everything in the JSON. Flags-only (no `--body`) works for metadata edits.
+The CLI rejects `--body` combined with any shorthand flag (`--name`, `--summary`, `--branch-id`, …). With `--body`, put everything in the JSON. Flags-only (no `--body`) works for metadata edits.
 
 ## Recovery rules
 
@@ -139,7 +139,8 @@ When `--body` is present, the CLI **silently ignores every shorthand flag** (`--
 | 400 | `hidden` on a filter/control config | "controls.data[…].config carries `hidden` … not supported" — remove the key; place or unplace the control through `containers` |
 | 404 | Nonexistent document | |
 | 404 | `v2-publish-draft` with no **main** draft | `"Document draft does not exist"` — including when only a *branch-bound* draft exists ([branch-bound-drafts.md](branch-bound-drafts.md)) |
-| 404 | Patching a draft identifier as if it were published | plain not-found |
+| 404 | Passing a draft identifier to `v2-patch-draft` | `"Published document with id … does not exist"` |
+| 409 | `v2-patch-draft` when the document already has a draft on that branch | message names the open `draftIdentifier`; patch it with `v2-patch-draft-by-identifier` |
 | 422 | Classic dashboard layout | exact message above; after the user confirms, `omni documents upgrade-layout <identifier>` (see above), then retry |
 
 ## Failure handling

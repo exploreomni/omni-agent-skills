@@ -1,6 +1,6 @@
 # Schema Refresh: Syncing with Database Changes
 
-The schema layer is auto-generated from your database. Trigger a refresh with `omni models refresh <modelId>` (add `--branch-id <branchId>` to scope to a branch; requires **Connection Admin** permissions).
+The schema layer is auto-generated from your database. Trigger a refresh with `omni models refresh <modelId>` (requires **Connection Admin** permissions). `--branch-id` is required when the connection has branch-based schema refresh and rejected (400 `branch_id is not allowed`) when it doesn't.
 
 **When to trigger:** new/renamed/deleted tables or columns, a new view that needs auto-generated base dimensions, or any time the model is out of sync with the database.
 
@@ -13,7 +13,7 @@ The schema layer is auto-generated from your database. Trigger a refresh with `o
 ```bash
 omni models refresh <modelId>
 
-# With branch:
+# Connection with branch-based schema refresh:
 omni models refresh <modelId> --branch-id <branchId>
 ```
 
@@ -27,7 +27,7 @@ Requires **Connection Admin** permissions.
 omni models create-branch <modelId> --name "schema-refresh-impact-check"
 omni models refresh <modelId> --branch-id <branchId>
 omni models validate <modelId> --branch-id <branchId>
-omni models content-validator-get <modelId> --branch-id <branchId>
+omni models content-validator-get <modelId> --branch-id <branchId> --content-filter-mode WITH_ISSUES
 ```
 
 Some connections do not support branch-based schema refresh. If `omni models refresh <modelId> --branch-id <branchId>` returns that `branch_id is not allowed`, run `omni models refresh <modelId>` without a branch ID, then continue with branch-scoped validation and content validation where the CLI supports it. State that schema refresh was shared because the connection does not support branch refresh.

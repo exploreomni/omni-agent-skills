@@ -85,6 +85,7 @@ An extension either shares its base shared model's branches or has isolated bran
 - If none come back, list the base shared model's branches the same way (`--base-model-id <sharedModelId>`). With **shared branches** the extension has no branch of its own: use the extension's ID with the shared model's branch ID, and Omni stores the change for the extension on that branch.
 - `omni models create-branch <extensionId>` also tells you: the new branch's `baseModelId` is the extension (isolated) or the shared model (shared).
 - Read back with the same pair: `omni models yaml-get <extensionId> --branch-id <branchId>`. Reading the shared model with that branch ID doesn't show the extension's changes. A branch ID that doesn't belong to the extension this way fails with a 404 (`Branch does not exist`).
+- `omni models delete-branch <extensionId> <branchName>` 404s on an isolated branch (`Shared model … does not exist`), and deleting the extension leaves the branch listed, so the CLI can't clean one up.
 
 ## Field, view and topic commands
 

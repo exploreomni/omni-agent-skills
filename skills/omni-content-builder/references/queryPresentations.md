@@ -75,7 +75,7 @@ Misplaced keys are rejected: tile bodies are strict (`additionalProperties: fals
 | What you send | What happens |
 |---|---|
 | Top-level `chartType`, `fields`, or `config` on the presentation (v1 shape) | **400** "Unrecognized key" |
-| `modelId` / `model_extension_id` inside `query` | **Silently rewritten** — the server re-anchors the tile to the document's workbook model (a sent shared-model id reads back as the workbook model). Omit them. |
+| `modelId` / `model_extension_id` inside `query` | **Silently dropped** — the server anchors the tile to the document's workbook model and owns the query-model binding. Omit them. |
 | `query` missing any required collection field | **400** listing each missing field |
 | Inner vis spec sent **flat** beside `visType` | Accepted and moved under `config` on write |
 
@@ -92,7 +92,7 @@ If you're carrying payloads or muscle memory over from the v1 documents API:
 | presentation `visConfig.config` (rendering spec) | `visConfig.visConfig.config` (same shape on read and write) |
 | presentation `fields` (top-level duplicate of query fields) | gone — only `visConfig.fields` |
 | `query.visConfig` (`{ "chartType": … }` hint) | gone — not part of the v2 query schema; the tile is driven entirely by the presentation-level envelope |
-| `query.modelId` | gone — server-anchored to the workbook model; a sent value is silently rewritten |
+| `query.modelId` | gone — server-anchored to the workbook model; a sent value is silently dropped |
 
 The rendering-spec **content** (mark/series/tooltip/configType/`_dependentAxis`, …) is unchanged from v1 — only the envelope moved.
 
@@ -110,13 +110,13 @@ The allowed tile keys — anything else is a 400:
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `name` | Yes | Tile/tab title (≤ 144 characters) |
-| `type` | **Yes** | Tile kind — omitting it 400s. Dashboard query tiles — **including raw-SQL tiles** — use **`"query"`**; a raw-SQL tile is a `query` tile with `userEditedSQL` set (do **not** use `"sql"` — that is a workbook tab kind, not a dashboard query tile; the renderer reports "Unknown content item type"). The other values (`blank`, `csv`, `dataset`, `spreadsheet`, `sql`, `dbt`, `query-view`, `linked`, `foreign`) are workbook tab kinds; `foreign` (a tab that queries another shared model) can only be echoed back, never created or converted through the API. The `containers` slot's child `type` must match — for query tiles it is always `"query"`. |
+| `name` | Recommended | Tile/tab title (≤ 144 characters); omitted, the server names it `🌇 Query` |
+| `type` | **Yes** | Tile kind — omitting it 400s. Dashboard query tiles — **including raw-SQL tiles** — use **`"query"`**; a raw-SQL tile is a `query` tile with `userEditedSQL` set (do **not** use `"sql"` — that is a workbook tab kind, not a dashboard query tile; the renderer reports "Unknown content item type"). The other values (`blank`, `csv`, `dataset`, `spreadsheet`, `sql`, `dbt`, `query-view`, `linked`, `foreign`) are workbook tab kinds; `foreign` is a tab that queries another shared model, set by `foreignModelId`. The `containers` slot's child `type` must match — for query tiles it is always `"query"`. |
 | `topicName` | Recommended | Topic name for the query — set this whenever querying from a topic. Ensures correct join context in the dashboard. |
 | `prefersChart` | Yes (charts) | **Must be `true` to render a chart.** Without it, Omni always shows the results table regardless of any other vis settings. |
 | `automaticVis` | Recommended | Set `false` when authoring an explicit vis config (and always for markdown tiles). Seed-tile caveat: tile `"1"` on create can come back `true` — re-patch if it matters. |
 | `visConfig` | Yes (charts) | The envelope: `{ chartType, fields, version, visConfig: { visType, config } }` — see above. |
-| `query` | Yes | Query definition (see below). |
+| `query` | Yes (query tiles) | Query definition (see below). |
 | `description` | No | Tile description (≤ 500 characters). |
 | `subTitle` | No | Tile subtitle (≤ 250 characters). Shown only when the tile's container stack has a `{ "as": "metadata", "format": "subtitle" }` child after the name child. When `v2-create` builds the containers itself, it adds that child to every tile **except the first in `order`**, so the first tile's subtitle is stored but not shown; send your own `containers`, or patch the first tile's stack to add the child. |
 | `filterOrder` | No | Ordering of tile-level filters. |
@@ -124,7 +124,7 @@ The allowed tile keys — anything else is a 400:
 | `resultConfig` | No | Result display: `columnOrder`, `hiddenColumns`, `columnWidths`, `tableType`, `conditionalFormatters` — see [visConfig.md](visConfig.md). |
 | `aiConfig` | No | AI-generated description/subtitle settings — see [visConfig.md](visConfig.md). |
 | `sourceQueryPresentationKey` | `linked` only | The record key of the source tile whose query a `linked` tab reuses. Required on `type: "linked"`, rejected on every other type. |
-| `foreignModelId` | Read-only | Present only on `foreign` tabs: the shared model the tab's query runs against. Ignored on write. |
+| `foreignModelId` | `foreign` only | The shared model the tab's query runs against. Required when creating a `foreign` tab; ignored on an existing one. |
 | `editingModelObjectName`, `editingModelObjectNameChange` | `dataset` / `query-view` only | The model object the tab edits, and a pending rename. Rejected on any other tab type. |
 | `fileUploadId` | `csv` / `spreadsheet` only | The file upload backing the tab. Rejected on other types. |
 
@@ -145,7 +145,7 @@ The allowed tile keys — anything else is a 400:
 The `query` object follows the [Query API](https://docs.omni.co/api/queries.md) shape, with two v2-specific rules:
 
 1. **Send all twelve fields below** — ten are schema-required and omitting any of those returns a 400 listing each one (empty values are fine for the collections); `limit` and `join_paths_from_topic_name` are technically optional but always send them (an unbounded query and broken topic joins are worse than a 400).
-2. **No `modelId` / `model_extension_id`** — the server anchors every tile to the document's workbook model; a sent value is silently rewritten. Omit them.
+2. **No `modelId` / `model_extension_id`** — the server anchors every tile to the document's workbook model; a sent value is silently dropped. Omit them.
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
@@ -154,19 +154,19 @@ The `query` object follows the [Query API](https://docs.omni.co/api/queries.md) 
 | `limit` | Yes | Row limit |
 | `join_paths_from_topic_name` | Yes | The topic name — resolves joins from the topic's base view so joined-view fields work. Set alongside `topicName` on the parent queryPresentation. |
 | `sorts` | Yes | Array of `{ "column_name": "...", "sort_descending": bool }` — `[]` fine |
-| `filters` | Yes | Object of `{ "field_name": "expression" }` — supports `"last 90 days"`, `"this quarter"`, `">100"`, etc. — `{}` fine |
-| `calculations` | Yes | `[]` fine. Each entry = `{ calc_name, sql_expression (an operator AST), known_type:"NUMBER", swallow_errors:true, outside_pivot:false, allow_refs_to_unselected_fields:false, format? }`. **Don't hand-write the `sql_expression` AST — harvest it from an agentic job** (`omni-query` → *Table Calculations*; see below). **`format` is a bare string** (`"currency_2"`, `"percent_1"`, `"#,##0"`) — *not* the measure-style `{value:…}` (that 400s). **`known_type`** is an enum — `NUMBER`/`STRING`/`TIMESTAMP`/`BOOLEAN`/`INTERVAL`/`JSON`/`ARRAY` — **there is no `DATE`** (use `TIMESTAMP` for a date ref). **Keep `allow_refs_to_unselected_fields:false`** — `true` is an AI-SQL-gen-only internal marker (calc renders but is `#ERROR`/uneditable in the workbook). If a harvested calc references a field, **select that field into the query** (and hide it) instead — see the harvest-reconciliation note in `omni-query` → *Table Calculations*. |
+| `filters` | Yes | Object of `{ "field_name": <filter object> }` — a string value is a 400; shapes in `omni-query` → `references/filter-expressions.md` — `{}` fine |
+| `calculations` | Yes | `[]` fine. Each entry needs `calc_name` plus an `sql_expression` AST or a lone `original_formula` the server parses (`omni-query` → *Table Calculations*; see below). **`format` is a bare string** (`"currency_2"`, `"percent_1"`, `"#,##0"`) — *not* the measure-style `{value:…}` (that 400s). **Don't set `allow_refs_to_unselected_fields`** — `true` is an AI-SQL-gen-only internal marker (calc renders but is `#ERROR`/uneditable in the workbook). If a harvested calc references a field, **select that field into the query** (and hide it) instead — see the harvest-reconciliation note in `omni-query` → *Table Calculations*. |
 | `column_totals` | Yes | `{}` fine |
 | `row_totals` | Yes | `{}` fine |
 | `fill_fields` | Yes | `[]` fine |
 | `pivots` | Yes | Array of field names to pivot on — a color/stack dimension (e.g. for a stacked chart) **must** be pivoted. `[]` fine |
 | `userEditedSQL` | Yes | `""` for a normal semantic tile. Set to a SQL string to make this a **raw-SQL tile** (see below). |
 
-> **`--schema` lists the keys, not the values.** On CLI ≥ 1.5.0, `omni documents v2-create --schema --field queryPresentations.data.query` (and `query run --schema --field query`) list the query and calc keys, but not `known_type`, the `format` strings, or the `sql_expression` AST. The enums above are runtime-verified and documented here because `--schema` can't supply them; for where `--schema` *is* vs *isn't* authoritative, see the [`omni-api-conventions`](../../../rules/omni-api-conventions.mdc) rule.
+> `omni documents v2-create --schema --field queryPresentations.data.query` lists the query and calc keys; it doesn't give the `format` strings or the `sql_expression` AST.
 
 There is no `query.visConfig` in v2 — the v1 `{ "chartType": … }` hint is not part of the schema and does nothing. The tile is driven entirely by the presentation-level `visConfig` envelope.
 
-> **Authoring `calculations` — defer to `omni-query`.** The `sql_expression` AST (operator tree), the operator catalog, and the harvest-don't-hand-write workflow are owned by **`omni-query`** → *Table Calculations* + its `references/table-calculations.md`; don't restate or hand-build them here. **Prefer the agentic path** for any non-trivial calc: `omni ai job-submit`, then lift the `calculations` verbatim from the result's `actions[].generate_query` and validate with `query run` — `omni ai generate-query --run-query=false` is the simple/shape-only fallback. **Content-builder specifics:** a calc **renders in a tile only if its `calc_name` is in both `query.fields` *and* the tile's outer `queryPresentation.fields`**; and in a **markdown** tile, drive geometry from raw **measure** tokens + CSS `calc()` rather than calc tokens (table-calc tokens proved unreliable in markdown tiles — see [mustache.md](mustache.md)).
+> **Authoring `calculations` — defer to `omni-query`.** The `sql_expression` AST (operator tree), the operator catalog, and the harvest-don't-hand-write workflow are owned by **`omni-query`** → *Table Calculations* + its `references/table-calculations.md`; don't restate or hand-build them here. **Prefer the agentic path** for any non-trivial calc: `omni ai job-submit`, then lift the `calculations` verbatim from the `generate_query` action's `result.query` and validate with `query run` — `omni ai generate-query --run-query=false` is the simple/shape-only fallback. **Content-builder specifics:** a calc **renders in a tile only if its `calc_name` is in `query.fields`**; and in a **markdown** tile, drive geometry from raw **measure** tokens + CSS `calc()` rather than calc tokens (table-calc tokens proved unreliable in markdown tiles — see [mustache.md](mustache.md)).
 
 > **Querying a topic — base view + join path.** Set `table` to the topic's **base view**, pass `join_paths_from_topic_name: <topic>`, and set `topicName` on the parent queryPresentation. Joined-view fields (e.g. `users.state` on an `order_items` topic) resolve through the topic's join map — keep `table` at the base view, not the joined view. For the full mechanics, the omit-it failure mode, and verifying with `omni models get-topic` (`base_view_name`/`join_via_map`), see **`omni-query`**'s *Build queries on a topic*. (For *choosing* which topic, or when to extend/create one, see `omni-query` and `omni-model-builder`.)
 
@@ -250,7 +250,7 @@ Returns the full envelope: `queryPresentations` (`data` keyed map + `order`), `c
 
 These apply when copying tiles from an existing document (for both creating new dashboards and updating existing ones):
 
-- **Strip `modelId` and `model_extension_id`** from each query object — the server re-anchors tiles to the target document's workbook model and silently rewrites any value you send, so a copied id is at best dead weight.
+- **Strip `modelId` and `model_extension_id`** from each query object — the server anchors tiles to the target document's workbook model and drops any value you send.
 - **Strip the v1 `query.visConfig` hint** if copying from old v1 exports — it is not part of the v2 query schema.
 - **Filter to the tiles you want** — a document's `data` map can include workbook-only tabs not placed on the dashboard. Only carry over (and `order` + lay out) the tiles you want visible.
 - **Queries without `topicName` are valid** — SQL-mode and tab-selector queries won't have a `topicName`. Do not add one.
@@ -264,13 +264,13 @@ To show current-vs-previous columns (e.g. a comparison grid, or a "% change" KPI
 
 ```jsonc
 "period_over_period_computations": [
-  { "date_filter_field_name":"view.created_at", "time_unit_name":"MONTH","time_unit":"MONTH","periods_ago":0,"is_dynamic_previous_period":false,"is_ignored":true },
-  { "date_filter_field_name":"view.created_at", "time_unit_name":"MONTH","time_unit":"MONTH","periods_ago":1,"is_dynamic_previous_period":false,"is_ignored":false }
+  { "date_filter_field_name":"view.created_at", "time_unit_name":"MONTH","periods_ago":0,"is_dynamic_previous_period":false,"is_ignored":true },
+  { "date_filter_field_name":"view.created_at", "time_unit_name":"MONTH","periods_ago":1,"is_dynamic_previous_period":false,"is_ignored":false }
 ]
 ```
 
 > **PoP pivot tiles render fine — a blank/"No Results" pivot table is almost always (a) wrong render config or (b) an empty period filter, NOT a limitation.** A period-pivot table (`omni_period_pivot` + `period_over_period_computations`) renders Current/Previous columns + a `% Change` calc correctly when the tile is **`visType:"omni-table"`, `automaticVis:true`, `prefersChart:true`** AND the date filter lands on a period that actually has data. A blank or "No Results" almost always means the filtered period is empty (check with `query run` first) — not a render bug. The `% Change` column is a calc with **`outside_pivot:true`** whose operands carry **`pivot_value_map:{omni_period_pivot:"Current Period"|"Previous Period"}`** (e.g. `SAFE_DIVIDE(MINUS(oc@Current, oc@Previous), oc@Previous)`). Note the pivot splits **every** measure into Current/Previous — there's no per-measure opt-in; to compare only a couple, hide the rest.
-> **`v2-patch` is stricter than `generate-query` here.** Harvesting the PoP shape from `omni ai generate-query` gives an *ignored* (current-period) entry that omits `time_unit_name`/`time_unit`/`periods_ago` — patching that **400s** (`expected string/number, received undefined`). On write, give **every** entry (ignored one included) all of `time_unit_name`, `time_unit`, and `periods_ago` (use `periods_ago: 0` for the current/ignored entry).
+> **`v2-patch` is stricter than `generate-query` here.** Harvesting the PoP shape from `omni ai generate-query` gives an *ignored* (current-period) entry that omits `time_unit_name`/`periods_ago` — patching that **400s** (`expected string/number, received undefined`). On write, give **every** entry (ignored one included) `time_unit_name` and `periods_ago` (use `periods_ago: 0` for the current/ignored entry).
 
 ## Chart Type Examples
 
@@ -314,7 +314,7 @@ Time-series or continuous data. `visType: "basic"`, cartesian config, `_dependen
     "table": "order_items",
     "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
     "sorts": [{ "column_name": "order_items.created_at[month]", "sort_descending": false }],
-    "filters": { "order_items.created_at": "this quarter" },
+    "filters": { "order_items.created_at": { "type": "date", "kind": "TIME_FOR_UNIT_DURATION", "ui_type": "TIME_FOR_UNIT_DURATION", "left_side": "this quarter" } },
     "limit": 100,
     "join_paths_from_topic_name": "order_items",
     "calculations": [], "column_totals": {}, "row_totals": {},

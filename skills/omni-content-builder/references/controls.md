@@ -72,7 +72,7 @@ The full control catalog (`type` values from the `CONTROL_TYPE` enum):
 | `TOP_N` | — | control | override a dimension's dynamic top-N limit |
 | `PERIOD_OVER_PERIOD` | — | control | add prior-period comparison columns (dashboard-only) |
 
-All carry `id` + optional `label`/`description` — **except `PERIOD_OVER_PERIOD`**, which carries only `id` + its own fields. Whether a control is visible depends on its placement (see [Hiding a control](#hiding-a-control)).
+Control types carry `id` (filters don't), plus optional `label`/`description` — **except `PERIOD_OVER_PERIOD`**, which carries only `id` + its own fields. Whether a control is visible depends on its placement (see [Hiding a control](#hiding-a-control)).
 
 ### Date filter
 
@@ -207,7 +207,7 @@ Each shape below is a `controls.data.<id>.config` body. Common optional metadata
 
 - **Every filter MUST include `fieldName`** — fully qualified (e.g. `"users.state"`) — or it won't bind to any column. Date filters take **no timeframe bracket** (`order_items.created_at`, not `created_at[month]`).
 - Configs read back from UI-built dashboards also carry `topic` and `base_view` (see the date-filter example above). Keep `topic`; `base_view` is accepted and ignored.
-- `config.type` values include `"string"`, `"number"`, `"date"`, `"boolean"`, `"null"`, `"by_query"`, `"user_attribute"`, `"composite"`. Common shapes are below; for the **filter-value shapes** of any type (incl. `composite` / `user_attribute` / `by_query` and the per-`kind` enums), see omni-query's [filter-expressions.md](../../omni-query/references/filter-expressions.md). When still unsure, build the filter in the Omni UI and read it back — `omni documents v2-get <identifier>` returns a `controls` slice you can copy directly into a patch.
+- Filter `config.type` values: `omni documents v2-create --schema --field controls.data`. Common shapes are below; for the **filter-value shapes** of any type (incl. `composite` / `user_attribute` / `query` and the per-`kind` enums), see omni-query's [filter-expressions.md](../../omni-query/references/filter-expressions.md). When still unsure, build the filter in the Omni UI and read it back — `omni documents v2-get <identifier>` returns a `controls` slice you can copy directly into a patch.
 - **`filterControlType` must match `config.type`.** `singleValueEquals` and `multiValueEquals` are for `string` filters only; `singleDay` and `timeframe` are for `date` filters only. The API doesn't check the pairing. On a `number` filter, `singleValueEquals` drops every value a viewer picks in the filter bar, so only the saved default ever applies and a required filter never clears. For buttons or a dropdown on a number field, see [Single select on a number field](#single-select-on-a-number-field).
 
 ### String dropdown
@@ -264,13 +264,13 @@ Place it with `"appearance": { "control": "buttonToggle" }` or `"dropdown"`. Wit
 }
 ```
 
-`ui_type` is `"PAST"` for lookback, `"FUTURE"` for forward-looking. `left_side` is the human-readable start (`"30 days ago"`, `"1 year ago"`); `right_side` is the duration (`"30 days"`, `"1 year"`). Note `"1 year ago"`/`"1 year"` means the calendar year, not a rolling window — use `"12 months"` for rolling.
+`ui_type` is `"PAST"` for lookback. `left_side` is the human-readable start (`"30 days ago"`, `"1 year ago"`); `right_side` is the duration (`"30 days"`, `"1 year"`). Note `"1 year ago"`/`"1 year"` means the calendar year, not a rolling window — use `"12 months"` for rolling.
 
 ### Absolute date range
 
 ```jsonc
 "config": {
-  "type": "date", "kind": "WITHIN_RANGE",
+  "type": "date", "kind": "BETWEEN",
   "left_side": "2024-01-01", "right_side": "2024-12-31",
   "fieldName": "order_items.created_at", "label": "Date Range"
 }
@@ -361,12 +361,12 @@ A **control** lives once in `controls.data[id]` — it owns the config **and the
 
 ## Mustache control tokens (in markdown/text tiles)
 
-A markdown tile can react to a **control's** current selection. These tokens are for the **interactive controls** in this file (`FIELD_SELECTION` field/timeframe switchers, `FIELD_PICKER`, `TOP_N`, `PARENT`, `MULTI_FIELD_FILTER`, `DYNAMIC_FILTER`) — **not** for plain filters:
+A markdown tile can react to a **control's** current selection. These tokens are for the **interactive controls** in this file (`FIELD_SELECTION` field/timeframe switchers, `FIELD_PICKER`, `TOP_N`, `MULTI_FIELD_SELECTION`, `MULTI_FIELD_FILTER`, `DYNAMIC_FILTER`) — **not** for plain filters:
 
 | Token | Resolves to |
 |---|---|
 | `{{controls.<id>.summary}}` | the selected option's **friendly label** (e.g. `"Total Revenue"`) |
-| `{{controls.<id>.value}}` | `FIELD_SELECTION` → field name · `TOP_N` → number · `FIELD_PICKER` → array · `PARENT` → value |
+| `{{controls.<id>.value}}` | `FIELD_SELECTION` → field name · `TOP_N` → number · `FIELD_PICKER` → array · `MULTI_FIELD_SELECTION` → value |
 | `{{controls.<id>.label}}` | the control's **title** |
 
 > **⚠️ Filters and controls share one slice but split across two mustache namespaces.** A `date`/`string`/`number`/`boolean` **filter** lives in `controls.data` like every control, but it is **not** exposed in the `controls` template namespace — `{{controls.<filterId>.…}}` renders **empty**. Reference a filter under **`filters`**, keyed by **`view.field`** (not by control id): `{{filters.ecomm__order_items.created_at.summary}}` for the friendly window text, `.value` for the raw value. In a markdown-viz tile, `filters` resolves against that tile's **own** `query.filters`, so the same token reflects each tile's own (per-tile) filter/control. The full filter-vs-control decision, the keying rule, every namespace (`filters`/`controls`/`result`/`metadata`/`queries`/`inspect`), and worked scenarios are in **[mustache.md](mustache.md)**.

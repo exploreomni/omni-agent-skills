@@ -21,7 +21,7 @@ In the [v2 documents API](documents-v2.md), `containers` is the layout tree — 
 ```jsonc
 "containers": [
   { "instanceKey": "filter-bar", "containerType": "stack", "direction": "row", "children": [ /* visible filters/controls */ ] },
-  { "containerType": "page", "container": { "containerType": "grid", "children": [ /* tile stacks */ ] } }
+  { "containerType": "page", "instanceKey": "page-1", "container": { "containerType": "grid", "instanceKey": "page-1-grid", "children": [ /* tile stacks */ ] } }
 ]
 ```
 
@@ -109,8 +109,8 @@ To make several tiles move together as one unit, wrap them in a named `stack` th
   "instanceKey": "kpi-group", "gap": 0,
   "gridPosition": { "x": 0, "y": 0, "w": 24, "h": 28 },
   "children": [
-    { "containerType": "stack", "style": "tile", "fillSpace": true, "metadata": { "attachedQueryKey": "1" }, "children": [ … ] },
-    { "containerType": "stack", "style": "tile", "fillSpace": true, "metadata": { "attachedQueryKey": "2" }, "children": [ … ] }
+    { "containerType": "stack", "instanceKey": "kpi-1", "style": "tile", "fillSpace": true, "metadata": { "attachedQueryKey": "1" }, "children": [ … ] },
+    { "containerType": "stack", "instanceKey": "kpi-2", "style": "tile", "fillSpace": true, "metadata": { "attachedQueryKey": "2" }, "children": [ … ] }
     /* …more, no per-child gridPosition… */
   ]
 }
