@@ -22,7 +22,7 @@
       "question": "Run a query for total revenue on completed orders in the last 30 days. Before presenting the result, verify that the query actually returned data and that the filter is binding correctly.",
       "ground_truth": "The agent runs the query, checks for errors, verifies row_count > 0, and confirms the filter is applied by comparing against an unfiltered query. Both the validation result and the revenue figure are reported.",
       "expected_behavior": [
-        "The agent checks the query response for an error key before presenting results",
+        "The agent checks that the query succeeded before presenting results \u2014 the job line status is COMPLETE with no error_message (or, when using resultType, no error object)",
         "The agent verifies data was returned by checking cache_metadata.num_rows or requesting CSV",
         "The agent runs an unfiltered comparison query and compares the results to confirm the filter is binding",
         "The agent reports both the validation outcome and the actual revenue figure"

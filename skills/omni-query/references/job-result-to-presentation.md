@@ -163,7 +163,8 @@ After transformation:
         {"type": "literal", "value": "low"}
       ]
     }
-  }]
+  }],
+  "userEditedSQL": ""
 }
 ```
 
