@@ -6,6 +6,19 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.26.2] - 2026-11-09
+
+### omni-analytics
+
+_Summary: `omni-query` and `omni-ai-eval` checked against CLI 1.6.0 `--schema` and a live instance._
+
+**Fixed**
+- **`omni-query` — *Results*.** Arrow rows are in a job line's `result`, not `data`. Failures are `status` + `error_type`/`error_message` on the job line (the CLI exits 0), not an `error` key. The stream ends with a `remaining_job_ids`/`timed_out` footer, so "read the last line" no longer finds the result.
+- **`omni-query` — *Filters*.** Date `BEFORE` takes `right_side`, `ON_OR_AFTER` takes `left_side`. `user_attribute` filters have no negation (`is_negative` is ignored). `query run --schema --field query.filters` is the filter reference. `limit` has no 50,000 cap.
+- **`omni-query` — *Job results*.** The `generate_query` path is `actions[].result.query`. The job-to-tile algorithm now emits a v2 tile (`type: "query"`, `topicName` from the action) and sets `userEditedSQL` to `""`, which v2 tiles require.
+- **`omni-query` — *Table calcs*.** `allow_refs_to_unselected_fields` is parser-set, not a knob. Tiles have no outer `queryPresentation.fields`.
+- **`omni-ai-eval`.** No `--branch-id` flag (use `run_config.branch_id`). "AI time" is `ai_timing_ms`. `outcome` says why a result wasn't judged. `runs-cancel` does not archive the run. Field tables replaced with a pointer to `--schema`.
+
 ## [1.26.1] - 2026-11-09
 
 ### omni-analytics
@@ -18,6 +31,7 @@ _Summary: `omni-admin` and `omni-content-explorer` write examples that the API r
 - **`omni-admin-agent`.** Drops the wrong permission and schedule payloads in favour of the commands to use.
 - **`omni-content-explorer`.** Alert example adds the required `subject` and uses string recipients; recency sort moves to `documents list` (`content list` sorts by name or favorites); `--scope restricted` needs `--creator-id`.
 - **`omni-api-conventions` rule.** `whoami` field is `orgRole`; drops a stale `--schema` casing example.
+||||||| parent of aad1405 (fix(omni-query, omni-ai-eval): correct CLI 1.6.0 response and filter shapes (1.26.2))
 
 ## [1.26.0] - 2026-11-09
 

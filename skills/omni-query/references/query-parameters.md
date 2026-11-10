@@ -21,7 +21,7 @@ Reference for the `query` object in an `omni query run` body: its parameters, fi
 | `table` | Conditional | Base view (the `FROM`). Required for a semantic query **unless** `join_paths_from_topic_name` is set (base view comes from the topic) or `userEditedSQL` is used (table ignored). |
 | `fields` | Yes | Array of `view.field_name` references |
 | `join_paths_from_topic_name` | Recommended | Topic for join resolution |
-| `limit` | No | Row limit (default 1000, max 50000, `null` for unlimited). A topic's or model's `default_row_limit` is not applied here: an omitted `limit` is always 1000 |
+| `limit` | No | Row limit (default 1000, `null` for unlimited; values above 50,000 are honored). A topic's or model's `default_row_limit` is not applied here: an omitted `limit` is always 1000 |
 | `sorts` | No | Array of sort objects |
 | `filters` | No | Filter object |
 | `pivots` | No | Array of field names to pivot on |

@@ -7,8 +7,9 @@ How to check a query response before trusting or presenting it, and how to decod
 Every query response should be checked before trusting the results or presenting them to the user.
 
 **Check for errors:**
-- If the response contains an `error` key, the query failed. Common causes: bad field name, missing join path, malformed filter expression, permission error.
-- If the response contains `remaining_job_ids`, the query is still running — poll with `omni query wait` before checking results.
+- Default (NDJSON) output: a job line whose `status` is not `COMPLETE` failed, with the cause in `error_message` (e.g. `PLAN_MISSING_MODEL_OBJECT` / `No such field "order_items.nope"`). The CLI exits 0 either way, so read `status`.
+- With `resultType`, a failure is a single `{"error": …, "status": 400}` object and a non-zero exit.
+- A non-empty `remaining_job_ids` in the footer means a job is still running — poll with `omni query wait --job-ids …` before checking results.
 
 **Check row count** (field is `cache_metadata.num_rows`):
 - `cache_metadata.num_rows == 0` — the query returned no data. This may be valid (e.g., no data in the filter range) but is worth flagging to the user. Common causes: overly restrictive filters, wrong date range, field that doesn't match any rows.
@@ -47,7 +48,7 @@ If both queries return the same row count, the filter may not be binding — che
 
 ```python
 import base64, pyarrow as pa
-arrow_bytes = base64.b64decode(response["data"])
+arrow_bytes = base64.b64decode(job_line["result"])  # the job line, not the jobs_submitted header or footer
 reader = pa.ipc.open_stream(arrow_bytes)
 df = reader.read_all().to_pandas()
 ```
