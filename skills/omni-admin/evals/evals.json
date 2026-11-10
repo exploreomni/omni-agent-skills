@@ -11,7 +11,7 @@
       "question": "Create a new user with email newanalyst@company.com and display name 'New Analyst', then confirm they were created successfully.",
       "ground_truth": "User created with correct email, displayName, and active: true. If the user already exists from a prior run, a follow-up lookup confirms the existing user has the exact requested email, displayName, and active state.",
       "expected_behavior": [
-        "The agent includes the full SCIM schema ('urn:ietf:params:scim:schemas:core:2.0:User') in the create request body",
+        "The agent creates the user with omni scim users-create, sending userName and displayName",
         "After creating the user, or after receiving a conflict because the user already exists, the agent runs a verification step — either omni scim users-list with a filter or a get call — to confirm the user exists",
         "The agent reports the user's ID or confirms active: true and the requested displayName from the verification response rather than assuming success from the create response alone"
       ],
@@ -43,10 +43,9 @@
     {
       "id": "4",
       "question": "Set a user attribute 'region' to 'West Coast' for the user with email {{EVAL_EXISTING_USER}}.",
-      "ground_truth": "User found by email, attribute set via SCIM update, and verification confirms the attribute was applied.",
+      "ground_truth": "User attribute set via omni users set-attributes (or an equivalent SCIM update), and verification confirms the attribute was applied.",
       "expected_behavior": [
-        "The agent first looks up the user by email using omni scim users-list with a filter before attempting to set the attribute",
-        "The SCIM update uses the Omni user attribute path format: urn:omni:params:1.0:UserAttribute:region",
+        "The agent sets the attribute with omni users set-attributes, identifying the user by email or SCIM user ID, with --attr region=\"West Coast\" (or --attr-json)",
         "The agent verifies the attribute was set after the update"
       ],
       "expected_skill": "omni-admin"

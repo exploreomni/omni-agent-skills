@@ -53,7 +53,7 @@ omni scim users-create --schema   # Print a command's args, flags, body schema +
 
 - For create operations, first try the requested create. If the API returns a conflict because the resource already exists, look it up and verify it exactly matches the requested state before reporting success.
 - Prefer read-after-write checks that inspect the specific created or changed resource, not just a successful status response.
-- Use the role names returned by Omni permission APIs (`VIEWER`, `EXPLORER`, `EDITOR`, `MANAGER`) when updating content access.
+- Use the role names returned by Omni permission APIs when updating content access; the accepted values are in each command's `--schema`.
 
 ## Connections
 
@@ -82,7 +82,7 @@ omni models git-rotate-signing-key <modelId>
 
 ## User Management (SCIM 2.0)
 
-> The `--body` blocks below are worked examples. For the authoritative field list (types, required, enums), run the command with `--schema` — e.g. `omni scim users-create --schema` — rather than relying on these shapes to be exhaustive.
+> The `--body` blocks below are worked examples. For the field list, run the command with `--schema`. Every `users-update` / `groups-update` body needs `"schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"]`; the core User or Group URI is a 400.
 
 ```bash
 # List users
@@ -93,22 +93,21 @@ omni scim users-list --filter 'userName eq "user@company.com"'
 
 # Create user
 omni scim users-create --body '{
-  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
   "userName": "newuser@company.com",
-  "displayName": "New User",
-  "active": true,
-  "emails": [{ "primary": true, "value": "newuser@company.com" }]
+  "displayName": "New User"
 }'
 
 # Deactivate user
 omni scim users-update <userId> --body '{
-  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+  "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
   "Operations": [{ "op": "replace", "path": "active", "value": false }]
 }'
 
 # Delete user
 omni scim users-delete <userId>
 ```
+
+A deactivated user drops out of SCIM: `users-get` and `users-update` return 404 and `users-list` leaves it out, so it cannot be reactivated by id. A later `users-create` with the same `userName` returns a new id. Confirm with the requester before deactivating.
 
 ## Group Management (SCIM 2.0)
 
@@ -118,14 +117,13 @@ omni scim groups-list
 
 # Create group
 omni scim groups-create --body '{
-  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
   "displayName": "Analytics Team",
   "members": [{ "value": "user-uuid-1" }]
 }'
 
 # Add members
 omni scim groups-update <groupId> --body '{
-  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+  "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
   "Operations": [{ "op": "add", "path": "members", "value": [{ "value": "new-user-uuid" }] }]
 }'
 ```
@@ -148,18 +146,10 @@ omni user-attributes create --body '{
 omni user-attributes update <id> --body '{ "default_value": "us-west" }'
 omni user-attributes delete <id>
 
-# Find the user by email before setting an attribute
-omni scim users-list --filter 'userName eq "user@company.com"'
-
-# Set attribute on user (via SCIM)
-omni scim users-update <userId> --body '{
-  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
-  "Operations": [{
-    "op": "replace",
-    "path": "urn:omni:params:1.0:UserAttribute:region",
-    "value": "West Coast"
-  }]
-}'
+# Set attribute values on a user (by SCIM user id or email — an email is resolved
+# via SCIM automatically, no separate lookup needed); only the named attributes change
+omni users set-attributes user@company.com --attr region="West Coast"
+omni users set-attributes user@company.com --attr-json '{"level": 3, "regions": ["us", "eu"]}'
 ```
 
 User attributes work with `access_filters` in topics for row-level security.
@@ -169,7 +159,8 @@ before setting a value, but do not use it as proof that a specific user's value
 changed. If the definition is missing, create it with `omni user-attributes
 create` (CLI ≥ 1.4.0) and confirm the create before assigning values; do not
 keep retrying SCIM paths or claim the value was set from an empty
-`User attributes set: {}` response.
+`User attributes set: {}` response. A name with no definition is dropped and the
+call still returns 200, so read the user back.
 
 Managing definitions needs the **Manage User Attributes** permission; the naming
 and type rules are in `--help` and fail loudly. Two behaviors do not:
@@ -184,7 +175,7 @@ and type rules are in `--help` and fail loudly. Two behaviors do not:
   stored, and returned, as `"9007199254740992"`. Send large numbers as strings.
 
 When the user explicitly asks to set or update a user attribute, converge the
-user record with a SCIM update even if the initial user lookup already shows the
+user record with `omni users set-attributes` even if the user already shows the
 requested value. This keeps the operation idempotent while still honoring the
 requested admin action.
 
@@ -228,7 +219,7 @@ Before deciding where a model or content change goes, run `omni whoami whoami --
 ## Document Permissions
 
 ```bash
-# Check effective permissions for a user (userId required)
+# Document abilities; add --user-id for that user's permits
 omni documents get-permissions <documentId> --user-id <userId>
 
 # List document access principals
@@ -236,7 +227,8 @@ omni documents access-list <documentId>
 
 # Add direct access for a group
 omni documents add-permits <documentId> --body '{
-  "permissions": [{ "type": "group", "id": "group-uuid", "access": "view" }]
+  "userGroupIds": ["group-id"],
+  "role": "VIEWER"
 }'
 
 # Add direct access for a user
@@ -246,7 +238,7 @@ omni documents add-permits <documentId> --body '{
 }'
 ```
 
-`role` is one of `NO_ACCESS`, `VIEWER`, `EDITOR`, `MANAGER`.
+`omni documents add-permits --schema` lists the `role` values.
 
 ### Access Boost
 
@@ -304,8 +296,10 @@ omni schedules create --body '{
 # Manage recipients for an existing schedule
 omni schedules recipients-get <scheduleId>
 
-omni schedules add-recipients <scheduleId> --body '{ "recipients": ["team@company.com"] }'
+omni schedules add-recipients <scheduleId> --body '{ "emails": ["team@company.com"] }'
 ```
+
+An address with no Omni user is added as an email-only user.
 
 > **`schedules update` is a full replacement, not a patch**, and it returns
 > `"success": true` either way. Any optional property you leave out is reset to
@@ -355,7 +349,7 @@ Admin operations can silently fail or partially apply. Always read back the stat
 omni scim users-list --filter 'userName eq "newuser@company.com"'
 ```
 
-Check that: `active` matches what you set, `displayName` is correct, and the user ID was returned (not an error).
+Check that: `displayName` is correct and the user ID was returned (not an error). After a deactivation, check that the user is no longer listed.
 
 ### After Group Operations
 
@@ -414,7 +408,7 @@ omni schedules list -o json
 omni schedules recipients-get <scheduleId>
 ```
 
-Check that: the created schedule id appears in the list and the returned fields match the requested `schedule` cron, `timezone`, `destinationType`, `entity`, `format`, and document `identifier`. If the list/get response shape is not parseable, report that schedule setting verification was inconclusive instead of silently treating an empty parser result as success. Always verify recipients with `recipients-get`.
+Check that: the created schedule id appears in the list and the record's `schedule`, `timezone`, `destinationType`, `format`, `identifier` and `content` (what is delivered; `entity` is on `schedules get` only) match the request. If the list/get response shape is not parseable, report that schedule setting verification was inconclusive instead of silently treating an empty parser result as success. Always verify recipients with `recipients-get`.
 
 ## IP Allowlist (CLI ≥ 1.5.0)
 

@@ -10,7 +10,7 @@
 3. **Prefer the narrowest scope** — boost specific users/groups (`add-permits`) over the org-wide `organizationAccessBoost`; reach for org-wide only when that's explicitly what's wanted.
 4. **Note the governance interaction** — model access grants still apply unless a grant sets `access_boostable: true`; don't treat that as a safety net, confirm intent regardless.
 
-**Prerequisite (org capability, not in the CLI):** the org must have `allowsDocumentAccessBoost` enabled (and `allowsMemberToProvisionAccessBoost` for non-admins to grant it). This is an instance/admin setting — if it's off, the document-level flags below are silently cleared. It's a gate; it does **not** itself turn Access Boost on anywhere.
+**Prerequisite (org capability, not in the CLI):** the org must have `allowsDocumentAccessBoost` enabled (and `allowsMemberToProvisionAccessBoost` for non-admins to grant it). This is an instance/admin setting — if it's off, the boost writes below are rejected with 403. It's a gate; it does **not** itself turn Access Boost on anywhere.
 
 Once you've confirmed intent, there are two activation levers, both **scoped to a single document**:
 
@@ -29,4 +29,4 @@ omni documents update-permission-settings <documentId> --body '{
 }'
 ```
 
-`update-permission-settings` (PUT) also carries the document's other toggles — `canDownload`, `canDrill`, `canSchedule`, `canUpload`, `canUseDashboardAi`, `canUseTimezoneOverride`, `canViewWorkbook`, `requirePullRequestToPublish`. Note `organizationAccessBoost` boosts the org-default principal on **this** document only — it is not an org-wide switch.
+`update-permission-settings` also carries the document's other toggles (`--schema` lists them); fields you leave out keep their values. Note `organizationAccessBoost` boosts the org-default principal on **this** document only — it is not an org-wide switch.

@@ -87,7 +87,7 @@ omni whoami whoami --model-id <id1,id2>   # scope rolesByModel to specific model
 |---|---|---|
 | exit ≠ 0, stderr `unknown command "whoami"` | CLI predates 1.0.7 — no `whoami`, OAuth login, or `--schema` | Ask the user to update the CLI (see Installation above) |
 | exit ≠ 0, error `HTTP 401` or `403 "Invalid bearer token"` | The credential is missing, expired, or rejected | Hand off to OAuth login (see *Authenticating from an agent session* above) |
-| exit 0, identity JSON | Authenticated and capable | Proceed — read `role` / `rolesByModel` to decide whether an action is permitted *before* attempting it |
+| exit 0, identity JSON | Authenticated and capable | Proceed — read `orgRole` / `rolesByModel` to decide whether an action is permitted *before* attempting it |
 
 Both failure modes exit non-zero, so **branch on the message, not just the exit code**. A `403` whose message is a *permissions* error (not `Invalid bearer token`) means you're authenticated but lack access — that's not an auth-handoff case. `whoami` is **self-scoped and available to non-admins**, so this works for any profile.
 
@@ -130,14 +130,14 @@ omni <group> <operation> --help    # Show flags and positional args
 
 `--schema` shows the API description **built into the installed CLI release**, so it is only as current as that release. A release can trail the deployed API by weeks and miss commands and fields the server already accepts, so keep the CLI current (`brew upgrade omni`, or the latest release binary). A `--body` shape written out in a skill or reference doc is an example: it records behaviors `--schema` can't show (merge rules, stringify errors, ignored flags), and it doesn't list every field. When a doc and `--schema` disagree about which fields exist or are required, treat it as a version difference and confirm with a live call and a read-back.
 
-> **Even on a current release, `--schema` can be wrong about *exact accepted values*.** Enum values and casing are maintained by hand in places and can differ from what the endpoint enforces. For example, `documents update-permission-settings` lists `organizationRole` in lowercase (`viewer|editor|…`), but the API requires **uppercase** (`VIEWER|EDITOR|…`). When the API rejects a value that matches the schema (`400 … Invalid <field>` or `… expected one of …`), use the values the error accepts. (CLI ≥ 1.5.0 types the `query run` body — `omni query run --schema --field query` shows the enumerated sub-fields with `fields` and `modelId` marked required — but a few `query` keys stay out of the schema; the `omni-query` skill still carries the worked `filters`/`calculations` examples.)
+> **Even on a current release, `--schema` can be wrong about *exact accepted values*.** Enum values and casing are maintained by hand in places and can differ from what the endpoint enforces. When the API rejects a value that matches the schema (`400 … Invalid <field>` or `… expected one of …`), use the values the error accepts.
 
 ```bash
 omni query run --schema                    # schema + example for the query body
 omni ai generate-query --schema --compact  # compact, good for piping to jq
 ```
 
-The output is `{ method, path, args?, queryParams, body, example?, response }`, plus a top-level `required` array when there are required fields (omitted when there are none). `queryParams` lists each filter with the **exact flag spelling** to pass it (`{ flag, name, type, enum?, required, description }`) — the fastest way to check a flag name. `--help` tells you *that* a body is required; `--schema` tells you its *shape*.
+The output is `{ method, path, args?, queryParams?, required?, variants?, body, example?, response }`; keys with nothing to show are omitted, and `variants` lists the required fields per body variant (e.g. per `destinationType` on `schedules create`). `queryParams` lists each filter with the **exact flag spelling** to pass it (`{ flag, name, type, enum?, required, description }`) — the fastest way to check a flag name. `--help` tells you *that* a body is required; `--schema` tells you its *shape*.
 
 The `response` section (`{ status, contentType, description, schema }`) documents the success shape, and its `description` often carries behavioral detail worth reading — e.g. `query run` notes that the default response is an **ndjson stream**, one object per line, not parseable as a single JSON document. It is still a *spec* view: for exact runtime field paths (e.g. a query's row count is at `cache_metadata.num_rows`, **not** `summary.row_count`), inspect a live response (`-o json`/`csv`) — the runtime remains the source of truth there.
 

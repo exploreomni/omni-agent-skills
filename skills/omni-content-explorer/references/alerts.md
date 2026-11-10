@@ -21,9 +21,10 @@ omni schedules create --body '{
   "timezone": "Europe/London",
   "destinationType": "email",
   "format": "link_only",
+  "subject": "Projects reaching 80% of budget",
   "conditionType": "RESULTS_CHANGED",
   "conditionQueryMapKey": "7",
-  "recipients": [{ "email": "owner@company.com" }]
+  "recipients": ["owner@company.com"]
 }'
 ```
 

@@ -6,6 +6,19 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.26.1] - 2026-11-09
+
+### omni-analytics
+
+_Summary: `omni-admin` and `omni-content-explorer` write examples that the API rejected now match CLI 1.6.0 and were tested live._
+
+**Fixed**
+- **`omni-admin` — *SCIM*.** `users-update` / `groups-update` bodies use the PatchOp `schemas` URI (the core User/Group URI is a 400). Attribute values are set with `omni users set-attributes`. Notes that a deactivated user drops out of SCIM reads and can't be reactivated by id.
+- **`omni-admin` — *Permits and schedules*.** Group grants use `userGroupIds` + `role`; `add-recipients` takes `emails` / `userIds` / `userGroupIds`; schedule verification reads `content` from `schedules list`. Role and format lists now point to `--schema`.
+- **`omni-admin-agent`.** Drops the wrong permission and schedule payloads in favour of the commands to use.
+- **`omni-content-explorer`.** Alert example adds the required `subject` and uses string recipients; recency sort moves to `documents list` (`content list` sorts by name or favorites); `--scope restricted` needs `--creator-id`.
+- **`omni-api-conventions` rule.** `whoami` field is `orgRole`; drops a stale `--schema` casing example.
+
 ## [1.26.0] - 2026-11-09
 
 ### omni-analytics
