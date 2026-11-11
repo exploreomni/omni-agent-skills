@@ -1,6 +1,6 @@
 # Query Views
 
-Virtual tables defined by a saved query. A query view must have a primary key or it cannot be joined without producing fanout errors. **Before writing, confirm which field uniquely identifies each row — unless the primary key can be clearly inferred from the query itself and the involved views** (e.g. a query that selects `user_id` from a `users` view where `user_id` is the known primary key).
+Virtual tables defined by a saved query. A query view must have a primary key or it cannot be joined without producing fanout errors. Before writing, confirm which field uniquely identifies each row — unless the primary key can be clearly inferred from the query itself and the involved views (e.g. a query that selects `user_id` from a `users` view where `user_id` is the known primary key).
 
 Mark exactly one dimension `primary_key: true`. When no single field is unique but a combination is, make that dimension a hidden key that concatenates the fields, `sql: ${field_a} || '-' || ${field_b}`; cast non-string fields first on dialects that don't convert them, such as BigQuery (`CAST(${field_b} AS STRING)`).
 
@@ -12,4 +12,4 @@ This works with either a `query:` block (field-mapped virtual table) or a `sql:`
 
 To scope a query view to one topic, see [Topic-Scoped View Definitions](topic-scoped-definitions.md#topic-scoped-view-definitions).
 
-**`sql:` versus `query:` for a rollup.** Field references (`${view.field}`) work inside a `sql:` block, but Omni expands them once, when the file is saved, into alias-qualified columns, so the `FROM` must be aliased to the view's reference name (`FROM ${order_items} AS "order_items"`). Validation does not catch a missing alias; a query does. The `query:` form (`fields:` mapping view fields and measures to column names, plus `base_view` and `topic`) compiles through the model on every run, so later changes to those fields flow through. A `sql:` query view gets no automatic `count` measure; declare one if it is needed. Examples in `references/query-view-examples.md`.
+`sql:` versus `query:` for a rollup. Field references (`${view.field}`) work inside a `sql:` block, but Omni expands them once, when the file is saved, into alias-qualified columns, so the `FROM` must be aliased to the view's reference name (`FROM ${order_items} AS "order_items"`). Validation does not catch a missing alias; a query does. The `query:` form (`fields:` mapping view fields and measures to column names, plus `base_view` and `topic`) compiles through the model on every run, so later changes to those fields flow through. A `sql:` query view gets no automatic `count` measure; declare one if it is needed. Examples in `references/query-view-examples.md`.

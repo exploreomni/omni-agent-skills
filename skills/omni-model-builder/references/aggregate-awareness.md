@@ -48,12 +48,12 @@ materialized_query:
 
 Rules that decide whether the declaration is usable:
 
-- **Map form of `fields:`.** Each key is a field of the base view, or of a view it joins to when the table stores that column; each value is the column name in the aggregate table. A list form (positional) also exists; prefer the map.
-- **Time dimensions carry a timeframe** (`created_at[date]`, `created_at[month]`). The aggregate column must hold the expression Omni compiles that timeframe to, not a lookalike. For a timestamp column at day grain that is a day-truncated timestamp (`DATE_TRUNC('DAY', ...)`), not a `CAST(... AS DATE)`. Validation compares each mapped column's type family to the field's and reports a mismatch as a warning; a view with a warning is ignored for optimization.
-- **`topic:` only for a table built from a topic's query.** Otherwise leave it out and describe the table against the base view. See [When to declare `topic:`](#when-to-declare-topic).
-- **Join keys.** To serve a query that groups by a dimension from a joined view (say `users.country`), the aggregate must contain the fact-side join key (`order_items.user_id` above). Omni then reads the aggregate and joins `users` live. Map the key as the **fact-side** field. Mapping the joined view's key instead (`users.id`), or as well, marks the table as a stored join result, and only the joined fields it lists are served.
-- **One `materialized_query` per view.** Several aggregate tables means several views; two views may point at the same physical table with different declarations.
-- **Testing without a warehouse table.** A view with a `sql:` block is accepted as the aggregate source, so you can prove a declaration on a branch before building the table. Replace `sql:` with `schema:`/`table_name:` once the table exists.
+- Map form of `fields:`. Each key is a field of the base view, or of a view it joins to when the table stores that column; each value is the column name in the aggregate table. A list form (positional) also exists; prefer the map.
+- Time dimensions carry a timeframe (`created_at[date]`, `created_at[month]`). The aggregate column must hold the expression Omni compiles that timeframe to, not a lookalike. For a timestamp column at day grain that is a day-truncated timestamp (`DATE_TRUNC('DAY', ...)`), not a `CAST(... AS DATE)`. Validation compares each mapped column's type family to the field's and reports a mismatch as a warning; a view with a warning is ignored for optimization.
+- `topic:` only for a table built from a topic's query. Otherwise leave it out and describe the table against the base view. See [When to declare `topic:`](#when-to-declare-topic).
+- Join keys. To serve a query that groups by a dimension from a joined view (say `users.country`), the aggregate must contain the fact-side join key (`order_items.user_id` above). Omni then reads the aggregate and joins `users` live. Map the key as the fact-side field. Mapping the joined view's key instead (`users.id`), or as well, marks the table as a stored join result, and only the joined fields it lists are served.
+- One `materialized_query` per view. Several aggregate tables means several views; two views may point at the same physical table with different declarations.
+- Testing without a warehouse table. A view with a `sql:` block is accepted as the aggregate source, so you can prove a declaration on a branch before building the table. Replace `sql:` with `schema:`/`table_name:` once the table exists.
 
 ### Pinning a table to a filter value
 
@@ -111,8 +111,8 @@ Without `topic:`, the declaration describes the base view, and the table serves 
 
 `topic:` names the topic whose query built the table. Declare it in two cases:
 
-- **The table maps joined-view columns, built through a join that only the topic defines or overrides.** Without `topic:`, the declaration uses the model's relationships. If only the topic joins the view, validation warns ("No join path from base view") and the table is ignored. If the topic overrides the join, for example to `join_type: inner`, a table built through the override doesn't match the model's join, and its joined-view fields are not served.
-- **The table holds the topic's always conditions but not the columns they test.** For example, a table of orders that aren't cancelled, with no `status` column: the topic's `status` condition can't be applied on read, so without `topic:` that topic's queries read the fact table.
+- The table maps joined-view columns, built through a join that only the topic defines or overrides. Without `topic:`, the declaration uses the model's relationships. If only the topic joins the view, validation warns ("No join path from base view") and the table is ignored. If the topic overrides the join, for example to `join_type: inner`, a table built through the override doesn't match the model's join, and its joined-view fields are not served.
+- The table holds the topic's always conditions but not the columns they test. For example, a table of orders that aren't cancelled, with no `status` column: the topic's `status` condition can't be applied on read, so without `topic:` that topic's queries read the fact table.
 
 When the table stores the tested columns and was built through the model's joins, leave `topic:` out, so the table serves every topic on the base view.
 
@@ -120,10 +120,10 @@ A table built from a composite topic's query also declares `topic:`, with rules 
 
 With `topic:` declared:
 
-- **The topic's always conditions that don't use a user attribute are assumed to be in the table.** `always_where_sql`, `always_where_filters`, `always_having_sql` and `always_having_filters` are not applied on read, and Omni does not check that the table has them. Build the table from the topic's query with exactly those conditions, and rebuild it when they change; a table built without them returns rows they should exclude.
-- **A topic without those conditions reads the fact table.** The table serves the declared topic and other topics with the same always conditions.
-- **Default filters are not part of the topic's query.** `default_filters` are starting values a viewer can change, so don't build them into the table; declare a table that holds one filter value with a `filters:` pin (above).
-- **Nothing per user is assumed.** The table holds every user's rows.
+- The topic's always conditions that don't use a user attribute are assumed to be in the table. `always_where_sql`, `always_where_filters`, `always_having_sql` and `always_having_filters` are not applied on read, and Omni does not check that the table has them. Build the table from the topic's query with exactly those conditions, and rebuild it when they change; a table built without them returns rows they should exclude.
+- A topic without those conditions reads the fact table. The table serves the declared topic and other topics with the same always conditions.
+- Default filters are not part of the topic's query. `default_filters` are starting values a viewer can change, so don't build them into the table; declare a table that holds one filter value with a `filters:` pin (above).
+- Nothing per user is assumed. The table holds every user's rows.
   - The topic's access filters are applied when the table is read, as they are without `topic:`. The filtered field has to be reachable from the table: stored, computed from stored columns, or on a view joined through a stored key under the join rules below. Otherwise those queries read the fact table.
   - A user attribute anywhere in the declared query, in one of the topic's always conditions or in a mapped field's SQL, turns the table off for every query, even when the tested field is stored or reachable. Validation warns that the view will be ignored for optimization and names the attribute. For such a topic, leave `topic:` out; its user-attribute conditions are then applied on read like any other condition.
 
@@ -131,10 +131,10 @@ With `topic:` declared:
 
 Omni accepts each of these, at most with a warning, and then returns wrong results or stops using the table.
 
-- **A window-function field.** Don't map a dimension whose SQL uses a window function (`ROW_NUMBER()`, `RANK()`, `LAG()`, a running total), and don't build a table to serve one. The table stores the value computed over every row. A query that filters out some rows, by status for example, reads that stored value without recomputing it over the rows left, so a purchase sequence or a rank is wrong, with no error. Leave the field out of `materialized_query`; queries that use it read the fact table.
-- **A `*_distinct_on` measure.** Don't map `sum_distinct_on`, `average_distinct_on`, `median_distinct_on` or `percentile_distinct_on` measures. Validation warns, and Omni stops using the table for every query, including those that never ask for the measure. Queries with these measures read the fact table, so don't build a table for them.
-- **`limit` or `offset` in `materialized_query`.** Validation warns, and with `limit` Omni still serves other queries from the table as if it held every row: a total, or the bottom 10, read from a top-100 table is wrong. Build the table over every row, and let the query sort and limit.
-- **A table that holds part of the history without a pin.** A table that keeps a window of dates, such as the last 30 days, must declare the window with a `filters:` pin. Without it, a query over all dates that the table's fields cover reads it and returns only the window, with no error. With the pin, queries over a longer range read the fact table, and queries inside the window read the table:
+- A window-function field. Don't map a dimension whose SQL uses a window function (`ROW_NUMBER()`, `RANK()`, `LAG()`, a running total), and don't build a table to serve one. The table stores the value computed over every row. A query that filters out some rows, by status for example, reads that stored value without recomputing it over the rows left, so a purchase sequence or a rank is wrong, with no error. Leave the field out of `materialized_query`; queries that use it read the fact table.
+- A `*_distinct_on` measure. Don't map `sum_distinct_on`, `average_distinct_on`, `median_distinct_on` or `percentile_distinct_on` measures. Validation warns, and Omni stops using the table for every query, including those that never ask for the measure. Queries with these measures read the fact table, so don't build a table for them.
+- `limit` or `offset` in `materialized_query`. Validation warns, and with `limit` Omni still serves other queries from the table as if it held every row: a total, or the bottom 10, read from a top-100 table is wrong. Build the table over every row, and let the query sort and limit.
+- A table that holds part of the history without a pin. A table that keeps a window of dates, such as the last 30 days, must declare the window with a `filters:` pin. Without it, a query over all dates that the table's fields cover reads it and returns only the window, with no error. With the pin, queries over a longer range read the fact table, and queries inside the window read the table:
 
   ```yaml
   materialized_query:
@@ -147,9 +147,9 @@ Omni accepts each of these, at most with a warning, and then returns wrong resul
         time_for_duration: [30 days ago, 30 days]
   ```
 
-- **A base view that doesn't hold every row.** Every query that no table can serve reads the base view. If the base view holds only recent rows, or none (a placeholder that exists only to send queries to the tables), those queries return partial or empty results with no error. Make the full-history table the base view, and declare the smaller tables as aggregate tables of it.
-- **A filter-only field's value in the base view's `sql:`.** When the base view's own `sql:` reads `{{ filters.<view>.<field>.value }}`, queries that set that filter stop using every aggregate table. Apply the value in a topic condition or in a dimension (the date-basis pattern above). `{{ <view>.<field>.in_query }}` checks in the base view's `sql:` don't have this effect.
-- **A table whose columns no longer mean what the fields mean.** Omni trusts the mapping and does not check how the table was built. Rebuild or remap the table when a mapped field's meaning changes: the connection's query timezone (build day buckets in that timezone, or map date fields with `convert_tz: false`), a custom calendar added to the date, or the join type of a stored join (see [Joined views](#joined-views)).
+- A base view that doesn't hold every row. Every query that no table can serve reads the base view. If the base view holds only recent rows, or none (a placeholder that exists only to send queries to the tables), those queries return partial or empty results with no error. Make the full-history table the base view, and declare the smaller tables as aggregate tables of it.
+- A filter-only field's value in the base view's `sql:`. When the base view's own `sql:` reads `{{ filters.<view>.<field>.value }}`, queries that set that filter stop using every aggregate table. Apply the value in a topic condition or in a dimension (the date-basis pattern above). `{{ <view>.<field>.in_query }}` checks in the base view's `sql:` don't have this effect.
+- A table whose columns no longer mean what the fields mean. Omni trusts the mapping and does not check how the table was built. Rebuild or remap the table when a mapped field's meaning changes: the connection's query timezone (build day buckets in that timezone, or map date fields with `convert_tz: false`), a custom calendar added to the date, or the join type of a stored join (see [Joined views](#joined-views)).
 
 ## What a table can serve
 
@@ -185,8 +185,8 @@ When more than one aggregate table can serve a query, Omni prefers the one with 
 
 What the table maps decides how it treats joins. There are two kinds:
 
-- **Base-view fields only** (the example above). Joins are added at query time on the fact-side keys the table stores, so one table serves every joined view reachable through them.
-- **Joined-view fields too** (a stored join result). The table was built through a join and maps columns of the joined view. It is used only when every field in the query is mapped, and no other join is added to it.
+- Base-view fields only (the example above). Joins are added at query time on the fact-side keys the table stores, so one table serves every joined view reachable through them.
+- Joined-view fields too (a stored join result). The table was built through a join and maps columns of the joined view. It is used only when every field in the query is mapped, and no other join is added to it.
 
 Prefer the first kind: it cuts the fact rows each join reads and keeps every joined view available. The second serves one fixed set of fields.
 
@@ -219,7 +219,7 @@ Before changing the declaration, check the query against the tables above. The u
 
 These return wrong rows from an aggregate table. Write the model to avoid them.
 
-- **`>` or `<=` against a midnight timestamp in model SQL.** In a topic's `always_where_sql`, a relationship's `where_sql`, or a yes/no dimension, a comparison such as `${order_items.created_at} > TIMESTAMP '2025-10-01 00:00:00'` is compared with the day or month the query selects when the query is rewritten to use a day or month table. With the month selected, `>` leaves out all of October and `<=` includes all of it. With the year selected, or no date, `>` against January 1 leaves out the whole year. Write date boundaries with `>=` and `<`, which are rewritten correctly:
+- `>` or `<=` against a midnight timestamp in model SQL. In a topic's `always_where_sql`, a relationship's `where_sql`, or a yes/no dimension, a comparison such as `${order_items.created_at} > TIMESTAMP '2025-10-01 00:00:00'` is compared with the day or month the query selects when the query is rewritten to use a day or month table. With the month selected, `>` leaves out all of October and `<=` includes all of it. With the year selected, or no date, `>` against January 1 leaves out the whole year. Write date boundaries with `>=` and `<`, which are rewritten correctly:
 
   ```yaml
   # "from October 1"
@@ -229,15 +229,15 @@ These return wrong rows from an aggregate table. Write the model to avoid them.
   ```
 
   Before declaring a table on a base view, search the topics, relationships and dimensions that use it for `>` and `<=` on date fields, and rewrite them after confirming with the user which boundary was meant. A comparison against a non-midnight timestamp, or written with a date string or `DATE` literal, reads the fact table with the right rows.
-- **Per-user timezones.** On a connection that lets users choose their own timezone, and for a query that passes a timezone, a table whose dates are in the connection's timezone gives every viewer the connection's days, so day, month and date-filtered results differ from the fact table for a viewer in another timezone. Don't declare tables that map date fields on a model whose connection allows user-specific timezones, and don't pass a query timezone other than the connection's to a topic with such tables.
+- Per-user timezones. On a connection that lets users choose their own timezone, and for a query that passes a timezone, a table whose dates are in the connection's timezone gives every viewer the connection's days, so day, month and date-filtered results differ from the fact table for a viewer in another timezone. Don't declare tables that map date fields on a model whose connection allows user-specific timezones, and don't pass a query timezone other than the connection's to a topic with such tables.
 
 ## Composite topics
 
 A query on a composite topic is planned as one query per member topic, and the results are joined. Aggregate tables serve it in two ways.
 
-**A table per member (the default).** Each member's query is matched against that member topic's aggregate tables on its own, with the same rules as above, pins included. Declare the table on the member topic's base view, as above. It then serves both the member topic and any composite that includes it, and the join of the members' results still runs at query time.
+A table per member (the default). Each member's query is matched against that member topic's aggregate tables on its own, with the same rules as above, pins included. Declare the table on the member topic's base view, as above. It then serves both the member topic and any composite that includes it, and the join of the members' results still runs at query time.
 
-**A table built from the composite's query.** When the table holds the composite's own result, each member aggregated under its own always conditions and joined on the shared dimensions, declare the composite as the table's `topic:`. Map its fields by the names a composite query uses: `@_shared_dimensions_.<dimension>` for a shared dimension (with a timeframe on a date) and `@<member topic>.<view>.<field>` for each member's measures. `base_view:` is still required; name the members' base view.
+A table built from the composite's query. When the table holds the composite's own result, each member aggregated under its own always conditions and joined on the shared dimensions, declare the composite as the table's `topic:`. Map its fields by the names a composite query uses: `@_shared_dimensions_.<dimension>` for a shared dimension (with a timeframe on a date) and `@<member topic>.<view>.<field>` for each member's measures. `base_view:` is still required; name the members' base view.
 
 ```yaml
 materialized_query:
@@ -250,9 +250,9 @@ materialized_query:
   topic: open_vs_all
 ```
 
-- **What it serves.** An exact repeat of the composite query, and rollups and filters on the shared dimensions it stores: coarser timeframes, day parts, fewer shared dimensions. It serves queries on that composite only; a query on a member topic alone reads the fact table.
-- **Every member must be in the query.** A composite query that asks for one member's measures reads the fact table.
-- **Member conditions.** For a rollup or a filter, each member's part is read from the table with that member's always conditions applied, so store the shared dimensions those conditions test. A member whose condition tests a column the table lacks reads the fact table for that query, while the other members still read the table. An exact repeat reads the table as it is, so build the table with every member's conditions.
-- **Use the map form of `fields:`.** A positional list serves only an exact repeat, and validation warns about it.
+- What it serves. An exact repeat of the composite query, and rollups and filters on the shared dimensions it stores: coarser timeframes, day parts, fewer shared dimensions. It serves queries on that composite only; a query on a member topic alone reads the fact table.
+- Every member must be in the query. A composite query that asks for one member's measures reads the fact table.
+- Member conditions. For a rollup or a filter, each member's part is read from the table with that member's always conditions applied, so store the shared dimensions those conditions test. A member whose condition tests a column the table lacks reads the fact table for that query, while the other members still read the table. An exact repeat reads the table as it is, so build the table with every member's conditions.
+- Use the map form of `fields:`. A positional list serves only an exact repeat, and validation warns about it.
 
 See [composite-topics.md](composite-topics.md).

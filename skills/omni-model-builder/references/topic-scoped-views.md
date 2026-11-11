@@ -64,7 +64,7 @@ views:
         label: Avg Revenue per User
 ```
 
-> **Quote the `sql` when writing via the YAML API.** Written through `models yaml-create`/`yaml-update`, an **unquoted** `sql` with `${…}` (especially two refs around an operator, e.g. `${a} / NULLIF(${b}, 0)`) collides with YAML flow-map syntax — the `${…}` tokens get parsed away and the value stores as a broken fragment (literally `sql: /`), which throws a warehouse `unexpected '/'` SQL error at query time. `models validate` does **not** catch it. Always quote (`sql: "${a} / NULLIF(${b}, 0)"`) and read the YAML back to confirm the refs survived. Ratio-of-measures is fully supported — the failure is purely YAML quoting.
+> Quote the `sql` when writing via the YAML API. Written through `models yaml-create`/`yaml-update`, an unquoted `sql` with `${…}` (especially two refs around an operator, e.g. `${a} / NULLIF(${b}, 0)`) collides with YAML flow-map syntax — the `${…}` tokens get parsed away and the value stores as a broken fragment (literally `sql: /`), which throws a warehouse `unexpected '/'` SQL error at query time. `models validate` does not catch it. Always quote (`sql: "${a} / NULLIF(${b}, 0)"`) and read the YAML back to confirm the refs survived. Ratio-of-measures is fully supported — the failure is purely YAML quoting.
 
 ## Topic-Specific Derived Dimension
 
