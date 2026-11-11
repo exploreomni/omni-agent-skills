@@ -53,6 +53,38 @@ class NegativeCaseTests(unittest.TestCase):
         self.assertTrue(any("duplicate case id" in error for error in errors))
 
 
+class IntegrationEvalTests(unittest.TestCase):
+    def check_cases(self, cases):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            skill_dir = root / "skills" / "omni-integrations" / "skills" / "omni-to-example"
+            (skill_dir / "evals").mkdir(parents=True)
+            (skill_dir / "SKILL.md").write_text("---\nname: omni-to-example\ndescription: Example.\n---\n")
+            (skill_dir / "evals" / "evals.json").write_text(json.dumps({
+                "version": "1", "skill_name": "omni-to-example",
+                "defaults": {"timeout_sec": 60, "judge_model": "judge"}, "cases": cases,
+            }))
+            report = validate.Report()
+            with patch.object(validate, "ROOT", root), patch.object(validate, "SKILLS_DIR", root / "skills"):
+                integration = validate.discover_integration_skills()
+                total = validate.check_eval_files([], set(), report, integration)
+            return list(integration), total, report.errors
+
+    def case(self, **fields):
+        return {"id": "1", "question": "Export the topic.", "ground_truth": "It exports.",
+                "expected_behavior": ["It exports."], "expected_skill": "omni-to-example", **fields}
+
+    def test_integration_skill_evals_are_checked(self):
+        skills, total, errors = self.check_cases([self.case()])
+        self.assertEqual(skills, ["omni-to-example"])
+        self.assertEqual(total, 1)
+        self.assertEqual(errors, [])
+
+    def test_unknown_expected_skill_is_rejected(self):
+        _, _, errors = self.check_cases([self.case(expected_skill="not-a-skill")])
+        self.assertTrue(any("expected_skill" in error for error in errors))
+
+
 class PairedRoutingTests(unittest.TestCase):
     def setUp(self):
         self.base = routing.Catalog("base", ["a", "b"], [{"text": "old"}], ["a", "b", "none"])
