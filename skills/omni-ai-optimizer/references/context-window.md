@@ -6,12 +6,12 @@ How Omni orders, prunes, and caps the context it sends to the AI.
 
 Omni assembles the context window in this order:
 
-1. **Omni's built-in instructions**
-2. **`ai_context`** on the model, topics, and views
-3. **Topic `description`**
-4. **Topic `name` and `base_view`**
-5. **Prioritized field properties**: `name` (listed under its view's name, so the AI reads `view.field`), field `ai_context`, and a custom calendar's timeframe names. Never pruned.
-6. **Pruned field properties**: everything else, dropped in the order below when space runs short.
+1. Omni's built-in instructions
+2. `ai_context` on the model, topics, and views
+3. Topic `description`
+4. Topic `name` and `base_view`
+5. Prioritized field properties: `name` (listed under its view's name, so the AI reads `view.field`), field `ai_context`, and a custom calendar's timeframe names. Never pruned.
+6. Pruned field properties: everything else, dropped in the order below when space runs short.
 
 `hidden: true` fields are excluded entirely. `ai_chat_topics` (model-level) controls which topics Blobby can see at all.
 
@@ -23,8 +23,8 @@ When a topic's field metadata is over budget, Omni removes properties in this or
 
 The first item is the field's value list: its `all_values` if set (deprecated, but still sent as the complete list), otherwise a grouped or binned dimension's group or bin names, or a filter `suggestion_list` of up to 25 values. A longer `suggestion_list` is sent as its first 25, as `sample_values`. `sql` is sent for measures only, and `enum_fill` is a flag Omni adds to grouped and binned dimensions.
 
-- **Value lists go first**, because the AI can fetch a field's values on demand; `sample_values` follow a few steps later. **`synonyms` go second to last**, because they do the most work matching user phrasing to fields; only `format` outlasts them, so the AI doesn't restate a value in the wrong currency.
-- **`ai_context` is never pruned** from a topic's context, at any level (model, topic, view, field). When the context still doesn't fit, Omni leaves out whole views, and past that the **request fails with an error**. So long `ai_context` pushes out field metadata and can make requests fail. The exception is topic selection, where view-level `ai_context` is trimmed first ([Limits](#limits)).
+- Value lists go first, because the AI can fetch a field's values on demand; `sample_values` follow a few steps later. `synonyms` go second to last, because they do the most work matching user phrasing to fields; only `format` outlasts them, so the AI doesn't restate a value in the wrong currency.
+- `ai_context` is never pruned from a topic's context, at any level (model, topic, view, field). When the context still doesn't fit, Omni leaves out whole views, and past that the request fails with an error. So long `ai_context` pushes out field metadata and can make requests fail. The exception is topic selection, where view-level `ai_context` is trimmed first ([Limits](#limits)).
 
 ## Limits
 

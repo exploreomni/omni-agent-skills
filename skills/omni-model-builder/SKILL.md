@@ -27,9 +27,9 @@ omni config use <profile-name>
 omni whoami whoami
 ```
 
-> **Auth**: if `whoami` or any call returns **401**, ask the user to run `! omni config login <profile>`. Profile setup, when you may run the login yourself, and `--schema`: the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule.
+> Auth: if `whoami` or any call returns 401, ask the user to run `! omni config login <profile>`. Profile setup, when you may run the login yourself, and `--schema`: the [`omni-api-conventions`](../../rules/omni-api-conventions.mdc) rule.
 
-You need **Modeler** or **Connection Admin** permissions. Add `-o json` to any command to force structured output for parsing (default `auto` is human in a TTY, JSON when piped).
+You need Modeler or Connection Admin permissions. Add `-o json` to any command to force structured output for parsing (default `auto` is human in a TTY, JSON when piped).
 
 ## Omni's Layered Modeling Architecture
 
@@ -41,30 +41,30 @@ Before writing any SQL expression, look up the connection's dialect: find the mo
 
 ## Schema Refresh: Syncing with Database Changes
 
-When the database schema changes (new, deleted or renamed columns, type changes), refresh the schema layer with `omni models refresh <modelId>` (requires **Connection Admin**; `--branch-id` is required when the connection has branch-based schema refresh and rejected when it doesn't). When to run it, its side effects, the impact check for deleted or renamed columns, and connection errors: [schema-refresh.md](references/schema-refresh.md).
+When the database schema changes (new, deleted or renamed columns, type changes), refresh the schema layer with `omni models refresh <modelId>` (requires Connection Admin; `--branch-id` is required when the connection has branch-based schema refresh and rejected when it doesn't). When to run it, its side effects, the impact check for deleted or renamed columns, and connection errors: [schema-refresh.md](references/schema-refresh.md).
 
 If the columns haven't changed but SQL field or view errors remain after their cause was fixed elsewhere, such as a warehouse grant, run `omni models reparse <modelId>` (CLI ≥ 1.6.0) on the shared model or shared extension.
 
 ## Known Issues & Safe Defaults
 
-> ## 🛑 HARD STOP: never merge/promote a branch on your own initiative
->
-> **`omni models merge-branch` (and any merge / promote / ship to the shared model) is a SEPARATE, USER-INITIATED step. Do not run it unless the user has told you — *in this conversation* — to merge, ship, publish, promote, or "make it live."** Preparing a branch (create → write YAML → validate → test) is the *whole* job for a "build / add / model this" request; shipping it is a distinct decision the user owns.
->
-> **None of these count as merge permission — do not let them talk you past this gate:**
-> - "the change is additive / small / low-risk / can't break anything"
-> - "the spec (or ticket, or doc) says to model it and publish"
-> - "the user gave a broad 'build the whole thing' directive"
-> - "it's required for the deliverable to work" / "the dashboard won't resolve until I merge"
-> - "it's just a playground / sandbox / non-git model"
->
-> When the field/view is needed for downstream content but not yet merged, the correct move is a **branch-bound draft** (`omni-content-builder` → *branch-bound drafts*), **not** a merge. When a merge is genuinely needed, **stop and ask** ("Ready for me to merge `<branch>` into the shared model?") and wait for an explicit yes. If a harness/permission layer blocks the merge, that is the guardrail working — surface it and ask; do not look for another path around it.
+### Never merge or promote a branch on your own initiative
 
-- **Confirm the branch still exists at the start of each session and after any gap** — `omni models list --model-id <sharedModelId> --include activeBranches`. Someone else may have merged it; writes then fail with `Branch does not exist`, and drafts bound to it may already be published (check `omni documents list-drafts <identifier>`). If it was merged, diff your local YAML against the shared model and start a new branch for further changes.
-- **Profile the data before modelling it.** Check grain (`COUNT(*)` vs `COUNT(DISTINCT <key>)` on every fact), implied units (value ÷ quantity per category, to catch a "hours" column that holds money), and where history starts (older records may need an opening balance). Ask the business owner what an ambiguous term ("fee type", "status") means before building on a guess.
-- **Keep eval-created files on branches until confirmed** — when you create fields/views for validation, report the branch name/id, validation status, and test-query result; merging is governed by the HARD STOP above.
-- **Edit with `yaml-create`, not `create-field`, `update-field`, `update-view`, `update-topic` or `models update`:** they can [report success without making the change](references/editing-existing-files.md#field-view-and-topic-commands).
-- **Known bug: a child layer can store a copy of an inherited `sql:` query view's SQL** (extension, workbook model, branch) and stop following the parent. Cause: an undeclared column (assume one for `SELECT *` or CTEs) or a removed dimension. Until fixed ([removing a copy](references/editing-existing-files.md#inherited-sql-query-views)):
+Merging is a separate step that the user starts. Run `omni models merge-branch`, or any other merge, promote or ship to the shared model, only when the user has told you in this conversation to merge, ship, publish, promote or make it live. A "build", "add" or "model this" request is complete when the branch is created, written, validated and tested.
+
+None of these is permission to merge:
+- the change is additive, small or low-risk
+- a spec, ticket or doc says to model it and publish
+- the user gave a broad "build the whole thing" directive
+- the deliverable needs it, such as a dashboard that won't resolve until the merge
+- the model is a playground, sandbox or non-git model
+
+When downstream content needs a field or view that isn't merged yet, use a branch-bound draft (`omni-content-builder` → *branch-bound drafts*). When a merge is needed, ask ("Ready for me to merge `<branch>` into the shared model?") and wait for an explicit yes. If a harness or permission layer blocks the merge, report it and ask; do not look for another way around it.
+
+- Confirm the branch still exists at the start of each session and after any gap — `omni models list --model-id <sharedModelId> --include activeBranches`. Someone else may have merged it; writes then fail with `Branch does not exist`, and drafts bound to it may already be published (check `omni documents list-drafts <identifier>`). If it was merged, diff your local YAML against the shared model and start a new branch for further changes.
+- Profile the data before modelling it. Check grain (`COUNT(*)` vs `COUNT(DISTINCT <key>)` on every fact), implied units (value ÷ quantity per category, to catch a "hours" column that holds money), and where history starts (older records may need an opening balance). Ask the business owner what an ambiguous term ("fee type", "status") means before building on a guess.
+- Keep eval-created files on branches until confirmed — when you create fields/views for validation, report the branch name/id, validation status, and test-query result; merging follows the rule above.
+- Edit with `yaml-create`, not `create-field`, `update-field`, `update-view`, `update-topic` or `models update`: they can [report success without making the change](references/editing-existing-files.md#field-view-and-topic-commands).
+- Known bug: a child layer can store a copy of an inherited `sql:` query view's SQL (extension, workbook model, branch) and stop following the parent. Cause: an undeclared column (assume one for `SELECT *` or CTEs) or a removed dimension. Until fixed ([removing a copy](references/editing-existing-files.md#inherited-sql-query-views)):
   1. Read `--mode extension` first: a view-level `sql:` you didn't write is that copy; an `ignored: true` dimension means any write stores one. Tell the user.
   2. Otherwise write the whole `--mode combined` read back with `"mode": "extension"` (`combined` copies it on the second edit). Change, add or hide; never remove. Re-check per step 1.
 
@@ -78,9 +78,9 @@ omni models yaml-create --schema  # Print the body's JSON schema + a filled exam
 
 ## Safe Development Workflow
 
-> **Always work in a branch — never write directly to production — and first check you *can* branch.** Branching requires full-model access. Run `omni whoami whoami --model-id <modelId>`: `QUERY_FULL_MODEL` present → you can create a branch (and `UPDATE` present → you can merge/promote it, else open a PR / request a merge); absent → you can't branch — a one-off field belongs in the document's workbook model instead (`omni-content-builder` → *Updating a Dashboard's Model*). Full permission→capability map: **`omni-admin` → Model Roles & Caller Access**.
+> Always work in a branch — never write directly to production — and first check you *can* branch. Branching requires full-model access. Run `omni whoami whoami --model-id <modelId>`: `QUERY_FULL_MODEL` present → you can create a branch (and `UPDATE` present → you can merge/promote it, else open a PR / request a merge); absent → you can't branch — a one-off field belongs in the document's workbook model instead (`omni-content-builder` → *Updating a Dashboard's Model*). Full permission→capability map: `omni-admin` → Model Roles & Caller Access.
 
-> **[Hub-and-spoke](references/editing-existing-files.md#hub-and-spoke-setups): write to the model ID you were given.**
+> [Hub-and-spoke](references/editing-existing-files.md#hub-and-spoke-setups): write to the model ID you were given.
 
 ### Step 0: Create a Branch
 
@@ -94,9 +94,9 @@ The response `model.id` is your `branchId` — a UUID you'll pass to all subsequ
 omni models list --include activeBranches
 ```
 
-> **Shared extensions:** pair the extension's ID with a branch from `omni models list --base-model-id <extensionId> --model-kind BRANCH`, else [the shared model's branch](references/editing-existing-files.md#branches-of-a-shared-extension).
+> Shared extensions: pair the extension's ID with a branch from `omni models list --base-model-id <extensionId> --model-kind BRANCH`, else [the shared model's branch](references/editing-existing-files.md#branches-of-a-shared-extension).
 
-> **⚠️ On a git-connected model, never hand-edit model YAML in git.** Author through Omni on a branch and ship with `omni models commit` (Step 3); Omni's next sync deletes model files that exist only in git. Files that aren't model content (OWNERS, CI config, docs) can be committed directly: [git-connected-models.md](references/git-connected-models.md).
+> On a git-connected model, never hand-edit model YAML in git. Author through Omni on a branch and ship with `omni models commit` (Step 3); Omni's next sync deletes model files that exist only in git. Files that aren't model content (OWNERS, CI config, docs) can be committed directly: [git-connected-models.md](references/git-connected-models.md).
 
 ### Step 1: Write YAML to a Branch
 
@@ -110,11 +110,11 @@ omni models yaml-create <modelId> --body '{
 }'
 ```
 
-> **⚠️ Editing an existing file: read it whole with `--mode combined`, write it whole with `"mode": "combined"`, read it back in both modes.** [Exceptions](references/editing-existing-files.md#exceptions):
-> - **Inherited `sql:` query view with an undeclared column:** see *Known Issues*.
-> - **`"mode": "merged"`, on a branch only:** for [`relationships`](references/editing-existing-files.md#relationships) and to [drop an override](references/editing-existing-files.md#removing-an-override).
-> - **New file:** either mode. **Delete:** empty `yaml`, `"mode": "extension"`, if inherited; else `yaml-delete --mode extension`.
-> - **`extends`:** edit from the combined read; fully-resolved content needs `"fullyResolved": true` (not yet for field or topic inline-view `extends`).
+> Editing an existing file: read it whole with `--mode combined`, write it whole with `"mode": "combined"`, read it back in both modes. [Exceptions](references/editing-existing-files.md#exceptions):
+> - Inherited `sql:` query view with an undeclared column: see *Known Issues*.
+> - `"mode": "merged"`, on a branch only: for [`relationships`](references/editing-existing-files.md#relationships) and to [drop an override](references/editing-existing-files.md#removing-an-override).
+> - New file: either mode. Delete: empty `yaml`, `"mode": "extension"`, if inherited; else `yaml-delete --mode extension`.
+> - `extends`: edit from the combined read; fully-resolved content needs `"fullyResolved": true` (not yet for field or topic inline-view `extends`).
 >
 > `fileName` is the exact `yaml-get` key, folder prefix included; a mismatch silently creates a duplicate ([inspect a branch](references/model-layers.md#inspecting-a-branch)).
 
@@ -137,7 +137,7 @@ omni models yaml-get <modelId> --file-name your_view.view --branch-id <branchId>
 
 Spot-check that values look right (a `sum` isn't returning a `count`; booleans read true/false), and if a field references another view include fields from both to confirm the join resolves. Triage of errors that predate your change, join-path tests, natural-language validation and the full checklist: [validation-and-testing.md](references/validation-and-testing.md).
 
-> **Running totals, moving averages, period-over-period change, percent-of-total and ranks are table calculations** on the query result: **`omni-query` → `references/table-calculations.md`**. Model an in-warehouse field only when the window must span rows outside the result set.
+> Running totals, moving averages, period-over-period change, percent-of-total and ranks are table calculations on the query result: `omni-query` → `references/table-calculations.md`. Model an in-warehouse field only when the window must span rows outside the result set.
 
 ### Step 3: Ship the Branch
 
@@ -155,7 +155,7 @@ Model files are views (`.view`), topics (`.topic`), composite topics (`.composit
 
 ## Writing Views
 
-> **Every view that participates in joins MUST have a real `primary_key: true` dimension.** Without a row-unique primary key, queries that join to this view can produce fanout errors or incorrect aggregations. Use the table's natural unique identifier (e.g., `id`, `order_id`, `user_id`). If no single column is unique, build a key dimension that concatenates row-level columns that are jointly unique, for example `sql: ${order_id} || '-' || ${line_number}`; on dialects without implicit casts, such as BigQuery, cast non-string columns to strings first. If you cannot define a row-unique expression, do not mark a dimension as `primary_key: true` yet; fix the grain first or avoid joining the view until a real key exists. Why: [troubleshooting.md](references/troubleshooting.md#why-the-primary-key-matters-symmetric-aggregates).
+> Every view that participates in joins MUST have a real `primary_key: true` dimension. Without a row-unique primary key, queries that join to this view can produce fanout errors or incorrect aggregations. Use the table's natural unique identifier (e.g., `id`, `order_id`, `user_id`). If no single column is unique, build a key dimension that concatenates row-level columns that are jointly unique, for example `sql: ${order_id} || '-' || ${line_number}`; on dialects without implicit casts, such as BigQuery, cast non-string columns to strings first. If you cannot define a row-unique expression, do not mark a dimension as `primary_key: true` yet; fix the grain first or avoid joining the view until a real key exists. Why: [troubleshooting.md](references/troubleshooting.md#why-the-primary-key-matters-symmetric-aggregates).
 
 ### Basic View
 
@@ -184,23 +184,23 @@ Your extension YAML can override a schema-layer field of the same name, and the 
 
 See [modelParameters.md](references/modelParameters.md) for the complete list of 35+ dimension parameters, format values, and timeframes.
 
-Two gotchas: a raw column **auto-maps by name** (no `sql:` needed); there is **no `${TABLE}` construct** — `${TABLE}.column` errors `Column "__omni_scoped" not found` at validate/query time (reference fields via `${field}`/`${view.field}`).
+Two gotchas: a raw column auto-maps by name (no `sql:` needed); there is no `${TABLE}` construct — `${TABLE}.column` errors `Column "__omni_scoped" not found` at validate/query time (reference fields via `${field}`/`${view.field}`).
 
 ### Measure Parameters
 
-See `references/modelParameters.md` (24+ params, all 13 aggregate types) and `references/yaml-filter-syntax.md` (filter operators + measure-filter examples). **Prefer a measure `filters:` block** for filtered aggregates over `CASE WHEN`/`WHERE` in `sql` — keep `sql` focused on the value being aggregated.
+See `references/modelParameters.md` (24+ params, all 13 aggregate types) and `references/yaml-filter-syntax.md` (filter operators + measure-filter examples). Prefer a measure `filters:` block for filtered aggregates over `CASE WHEN`/`WHERE` in `sql` — keep `sql` focused on the value being aggregated.
 
 ### Filter-only fields and dynamic fields
 
-**Reach for a filter-only field** when one user choice should change *how a field is computed* rather than *which rows are kept*: report by created date or shipped date, show revenue or order count in the same KPI, apply a threshold the viewer sets. **Don't** reach for it to hide or show fields (use topic `fields:`), to filter rows (an ordinary filter), or when the two variants deserve their own topics (see "new topic vs adding to"). Shapes, binding, validation: [templated-filters.md](references/templated-filters.md).
+Reach for a filter-only field when one user choice should change *how a field is computed* rather than *which rows are kept*: report by created date or shipped date, show revenue or order count in the same KPI, apply a threshold the viewer sets. Don't reach for it to hide or show fields (use topic `fields:`), to filter rows (an ordinary filter), or when the two variants deserve their own topics (see "new topic vs adding to"). Shapes, binding, validation: [templated-filters.md](references/templated-filters.md).
 
 ### Aggregate tables (aggregate awareness)
 
-**Reach for an aggregate table** when the same fact rollup is queried repeatedly at a coarser grain than the table (daily or monthly tiles over an event-level fact) and a pre-aggregated table exists or can be built. Declare it with a `materialized_query` block on a view, one per table, described against the base view; Omni reads it when a query fits and falls back to the fact table when not. Confirm with a `planOnly` query headed `-- Query rewritten to use materialized view`. **Never map** a window-function field (`ROW_NUMBER`, `RANK`, `LAG`, a running total) or a `*_distinct_on` measure, and never set `limit` or `offset` in `materialized_query`: each returns wrong results or stops Omni from using the table. Pin a table that holds part of the history to its dates, keep every row in the base view, and write date boundaries in model SQL as `>=` and `<`. Rules, filter pins, joined views, [what not to declare](references/aggregate-awareness.md#what-not-to-declare) and [known issues](references/aggregate-awareness.md#known-issues): [aggregate-awareness.md](references/aggregate-awareness.md).
+Reach for an aggregate table when the same fact rollup is queried repeatedly at a coarser grain than the table (daily or monthly tiles over an event-level fact) and a pre-aggregated table exists or can be built. Declare it with a `materialized_query` block on a view, one per table, described against the base view; Omni reads it when a query fits and falls back to the fact table when not. Confirm with a `planOnly` query headed `-- Query rewritten to use materialized view`. Never map a window-function field (`ROW_NUMBER`, `RANK`, `LAG`, a running total) or a `*_distinct_on` measure, and never set `limit` or `offset` in `materialized_query`: each returns wrong results or stops Omni from using the table. Pin a table that holds part of the history to its dates, keep every row in the base view, and write date boundaries in model SQL as `>=` and `<`. Rules, filter pins, joined views, [what not to declare](references/aggregate-awareness.md#what-not-to-declare) and [known issues](references/aggregate-awareness.md#known-issues): [aggregate-awareness.md](references/aggregate-awareness.md).
 
 ### Level of detail
 
-**Reach for `level_of_detail`** when a measure has to be computed at a grain other than the query's: a per-customer total on every order row (`fixed:`), a finer aggregate summarized up (`always_include:`), or an amount held at a coarser grain while finer dims are on the report (`always_exclude:`). Grain matching, the outer-aggregate rule, template reuse and verification: [level-of-detail.md](references/level-of-detail.md).
+Reach for `level_of_detail` when a measure has to be computed at a grain other than the query's: a per-customer total on every order row (`fixed:`), a finer aggregate summarized up (`always_include:`), or an amount held at a coarser grain while finer dims are on the report (`always_exclude:`). Grain matching, the outer-aggregate rule, template reuse and verification: [level-of-detail.md](references/level-of-detail.md).
 
 ### Cross-View Fields in Views
 
@@ -212,7 +212,7 @@ Before concluding a view doesn't exist, check the schemas `yaml-get` didn't load
 
 ## Writing Topics
 
-> **Before writing a topic, confirm every view it references exists** with `omni models yaml-get <modelId>`, using the fallback above for a view in a schema that isn't loaded.
+> Before writing a topic, confirm every view it references exists with `omni models yaml-get <modelId>`, using the fallback above for a view in a schema that isn't loaded.
 
 ### New topic vs adding to an existing one
 
@@ -254,6 +254,6 @@ Omni docs pages for each modeling topic: [docs-links.md](references/docs-links.m
 
 ## Related Skills
 
-- **omni-model-explorer** — understand the model before modifying
-- **omni-ai-optimizer** — add AI context after building topics
-- **omni-query** — test new fields
+- omni-model-explorer — understand the model before modifying
+- omni-ai-optimizer — add AI context after building topics
+- omni-query — test new fields

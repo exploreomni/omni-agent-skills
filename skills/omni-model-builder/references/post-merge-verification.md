@@ -1,6 +1,6 @@
 # After the merge — verify net-new topics and views (both paths)
 
-After the merge, Omni regenerates the default branch from its own (authoritative) model state — re-serializing to canonical form, and adding a normalization commit only when the merged git content *differs* from that state. Content authored through the Omni APIs is already canonical, so a clean merge often adds **no extra commit** — don't go hunting for one; verify by resolution instead. (A non-git merge promotes the branch into the shared model.) Either way — and **especially for net-new topics or views** — confirm the files resolve against the **production** model (no `--branch-id`):
+After the merge, Omni regenerates the default branch from its own (authoritative) model state — re-serializing to canonical form, and adding a normalization commit only when the merged git content *differs* from that state. Content authored through the Omni APIs is already canonical, so a clean merge often adds no extra commit — don't go hunting for one; verify by resolution instead. (A non-git merge promotes the branch into the shared model.) Either way — and especially for net-new topics or views — confirm the files resolve against the production model (no `--branch-id`):
 
 ```bash
 # 1. Files resolve in production — the new view appears / the new topic resolves

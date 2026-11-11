@@ -2,7 +2,7 @@
 
 Ask the user before shipping, and ship only after validation and testing pass. After either path, verify the result: [post-merge-verification.md](post-merge-verification.md).
 
-Check whether the model is git-connected — `omni models git-get <modelId>`. A config with `cloneUrl` / `baseBranch` → git-connected → **Path A** (open/update a PR); a `404`/no config → not git-connected → **Path B** (merge directly in Omni).
+Check whether the model is git-connected — `omni models git-get <modelId>`. A config with `cloneUrl` / `baseBranch` → git-connected → Path A (open/update a PR); a `404`/no config → not git-connected → Path B (merge directly in Omni).
 
 ## Path A — Git-connected: open or update a PR
 

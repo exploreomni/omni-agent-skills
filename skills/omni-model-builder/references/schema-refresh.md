@@ -1,14 +1,14 @@
 # Schema Refresh: Syncing with Database Changes
 
-The schema layer is auto-generated from your database. Trigger a refresh with `omni models refresh <modelId>` (requires **Connection Admin** permissions). `--branch-id` is required when the connection has branch-based schema refresh and rejected (400 `branch_id is not allowed`) when it doesn't.
+The schema layer is auto-generated from your database. Trigger a refresh with `omni models refresh <modelId>` (requires Connection Admin permissions). `--branch-id` is required when the connection has branch-based schema refresh and rejected (400 `branch_id is not allowed`) when it doesn't.
 
-**When to trigger:** new/renamed/deleted tables or columns, a new view that needs auto-generated base dimensions, or any time the model is out of sync with the database.
+When to trigger: new/renamed/deleted tables or columns, a new view that needs auto-generated base dimensions, or any time the model is out of sync with the database.
 
-**What it does:** Introspects your data warehouse, auto-generates base dimensions with correct types and timeframes, detects deletions and broken references. Runs as a background job (can take several minutes).
+What it does: Introspects your data warehouse, auto-generates base dimensions with correct types and timeframes, detects deletions and broken references. Runs as a background job (can take several minutes).
 
-**Side effect:** May auto-generate dimensions for columns you don't need. Suppress with `hidden: true` in your extension layer.
+Side effect: May auto-generate dimensions for columns you don't need. Suppress with `hidden: true` in your extension layer.
 
-**Trigger via API:**
+Trigger via API:
 
 ```bash
 omni models refresh <modelId>
@@ -17,11 +17,11 @@ omni models refresh <modelId>
 omni models refresh <modelId> --branch-id <branchId>
 ```
 
-`--schemas` and `--tables` limit the refresh to the listed objects. With the default hard refresh, objects inside that selection that the warehouse no longer has are **removed** from the schema model; add `--hard-refresh false` to only add and update.
+`--schemas` and `--tables` limit the refresh to the listed objects. With the default hard refresh, objects inside that selection that the warehouse no longer has are removed from the schema model; add `--hard-refresh false` to only add and update.
 
-Requires **Connection Admin** permissions.
+Requires Connection Admin permissions.
 
-**Deleted or renamed columns:** If the user says a database column was deleted or renamed but does not name the exact table/column, do not stop immediately for clarification. First create a branch, refresh the schema on that branch, validate the branch, and run the content validator to identify broken model fields, dashboards, and tiles:
+Deleted or renamed columns: If the user says a database column was deleted or renamed but does not name the exact table/column, do not stop immediately for clarification. First create a branch, refresh the schema on that branch, validate the branch, and run the content validator to identify broken model fields, dashboards, and tiles:
 
 ```bash
 omni models create-branch <modelId> --name "schema-refresh-impact-check"

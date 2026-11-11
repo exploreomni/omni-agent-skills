@@ -13,8 +13,8 @@ omni models get-schemas <modelId>
 omni models yaml-get <modelId> --include-schemas PUBLIC
 ```
 
-**Rules for `--include-schemas`:**
-- Accepts exactly **one schema name** per call — commas are rejected. Load schemas one at a time.
+Rules for `--include-schemas`:
+- Accepts exactly one schema name per call — commas are rejected. Load schemas one at a time.
 - The response will contain only views from that schema plus views with no schema; relationships to other schemas are preserved.
 - To scope to a branch, add `--branch-id <id>` to `yaml-get` or `get-schemas`.
 
@@ -34,7 +34,7 @@ If the schema isn't in the `get-schemas` list at all, the connection likely does
 
 ## Why the primary key matters: symmetric aggregates
 
-Omni keeps `sum`/`count`/`avg` correct under a one-to-many join by **deduplicating on the primary key** ([symmetric aggregates](https://docs.omni.co/analyze-explore/sql/symmetric-aggregates)). A view **missing** a PK can't be made symmetric, so a `count`-of-rows measure on it **inflates** whenever a join duplicates its rows; a `count_distinct` measure survives only because it dedupes by construction. **Diagnostic heuristic:** when a measure exceeds a measure it should be a subset of (e.g. *"sessions that viewed a product" > "total sessions"*), suspect fanout from a non-distinct count on a view with **no/weak PK** — fix the PK, don't patch the number. Audit *every* base view for a PK (one missing PK is enough to break one viz). Note that a dashboard **filter/control can pull in a join the topic never declared**, via the global `relationships` graph, to satisfy its field — so even a "single-topic" tile can fan out; the PK is what keeps the aggregates safe regardless.
+Omni keeps `sum`/`count`/`avg` correct under a one-to-many join by deduplicating on the primary key ([symmetric aggregates](https://docs.omni.co/analyze-explore/sql/symmetric-aggregates)). A view missing a PK can't be made symmetric, so a `count`-of-rows measure on it inflates whenever a join duplicates its rows; a `count_distinct` measure survives only because it dedupes by construction. Diagnostic heuristic: when a measure exceeds a measure it should be a subset of (e.g. *"sessions that viewed a product" > "total sessions"*), suspect fanout from a non-distinct count on a view with no/weak PK — fix the PK, don't patch the number. Audit *every* base view for a PK (one missing PK is enough to break one viz). Note that a dashboard filter/control can pull in a join the topic never declared, via the global `relationships` graph, to satisfy its field — so even a "single-topic" tile can fan out; the PK is what keeps the aggregates safe regardless.
 
 ## Troubleshooting: Model Out of Sync with Database
 
