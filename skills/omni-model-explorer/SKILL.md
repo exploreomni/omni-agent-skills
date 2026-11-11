@@ -108,14 +108,14 @@ omni models yaml-get <modelId> --branch-id <branchId>
 
 The `mode` parameter: `combined` (default) merges schema + shared model; `extension` shows only shared model customizations.
 
-On a model that uses `extends` (for example, a spoke that extends a hub), a `combined` read shows each file's own content and the schema, not the views, fields and topics that `extends` brings in. Add `--fully-resolved true` (valid only with `--mode combined`) to see what runs at query time:
+When a model, view, field or topic uses `extends` (for example, a spoke that extends a hub), a `combined` read shows each file's own content and the schema, not what `extends` brings in. Add `--fully-resolved true` (valid only with `--mode combined`) to see what runs at query time:
 
 ```bash
 omni models yaml-get <modelId> --mode combined --fully-resolved true
 omni models yaml-get <modelId> --mode combined --fully-resolved true --file-name order_items.view
 ```
 
-Read the model this way before saying a view, field or topic exists or is missing, and when comparing models that extend the same parent. A model extends another when its `model` file has an `extends:` line; views and topics can have their own `extends:` too. Before editing from a fully resolved read, see `omni-model-builder` → `references/editing-existing-files.md` → *Exceptions*.
+Read the model this way before saying a view, field or topic exists or is missing, and when comparing models that extend the same parent. A model extends another when its `model` file has an `extends:` line; views, fields and topics can have their own. An `extends:` on a topic's inline view is not expanded in either read: read the view it extends, or list the topic's fields with `omni models get-topic`. Before editing from a fully resolved read, see `omni-model-builder` → `references/editing-existing-files.md` → *Exceptions*.
 
 The `files` map is keyed by each file's **full stored path** (e.g. `MARTS/order_items.view`), and `--file-name` is a regex on read. Reuse that exact key — including any folder prefix — when editing with `omni-model-builder`; a shortened name creates a duplicate instead of editing the original.
 
@@ -127,7 +127,7 @@ Omni has three layers:
 2. **Shared Model** — analytics engineer customizations (dimensions, measures, labels, topics, AI context)
 3. **Workbook Model** — per-dashboard customizations (ad-hoc, not shared)
 
-When exploring, use the `combined` view to see everything available, fully resolved on a model that uses `extends` ([Step 4](#step-4-read-the-model-yaml)).
+When exploring, use the `combined` view to see everything available, fully resolved wherever `extends` is used ([Step 4](#step-4-read-the-model-yaml)).
 
 ## Key Concepts
 
