@@ -10,11 +10,17 @@ Since 1.11.0 both plugins share one version, held in `versions.json` and stamped
 
 ### omni-analytics
 
-_Summary: `omni-model-explorer` reads models that use `extends` fully resolved before saying what they contain._
+_Summary: `omni-model-explorer` reads models that use `extends` fully resolved. `omni-model-builder` adds an object column as a cause of the inherited query view copy, filter binding in query views, member-topic order in composites, and where a missing primary key gets fixed._
 
 **Fixed**
 - **`omni-model-explorer` — *Read the Model YAML*.** On `extends` models, read with `--fully-resolved true` to see inherited views, fields and topics.
 - **`omni-model-explorer` — *Expected view missing*.** Check the fully resolved read first; an inherited view appears only there.
+- **`omni-model-builder` — *Known Issues*.** An object column in an inherited `sql:` query view causes the copy even when declared, and a partial `extension` file copies it on every write. Extracting the values as scalar columns in the SQL avoids it.
+- **`omni-model-builder` — *Troubleshooting*.** A missing primary key is added in the shared model on a branch; a query view or `sum_distinct_on` covers only its own queries.
+
+**Added**
+- **`omni-model-builder` — *Query Views*.** `bind_all_filters` forwards nothing in a topic built only on query views; bind the inner filter to a filter-only field. Query views on a composite topic can't be queried by their column names.
+- **`omni-model-builder` — *Composite topics*.** Topic-scoped view `display_order` sets member-topic order in the field picker; the `topics:` list only breaks ties.
 
 ## [1.26.4] - 2026-11-11
 

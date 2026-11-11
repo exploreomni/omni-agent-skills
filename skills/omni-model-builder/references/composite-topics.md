@@ -164,6 +164,7 @@ Write the `@` form in queries. `omni query run` also accepts `<topic>.<view>.<fi
 - Selecting a topic-specific dimension (`@sales.order_items.status`) fails under the default `unrelated_dimension_handling` with a message to move it to filters or make it a shared dimension; `null_fill` and `repeat` make it selectable (above).
 - `omni models get-topic <modelId> <composite>` lists the composite's field surface with these addresses; fields consumed by a shared-dimension mapping are folded into the shared dimension.
 - The validation query for a new composite is one shared dimension plus one measure per member topic; confirm every member's measure comes back non-null for at least one row.
+- The field picker orders member topics by each one's first view in a sort on view `display_order`, then label. The `topics:` list order only breaks ties, and a member topic's own `display_order` has no effect. To set the order, give each member topic's views a topic-scoped `display_order` (`views: { <view>: { display_order: 10 } }`) in a range no other member uses. `get-topic` on the composite lists the views in that order.
 
 ## Aggregate tables and composites
 
