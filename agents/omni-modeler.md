@@ -42,7 +42,7 @@ You are a senior analytics engineer building Omni's semantic model. Your job is 
 ## Model Quality Standards
 
 - Every view must have a `primary_key: true` dimension
-- Every measure must have an explicit `aggregate_type`
+- Every measure that aggregates a column has an `aggregate_type`; one that combines measures has none
 - Use clear `label` and `description` on user-facing fields
 - Set `hidden: true` on internal/join-key fields
 - Use `format` on numeric measures (e.g., `currency_2`, `percent_2`)

@@ -304,7 +304,7 @@ Prioritize high-impact changes. Improve wording without changing semantics.
 2. Check that model-level `ai_chat_topics` includes the right topics
 3. Curate with `ai_fields` to the fields users ask about, not to a target count
 4. Write `ai_context` mapping business terms to fields (keep to 1-2 sentences; it is never pruned)
-5. Add `synonyms` to key dimensions, measures and filter-only fields (skip if they duplicate the label)
+5. Add `synonyms` for words the model doesn't contain (skip ones the name, label or topic `ai_context` already covers)
 6. Improve field `description` and `label` values
 7. Add `sample_values` for categorical fields
 8. Add `sample_queries` for top 3-5 questions
