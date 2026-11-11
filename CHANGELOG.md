@@ -6,6 +6,17 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.26.4] - 2026-11-11
+
+### omni-analytics
+
+_Summary: wording corrections where `omni-model-builder`, `omni-ai-optimizer` and the `omni-modeler` agent disagreed with each other or with the model schema._
+
+**Fixed**
+- **`omni-modeler` agent.** The `aggregate_type` standard applies to measures that aggregate a column. A measure that combines other measures has none.
+- **`omni-ai-optimizer`.** The checklist's synonyms step matches the skill's rule: add synonyms for words the model doesn't contain, and skip any the field's name, label or the topic's `ai_context` already covers.
+- **`omni-model-builder`.** Topic joins are written under `joins`; the note about top-level view entries is removed. The `modelParameters.md` examples put a field's values in `sample_values` and drop a synonym that repeated the field name. `always_where` and `always_having` are named by their real keys.
+
 ## [1.26.3] - 2026-11-09
 
 ### omni-analytics
