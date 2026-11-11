@@ -59,6 +59,17 @@ Don't restate what `omni <command> --help` or `--schema` already says. Agents ca
 
 Supporting material belongs beside the skill in focused subdirectories such as `references/`, `evals/`, `scripts/`, or `assets/`. Keep `SKILL.md` references shallow and relative to the skill root.
 
+## Writing Skill Text
+
+A skill, agent or rule file is prompt text. The agent reads every word and pays for every token.
+
+- Be brief. Count the tokens a change adds.
+- Use no uppercase, bold or emoji for emphasis; italics at most. When one rule matters more than another, state the trigger or the precedence.
+- Say a thing once. A rule lives in one file, and other files link to it.
+- Make examples follow the skill's own rules. Agents copy examples.
+- Give criteria in place of vague qualifiers such as "appropriate", "as needed" or "key fields".
+- When two instructions conflict, fix one of them. A second instruction does not override the first.
+
 ## Agent Authoring
 
 Agent definitions live in `agents/` as Markdown files with YAML frontmatter:
