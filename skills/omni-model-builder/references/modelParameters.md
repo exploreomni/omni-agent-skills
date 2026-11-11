@@ -78,7 +78,8 @@ dimensions:
 
   status:
     label: Order Status
-    description: "Values: complete, pending, cancelled, returned"
+    description: Current fulfillment status of the order.
+    sample_values: [complete, pending, cancelled, returned]
     synonyms: [order state, fulfillment status]
     group_label: Order Details
 
@@ -166,7 +167,7 @@ measures:
     sql: ${sale_price}
     aggregate_type: sum
     format: currency_2
-    synonyms: [sales, income, revenue]
+    synonyms: [sales, income]
     description: "Total revenue from completed orders"
 
   average_order_value:
