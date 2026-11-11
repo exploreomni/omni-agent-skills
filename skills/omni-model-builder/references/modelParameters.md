@@ -223,7 +223,7 @@ measures:
 
 > **Check a filtered measure against its unfiltered twin.** On a topic-level measure, a `not: null` or multi-value `is:` condition on another view's field can be ignored with no error, while a single `is:` value applies. If the two measures return the same number, move the condition into `sql:` (`CASE WHEN ${other_view.key} IS NOT NULL THEN … END`).
 
-> This table is a quick reference. For the **complete** condition catalog — `and`/`or` on one field, list matches, joined-view qualification (`users.country: { is: US }`), and the three filter contexts (measure filters, topic `always_where`/`always_having`, `default_filters`) — see **[yaml-filter-syntax.md](yaml-filter-syntax.md)**.
+> This table is a quick reference. For the **complete** condition catalog — `and`/`or` on one field, list matches, joined-view qualification (`users.country: { is: US }`), and the three filter contexts (measure filters, topic `always_where_filters`/`always_having_filters`, `default_filters`) — see **[yaml-filter-syntax.md](yaml-filter-syntax.md)**.
 
 ## Format Values
 
