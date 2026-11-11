@@ -7,7 +7,7 @@ description: Optimize an Omni Analytics model for Blobby, the Omni Agent — con
 
 Optimize your Omni semantic model so Blobby (the Omni Agent) returns accurate, contextual answers.
 
-> **Tip**: Use `omni-model-explorer` to inspect current AI context before making changes.
+> Tip: Use `omni-model-explorer` to inspect current AI context before making changes.
 
 ## Prerequisites
 
@@ -27,9 +27,9 @@ omni config use <profile-name>
 omni whoami whoami
 ```
 
-> **Auth**: a profile authenticates with an **API key** or **OAuth**. If `whoami` (or any call) returns **401**, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [**`omni-api-conventions`**](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering command and request-body shapes with `--schema`.
+> Auth: a profile authenticates with an API key or OAuth. If `whoami` (or any call) returns 401, hand off — ask the user to run `! omni config login <profile>` (OAuth 2.1 browser flow; it blocks ~2 min on the browser). Don't run `config login` yourself in a headless/CI session (no browser → timeout); on a local interactive machine you *may*. See the [`omni-api-conventions`](../../rules/omni-api-conventions.mdc) rule for profile setup (`omni config init --auth oauth`) and discovering command and request-body shapes with `--schema`.
 
-Requires **Modeler** or **Connection Admin** permissions.
+Requires Modeler or Connection Admin permissions.
 
 ## Discovering Commands
 
@@ -38,15 +38,15 @@ omni models --help                    # List all model operations
 omni models yaml-create --help        # Show flags for writing YAML
 ```
 
-> **Tip**: Use `-o json` to force structured output for programmatic parsing, or `-o human` for readable tables. The default is `auto` (human in a TTY, JSON when piped).
+> Tip: Use `-o json` to force structured output for programmatic parsing, or `-o human` for readable tables. The default is `auto` (human in a TTY, JSON when piped).
 
 ## Safe Model Write Defaults
 
-- **Branch first** — never write AI optimization YAML directly to the shared model unless the user explicitly asks for a production change. Create or use a model branch, then pass the branch id to `omni models yaml-create`.
-- **Read before writing** — inspect the current topic/view YAML before adding `ai_context`, `ai_fields`, `sample_queries`, descriptions, or synonyms. If the requested optimization already exists, report that it is already configured instead of duplicating it.
-- **Topic requests stay on topics** — when the user asks to improve a topic, prefer topic-level `ai_context`, `ai_fields`, or `sample_queries`. Use field-level `synonyms` only when the request is clearly about alternate names for one specific field.
-- **Do not add "supporting" synonyms after a complete topic mapping** — for requests like "Blobby confuses revenue with order count" or "map these terms correctly", if topic-level `ai_context` already maps the business terms to the correct fields and includes the needed negative guardrails, stop and report that no duplicate write is needed. Adding field-level synonyms in that case is redundant and makes the prompt longer.
-- **Create branches with `--name`** — `omni models create-branch <model-id> --name <branch-name>` does not accept a JSON `--body`.
+- Branch first — never write AI optimization YAML directly to the shared model unless the user explicitly asks for a production change. Create or use a model branch, then pass the branch id to `omni models yaml-create`.
+- Read before writing — inspect the current topic/view YAML before adding `ai_context`, `ai_fields`, `sample_queries`, descriptions, or synonyms. If the requested optimization already exists, report that it is already configured instead of duplicating it.
+- Topic requests stay on topics — when the user asks to improve a topic, prefer topic-level `ai_context`, `ai_fields`, or `sample_queries`. Use field-level `synonyms` only when the request is clearly about alternate names for one specific field.
+- Do not add "supporting" synonyms after a complete topic mapping — for requests like "Blobby confuses revenue with order count" or "map these terms correctly", if topic-level `ai_context` already maps the business terms to the correct fields and includes the needed negative guardrails, stop and report that no duplicate write is needed. Adding field-level synonyms in that case is redundant and makes the prompt longer.
+- Create branches with `--name` — `omni models create-branch <model-id> --name <branch-name>` does not accept a JSON `--body`.
 
 ## How Blobby Works
 
@@ -56,10 +56,10 @@ Omni fills the AI's context window in a fixed priority order and leaves `hidden:
 
 All context is passed to the LLM at once, and the LLM decides how much weight each part gets:
 
-- **Model-level `ai_context` does not reliably override topic-level `ai_context`.** Don't design around precedence that isn't guaranteed.
-- **Global and personal context reach the agent too**, from outside the model, with no guaranteed precedence over it.
+- Model-level `ai_context` does not reliably override topic-level `ai_context`. Don't design around precedence that isn't guaranteed.
+- Global and personal context reach the agent too, from outside the model, with no guaranteed precedence over it.
 - Instructions may be followed partially or not at all, especially when complex or self-contradictory.
-- **Behavior is non-deterministic**: the same question can pull different context on different runs.
+- Behavior is non-deterministic: the same question can pull different context on different runs.
 
 Prefer few, unambiguous, non-conflicting instructions over exhaustive rulebooks.
 
@@ -96,7 +96,7 @@ Put each fact once, at the highest level where it is true.
 
 ### What Makes Good ai_context
 
-**Terminology mapping.** Map business terms to field names:
+Terminology mapping. Map business terms to field names:
 
 ```yaml
 ai_context: |
@@ -106,7 +106,7 @@ ai_context: |
   "AOV" → order_items.average_order_value
 ```
 
-**Data nuances.** Explain what the field names don't make clear:
+Data nuances. Explain what the field names don't make clear:
 
 ```yaml
 ai_context: |
@@ -115,7 +115,7 @@ ai_context: |
   Dates are in UTC.
 ```
 
-For "map these terms correctly" or "Blobby confuses X with Y", the fix is a **positive mapping in topic-level `ai_context`**: synonyms alone can't choose between two competing measures. If synonyms already exist but the topic context only says what *not* to use, add the missing positive mapping rather than more synonyms.
+For "map these terms correctly" or "Blobby confuses X with Y", the fix is a positive mapping in topic-level `ai_context`: synonyms alone can't choose between two competing measures. If synonyms already exist but the topic context only says what *not* to use, add the missing positive mapping rather than more synonyms.
 
 Good:
 
@@ -136,7 +136,7 @@ measures:
     synonyms: [order count, orders]
 ```
 
-**Behavioral guidance** (common patterns such as default granularity or "top N") and **persona prompting** (the analytical perspective) also belong here. Examples: [references/ai-context-examples.md](references/ai-context-examples.md).
+Behavioral guidance (common patterns such as default granularity or "top N") and persona prompting (the analytical perspective) also belong here. Examples: [references/ai-context-examples.md](references/ai-context-examples.md).
 
 ### Keeping Context Concise
 
@@ -148,7 +148,7 @@ Omni never prunes `ai_context`, so every character of it stays in the context an
 
 ## Model-Level Context
 
-Model-level [`ai_context`](https://docs.omni.co/modeling/models/ai-context) carries guidance shared across every topic, and also informs **topic selection**, so use it when Blobby picks the wrong topic rather than the wrong field.
+Model-level [`ai_context`](https://docs.omni.co/modeling/models/ai-context) carries guidance shared across every topic, and also informs topic selection, so use it when Blobby picks the wrong topic rather than the wrong field.
 
 Use it for model-wide conventions (currency, fiscal calendar, tone, privacy rules) and keep topic-specific mappings on the topic.
 
@@ -160,7 +160,7 @@ Model-level [`sample_queries`](https://docs.omni.co/modeling/models/sample-queri
 
 Context files are markdown the AI reads as standing guidance, separate from the model. `omni context-files list|read|create|update` manages them; consult `--schema` for bodies, and the commands' `--help` warns the resource is still gaining fields and may change without a version bump. Scope `organization` is files at the Hub root the caller can view through ordinary permits (not all-access), the organization context the AI reads for that caller, so a member without a permit doesn't get it; scope `personal` is files at the caller's own space that only the caller's AI reads. Caps the schema enforces: 20,000 characters per file, blank or whitespace-only bodies are refused, and a duplicate name in a scope is a 409 whose message gives the existing file's `id`. Creating an organization file requires org admin.
 
-Reach for a context file when the guidance belongs **outside a model** — it crosses topics or models, applies to one user only, or isn't about one field or topic. Keep field- and topic-scoped mappings in `ai_context` on the model, where they travel with the topic and shape topic selection.
+Reach for a context file when the guidance belongs outside a model — it crosses topics or models, applies to one user only, or isn't about one field or topic. Keep field- and topic-scoped mappings in `ai_context` on the model, where they travel with the topic and shape topic selection.
 
 `update` replaces the whole body, so always `read` the file first and send it back with your edit. Neither the CLI nor the API can delete a context file, so don't create throwaway or test files. A file's `type` (read-only) says whether the AI gets it with every message (`always_context`) or sees only its name and opens it when needed (`on_demand_context`).
 
@@ -174,7 +174,7 @@ Model, topic (including composite), view and sample-query `ai_context` can inser
 
 Omni caps how much of the context window model metadata may use. A topic's field definitions get 75,000 characters by default (10,000–200,000 with the topic's `ai_prune_characters` or the model's `ai_settings.topic_prune_characters`); past that, field properties are pruned. All the caps: [references/context-window.md](references/context-window.md#limits).
 
-> **Size by characters, not field count.** A lightly annotated field costs ~100 characters; one with a long description, sample values and `ai_context` costs several times that. The one fixed count is 2,000 fields per topic: past it, Omni sends the remaining views without their fields and tells the agent to search them, and only `ai_fields` (or a smaller topic) fixes that. Instead of estimating, run `omni models validate` and read any `topic_ai_context_too_large` warning ([which topics it checks](references/context-window.md#the-validator-estimate)).
+> Size by characters, not field count. A lightly annotated field costs ~100 characters; one with a long description, sample values and `ai_context` costs several times that. The one fixed count is 2,000 fields per topic: past it, Omni sends the remaining views without their fields and tells the agent to search them, and only `ai_fields` (or a smaller topic) fixes that. Instead of estimating, run `omni models validate` and read any `topic_ai_context_too_large` warning ([which topics it checks](references/context-window.md#the-validator-estimate)).
 
 ### Curating
 
@@ -208,9 +208,9 @@ ai_fields: [tag:use_for_ai]
 
 `ai_chat_topics` is a model-level property that controls which topics Blobby can see:
 
-- **No `ai_chat_topics` property** (default): Blobby can query every topic.
-- **`ai_chat_topics: []`** (empty list): Blobby can't query any topic, which turns off AI chat for the model.
-- **Explicit list**: only the listed topics (or tag matches) are available. Supports `all_topics`, tag selectors (`tag:customer_facing`), and negation (`-tag:internal`, `-staging_events`). A composite topic matches on its own name or tag, not its members'.
+- No `ai_chat_topics` property (default): Blobby can query every topic.
+- `ai_chat_topics: []` (empty list): Blobby can't query any topic, which turns off AI chat for the model.
+- Explicit list: only the listed topics (or tag matches) are available. Supports `all_topics`, tag selectors (`tag:customer_facing`), and negation (`-tag:internal`, `-staging_events`). A composite topic matches on its own name or tag, not its members'.
 
 It doesn't apply to the Workbook Agent. Like `ai_fields`, it changes only what the AI sees.
 
@@ -262,7 +262,7 @@ dimensions:
 
 Use `sample_values` for categorical fields (`all_values` is deprecated). Details and examples: [references/categorical-values.md](references/categorical-values.md).
 
-> **Note**: value lists are pruned first. If the agent must know a value, put it in `ai_context`.
+> Note: value lists are pruned first. If the agent must know a value, put it in `ai_context`.
 
 When the [dbt integration](https://docs.omni.co/integrations/dbt/setup) is enabled, dbt `accepted_values` tests are ingested as `all_values` automatically (as `sample_values` when the test has a `where:` config), so check for them before writing your own.
 
@@ -270,17 +270,17 @@ When the [dbt integration](https://docs.omni.co/integrations/dbt/setup) is enabl
 
 Map alternative names, abbreviations, and domain-specific terminology so Blobby matches user queries to the correct field. Works on dimensions, measures and filter-only fields. Examples: [references/synonyms.md](references/synonyms.md).
 
-**Synonyms vs ai_context**: Use `synonyms` for field-level name mapping. Use `ai_context` for topic-level behavioral guidance, data nuances, and multi-field relationships.
+Synonyms vs ai_context: Use `synonyms` for field-level name mapping. Use `ai_context` for topic-level behavioral guidance, data nuances, and multi-field relationships.
 
-**When to add them.** Add a synonym only for a word users say that the model doesn't contain (`AOV`, `top line`, `basket size`). Skip words that repeat the field's name or label, and mappings the topic's `ai_context` already makes ([Safe Model Write Defaults](#safe-model-write-defaults)).
+When to add them. Add a synonym only for a word users say that the model doesn't contain (`AOV`, `top line`, `basket size`). Skip words that repeat the field's name or label, and mappings the topic's `ai_context` already makes ([Safe Model Write Defaults](#safe-model-write-defaults)).
 
-**Pruning.** `synonyms` are pruned second to last, after `description` and `label`; only `format` is kept longer. Put a field's alternate names in `synonyms` rather than its description.
+Pruning. `synonyms` are pruned second to last, after `description` and `label`; only `format` is kept longer. Put a field's alternate names in `synonyms` rather than its description.
 
 ## Avoiding Duplication
 
 `ai_context` and `description` serve different audiences. `description` is shown to people in the field picker and is also sent to the agent, but Omni prunes it early when space runs short. `ai_context` is sent only to the agent and never pruned. Don't repeat text between them: `ai_context` adds what the description doesn't (disambiguation, gotchas, when to use one field over another).
 
-**Consolidate shared context at the view level.** If multiple fields in a view share the same `ai_context` (e.g., "all monetary values are in USD"), move it to the view-level `ai_context` instead of repeating it on each field. Field-level `ai_context` should be specific to that field.
+Consolidate shared context at the view level. If multiple fields in a view share the same `ai_context` (e.g., "all monetary values are in USD"), move it to the view-level `ai_context` instead of repeating it on each field. Field-level `ai_context` should be specific to that field.
 
 Here the shared fact sits on the view, and each field's `description` and `ai_context` say different things:
 
@@ -304,7 +304,7 @@ Prioritize high-impact changes. Improve wording without changing semantics.
 2. Check that model-level `ai_chat_topics` includes the right topics
 3. Curate with `ai_fields` to the fields users ask about, not to a target count
 4. Write `ai_context` mapping business terms to fields (keep to 1-2 sentences; it is never pruned)
-5. Add `synonyms` to key dimensions, measures and filter-only fields (skip if they duplicate the label)
+5. Add `synonyms` for words the model doesn't contain (skip ones the name, label or topic `ai_context` already covers)
 6. Improve field `description` and `label` values
 7. Add `sample_values` for categorical fields
 8. Add `sample_queries` for top 3-5 questions
@@ -312,7 +312,7 @@ Prioritize high-impact changes. Improve wording without changing semantics.
 10. Remove `omni_llm` sections (ignored, so their tier-only text never reaches the AI) and don't add `omni_agent` ones (deprecated)
 11. Measure before and after on the branch with `omni-ai-eval`, then refine
 
-> **Troubleshooting order** when Blobby answers wrong: confirm the topic is reachable (`ai_chat_topics`) → confirm the field is in context (check it isn't excluded by `ai_fields`/`hidden`, and that `omni models validate` doesn't flag the topic as over budget) → then add or sharpen `ai_context`. Context on a field the AI never receives has no effect.
+> Troubleshooting order when Blobby answers wrong: confirm the topic is reachable (`ai_chat_topics`) → confirm the field is in context (check it isn't excluded by `ai_fields`/`hidden`, and that `omni models validate` doesn't flag the topic as over budget) → then add or sharpen `ai_context`. Context on a field the AI never receives has no effect.
 
 ## AI Model Suggestions
 
@@ -324,7 +324,7 @@ Omni docs pages for each AI setting: [docs-links.md](references/docs-links.md).
 
 ## Related Skills
 
-- **omni-model-explorer** — inspect existing AI context
-- **omni-model-builder** — modify views and topics
-- **omni-query** — test queries to verify Blobby's output
-- **omni-ai-eval** — score Blobby's answers before and after a change
+- omni-model-explorer — inspect existing AI context
+- omni-model-builder — modify views and topics
+- omni-query — test queries to verify Blobby's output
+- omni-ai-eval — score Blobby's answers before and after a change

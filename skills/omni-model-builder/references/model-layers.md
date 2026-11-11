@@ -1,24 +1,24 @@
 # Omni's Layered Modeling Architecture
 
-Omni uses a **layered approach** where each layer builds on top of the previous:
+Omni uses a layered approach where each layer builds on top of the previous:
 
-1. **Schema Layer** — Auto-generated from your database. Reflects tables, views, columns, and their types. Kept in sync via schema refresh.
-2. **Shared Model Layer** — Your governed semantic model. Where you define dimensions, measures, joins, and topics that are reusable across the organization.
-3. **Workbook Model Layer** — Ad hoc extensions within individual workbooks. Used for experimental fields before promotion to shared model.
-4. **Branch Layer** — Intermediate development layer. Used when working in branches before merging changes to shared model.
+1. Schema Layer — Auto-generated from your database. Reflects tables, views, columns, and their types. Kept in sync via schema refresh.
+2. Shared Model Layer — Your governed semantic model. Where you define dimensions, measures, joins, and topics that are reusable across the organization.
+3. Workbook Model Layer — Ad hoc extensions within individual workbooks. Used for experimental fields before promotion to shared model.
+4. Branch Layer — Intermediate development layer. Used when working in branches before merging changes to shared model.
 
-The schema layer is the source of truth for table/column structure (refreshed when the database changes); all user-created content (dimensions, measures, relationships, topics) flows through the shared model layer. You build and modify it in **branches** (see [Safe Development Workflow](../SKILL.md#safe-development-workflow) in SKILL.md) before merging back to the shared model.
+The schema layer is the source of truth for table/column structure (refreshed when the database changes); all user-created content (dimensions, measures, relationships, topics) flows through the shared model layer. You build and modify it in branches (see [Safe Development Workflow](../SKILL.md#safe-development-workflow) in SKILL.md) before merging back to the shared model.
 
 ## Understanding Schema Layer vs Extension Layer
 
-When you create a view, Omni separates **schema** (database structure) from **model** (your business logic):
+When you create a view, Omni separates schema (database structure) from model (your business logic):
 
-- **Schema layer**: Auto-generated base dimensions, one per column. Types come from the database. Read-only, synced via schema refresh.
-- **Extension layer**: Your custom YAML. Can override base dimensions, add new dimensions/measures, hide columns, add business logic.
+- Schema layer: Auto-generated base dimensions, one per column. Types come from the database. Read-only, synced via schema refresh.
+- Extension layer: Your custom YAML. Can override base dimensions, add new dimensions/measures, hide columns, add business logic.
 
-When both layers exist for a field with the same name, **your extension definition wins** but **type information comes from the schema layer**.
+When both layers exist for a field with the same name, your extension definition wins but type information comes from the schema layer.
 
-**Example**: Table has columns `created_at` (DATE) and `revenue` (NUMERIC).
+Example: Table has columns `created_at` (DATE) and `revenue` (NUMERIC).
 
 ```yaml
 # Schema layer (auto-generated)
@@ -46,7 +46,7 @@ Result: `created_at` inherits its type from the schema layer (DATE with automati
 
 If your extension defines a dimension but there's no schema layer base dimension to provide type information, Omni can't infer granularities or types. Trigger a schema refresh to auto-generate the schema layer first.
 
-**Reading back what you wrote — `--mode`.** `yaml-get` returns the **combined** result by default: the schema base merged with your extension. To see only the deltas you authored, without the auto-generated base columns, read with `--mode extension`:
+Reading back what you wrote — `--mode`. `yaml-get` returns the combined result by default: the schema base merged with your extension. To see only the deltas you authored, without the auto-generated base columns, read with `--mode extension`:
 
 ```bash
 # What you authored (deltas only)
@@ -56,7 +56,7 @@ omni models yaml-get <modelId> --file-name your_view.view --branch-id <branchId>
 omni models yaml-get <modelId> --file-name your_view.view --branch-id <branchId> --mode combined
 ```
 
-Use `extension` to confirm *what you changed*, and `combined` to confirm *what the model resolves to*. When the model is git-integrated, the **combined** output mirrors what's written to the repository — which is why committed `*.view.yaml` files carry the schema-layer `table_name:` and base columns, while the extension layer holds only your deltas. For a shared extension model synced to git, the files hold only the extension layer, what `--mode extension` returns. Other `--mode` values: `staged` returns the branch model only; `merged` returns the branch merged with the shared model, in the same form as `extension`; `fully-resolved` returns `combined` with the `extends` chain expanded (the same as `--mode combined --fully-resolved true`).
+Use `extension` to confirm *what you changed*, and `combined` to confirm *what the model resolves to*. When the model is git-integrated, the combined output mirrors what's written to the repository — which is why committed `*.view.yaml` files carry the schema-layer `table_name:` and base columns, while the extension layer holds only your deltas. For a shared extension model synced to git, the files hold only the extension layer, what `--mode extension` returns. Other `--mode` values: `staged` returns the branch model only; `merged` returns the branch merged with the shared model, in the same form as `extension`; `fully-resolved` returns `combined` with the `extends` chain expanded (the same as `--mode combined --fully-resolved true`).
 
 ## File types
 
@@ -69,7 +69,7 @@ Use `extension` to confirm *what you changed*, and `combined` to confirm *what t
 
 ## Inspecting a branch
 
-To **inspect** a branch, `yaml-get` **without** `--file-name` enumerates the whole model — `--mode extension` for just the branch's changed files (your deltas), `--mode combined` for the full composed model (schema + shared + branch); then drill into any file by its exact path.
+To inspect a branch, `yaml-get` without `--file-name` enumerates the whole model — `--mode extension` for just the branch's changed files (your deltas), `--mode combined` for the full composed model (schema + shared + branch); then drill into any file by its exact path.
 
 ## Branches on dbt-connected models
 

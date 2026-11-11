@@ -2,11 +2,11 @@
 
 ## New topic vs adding to an existing one
 
-When a query can't be answered by an existing topic, first check whether you should **add to** one (a join so a needed view becomes reachable, a field or a label) rather than create a new one. That is usually right when the request's base view (the FROM) matches an existing topic's base view. **Create a new topic** when any of these is fundamentally different:
+When a query can't be answered by an existing topic, first check whether you should add to one (a join so a needed view becomes reachable, a field or a label) rather than create a new one. That is usually right when the request's base view (the FROM) matches an existing topic's base view. Create a new topic when any of these is fundamentally different:
 
-- **Subject / object** — a different base view (FROM). What is the query fundamentally describing — orders? users? *time* (dates)? A different core entity warrants its own topic.
-- **Constraints** — conditions that are *always* applied (e.g. an `always_where` that excludes test users from order data). Different always-on filters → a different topic.
-- **Audience** — the same fields but different labels/terminology for a different consumer; jargon that differs by audience justifies a separate topic.
+- Subject / object — a different base view (FROM). What is the query fundamentally describing — orders? users? *time* (dates)? A different core entity warrants its own topic.
+- Constraints — conditions that are *always* applied (e.g. an `always_where_sql` that excludes test users from order data). Different always-on filters → a different topic.
+- Audience — the same fields but different labels/terminology for a different consumer; jargon that differs by audience justifies a separate topic.
 
 Prompt the requestor when it's a judgment call, and build new topics on a branch (see the [Safe Development Workflow](../SKILL.md#safe-development-workflow) in SKILL.md). Note that querying on a topic (vs a bare base view) is also what makes the result accessible to restricted queriers/viewers.
 

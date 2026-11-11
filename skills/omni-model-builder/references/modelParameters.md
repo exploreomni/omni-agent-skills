@@ -61,9 +61,9 @@ Complete parameter reference for views, topics, dimensions, and measures. Use th
 | `ignore_from_extended` | Controls field omission during view extensions |
 | `custom_primary_key_sql_for_quick_aggs` | Custom primary key for aggregate measures |
 
-> **`sql` references fields, not `${TABLE}`.** Use `${field}` / `${view.field}`
-> to reference another defined dimension or measure. There is **no `${TABLE}`
-> construct in Omni** — `${TABLE}.column` is a LookML-ism that does not resolve;
+> `sql` references fields, not `${TABLE}`. Use `${field}` / `${view.field}`
+> to reference another defined dimension or measure. There is no `${TABLE}`
+> construct in Omni — `${TABLE}.column` is a LookML-ism that does not resolve;
 > it errors with `Column "__omni_scoped" not found` at both `omni models
 > validate` (blocking) and query time. To use a raw database column, just let
 > the dimension auto-map by its column name (no `sql:` needed); only add `sql:`
@@ -78,7 +78,8 @@ dimensions:
 
   status:
     label: Order Status
-    description: "Values: complete, pending, cancelled, returned"
+    description: Current fulfillment status of the order.
+    sample_values: [complete, pending, cancelled, returned]
     synonyms: [order state, fulfillment status]
     group_label: Order Details
 
@@ -166,7 +167,7 @@ measures:
     sql: ${sale_price}
     aggregate_type: sum
     format: currency_2
-    synonyms: [sales, income, revenue]
+    synonyms: [sales, income]
     description: "Total revenue from completed orders"
 
   average_order_value:
@@ -204,7 +205,7 @@ measures:
         is: true          # booleans take the operator form too — NOT a bare `is_returned: true`
 ```
 
-> A filtered measure's `filters:` value is **always an operator object** (`{ is: … }`, `{ greater_than: … }`, …), never a bare scalar. The #1 mistake is writing `is_returned: true` or `status: "complete"` directly — both are rejected as an invalid filter spec.
+> A filtered measure's `filters:` value is always an operator object (`{ is: … }`, `{ greater_than: … }`, …), never a bare scalar. The #1 mistake is writing `is_returned: true` or `status: "complete"` directly — both are rejected as an invalid filter spec.
 
 ### Measure Filter Conditions
 
@@ -220,9 +221,9 @@ measures:
 | `ends_with` | `email: { ends_with: .com }` |
 | `not` (IS NOT NULL) | `id: { not: null }` |
 
-> **Check a filtered measure against its unfiltered twin.** On a topic-level measure, a `not: null` or multi-value `is:` condition on another view's field can be ignored with no error, while a single `is:` value applies. If the two measures return the same number, move the condition into `sql:` (`CASE WHEN ${other_view.key} IS NOT NULL THEN … END`).
+> Check a filtered measure against its unfiltered twin. On a topic-level measure, a `not: null` or multi-value `is:` condition on another view's field can be ignored with no error, while a single `is:` value applies. If the two measures return the same number, move the condition into `sql:` (`CASE WHEN ${other_view.key} IS NOT NULL THEN … END`).
 
-> This table is a quick reference. For the **complete** condition catalog — `and`/`or` on one field, list matches, joined-view qualification (`users.country: { is: US }`), and the three filter contexts (measure filters, topic `always_where`/`always_having`, `default_filters`) — see **[yaml-filter-syntax.md](yaml-filter-syntax.md)**.
+> This table is a quick reference. For the complete condition catalog — `and`/`or` on one field, list matches, joined-view qualification (`users.country: { is: US }`), and the three filter contexts (measure filters, topic `always_where_filters`/`always_having_filters`, `default_filters`) — see [yaml-filter-syntax.md](yaml-filter-syntax.md).
 
 ## Format Values
 
@@ -272,7 +273,7 @@ Use D3 time format strings: `"%Y-%m"`, `"%Y-%m-%d"`, `"%Y-%m-%d %H:%M:%S"`
 
 | Parameter | Description |
 |-----------|-------------|
-| `base_view` | **Required.** Primary view for the topic |
+| `base_view` | Required. Primary view for the topic |
 | `label` | Display name |
 | `description` | Free text description |
 | `joins` | Nested structure for join chains (e.g., `users: {}`) |
@@ -307,7 +308,7 @@ A `.composite_topic` file. See [composite-topics.md](composite-topics.md).
 
 | Parameter | Description |
 |-----------|-------------|
-| `topics` | **Required.** Member topics, a list |
+| `topics` | Required. Member topics, a list |
 | `shared_views` | Views present in every member topic; selectable once for the composite |
 | `shared_dimensions` | Named dimensions with a `mappings:` entry per topic (`<topic>: { field: view.field }`); the join keys between member topics |
 | `shared_measures` | Measures over the joined result: `sql:` over `${<topic>.<view>.<measure>}` references, no `aggregate_type`; a `filters:` block is not applied |

@@ -60,9 +60,9 @@ filters:
 
 Three shapes it serves:
 
-- **One control, several columns.** The window above applies to `created_at` and to `shipped_at`; the conditions are ANDed, one per target.
-- **Filterable but not selectable.** Pair a `hidden: true` dimension with a filter-only field bound to it. Viewers filter on the value; the column never appears in the field picker or a `GROUP BY`.
-- **A threshold on a measure.** A number control bound to a measure becomes a `HAVING` clause with its own label and `default_filter`.
+- One control, several columns. The window above applies to `created_at` and to `shipped_at`; the conditions are ANDed, one per target.
+- Filterable but not selectable. Pair a `hidden: true` dimension with a filter-only field bound to it. Viewers filter on the value; the column never appears in the field picker or a `GROUP BY`.
+- A threshold on a measure. A number control bound to a measure becomes a `HAVING` clause with its own label and `default_filter`.
 
 Compared with a dashboard filter control, the binding lives in the model: every workbook and dashboard on the topic gets it, and the modeler fixes the targets instead of each dashboard's per-tile `map`. Docs: [bind_to](https://docs.omni.co/modeling/templated-filters#bind_to).
 
@@ -167,7 +167,7 @@ A dashboard control binds to it with `fieldName` set to the filter-only field; o
 
 ## Validating a templated field
 
-Run the query on the branch and read the **executed** SQL (`stage_summaries[0].execution_sql`), not `omni_sql`: the latter still shows the Mustache, the former shows what ran. Run once per value the control can take and confirm each branch appears, then once with no filter to confirm the default. Common misses:
+Run the query on the branch and read the executed SQL (`stage_summaries[0].execution_sql`), not `omni_sql`: the latter still shows the Mustache, the former shows what ran. Run once per value the control can take and confirm each branch appears, then once with no filter to confirm the default. Common misses:
 
 - `'{{ filters.v.f.value }}'` with a string value: the value already arrives quoted, so this is a syntax error. Drop the quotes.
 - A `CASE` on a field without `filter_single_select_only`: a multi-value selection has no single value to render.

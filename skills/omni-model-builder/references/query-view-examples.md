@@ -76,7 +76,7 @@ dimensions:
 
 "Users with at least one returned line" is a property of the user, so compute it once per user and join it one-to-one to `users`. Both forms below produce the same rows.
 
-**`sql:` with field references.** `${view.field}` resolves inside the block, but it is expanded at save time into `"order_items"."status"`, so the `FROM` must carry the view's reference name as its alias. Read the file back after saving and the references are gone; only `${order_items}` stays live. Validation does not catch a missing alias; run a query.
+`sql:` with field references. `${view.field}` resolves inside the block, but it is expanded at save time into `"order_items"."status"`, so the `FROM` must carry the view's reference name as its alias. Read the file back after saving and the references are gone; only `${order_items}` stays live. Validation does not catch a missing alias; run a query.
 
 ```yaml
 # user_flags.query.view  (reference name: user_flags)
@@ -98,7 +98,7 @@ dimensions:
     sql: '"line_count"'
 ```
 
-**`query:` from a topic.** The measures live on the line view and the binding is live: a change to `has_return` on `order_items` flows into the rollup on the next run. It needs a topic over the line view to run in.
+`query:` from a topic. The measures live on the line view and the binding is live: a change to `has_return` on `order_items` flows into the rollup on the next run. It needs a topic over the line view to run in.
 
 ```yaml
 # order_items.view (addition)
@@ -131,7 +131,7 @@ Either way the relationship is `one_to_one` from `users`, and a measure on `user
 
 ## Mapping / lookup view (CLI stand-in for an Omni Input Table)
 
-To rebuild a **hardcoded key→label lookup** — e.g. a dashboard-defined dimension that remaps `territory` → a rep name (the kind of grouping/alias built in a BI tool's UI rather than the database), or any mapping that lives only in a dashboard (not in the database) — model it as **data joined on the key**, not a `CASE`. The maintainable ideal is an **Omni Input Table** (a writable table created/edited in the Omni UI — there is **no CLI command** for input tables under `connections`/`models`/`documents`). The **CLI-buildable equivalent** is a hardcoded `VALUES`/`UNION ALL` **query view** joined on the key:
+To rebuild a hardcoded key→label lookup — e.g. a dashboard-defined dimension that remaps `territory` → a rep name (the kind of grouping/alias built in a BI tool's UI rather than the database), or any mapping that lives only in a dashboard (not in the database) — model it as data joined on the key, not a `CASE`. The maintainable ideal is an Omni Input Table (a writable table created/edited in the Omni UI — there is no CLI command for input tables under `connections`/`models`/`documents`). The CLI-buildable equivalent is a hardcoded `VALUES`/`UNION ALL` query view joined on the key:
 
 ```yaml
 # territory_rep_map.query.view  — Reference this view as territory_rep_map
@@ -168,18 +168,18 @@ relationships:
     on_sql: ${<territory/base view>.territory} = ${territory_rep_map.territory}
 ```
 
-`employee_name` and `manager_name` are now real **dimensions** — group, filter, and query by them like any field. Notes:
-- **Quote the SELECT aliases** (`AS "territory"`) on Snowflake/BigQuery/Databricks or they uppercase and the join key won't match.
+`employee_name` and `manager_name` are now real dimensions — group, filter, and query by them like any field. Notes:
+- Quote the SELECT aliases (`AS "territory"`) on Snowflake/BigQuery/Databricks or they uppercase and the join key won't match.
 - `always_left` → unmatched keys render as `∅`/null. Add an `'Other'` catch-all (a final `UNION ALL SELECT <unmatched>, 'Other'` is impractical for open domains — instead `COALESCE(${map.label}, 'Other')` in a derived dim, or accept nulls) to give unmatched keys a catch-all `'Other'` bucket.
 - Validates clean; the grouped query runs COMPLETE and mapped labels flow into results.
-- Prefer a true **UI Input Table** when the mapping changes over time (reps reassigned) — it's editable in-app; the query view requires a YAML edit to change.
+- Prefer a true UI Input Table when the mapping changes over time (reps reassigned) — it's editable in-app; the query view requires a YAML edit to change.
 
 ## `sql:` query views on SQL Server / Fabric (T-SQL)
 
 Omni wraps a query view's `sql:` as a derived table. Two things follow on T-SQL:
 
-- **No `WITH` CTEs.** A CTE inside a derived table fails at query time with `Incorrect syntax near the keyword 'WITH'`; validation does not catch it. Nest derived tables instead.
-- **Alias every `${other_query_view}` reference.** It is inlined as a bare subquery, so `FROM ${job_hours} WHERE …` fails. Write `FROM ${job_hours} jh`.
+- No `WITH` CTEs. A CTE inside a derived table fails at query time with `Incorrect syntax near the keyword 'WITH'`; validation does not catch it. Nest derived tables instead.
+- Alias every `${other_query_view}` reference. It is inlined as a bare subquery, so `FROM ${job_hours} WHERE …` fails. Write `FROM ${job_hours} jh`.
 
 ```yaml
 # job_burn.query.view — the hours rollup as a nested derived table

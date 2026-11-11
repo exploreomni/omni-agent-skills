@@ -1,6 +1,6 @@
 # Advanced ai_context Templating
 
-User attributes and constants work in `ai_context` on the **model, topics (including composite topics), views and sample queries**.
+User attributes and constants work in `ai_context` on the model, topics (including composite topics), views and sample queries.
 
 ## Personalize with user attributes
 
@@ -15,7 +15,7 @@ ai_context: |
 
 A multi-value attribute is joined with commas.
 
-> **Dimension and measure `ai_context`** is used as written, with no substitution. The filter and field templates that work in SQL (`{{ filters.view.field.value }}`, `{{ view.field.in_query }}`, `{{# view.field.filter }}` sections) don't work in any `ai_context`, and the validator warns on them.
+> Dimension and measure `ai_context` is used as written, with no substitution. The filter and field templates that work in SQL (`{{ filters.view.field.value }}`, `{{ view.field.in_query }}`, `{{# view.field.filter }}` sections) don't work in any `ai_context`, and the validator warns on them.
 
 ## Reuse blocks with constants
 

@@ -2,9 +2,9 @@
 
 Complete reference for the filter condition syntax used in Omni model YAML. This syntax applies across three contexts:
 
-- **Measure filters** — `filters:` block on a measure definition
-- **Topic always filters** — `always_where_filters:`, `always_having_filters:` on a topic
-- **Topic default filters** — `default_filters:` on a topic
+- Measure filters — `filters:` block on a measure definition
+- Topic always filters — `always_where_filters:`, `always_having_filters:` on a topic
+- Topic default filters — `default_filters:` on a topic
 
 ## Contents
 
@@ -52,19 +52,19 @@ measures:
 
 ## Value Formats
 
-**Strings and dates** — unquoted:
+Strings and dates — unquoted:
 ```yaml
 contains: Blob
 before: 2025-01-01
 ```
 
-**Arrays** — square bracket syntax:
+Arrays — square bracket syntax:
 ```yaml
 is: [ California, Oregon, Washington ]
 between: [ 10, 100 ]
 ```
 
-**Booleans** — three-state logic:
+Booleans — three-state logic:
 - `true` — true only
 - `false` — false only
 - `null` — null only
@@ -79,12 +79,12 @@ not_starts_with: internal
 not_between: [ 10, 100 ]
 ```
 
-**Exceptions:** `and`, `or`, and `is` do not support `not_` prefix. Use the `not` operator instead of `not_is`:
+Exceptions: `and`, `or`, and `is` do not support `not_` prefix. Use the `not` operator instead of `not_is`:
 ```yaml
 not: California
 ```
 
-**Null checks** — use `not: null` for IS NOT NULL, `is: null` for IS NULL:
+Null checks — use `not: null` for IS NOT NULL, `is: null` for IS NULL:
 ```yaml
 # IS NOT NULL
 some_field:
@@ -274,7 +274,7 @@ measures:
         is: true        # `false` / `null` / `falsey` per the boolean three-state (see Value Formats above)
 ```
 
-> **Booleans use the same `{ is: … }` operator form as every other field.** Writing the value as a bare scalar — `is_returned: true` or `status: "complete"` — is rejected with *"must be a valid filter specification."* The value under a field key is always an operator object, never the raw value.
+> Booleans use the same `{ is: … }` operator form as every other field. Writing the value as a bare scalar — `is_returned: true` or `status: "complete"` — is rejected with *"must be a valid filter specification."* The value under a field key is always an operator object, never the raw value.
 
 ## Advanced Operators
 
