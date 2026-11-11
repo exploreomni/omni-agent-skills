@@ -47,22 +47,22 @@ If the columns haven't changed but SQL field or view errors remain after their c
 
 ## Known Issues & Safe Defaults
 
-> ## 🛑 HARD STOP: never merge/promote a branch on your own initiative
->
-> **`omni models merge-branch` (and any merge / promote / ship to the shared model) is a SEPARATE, USER-INITIATED step. Do not run it unless the user has told you — *in this conversation* — to merge, ship, publish, promote, or "make it live."** Preparing a branch (create → write YAML → validate → test) is the *whole* job for a "build / add / model this" request; shipping it is a distinct decision the user owns.
->
-> **None of these count as merge permission — do not let them talk you past this gate:**
-> - "the change is additive / small / low-risk / can't break anything"
-> - "the spec (or ticket, or doc) says to model it and publish"
-> - "the user gave a broad 'build the whole thing' directive"
-> - "it's required for the deliverable to work" / "the dashboard won't resolve until I merge"
-> - "it's just a playground / sandbox / non-git model"
->
-> When the field/view is needed for downstream content but not yet merged, the correct move is a **branch-bound draft** (`omni-content-builder` → *branch-bound drafts*), **not** a merge. When a merge is genuinely needed, **stop and ask** ("Ready for me to merge `<branch>` into the shared model?") and wait for an explicit yes. If a harness/permission layer blocks the merge, that is the guardrail working — surface it and ask; do not look for another path around it.
+### Never merge or promote a branch on your own initiative
+
+Merging is a separate step that the user starts. Run `omni models merge-branch`, or any other merge, promote or ship to the shared model, only when the user has told you in this conversation to merge, ship, publish, promote or make it live. A "build", "add" or "model this" request is complete when the branch is created, written, validated and tested.
+
+None of these is permission to merge:
+- the change is additive, small or low-risk
+- a spec, ticket or doc says to model it and publish
+- the user gave a broad "build the whole thing" directive
+- the deliverable needs it, such as a dashboard that won't resolve until the merge
+- the model is a playground, sandbox or non-git model
+
+When downstream content needs a field or view that isn't merged yet, use a branch-bound draft (`omni-content-builder` → *branch-bound drafts*). When a merge is needed, ask ("Ready for me to merge `<branch>` into the shared model?") and wait for an explicit yes. If a harness or permission layer blocks the merge, report it and ask; do not look for another way around it.
 
 - Confirm the branch still exists at the start of each session and after any gap — `omni models list --model-id <sharedModelId> --include activeBranches`. Someone else may have merged it; writes then fail with `Branch does not exist`, and drafts bound to it may already be published (check `omni documents list-drafts <identifier>`). If it was merged, diff your local YAML against the shared model and start a new branch for further changes.
 - Profile the data before modelling it. Check grain (`COUNT(*)` vs `COUNT(DISTINCT <key>)` on every fact), implied units (value ÷ quantity per category, to catch a "hours" column that holds money), and where history starts (older records may need an opening balance). Ask the business owner what an ambiguous term ("fee type", "status") means before building on a guess.
-- Keep eval-created files on branches until confirmed — when you create fields/views for validation, report the branch name/id, validation status, and test-query result; merging is governed by the HARD STOP above.
+- Keep eval-created files on branches until confirmed — when you create fields/views for validation, report the branch name/id, validation status, and test-query result; merging follows the rule above.
 - Edit with `yaml-create`, not `create-field`, `update-field`, `update-view`, `update-topic` or `models update`: they can [report success without making the change](references/editing-existing-files.md#field-view-and-topic-commands).
 - Known bug: a child layer can store a copy of an inherited `sql:` query view's SQL (extension, workbook model, branch) and stop following the parent. Cause: an undeclared column (assume one for `SELECT *` or CTEs) or a removed dimension. Until fixed ([removing a copy](references/editing-existing-files.md#inherited-sql-query-views)):
   1. Read `--mode extension` first: a view-level `sql:` you didn't write is that copy; an `ignored: true` dimension means any write stores one. Tell the user.
