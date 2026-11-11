@@ -6,6 +6,18 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.27.0] - 2026-11-11
+
+### omni-analytics
+
+_Summary: `omni-model-builder` documents model constants as the way to share one SQL definition between a dimension and a raw-SQL query view, and how Omni re-serializes YAML on write._
+
+**Added**
+- **`omni-model-builder` — *Constants* (`references/constants.md`).** How to keep one SQL definition for a dimension and a raw `sql:` query view: put it in a model constant (`@{name}`) instead of copying it or using `${view.field}` in the `sql:` block, which is expanded at save time. Tested on BigQuery: multi-line values work; constants are substituted in raw `sql:` query views (including inside Mustache filter blocks) and at query time, so a changed constant reaches every view without re-saving; `@{…}` inside another constant is **not** expanded and gives `unparseable_sql`. Also: write such constants against raw columns, use a block scalar or quotes because `@` can't start a plain YAML scalar, and how to test that a change propagates. SKILL.md → *Query Views* links to it.
+
+**Changed**
+- **`omni-model-builder` — *Re-serialized writes* (`references/editing-existing-files.md`).** Existing fields keep their position and may have their keys reordered, and a field written without a comment keeps its previous comment. Write the new comment above the field to replace a stale one, and don't make YAML-patching scripts depend on key order.
+
 ## [1.26.0] - 2026-11-09
 
 ### omni-analytics

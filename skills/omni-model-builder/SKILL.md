@@ -244,6 +244,8 @@ A topic's `views:` block can set `display_order`, override labels, and add topic
 
 A query view needs a primary key (`primary_key: true` on one dimension) or joins to it fan out; confirm which field is unique before writing unless the query makes it clear, and ask the user when they are unsure. Rules, including the `FROM` alias a `sql:` block with `${view.field}` references needs: [query-views.md](references/query-views.md) · examples: [query-view-examples.md](references/query-view-examples.md).
 
+**Same SQL needed in a dimension and a raw `sql:` query view?** Don't copy it, and don't rely on `${view.field}` in the `sql:` block: that reference is expanded when the file is saved, so later changes don't reach the query view. Put the SQL in a model **constant** (`@{name}`). Constants are substituted at query time and work in raw SQL, but they don't nest: [constants.md](references/constants.md).
+
 ## Common Validation Errors
 
 Fixes for frequent validation errors (unknown view, no join path, duplicate field name, invalid YAML, fanout, column not found, a duplicate view at the repo root) and for a model out of sync with the database: [troubleshooting.md](references/troubleshooting.md#common-validation-errors).
