@@ -16,7 +16,7 @@ _Summary: `omni-model-explorer` reads models that use `extends` fully resolved. 
 - **`omni-model-explorer` — *Read the Model YAML*.** Where a model, view, field or topic uses `extends`, read with `--fully-resolved true` to see what it inherits. An inline view's `extends` isn't expanded in either read.
 - **`omni-model-explorer` — *Expected view missing*.** Check the fully resolved read first; an inherited view appears only there.
 - **`omni-model-builder` — *Known Issues*.** An object column in an inherited `sql:` query view causes the copy even when declared, and a partial `extension` file copies it on every write. Extracting the values as scalar columns in the SQL avoids it.
-- **`omni-model-builder` — *Editing existing files*.** Covers topics that use `extends`. The `fullyResolved` flag is also rejected when a topic inherits inline-view `extends` through its own `extends`; edit those from the combined read with only the changed keys, under the combined read's file key.
+- **`omni-model-builder` — *Editing existing files*.** On any `extends` (model, view, field, topic, inline view), edit the combined read with only the changed keys, under its file key; don't write fully-resolved content back, since the `fullyResolved` flag is rejected for field-level and inline-view `extends`.
 - **`omni-model-builder` — *Troubleshooting*.** A missing primary key is added in the shared model on a branch; a query view or `sum_distinct_on` covers only its own queries.
 
 **Added**

@@ -108,14 +108,13 @@ omni models yaml-get <modelId> --branch-id <branchId>
 
 The `mode` parameter: `combined` (default) merges schema + shared model; `extension` shows only shared model customizations.
 
-When a model, view, field or topic uses `extends` (for example, a spoke that extends a hub), a `combined` read shows each file's own content and the schema, not what `extends` brings in. Add `--fully-resolved true` (valid only with `--mode combined`) to see what runs at query time:
+When a model, view, field or topic uses `extends`, a `combined` read shows each file's own content and the schema, not what `extends` brings in. Read with `--fully-resolved true` (only with `--mode combined`) before saying a view, field or topic exists or is missing, and when comparing models that extend the same parent:
 
 ```bash
 omni models yaml-get <modelId> --mode combined --fully-resolved true
-omni models yaml-get <modelId> --mode combined --fully-resolved true --file-name order_items.view
 ```
 
-Read the model this way before saying a view, field or topic exists or is missing, and when comparing models that extend the same parent. A model extends another when its `model` file has an `extends:` line; views, fields and topics can have their own. An `extends:` on a topic's inline view is not expanded in either read: read the view it extends, or list the topic's fields with `omni models get-topic`. Before editing from a fully resolved read, see `omni-model-builder` → `references/editing-existing-files.md` → *Exceptions*.
+An `extends:` on a topic's inline view isn't expanded in either read; list the topic's fields with `omni models get-topic`. Edit from the `combined` read (`omni-model-builder` → `references/editing-existing-files.md` → *Exceptions*).
 
 The `files` map is keyed by each file's **full stored path** (e.g. `MARTS/order_items.view`), and `--file-name` is a regex on read. Reuse that exact key — including any folder prefix — when editing with `omni-model-builder`; a shortened name creates a duplicate instead of editing the original.
 
