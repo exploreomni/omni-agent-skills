@@ -64,9 +64,7 @@ When downstream content needs a field or view that isn't merged yet, use a branc
 - Profile the data before modelling it. Check grain (`COUNT(*)` vs `COUNT(DISTINCT <key>)` on every fact), implied units (value ÷ quantity per category, to catch a "hours" column that holds money), and where history starts (older records may need an opening balance). Ask the business owner what an ambiguous term ("fee type", "status") means before building on a guess.
 - Keep eval-created files on branches until confirmed — when you create fields/views for validation, report the branch name/id, validation status, and test-query result; merging follows the rule above.
 - Edit with `yaml-create`, not `create-field`, `update-field`, `update-view`, `update-topic` or `models update`: they can [report success without making the change](references/editing-existing-files.md#field-view-and-topic-commands).
-- Known bug: a child layer can store a copy of an inherited `sql:` query view's SQL (extension, workbook model, branch) and stop following the parent. Cause: an undeclared column (assume one for `SELECT *` or CTEs), an object column (even declared), or a removed dimension. Until fixed ([removing a copy](references/editing-existing-files.md#inherited-sql-query-views)):
-  1. Read `--mode extension` first: a view-level `sql:` you didn't write is that copy; an `ignored: true` dimension means any write stores one. Tell the user.
-  2. Otherwise write the whole `--mode combined` read back with `"mode": "extension"` (`combined` copies it on the second edit; a partial file copies it on every write). Change, add or hide; never remove. Re-check per step 1.
+- A child layer (extension, workbook model, branch) of a `sql:` query view can hold a copy of the parent's `sql:` from an earlier write, and then no longer follows the parent's SQL. Before editing such a view, read `--mode extension`: a view-level `sql:` you didn't write is that copy. Tell the user, and [remove it](references/editing-existing-files.md#inherited-sql-query-views) only with their OK.
 
 ## Discovering Commands
 
@@ -111,7 +109,6 @@ omni models yaml-create <modelId> --body '{
 ```
 
 > Editing an existing file: read it whole with `--mode combined`, write it whole with `"mode": "combined"`, read it back in both modes. [Exceptions](references/editing-existing-files.md#exceptions):
-> - Inherited `sql:` query view with an undeclared or object column: see *Known Issues*.
 > - `"mode": "merged"`, on a branch only: for [`relationships`](references/editing-existing-files.md#relationships) and to [drop an override](references/editing-existing-files.md#removing-an-override).
 > - New file: either mode. Delete: empty `yaml`, `"mode": "extension"`, if inherited; else `yaml-delete --mode extension`.
 > - `extends`: edit the combined read and send only what differs from the parent (a key with the parent's value is stored as a duplicate); don't write fully-resolved content back.

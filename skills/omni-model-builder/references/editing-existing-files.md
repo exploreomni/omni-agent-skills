@@ -17,19 +17,7 @@ The rule is in `SKILL.md` Step 1: read the whole file with `--mode combined`, ch
 
 ## Inherited `sql:` query views
 
-The steps are in `SKILL.md` → *Known Issues & Safe Defaults*. Tested in a shared extension, on a parent query view whose SQL returns one column it doesn't declare:
-
-| Write in the child layer | Copy of the parent's `sql:` |
-|---|---|
-| `combined` mode: first edit / second edit | no / yes |
-| `extension` mode (from the `--mode combined` read): change, add or hide a dimension | no, on every edit |
-| `extension` mode: remove a dimension | yes |
-| any write after a dimension of the view was removed (`ignored: true`) in the layer, in either mode | yes |
-| parent declares every column: `combined` mode, remove then edit | no |
-| parent declares every column: `extension` mode, remove | yes |
-
-- Remove the copy, with the user's OK: send empty `yaml` with `"mode": "extension"` for that file. It deletes the layer's file, including the layer's other changes to the view, and the view follows the parent again; then redo those changes in `extension` mode without removing a dimension.
-- From the parent: declaring every column the SQL returns as a dimension avoids the copy, and `combined` mode then works as usual, removals included. Undeclared columns can't be queried. An object column (tested with Snowflake `OBJECT`) causes the copy even when declared; select its values as scalar columns in the SQL instead (`GET(device, 'category')::string AS device_category`). Arrays, including arrays of objects, didn't.
+A copy of the parent's `sql:` in a child layer (`SKILL.md` → *Known Issues & Safe Defaults*) usually comes with an entry for every column. To remove it, with the user's OK, send empty `yaml` with `"mode": "extension"` for that file. This deletes the layer's file, including its other changes to the view, and the view follows the parent again. Redo those changes from the `--mode combined` read in `combined` mode, then confirm `--mode extension` has no view-level `sql:`.
 
 ## Relationships
 
@@ -61,7 +49,6 @@ Tested on a dbt-defined measure with a model-layer override (`sql` and `label`):
 
 ## Exceptions
 
-- Inherited `sql:` query views: in an extension, workbook, or branch, a write can store a full copy of the parent's `sql:` in the layer, and that layer stops picking up later changes to the parent's SQL. It happens when the view's SQL returns a column the view doesn't declare as a dimension, or an object column; removing one of its dimensions in the layer copies it too, and after that every write copies it, in either mode. Follow the steps in `SKILL.md` → *Known Issues & Safe Defaults*: write that file with `"mode": "extension"` (still the whole file as read with `--mode combined`), hide dimensions instead of removing them, and check `--mode extension` for a view-level `sql:` you didn't write. Undeclared columns can't be queried, so declaring them in the parent is also the way to make them usable.
 - `relationships`: edit it on a branch with `"mode": "merged"`; see [Relationships](#relationships).
 - `extends` (in the model file, a view, a field, a topic, or a topic's inline views): `--mode combined` shows a file's own content and the schema, not what `extends` brings in. Edit that read and write the whole file back with `"mode": "combined"`, as above; it stores only your change and keeps following the extended definitions. Send only what differs from the parent: anything you send that the parent already provides, even with the same value, is stored in this layer and stops following the parent. To change an inherited field, add it under its name with only the keys you change (for example `order_count:` with just `label:`). Write to the file key from this read; a fully-resolved read can list the same file under a schema folder. A view only the parent defines isn't in the combined read: write `<view name>.view` (the name on the parent file's `# Reference this view as` line) with only your change, because writing to the parent's folder path creates a separate view. Then `--mode extension` must show only your change; remove anything else. Don't write fully-resolved content back. Without `"fullyResolved": true` it copies the inherited definitions into the layer (including a query view's `query:` or `sql:`); the flag is rejected (400) for field-level and inline-view `extends`, including inline views a topic inherits, and sent with a combined read it damages the file.
 - Don't write with `"mode": "merged"`, except on a branch for `relationships` and for [removing an override](#removing-an-override). Published models refuse it; for other files on a branch it can store schema-layer properties (`table_name`, base columns, dbt descriptions) in the branch.
@@ -69,8 +56,6 @@ Tested on a dbt-defined measure with a model-layer override (`sql` and `label`):
 - Delete a file: how depends on whether the file is inherited, that is, whether the parent (the model this branch, workbook model or extension builds on) also has it.
   - Inherited: send empty `yaml` with `"mode": "extension"`. The layer keeps no changes to the file (`--mode extension` shows `{}`), and it reads as the parent's again. In `combined` mode an empty file hides the inherited file instead.
   - Only in this layer (for example, a view created in a branch or workbook model): run `omni models yaml-delete <modelId> --file-name <path> --mode extension`, with `--branch-id <branchId>` on a branch. Empty `yaml` doesn't delete it: it stores an empty file (`yaml-get` shows `{}` or doesn't list it), the view stays in the model, and queries on it fail with `Table '…' not found` instead of `No such view`. `yaml-delete` also removes a file left that way.
-
-A `sql:` view whose CTEs end in `SELECT *` counts as returning undeclared columns for the inherited `sql:` query view exception above.
 
 `query:` views: changing dimensions in a child layer stores only the change; changing the `query:` block itself (its `fields`, `base_view` or `topic`) stores the whole block in that layer, which then stops following the parent's query.
 
