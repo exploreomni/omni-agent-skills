@@ -108,6 +108,14 @@ omni models yaml-get <modelId> --branch-id <branchId>
 
 The `mode` parameter: `combined` (default) merges schema + shared model; `extension` shows only shared model customizations.
 
+When a model, view, field or topic uses `extends`, a `combined` read shows each file's own content and the schema, not what `extends` brings in. Read with `--fully-resolved true` (only with `--mode combined`) before saying a view, field or topic exists or is missing, and when comparing models that extend the same parent:
+
+```bash
+omni models yaml-get <modelId> --mode combined --fully-resolved true
+```
+
+An `extends:` on a topic's inline view isn't expanded in either read; list the topic's fields with `omni models get-topic`. Edit from the `combined` read (`omni-model-builder` → `references/editing-existing-files.md` → *Exceptions*).
+
 The `files` map is keyed by each file's **full stored path** (e.g. `MARTS/order_items.view`), and `--file-name` is a regex on read. Reuse that exact key — including any folder prefix — when editing with `omni-model-builder`; a shortened name creates a duplicate instead of editing the original.
 
 ## Model Architecture
@@ -118,7 +126,7 @@ Omni has three layers:
 2. **Shared Model** — analytics engineer customizations (dimensions, measures, labels, topics, AI context)
 3. **Workbook Model** — per-dashboard customizations (ad-hoc, not shared)
 
-When exploring, use the `combined` view to see everything available.
+When exploring, use the `combined` view to see everything available, fully resolved wherever `extends` is used ([Step 4](#step-4-read-the-model-yaml)).
 
 ## Key Concepts
 
@@ -141,6 +149,8 @@ When exploring, use the `combined` view to see everything available.
 ## Fallback: Expected View Missing from `yaml-get`
 
 Use this pattern only when normal exploration comes up short — the user names a specific view and it's absent from the `yaml-get` or `get-topic` response, or a relationship references a view that doesn't appear. If `yaml-get` returned what you expected, skip this section.
+
+On a model that uses `extends`, first re-read it fully resolved ([Step 4](#step-4-read-the-model-yaml)). An inherited view appears only in that read.
 
 **Why it happens:** `yaml-get` only returns views from currently-loaded schemas. If a schema is **offloaded or inactive**, its views won't show up. The `get-schemas` call surfaces *all* schemas the connection knows about — including offloaded and inactive ones — so it's the right next step before telling the user "not found."
 
