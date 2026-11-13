@@ -127,7 +127,7 @@ The `containers` tree decides where tiles and controls render: a reserved `"filt
 
 ## URL Patterns
 
-After creating or finding content, always give the user a direct link on the active profile's base URL (no trailing slash): `/dashboards/{identifier}` for a dashboard, `/w/{identifier}` for a workbook, `/dashboards/{draftIdentifier}` for a draft. Never return a literal placeholder unless credentials are unavailable and you say the URL is a template. Where each identifier comes from: [references/document-lifecycle.md](references/document-lifecycle.md#links-to-share).
+After creating or finding content, always give the user a direct link on the active profile's base URL (no trailing slash): `/dashboards/{identifier}` for a dashboard, `/apps/{identifier}` for an app, `/w/{identifier}` for a workbook, `/dashboards/{draftIdentifier}` for a draft. Never return a literal placeholder unless credentials are unavailable and you say the URL is a template. Where each identifier comes from: [references/document-lifecycle.md](references/document-lifecycle.md#links-to-share).
 
 ## Validation Loops
 
