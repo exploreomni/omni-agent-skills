@@ -6,6 +6,23 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.27.0] - 2026-11-18
+
+### omni-analytics
+
+_Summary: window measures (a measure with a `window:` block over other measures), tested on a live instance._
+
+**Added**
+- **`omni-model-builder` — *Window measures*.** When to model one instead of a table calculation, and why never in a dimension.
+- **`omni-model-builder` — `window-measures.md`.** Shape, frame keys, validation errors, query requirements, and a query view for history a filter removes.
+- **`omni-model-builder` evals.** A case for a reusable cumulative revenue measure.
+
+**Changed**
+- **`omni-model-builder`.** The Step 2 note sending every window to table calculations is replaced by the new section.
+- **`omni-model-builder` — aggregate tables.** Queries that use a window measure can read an aggregate table.
+- **`omni-content-builder` — workbook model.** A window several tiles share is a window measure on the shared model.
+- **`omni-query`.** Points to a window measure's query requirements.
+
 ## [1.26.5] - 2026-11-11
 
 ### omni-analytics

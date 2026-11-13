@@ -126,6 +126,7 @@ dimensions:
 | `all_values` | Deprecated: use `sample_values`. An existing list still reaches the Omni Agent as the complete set of values |
 | `sample_values` | Sample values for AI to understand magnitude |
 | `filters` | Filtered aggregations (see Measure Filters below) |
+| `window` | Makes the measure a window function over other measures; no `aggregate_type`. See [window-measures.md](window-measures.md) |
 | `custom_primary_key_sql` | Custom dedup key for `*_distinct_on` aggregate types |
 | `display_order` | Overrides sort order in field picker |
 | `view_label` | Nests field under a different view |
