@@ -6,6 +6,15 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.26.5] - 2026-11-13
+
+### omni-analytics
+
+_Summary: `omni-content-builder` links apps at `/apps/{identifier}`._
+
+**Fixed**
+- **`omni-content-builder`.** Links to share now include the app route, `/apps/{identifier}`. Without it, a link to an app document was given as `/dashboards/{identifier}`.
+
 ## [1.26.4] - 2026-11-11
 
 ### omni-analytics

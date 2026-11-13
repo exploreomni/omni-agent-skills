@@ -143,6 +143,7 @@ After creating or finding content, always give the user a direct link:
 
 ```
 Dashboard: {OMNI_BASE_URL}/dashboards/{identifier}
+App:       {OMNI_BASE_URL}/apps/{identifier}
 Workbook:  {OMNI_BASE_URL}/w/{identifier}
 Draft:     {OMNI_BASE_URL}/dashboards/{draftIdentifier}
 ```
