@@ -1,0 +1,70 @@
+{
+  "version": "1",
+  "skill_name": "omni-bi-import",
+  "defaults": {
+    "timeout_sec": 600,
+    "judge_model": "claude-sonnet-4-6"
+  },
+  "cases": [
+    {
+      "id": "1",
+      "question": "We have a Tableau workbook, sales_overview.twbx, that we want migrated into Omni on model {{EVAL_MODEL_ID}}. Walk me through importing it and get it ready to start, but don't start the run yet.",
+      "ground_truth": "The agent plans a parse-only create against POST /api/unstable/bi-imports with the workbook sent as a multipart file part, modelId and start=false, and explains that it will read dashboards, unboundViews, the table check and fidelity from the parse before calling /start. It does not start the run.",
+      "expected_behavior": [
+        "The agent uses curl against /api/unstable/bi-imports with the Authorization: Bearer header, not an invented omni CLI command",
+        "The create sends the file as a multipart file part with modelId and start=false, and sends no dashboards, modelTarget or tableBindings on that request",
+        "The agent says it will report the parsed dashboards, unbound views, table check causes and fidelity counts before starting",
+        "The agent does not call /start or create with start left true"
+      ],
+      "expected_skill": "omni-bi-import"
+    },
+    {
+      "id": "2",
+      "question": "List my BI import runs that are ready for review or failed, and tell me what each one needs next.",
+      "ground_truth": "The agent lists runs with GET /api/unstable/bi-imports filtered by state=READY_FOR_REVIEW and state=FAILED, then reports each run's name, source, state and next step. An empty list is reported as no runs in those states.",
+      "expected_behavior": [
+        "The agent calls GET /api/unstable/bi-imports with state=READY_FOR_REVIEW and state=FAILED",
+        "For a ready run the agent names review and then accept (workbook target) or merging the branch (branch target); for a failed run it reports the error and names reject as the cleanup",
+        "The agent does not send accept, reject or cancel without asking first",
+        "If the API returns 403 or an empty list the agent reports that plainly instead of inventing runs"
+      ],
+      "expected_skill": "omni-bi-import"
+    },
+    {
+      "id": "3",
+      "question": "My Tableau import came back PARSED with blockedOn tableBindings and blockingViews ['orders_published']. How do I get it going on model {{EVAL_MODEL_ID}}?",
+      "ground_truth": "The agent explains that the view reads a published datasource and names no table, finds a matching warehouse table or existing model view on the target model, and calls POST /api/unstable/bi-imports/{runId}/start with a tableBindings entry keyed by orders_published, after confirming the binding with the user. It does not create a second run.",
+      "expected_behavior": [
+        "The agent looks for the table or an existing view on the target model (omni-model-explorer commands) rather than guessing a binding",
+        "The agent uses /start on the existing runId with tableBindings keyed by the view name, as a table string or a {view} object",
+        "The agent does not re-upload the export or create a new run",
+        "The agent asks the user to confirm the binding or names it as needing confirmation before starting"
+      ],
+      "expected_skill": "omni-bi-import"
+    },
+    {
+      "id": "4",
+      "question": "I need to migrate about 150 Looker dashboards into Omni this month. How should we script it so it doesn't blow up?",
+      "ground_truth": "The agent describes the three-pass approach: parse every export with start=false, resolve table bindings once across the set, then start a few runs at a time from a ledger keyed by a unique title, reviewing one run fully first. It warns that a retried create makes a duplicate run and that each run spends AI credits.",
+      "expected_behavior": [
+        "The agent recommends parsing all exports with start=false before starting any run",
+        "The agent caps runs in flight at a small number (3) and starts the next as one finishes",
+        "The agent says to give each export a unique title and match on sourceDashboardName via the list route before retrying, because a retried create makes a second run",
+        "The agent recommends running and reviewing one import fully before starting the rest"
+      ],
+      "expected_skill": "omni-bi-import"
+    },
+    {
+      "id": "5",
+      "question": "Import run 3f2a9c1e-5b7d-4e8a-9c0b-1d2e3f4a5b6c says READY_FOR_REVIEW and it targeted a branch. Accept it for me.",
+      "ground_truth": "The agent reads the run with GET /api/unstable/bi-imports/{runId}, reports its fidelity and built documents, and explains that a branch run is not accepted through the API: it completes when its branch is merged, which needs the user's explicit go-ahead. It does not send accept.",
+      "expected_behavior": [
+        "The agent fetches the run's status before acting",
+        "The agent states that accept applies only to workbook runs and that a branch run completes when its branch is merged",
+        "The agent summarizes fidelity (dropped, approximated, blockers) and the built document URLs or errors before recommending a decision",
+        "The agent does not merge the branch without an explicit yes from the user"
+      ],
+      "expected_skill": "omni-bi-import"
+    }
+  ]
+}
