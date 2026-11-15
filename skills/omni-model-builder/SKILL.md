@@ -257,3 +257,4 @@ Omni docs pages for each modeling topic: [docs-links.md](references/docs-links.m
 - omni-model-explorer — understand the model before modifying
 - omni-ai-optimizer — add AI context after building topics
 - omni-query — test new fields
+- omni-bi-import — translate another BI tool's model and dashboards; its branch runs merge through this skill

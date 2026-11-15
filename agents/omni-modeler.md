@@ -71,3 +71,4 @@ When building or updating topics, always consider Blobby:
 - `omni-model-builder` — write YAML views, topics, relationships
 - `omni-ai-optimizer` — configure ai_context, ai_fields, sample_queries
 - `omni-query` — test new fields after writing them
+- `omni-bi-import` — when the model is coming from a Tableau, Power BI, Looker or Sigma export

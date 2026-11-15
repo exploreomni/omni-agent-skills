@@ -6,6 +6,18 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.27.0] - 2026-11-11
+
+### omni-analytics
+
+_Summary: new `omni-bi-import` skill for migrating dashboards from other BI tools through the unstable BI import API._
+
+**Added**
+- **`omni-bi-import`.** Imports a Tableau, Power BI, Looker or Sigma export with `/api/unstable/bi-imports`: parse with `start=false`, bind views to tables, start, poll, review fidelity, then accept, merge or reject. References cover what to upload per source, bulk migrations, and errors. The API is unstable and has no CLI command yet, so the skill uses `curl`. Checked end to end against a local instance with a Tableau workbook.
+
+**Changed**
+- **`omni-content-builder`, `omni-model-builder`, `omni-modeler` agent.** Related-skills lists point to `omni-bi-import`.
+
 ## [1.26.4] - 2026-11-11
 
 ### omni-analytics

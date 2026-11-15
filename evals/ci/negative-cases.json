@@ -61,6 +61,16 @@
       "id": "n12",
       "question": "Export the contents of this Google Sheet to CSV and clean up the header row.",
       "kind": "hard"
+    },
+    {
+      "id": "n13",
+      "question": "Export every workbook on our Tableau Server to PDF and email them to the finance team.",
+      "kind": "hard"
+    },
+    {
+      "id": "n14",
+      "question": "Migrate our Power BI reports from the old workspace to the new Premium capacity.",
+      "kind": "hard"
     }
   ]
 }

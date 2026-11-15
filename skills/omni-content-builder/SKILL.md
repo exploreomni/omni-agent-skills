@@ -156,3 +156,4 @@ Omni docs pages for documents, queries and charts: [references/docs-links.md](re
 - **omni-content-explorer** — find existing dashboards to learn from
 - **omni-embed** — embed dashboards you've built in external apps
 - **omni-admin** — scheduled deliveries, recipients and email-only users
+- **omni-bi-import** — migrate a dashboard from Tableau, Power BI, Looker or Sigma instead of rebuilding it by hand

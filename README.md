@@ -29,7 +29,7 @@ These skills are not slash commands or one-off prompts you have to memorize. Onc
 
 | Platform | Install method | Notes |
 |----------|----------------|-------|
-| [Claude Code](https://claude.com/product/claude-code) | [Plugin marketplace or Git URL](#install-claude-code) | Full plugin install with 9 skills and 3 agents |
+| [Claude Code](https://claude.com/product/claude-code) | [Plugin marketplace or Git URL](#install-claude-code) | Full plugin install with 10 skills and 3 agents |
 | [Cursor](https://cursor.com) | [Git URL plugin install](#install-cursor) | Full plugin install plus 4 `.mdc` rules |
 | [OpenAI Codex](https://openai.com/codex/) | [`npx skills add`](#install-skills-sh-compatible-agents) | Uses the shared [skills.sh](https://skills.sh) install flow |
 | [GitHub Copilot](https://github.com/features/copilot) | [`npx skills add`](#install-skills-sh-compatible-agents) | Uses the shared [skills.sh](https://skills.sh) install flow |
@@ -210,7 +210,7 @@ API keys are created in **Settings > API Keys** (Organization Admin) or **User P
 
 ## What You Get
 
-### omni-analytics — Skills (9)
+### omni-analytics — Skills (10)
 
 These activate from natural-language requests:
 
@@ -225,6 +225,7 @@ These activate from natural-language requests:
 | **omni-admin** | Manage connections, users, groups, permissions, schedules, and schema refreshes |
 | **omni-embed** | Embed Omni dashboards in external applications - URL signing, themes, and postMessage events |
 | **omni-ai-eval** | Evaluate AI query generation accuracy — run test prompts, compare results, and score across dimensions |
+| **omni-bi-import** | Migrate Tableau, Power BI, Looker, and Sigma dashboards into Omni with the BI import API — parse, bind tables, start, review, and accept |
 
 ### omni-integrations — Skills (3)
 
@@ -398,6 +399,7 @@ omni-agent-skills/
 │   ├── omni-ai-eval/
 │   ├── omni-admin/
 │   ├── omni-embed/
+│   ├── omni-bi-import/
 │   └── omni-integrations/
 │       ├── .claude-plugin/
 │       │   └── plugin.json
