@@ -109,7 +109,7 @@ omni models yaml-create <modelId> --body '{
 ```
 
 > Editing an existing file: read it whole with `--mode combined`, write it whole with `"mode": "combined"`, read it back in both modes. [Exceptions](references/editing-existing-files.md#exceptions):
-> - `"mode": "merged"`, on a branch only: for [`relationships`](references/editing-existing-files.md#relationships) and to [drop an override](references/editing-existing-files.md#removing-an-override).
+> - `"mode": "merged"`, on a branch only: for [`relationships`](references/editing-existing-files.md#relationships), to [drop an override](references/editing-existing-files.md#removing-an-override), and to expose a query view column the shared model ignores ([Dimensions](references/query-views.md#dimensions)).
 > - New file: either mode. Delete: empty `yaml`, `"mode": "extension"`, if inherited; else `yaml-delete --mode extension`.
 > - `extends`: edit the combined read and add nothing the parent already provides (a key with the parent's value is stored as a duplicate); don't write fully-resolved content back.
 >

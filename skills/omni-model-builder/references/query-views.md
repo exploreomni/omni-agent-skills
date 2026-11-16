@@ -8,8 +8,6 @@ An existing model may set `custom_compound_primary_key_sql` at the view level in
 
 This works with either a `query:` block (field-mapped virtual table) or a `sql:` block (raw SELECT). In `sql:` blocks, use `${view_name}` to reference a view's underlying table rather than a hard-coded `CATALOG.SCHEMA.TABLE` path — it's preferred and stays correct if the table moves. See `references/query-view-examples.md` for complete YAML for each variant.
 
-Which columns can be queried depends on the `dimensions:` section of the file you send. With no section, Omni adds one dimension per column the `sql:` or `query:` returns, none of them a primary key. With a section, only the columns listed there can be queried: Omni stores every other column as `ignored: true`, and `dimensions: {}` ignores them all. List every column the view should expose, the primary key included. To change an existing query view, edit its `--mode combined` read, which lists every dimension: a file sent without the section ignores the existing dimensions, primary key included, and adds only columns the SQL didn't return before.
-
 > If the user is unsure which field is unique, ask before writing the view. A query view without a primary key will trigger a "Joins fan out the data without a primary key" error when joined. See: https://community.omni.co/t/why-am-i-getting-the-error-joins-fan-out-the-data-without-a-primary-key/37
 
 To scope a query view to one topic, see [Topic-Scoped View Definitions](topic-scoped-definitions.md#topic-scoped-view-definitions).
@@ -36,3 +34,16 @@ filters:
   reporting_window:
     type: timestamp
 ```
+
+## Dimensions
+
+A file that includes `sql:` or `query:` also sets which columns are dimensions:
+- With a `dimensions:` section, only the columns listed there are. Omni stores every other column as `ignored: true`, and `dimensions: {}` ignores them all.
+- With no section, a new view gets one dimension per column, none of them a primary key.
+
+Create a query view with every column it should expose listed, the primary key included.
+
+To change one, read it with `--mode combined`, which lists every dimension and, on a `sql:` view, each column's `sql:` (`'"ID"'` on Snowflake). Edit that read, write the whole file back with `"mode": "combined"`, and query the changed fields.
+- New column: add it to the SQL or `fields:` and add its dimension. A column the section doesn't list is ignored.
+- `sql:` view: give every dimension you add a `sql:` in the form the read shows. A dimension sent without its `sql:` loses it, and the column no longer resolves.
+- On a branch, a column the shared model ignores can't be exposed by a `combined` or `extension` write. Read the file with `--mode merged`, add the dimension, and write it with `"mode": "merged"`. A later `combined` save of that file on the branch hides it again; once the branch is merged, it stays.
