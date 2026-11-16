@@ -6,7 +6,7 @@ The rule is in `SKILL.md` Step 1: read the whole file with `--mode combined`, ch
 
 `yaml-create` replaces the layer's copy of the file (no field-by-field merge), and Omni stores only what differs from the layers below it. In `combined` mode Omni treats the file you send as the complete result and stores what this layer needs to produce it: additions, changes, and `ignored: true` for anything you left out. In `extension` mode it treats the file as this layer's own additions and changes, so a field you leave out is not removed. Combined is how the IDE saves, and it is the only mode in which changes, additions and removals all work: on views (schema, dbt-described and hand-written, including `sql:` and `query:` views), topics, `relationships` and the `model` file, in every layer: a shared model, a branch, a shared extension, a workbook model, and a model that `extends` another. The [exceptions](#exceptions) are the cases that need a different mode or flag.
 
-- With `extends`, the `--mode combined` read holds the file's own content and the schema, not what `extends` brings in. Edit that read and send only what differs from the parent: anything the parent already provides, even with the same value, is stored in this layer and stops following the parent. Afterwards `--mode extension` must show only your change; remove anything else. Don't write a fully-resolved read back ([details](#exceptions)).
+- With `extends`, the `--mode combined` read omits the parent's content. Edit that read and write it back. Any parent key you add, even with the same value, is stored in this layer and stops following the parent. Fully-resolved reads are for reading only ([details](#exceptions)).
 - Send the whole file. A partial file in `combined` mode marks every field you left out `ignored: true`. In `extension` mode a partial file replaces the layer's copy, so earlier changes in that file are lost, and an inherited field you leave out is kept, not removed.
 - Read it back both ways: `--mode extension` for what the layer stores (only your change), `--mode combined` for what the model resolves to.
 - Primary keys in an extension read: when a layer sets `primary_key: true` on a dimension it inherits, `--mode extension` shows it as a view-level `custom_compound_primary_key_sql: [ "${view.field}" ]`. It is the same key; `--mode combined` shows `primary_key: true`, and that is the read to edit from.
@@ -17,7 +17,11 @@ The rule is in `SKILL.md` Step 1: read the whole file with `--mode combined`, ch
 
 ## Inherited `sql:` query views
 
-A copy of the parent's `sql:` in a child layer (`SKILL.md` → *Known Issues & Safe Defaults*) usually comes with an entry for every column. To remove it, with the user's OK, send empty `yaml` with `"mode": "extension"` for that file. This deletes the layer's file, including its other changes to the view, and the view follows the parent again. Redo those changes from the `--mode combined` read in `combined` mode, then confirm `--mode extension` has no view-level `sql:`.
+An earlier write can leave a copy of the parent's `sql:` in a child layer (how to spot it: `SKILL.md` → *Known Issues & Safe Defaults*). To remove it, with the user's OK:
+
+1. Send empty `yaml` with `"mode": "extension"` for that file. This deletes the layer's file, its other changes to the view included, and the view follows the parent again.
+2. Redo those changes from the `--mode combined` read, in `combined` mode.
+3. Check that `--mode extension` shows no view-level `sql:`.
 
 ## Relationships
 
@@ -27,7 +31,7 @@ When the connection generates relationships from dbt (constraints, or semantic-m
 2. `omni models yaml-get <modelId> --file-name relationships --mode merged --branch-id <branchId>`.
 3. Change only your entries: add, edit or remove relationships.
 4. Write the whole file back with `"mode": "merged"` and the `branchId`, then read it back with `--mode extension --branch-id <branchId>`: only your changes.
-5. Validate and ship the branch as usual. After the merge, the shared model's layer holds only your relationships; the dbt ones still come through from dbt, with their comments.
+5. Validate and ship the branch as usual. After the merge, the shared model's layer stores only your relationships; the dbt ones still come through from dbt, with their comments.
 
 Removing dbt copies already stored: the same steps. In step 3, also drop each entry that, in the `--mode combined` read, carries a `# Relationship is defined …` comment (match on `join_from_view`, `join_to_view` and `on_sql`). Sending empty `yaml` with `"mode": "extension"` removes them too, but it deletes the layer's own relationships as well.
 
@@ -50,7 +54,11 @@ Tested on a dbt-defined measure with a model-layer override (`sql` and `label`):
 ## Exceptions
 
 - `relationships`: edit it on a branch with `"mode": "merged"`; see [Relationships](#relationships).
-- `extends` (in the model file, a view, a field, a topic, or a topic's inline views): edit the `--mode combined` read as above and write the whole file back with `"mode": "combined"`; it stores only your change and keeps following the extended definitions. To change an inherited field, add it under its name with only the keys you change (for example `order_count:` with just `label:`). Write to the file key from this read; a fully-resolved read can list the same file under a schema folder. A view only the parent defines isn't in the combined read: write `<view name>.view` (the name on the parent file's `# Reference this view as` line) with only your change, because writing to the parent's folder path creates a separate view. A fully-resolved read written back without `"fullyResolved": true` copies the inherited definitions into the layer (including a query view's `query:` or `sql:`); the flag is rejected (400) for field-level and inline-view `extends`, including inline views a topic inherits, and sent with a combined read it damages the file.
+- `extends` (in the model file, a view, a field, a topic, or a topic's inline views): edit the `--mode combined` read and write the whole file back with `"mode": "combined"`. The layer stores only your change and keeps following the parent.
+  - Inherited field: add it under its name with only the keys you change (for example `order_count:` with just `label:`).
+  - File key: use the one from the combined read; a fully-resolved read can list the same file under a schema folder.
+  - View only the parent defines: it isn't in the combined read. Write `<view name>.view` (the name on the parent file's `# Reference this view as` line) with only your change; the parent's folder path creates a separate view.
+  - Fully-resolved reads: don't write one back. Without `"fullyResolved": true` it copies the inherited definitions into the layer, including a query view's `query:` or `sql:`. The flag is rejected (400) for field-level and inline-view `extends`, including inline views a topic inherits, and sent with a combined read it damages the file.
 - Don't write with `"mode": "merged"`, except on a branch for `relationships` and for [removing an override](#removing-an-override). Published models refuse it; for other files on a branch it can store schema-layer properties (`table_name`, base columns, dbt descriptions) in the branch.
 - New file: send it as written, in either mode. A view the schema already generates is not new: read and edit it as above.
 - Delete a file: how depends on whether the file is inherited, that is, whether the parent (the model this branch, workbook model or extension builds on) also has it.

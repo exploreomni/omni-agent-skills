@@ -64,7 +64,7 @@ When downstream content needs a field or view that isn't merged yet, use a branc
 - Profile the data before modelling it. Check grain (`COUNT(*)` vs `COUNT(DISTINCT <key>)` on every fact), implied units (value ÷ quantity per category, to catch a "hours" column that holds money), and where history starts (older records may need an opening balance). Ask the business owner what an ambiguous term ("fee type", "status") means before building on a guess.
 - Keep eval-created files on branches until confirmed — when you create fields/views for validation, report the branch name/id, validation status, and test-query result; merging follows the rule above.
 - Edit with `yaml-create`, not `create-field`, `update-field`, `update-view`, `update-topic` or `models update`: they can [report success without making the change](references/editing-existing-files.md#field-view-and-topic-commands).
-- A child layer (extension, workbook model, branch) of a `sql:` query view can hold a copy of the parent's `sql:` from an earlier write, and then no longer follows the parent's SQL. Before editing such a view, read `--mode extension`: a view-level `sql:` you didn't write is that copy. Tell the user, and [remove it](references/editing-existing-files.md#inherited-sql-query-views) only with their OK.
+- An earlier write may have left a copy of the parent's `sql:` in a child layer (extension, workbook model, branch) of a `sql:` query view; that layer then ignores changes to the parent's SQL. Before editing such a view, read `--mode extension`: a view-level `sql:` you didn't write is that copy. Tell the user, and [remove it](references/editing-existing-files.md#inherited-sql-query-views) only with their OK.
 
 ## Discovering Commands
 
@@ -111,7 +111,7 @@ omni models yaml-create <modelId> --body '{
 > Editing an existing file: read it whole with `--mode combined`, write it whole with `"mode": "combined"`, read it back in both modes. [Exceptions](references/editing-existing-files.md#exceptions):
 > - `"mode": "merged"`, on a branch only: for [`relationships`](references/editing-existing-files.md#relationships) and to [drop an override](references/editing-existing-files.md#removing-an-override).
 > - New file: either mode. Delete: empty `yaml`, `"mode": "extension"`, if inherited; else `yaml-delete --mode extension`.
-> - `extends`: edit the combined read and send only what differs from the parent (a key with the parent's value is stored as a duplicate); don't write fully-resolved content back.
+> - `extends`: edit the combined read and add nothing the parent already provides (a key with the parent's value is stored as a duplicate); don't write fully-resolved content back.
 >
 > `fileName` is the exact `yaml-get` key, folder prefix included; a mismatch silently creates a duplicate ([inspect a branch](references/model-layers.md#inspecting-a-branch)).
 

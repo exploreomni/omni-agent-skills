@@ -108,7 +108,7 @@ omni models yaml-get <modelId> --branch-id <branchId>
 
 The `mode` parameter: `combined` (default) merges schema + shared model; `extension` shows only shared model customizations.
 
-When a model, view, field or topic uses `extends`, a `combined` read shows each file's own content and the schema, not what `extends` brings in. Read with `--fully-resolved true` (only with `--mode combined`) before saying a view, field or topic exists or is missing, and when comparing models that extend the same parent:
+When a model, view, field or topic uses `extends`, a `combined` read omits what `extends` brings in. Read with `--fully-resolved true` (only with `--mode combined`) before saying a view, field or topic exists or is missing, and when comparing models that extend the same parent:
 
 ```bash
 omni models yaml-get <modelId> --mode combined --fully-resolved true

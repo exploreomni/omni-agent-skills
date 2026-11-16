@@ -16,11 +16,11 @@ _Summary: `omni-model-explorer` reads models that use `extends` fully resolved. 
 - **`omni-model-explorer` — *Read the Model YAML*.** Where a model, view, field or topic uses `extends`, read with `--fully-resolved true` to see what it inherits. An inline view's `extends` isn't expanded in either read.
 - **`omni-model-explorer` — *Expected view missing*.** Check the fully resolved read first; an inherited view appears only there.
 - **`omni-model-builder` — *Known Issues*, *Editing existing files*.** Inherited `sql:` query views are edited in `combined` mode like other files. A copy of the parent's SQL that an earlier write left in a child layer is found with `--mode extension` and removed with an empty `extension` write.
-- **`omni-model-builder` — *Editing existing files*.** On any `extends` (model, view, field, topic, inline view), edit the combined read and send only what differs from the parent, since a same-value key is stored as a duplicate; a view only the parent defines is written as `<view name>.view`. Don't write fully-resolved content back; the `fullyResolved` flag is rejected for field-level and inline-view `extends`.
+- **`omni-model-builder` — *Editing existing files*.** On any `extends` (model, view, field, topic, inline view), edit the combined read and add nothing the parent already provides, since a same-value key is stored as a duplicate; a view only the parent defines is written as `<view name>.view`. Don't write fully-resolved content back; the `fullyResolved` flag is rejected for field-level and inline-view `extends`.
 - **`omni-model-builder` — *Troubleshooting*.** A missing primary key is added in the shared model on a branch; a query view or `sum_distinct_on` covers only its own queries.
 
 **Added**
-- **`omni-model-builder` — *Query Views*.** `bind_all_filters` forwards nothing in a topic built only on query views; bind the inner filter to a filter-only field. Query views on a composite topic can't be queried by their column names.
+- **`omni-model-builder` — *Query Views*.** `bind_all_filters` forwards nothing in a topic built only on query views; bind the inner filter to a filter-only field.
 - **`omni-model-builder` — *Composite topics*.** Topic-scoped view `display_order` sets member-topic order in the field picker; the `topics:` list only breaks ties.
 
 ## [1.26.4] - 2026-11-11
