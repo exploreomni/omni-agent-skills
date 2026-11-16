@@ -20,7 +20,7 @@ _Summary: `omni-model-explorer` reads models that use `extends` fully resolved. 
 - **`omni-model-builder` — *Troubleshooting*.** A missing primary key is added in the shared model on a branch; a query view or `sum_distinct_on` covers only its own queries.
 
 **Added**
-- **`omni-model-builder` — *Query Views*.** `bind_all_filters` forwards nothing in a topic built only on query views; bind the inner filter to a filter-only field.
+- **`omni-model-builder` — *Query Views*.** `bind_all_filters` forwards nothing in a topic built only on query views; bind the inner filter to a filter-only field. The file's `dimensions:` section decides which columns can be queried; leaving it out of an edit ignores the existing dimensions.
 - **`omni-model-builder` — *Composite topics*.** Topic-scoped view `display_order` sets member-topic order in the field picker; the `topics:` list only breaks ties.
 
 ## [1.26.4] - 2026-11-11

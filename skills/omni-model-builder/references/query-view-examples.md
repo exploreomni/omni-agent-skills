@@ -192,6 +192,11 @@ sql: |
     GROUP BY job_id
   ) h
   JOIN dbo.job_budgets b ON b.job_id = h.job_id
+dimensions:
+  job_id: { primary_key: true }
+  hours: {}
+  budget_hours: {}
+  pct_of_budget: {}
 ```
 
 Run a query against the view after saving, since this only fails at run time.
