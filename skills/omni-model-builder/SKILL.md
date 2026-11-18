@@ -134,8 +134,6 @@ omni models yaml-get <modelId> --file-name your_view.view --branch-id <branchId>
 
 Spot-check that values look right (a `sum` isn't returning a `count`; booleans read true/false), and if a field references another view include fields from both to confirm the join resolves. Triage of errors that predate your change, join-path tests, natural-language validation and the full checklist: [validation-and-testing.md](references/validation-and-testing.md).
 
-> Running totals, moving averages, period-over-period change, percent-of-total and ranks are table calculations on the query result: `omni-query` → `references/table-calculations.md`. Model an in-warehouse field only when the window must span rows outside the result set.
-
 ### Step 3: Ship the Branch
 
 > Ask the user to confirm before shipping. Changes applied to the production model cannot be easily undone. Only ship after validation and testing pass (Step 2).
@@ -193,11 +191,29 @@ Reach for a filter-only field when one user choice should change *how a field is
 
 ### Aggregate tables (aggregate awareness)
 
-Reach for an aggregate table when the same fact rollup is queried repeatedly at a coarser grain than the table (daily or monthly tiles over an event-level fact) and a pre-aggregated table exists or can be built. Declare it with a `materialized_query` block on a view, one per table, described against the base view; Omni reads it when a query fits and falls back to the fact table when not. Confirm with a `planOnly` query headed `-- Query rewritten to use materialized view`. Never map a window-function field (`ROW_NUMBER`, `RANK`, `LAG`, a running total) or a `*_distinct_on` measure, and never set `limit` or `offset` in `materialized_query`: each returns wrong results or stops Omni from using the table. Pin a table that holds part of the history to its dates, keep every row in the base view, and write date boundaries in model SQL as `>=` and `<`. Rules, filter pins, joined views, [what not to declare](references/aggregate-awareness.md#what-not-to-declare) and [known issues](references/aggregate-awareness.md#known-issues): [aggregate-awareness.md](references/aggregate-awareness.md).
+Reach for an aggregate table when the same fact rollup is queried repeatedly at a coarser grain than the table (daily or monthly tiles over an event-level fact) and a pre-aggregated table exists or can be built.
+- Declare it with a `materialized_query` block on a view, one per table, described against the base view; Omni reads it when a query fits and falls back to the fact table when not.
+- Confirm with a `planOnly` query headed `-- Query rewritten to use materialized view`.
+- Never map a dimension with a window function (`ROW_NUMBER`, `RANK`, `LAG`, a running total) or a `*_distinct_on` measure, and never set `limit` or `offset` in `materialized_query`: each returns wrong results or stops Omni from using the table.
+- Pin a table that stores part of the history to its dates.
+- Keep every row in the base view.
+- Write date boundaries in model SQL as `>=` and `<`.
+
+Rules, filter pins, joined views, [what not to declare](references/aggregate-awareness.md#what-not-to-declare) and [known issues](references/aggregate-awareness.md#known-issues): [aggregate-awareness.md](references/aggregate-awareness.md).
 
 ### Level of detail
 
 Reach for `level_of_detail` when a measure has to be computed at a grain other than the query's: a per-customer total on every order row (`fixed:`), a finer aggregate summarized up (`always_include:`), or an amount held at a coarser grain while finer dims are on the report (`always_exclude:`). Grain matching, the outer-aggregate rule, template reuse and verification: [level-of-detail.md](references/level-of-detail.md).
+
+### Window measures
+
+A window measure is a measure whose `sql` applies a window function to other measures, with a `window:` block for `partition_by`, `order_by` and the frame. Omni builds the window, but unlike `aggregate_type` it doesn't supply the function: use one the connection's dialect supports as a window function ([Determine SQL Dialect](#determine-sql-dialect)). Where each case goes:
+- One query or tile: a table calculation (`omni-query` → `references/table-calculations.md`) for a running total, moving average, rank, prior-period value or share of total.
+- The same window in more than one tile or query, or over rows past the row limit: a window measure.
+- History a tile's filters remove, such as months before a date filter: a [query view](references/window-measures.md#history-a-filter-removes) that selects the window measure. The window measure alone starts at the first row the filters keep.
+- Never a window function in a dimension's `sql`. It validates, but its values change with each query's filters, and a filter on it fails in the warehouse.
+
+Shape, validation and query requirements: [window-measures.md](references/window-measures.md).
 
 ### Cross-View Fields in Views
 

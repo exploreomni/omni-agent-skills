@@ -231,6 +231,19 @@
         "The agent does not merge without explicit confirmation"
       ],
       "expected_skill": "omni-model-builder"
+    },
+    {
+      "id": "18",
+      "question": "Three dashboards each rebuild cumulative revenue by month with their own table calculation. Add a cumulative_revenue measure to the order_items view that every tile can reuse, running along whichever date grain the tile selects.",
+      "ground_truth": "The agent works on a branch and adds a window measure to order_items: sql SUM(${total_revenue}) over the existing revenue measure, a window block whose order_by is order_items.created_at, and no aggregate_type. It does not put a window function in a dimension or window over sale_price directly. It validates the branch, then queries created_at at a month grain with cumulative_revenue and checks that the last month equals total_revenue over the same rows.",
+      "expected_behavior": [
+        "The agent works on a branch",
+        "The agent defines cumulative_revenue as a measure whose sql windows over a measure, such as SUM(${total_revenue}), with a window block ordered by order_items.created_at",
+        "The new measure has no aggregate_type, and no dimension gets a window function",
+        "The agent validates and runs a query that selects order_items.created_at at a month grain with the new measure",
+        "The agent does not merge without explicit confirmation"
+      ],
+      "expected_skill": "omni-model-builder"
     }
   ]
 }
