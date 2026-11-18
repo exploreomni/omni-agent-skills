@@ -191,7 +191,15 @@ Reach for a filter-only field when one user choice should change *how a field is
 
 ### Aggregate tables (aggregate awareness)
 
-Reach for an aggregate table when the same fact rollup is queried repeatedly at a coarser grain than the table (daily or monthly tiles over an event-level fact) and a pre-aggregated table exists or can be built. Declare it with a `materialized_query` block on a view, one per table, described against the base view; Omni reads it when a query fits and falls back to the fact table when not. Confirm with a `planOnly` query headed `-- Query rewritten to use materialized view`. Never map a dimension with a window function (`ROW_NUMBER`, `RANK`, `LAG`, a running total) or a `*_distinct_on` measure, and never set `limit` or `offset` in `materialized_query`: each returns wrong results or stops Omni from using the table. Pin a table that stores part of the history to its dates, keep every row in the base view, and write date boundaries in model SQL as `>=` and `<`. Rules, filter pins, joined views, [what not to declare](references/aggregate-awareness.md#what-not-to-declare) and [known issues](references/aggregate-awareness.md#known-issues): [aggregate-awareness.md](references/aggregate-awareness.md).
+Reach for an aggregate table when the same fact rollup is queried repeatedly at a coarser grain than the table (daily or monthly tiles over an event-level fact) and a pre-aggregated table exists or can be built.
+- Declare it with a `materialized_query` block on a view, one per table, described against the base view; Omni reads it when a query fits and falls back to the fact table when not.
+- Confirm with a `planOnly` query headed `-- Query rewritten to use materialized view`.
+- Never map a dimension with a window function (`ROW_NUMBER`, `RANK`, `LAG`, a running total) or a `*_distinct_on` measure, and never set `limit` or `offset` in `materialized_query`: each returns wrong results or stops Omni from using the table.
+- Pin a table that stores part of the history to its dates.
+- Keep every row in the base view.
+- Write date boundaries in model SQL as `>=` and `<`.
+
+Rules, filter pins, joined views, [what not to declare](references/aggregate-awareness.md#what-not-to-declare) and [known issues](references/aggregate-awareness.md#known-issues): [aggregate-awareness.md](references/aggregate-awareness.md).
 
 ### Level of detail
 
