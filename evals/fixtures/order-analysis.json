@@ -1,0 +1,108 @@
+{
+  "modelId": "replace-with-shared-model-id",
+  "name": "Order Analysis",
+  "queryPresentations": {
+    "data": {
+      "1": {
+        "name": "Monthly Revenue",
+        "type": "query",
+        "topicName": "order_items",
+        "prefersChart": true,
+        "automaticVis": false,
+        "visConfig": {
+          "chartType": "line",
+          "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
+          "version": 0,
+          "visConfig": {
+            "visType": "basic",
+            "config": {
+              "x": { "field": { "name": "order_items.created_at[month]" } },
+              "mark": { "type": "line" },
+              "color": {},
+              "series": [{ "field": { "name": "order_items.total_revenue" }, "yAxis": "y" }],
+              "tooltip": [
+                { "field": { "name": "order_items.created_at[month]" } },
+                { "field": { "name": "order_items.total_revenue" } }
+              ],
+              "behaviors": { "stackMultiMark": false },
+              "configType": "cartesian",
+              "_dependentAxis": "y"
+            }
+          }
+        },
+        "query": {
+          "table": "order_items",
+          "join_paths_from_topic_name": "order_items",
+          "fields": ["order_items.created_at[month]", "order_items.total_revenue"],
+          "sorts": [{ "column_name": "order_items.created_at[month]", "sort_descending": false }],
+          "filters": {}, "limit": 24, "pivots": [], "calculations": [],
+          "column_totals": {}, "row_totals": {}, "fill_fields": [], "userEditedSQL": ""
+        }
+      },
+      "2": {
+        "name": "Monthly Order Count",
+        "type": "query",
+        "topicName": "order_items",
+        "prefersChart": true,
+        "automaticVis": false,
+        "visConfig": {
+          "chartType": "column",
+          "fields": ["order_items.created_at[month]", "order_items.count"],
+          "version": 0,
+          "visConfig": {
+            "visType": "basic",
+            "config": {
+              "x": { "field": { "name": "order_items.created_at[month]" } },
+              "mark": { "type": "bar" },
+              "color": {},
+              "series": [{ "field": { "name": "order_items.count" }, "yAxis": "y" }],
+              "tooltip": [
+                { "field": { "name": "order_items.created_at[month]" } },
+                { "field": { "name": "order_items.count" } }
+              ],
+              "behaviors": { "stackMultiMark": false },
+              "configType": "cartesian",
+              "_dependentAxis": "y"
+            }
+          }
+        },
+        "query": {
+          "table": "order_items",
+          "join_paths_from_topic_name": "order_items",
+          "fields": ["order_items.created_at[month]", "order_items.count"],
+          "sorts": [{ "column_name": "order_items.created_at[month]", "sort_descending": false }],
+          "filters": {}, "limit": 24, "pivots": [], "calculations": [],
+          "column_totals": {}, "row_totals": {}, "fill_fields": [], "userEditedSQL": ""
+        }
+      }
+    },
+    "order": ["1", "2"]
+  },
+  "controls": {
+    "data": {
+      "status": {
+        "config": { "type": "string", "kind": "EQUALS", "values": ["Complete", "Shipped", "Processing"], "is_negative": false,
+                    "fieldName": "order_items.status", "label": "Status" },
+        "map": {}
+      }
+    },
+    "order": ["status"]
+  },
+  "containers": [
+    { "instanceKey": "filter-bar", "containerType": "stack", "direction": "row",
+      "children": [ { "type": "filter", "id": "status", "instanceKey": "filter-status" } ] },
+    { "containerType": "page", "instanceKey": "page-1", "name": "Page 1",
+      "container": { "containerType": "grid", "instanceKey": "page-1-grid", "children": [
+        { "containerType": "stack", "style": "tile", "name": "Monthly Revenue", "fillSpace": true,
+          "metadata": { "attachedQueryKey": "1" }, "gridPosition": { "x": 0, "y": 0, "w": 12, "h": 48 }, "instanceKey": "tile-stack-1",
+          "children": [
+            { "as": "metadata", "id": "1", "type": "query", "format": "name", "padding": [0, 0, 2, 0], "instanceKey": "tile-title-1" },
+            { "as": "chart", "id": "1", "type": "query", "instanceKey": "tile-viz-1" } ] },
+        { "containerType": "stack", "style": "tile", "name": "Monthly Order Count", "fillSpace": true,
+          "metadata": { "attachedQueryKey": "2" }, "gridPosition": { "x": 12, "y": 0, "w": 12, "h": 48 }, "instanceKey": "tile-stack-2",
+          "children": [
+            { "as": "metadata", "id": "2", "type": "query", "format": "name", "padding": [0, 0, 2, 0], "instanceKey": "tile-title-2" },
+            { "as": "chart", "id": "2", "type": "query", "instanceKey": "tile-viz-2" } ] }
+      ] } }
+  ]
+}

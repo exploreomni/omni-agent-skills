@@ -1,0 +1,48 @@
+{
+  "version": "1",
+  "skill_name": "omni-to-dbt-metricflow",
+  "defaults": {
+    "timeout_sec": 600,
+    "judge_model": "claude-sonnet-4-6"
+  },
+  "cases": [
+    {
+      "id": "1",
+      "question": "Export two fields from our Omni ecomm model to dbt MetricFlow: order_items.total_sale_price, and order_items.california_revenue, a sum of sale_price filtered to users.state = California. order_items joins users on user_id. The dbt project is in ./analytics, order_items is backed by ref('order_items'), and the project uses the legacy semantic_models spec.",
+      "ground_truth": "The agent confirms the scope (two fields), the dbt model map and the YAML shape before reading or writing definitions, and keeps to the two fields. It exports total_sale_price as a measure with create_metric, and california_revenue as an atomic sum measure plus a simple metric whose filter is qualified by the entity, {{ Dimension('user_id__state') }} = 'California', not sem_users__state. It adds the entities the filter needs (order_items' primary entity and user_id as a foreign entity). Before writing it searches the dbt project for each name, then runs dbt parse, mf validate-configs and mf query --explain for the new filter, and compares grouped results with Omni. It does not write to a shared dbt branch without approval.",
+      "expected_behavior": [
+        "The agent confirms the field scope, the dbt model map and the legacy spec before writing, and does not widen the export to the whole view",
+        "The cross-view filter becomes an atomic measure plus a metric with a filter qualified as user_id__state, not sem_users__state",
+        "The agent checks the dbt project for existing names before writing files",
+        "The agent runs dbt parse, mf validate-configs and mf query --explain, and compares grouped values with Omni",
+        "The agent does not write to a shared dbt branch without explicit approval"
+      ],
+      "expected_skill": "omni-to-dbt-metricflow"
+    },
+    {
+      "id": "2",
+      "question": "In our Omni model, order_items.sale_price has a model-layer override, sql: '\"SALE_PRICE\" * 0.95'. Export the total_sale_price measure (a sum of sale_price) from order_items to dbt MetricFlow in ./analytics.",
+      "ground_truth": "The agent reads the extension and combined definitions, finds the sale_price override, and stops to show it before writing the measure. It explains that a dbt measure expr reads the physical column while Omni, after import, reads the same name as the overridden dimension, so the discount could apply twice. It offers the three options: materialize the override as a dbt column and export against it, inline it into the measure expr and remove the Omni override in the fallback step, or skip the measure. It does not inline the override silently, and does not use a MetricFlow dimension expr to feed the measure.",
+      "expected_behavior": [
+        "The agent finds the model-layer override on sale_price and stops before writing the measure",
+        "The agent explains that the measure expr reads the raw column in dbt but the overridden dimension after import into Omni",
+        "The agent offers materializing in dbt, inlining with removal of the Omni override in the fallback step, or skipping",
+        "The agent does not silently inline the override or use a dimension expr for the measure"
+      ],
+      "expected_skill": "omni-to-dbt-metricflow"
+    },
+    {
+      "id": "3",
+      "question": "The total_sale_price metric we exported from Omni is merged into the main branch of our dbt project, but Omni still shows its own definition of order_items.total_sale_price. Make Omni use the dbt definition.",
+      "ground_truth": "The agent checks it can branch (whoami QUERY_FULL_MODEL), creates an Omni branch, and keeps the production dbt environment because the YAML is merged. It runs dbt-sync on the branch and polls the job to COMPLETED or FAILED. It reads the view with --mode merged, reuses the exact flat file key, removes only the override keys that must yield to dbt, and writes the complete file back. It validates the branch, queries the field on the branch, and confirms the dbt provenance comment in --mode combined. It asks before shipping, whether through a git PR or merge-branch.",
+      "expected_behavior": [
+        "The agent works on an Omni branch after checking it can branch",
+        "The agent keeps the production dbt environment because the dbt YAML is merged, and runs dbt-sync on the branch, polling the job status",
+        "The agent reads and writes the view with --mode merged, reusing the flat file key, and removes only the conflicting override",
+        "The agent validates, queries the field on the branch, and checks the dbt provenance in the combined YAML",
+        "The agent does not merge or open a PR without explicit confirmation"
+      ],
+      "expected_skill": "omni-to-dbt-metricflow"
+    }
+  ]
+}
