@@ -10,7 +10,10 @@ Since 1.11.0 both plugins share one version, held in `versions.json` and stamped
 
 ### omni-analytics
 
-_Summary: `omni-content-builder` lists every conditional-format rule type, says how to show a `#` at the start of a markdown label, and stops pointing a tile's table formatting at `resultConfig`. `omni-query` hides a selected field the same way._
+_Summary: `omni-content-builder` documents table pagination, lists every conditional-format rule type, says how to show a `#` at the start of a markdown label, and stops pointing a tile's table formatting at `resultConfig`. `omni-query` hides a selected field the same way._
+
+**Added**
+- **`omni-content-builder` — *Paging a table*.** `enablePagination: true` in the `omni-table` inner config (off by default) lets viewers page past `limit`, which becomes the page size; each page re-runs the query with `query.offset`. Size the page to the tile and sort on every dimension. Downloads never show the bar.
 
 **Fixed**
 - **`omni-content-builder` — *Table display & conditional formatting*.** Every valid `rule.type` for number, date and text rules, with the value keys each takes. An unknown type is stored without an error and never matches. A banded text column takes one `text-equal-to` rule per label.

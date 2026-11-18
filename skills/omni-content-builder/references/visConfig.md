@@ -545,7 +545,7 @@ Optional field on `queryPresentation` holding the workbook's Results table setti
 
 ### Table display & conditional formatting
 
-**Table display and conditional formatting go in the omni-table's inner config** (`visConfig.visConfig.config`); a config placed in `resultConfig` is ignored with no error. To confirm a setup, write the table on a draft and read it back with `omni documents v2-get-draft`: the formatters come back under the inner `config`. The inner config carries: `tableType` (`"stretch"` fills the tile; default `"spreadsheet"` hugs left), `rowBanding` (`{enabled, bandSize}`), `hideIndexColumn`, `columnFormats` (`{ "<view.field>": { align: "left"|"right" } }`), `fieldVisibility` (`{ "<view.field>": false }` hides that field's column), and **`conditionalFormatters`**:
+**Table display and conditional formatting go in the omni-table's inner config** (`visConfig.visConfig.config`); a config placed in `resultConfig` is ignored with no error. To confirm a setup, write the table on a draft and read it back with `omni documents v2-get-draft`: the formatters come back under the inner `config`. The inner config carries: `tableType` (`"stretch"` fills the tile; default `"spreadsheet"` hugs left), `rowBanding` (`{enabled, bandSize}`), `hideIndexColumn`, `columnFormats` (`{ "<view.field>": { align: "left"|"right" } }`), `fieldVisibility` (`{ "<view.field>": false }` hides that field's column), `enablePagination` ([Paging a table](#paging-a-table)), and **`conditionalFormatters`**:
 
 ```jsonc
 // visConfig.visConfig = { visType: "omni-table", config: {
@@ -587,6 +587,33 @@ Text rules compare the cell's raw value, case-sensitive. A banded text column ta
 ```
 
 `selection.type` may be `field`, `row`, or `cellRange`; **`selection` carries both `field` and `target`** (same value for a field selection). With **`automaticVis: true`**, conditional formatting still renders as long as the formatters are in this inner `config`. The whole spec sits under `config`, on write and on read.
+
+### Paging a table
+
+A table tile shows at most `limit` rows, and never more than 50,000. To let viewers page through the rest, set `enablePagination: true` in the inner config (`visConfig.visConfig.config`); it is off by default. `limit` is then the page size, and each page re-runs the query with `query.offset`.
+
+- Set `limit` so a page and the bar below it fit the tile; count the rows a PNG render shows ([downloads.md](downloads.md)). The bar sits in the table footer after the page's last row and has first, previous and next only.
+- Sort on every dimension in `query.fields`, so pages don't overlap or skip rows.
+- A PNG or PDF download shows the rows that fit the tile and never the bar.
+
+```json
+"prefersChart": false,
+"visConfig": {
+  "chartType": "table",
+  "fields": ["order_items.id", "order_items.status", "order_items.total_revenue"],
+  "version": 0,
+  "visConfig": { "visType": "omni-table", "config": { "enablePagination": true } }
+},
+"query": {
+  "fields": ["order_items.id", "order_items.status", "order_items.total_revenue"],
+  "limit": 25,
+  "sorts": [
+    { "column_name": "order_items.id", "sort_descending": false },
+    { "column_name": "order_items.status", "sort_descending": false }
+  ],
+  "...": "the other required query fields"
+}
+```
 
 ## aiConfig
 
