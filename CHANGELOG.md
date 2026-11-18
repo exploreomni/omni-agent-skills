@@ -14,7 +14,7 @@ _Summary: window measures (a measure with a `window:` block over other measures)
 
 **Added**
 - **`omni-model-builder` — *Window measures*.** When to model one instead of a table calculation, and why never in a dimension.
-- **`omni-model-builder` — `window-measures.md`.** Shape, frame keys, validation errors, query requirements, and a query view for history a filter removes.
+- **`omni-model-builder` — `window-measures.md`.** Shape, offset keys, validation, query requirements, and a query view for history a filter removes.
 - **`omni-model-builder` evals.** A case for a reusable cumulative revenue measure.
 
 **Changed**

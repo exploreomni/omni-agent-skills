@@ -191,7 +191,7 @@ Reach for a filter-only field when one user choice should change *how a field is
 
 ### Aggregate tables (aggregate awareness)
 
-Reach for an aggregate table when the same fact rollup is queried repeatedly at a coarser grain than the table (daily or monthly tiles over an event-level fact) and a pre-aggregated table exists or can be built. Declare it with a `materialized_query` block on a view, one per table, described against the base view; Omni reads it when a query fits and falls back to the fact table when not. Confirm with a `planOnly` query headed `-- Query rewritten to use materialized view`. Never map a dimension with a window function (`ROW_NUMBER`, `RANK`, `LAG`, a running total) or a `*_distinct_on` measure, and never set `limit` or `offset` in `materialized_query`: each returns wrong results or stops Omni from using the table. Pin a table that holds part of the history to its dates, keep every row in the base view, and write date boundaries in model SQL as `>=` and `<`. Rules, filter pins, joined views, [what not to declare](references/aggregate-awareness.md#what-not-to-declare) and [known issues](references/aggregate-awareness.md#known-issues): [aggregate-awareness.md](references/aggregate-awareness.md).
+Reach for an aggregate table when the same fact rollup is queried repeatedly at a coarser grain than the table (daily or monthly tiles over an event-level fact) and a pre-aggregated table exists or can be built. Declare it with a `materialized_query` block on a view, one per table, described against the base view; Omni reads it when a query fits and falls back to the fact table when not. Confirm with a `planOnly` query headed `-- Query rewritten to use materialized view`. Never map a dimension with a window function (`ROW_NUMBER`, `RANK`, `LAG`, a running total) or a `*_distinct_on` measure, and never set `limit` or `offset` in `materialized_query`: each returns wrong results or stops Omni from using the table. Pin a table that stores part of the history to its dates, keep every row in the base view, and write date boundaries in model SQL as `>=` and `<`. Rules, filter pins, joined views, [what not to declare](references/aggregate-awareness.md#what-not-to-declare) and [known issues](references/aggregate-awareness.md#known-issues): [aggregate-awareness.md](references/aggregate-awareness.md).
 
 ### Level of detail
 
@@ -199,7 +199,13 @@ Reach for `level_of_detail` when a measure has to be computed at a grain other t
 
 ### Window measures
 
-A running total, moving average, rank or prior-period value for one query is a table calculation (`omni-query` → `references/table-calculations.md`). Model a window measure when several tiles or queries need the same window, or it must cover rows past the row limit: a measure whose `sql` applies the window function to other measures, with a `window:` block for `partition_by`, `order_by` and the frame. It starts at the first row the query's filters keep; for history a filter removes, such as months before a date filter, select it in a [query view](references/window-measures.md#history-a-filter-removes). A window function never goes in a dimension's `sql`: it validates, but its values change with each query's filters, and a filter on it fails in the warehouse. Shape, validation errors and query requirements: [window-measures.md](references/window-measures.md).
+A window measure is a measure whose `sql` applies a window function to other measures, with a `window:` block for `partition_by`, `order_by` and the frame. Where each case goes:
+- One query or tile: a table calculation (`omni-query` → `references/table-calculations.md`) for a running total, moving average, rank, prior-period value or share of total.
+- The same window in more than one tile or query, or over rows past the row limit: a window measure.
+- History a tile's filters remove, such as months before a date filter: a [query view](references/window-measures.md#history-a-filter-removes) that selects the window measure. The window measure alone starts at the first row the filters keep.
+- Never a window function in a dimension's `sql`. It validates, but its values change with each query's filters, and a filter on it fails in the warehouse.
+
+Shape, validation and query requirements: [window-measures.md](references/window-measures.md).
 
 ### Cross-View Fields in Views
 
