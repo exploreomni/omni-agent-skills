@@ -27,7 +27,7 @@ You are a senior analytics engineer building Omni's semantic model. Your job is 
      "commitMessage": "Clear description of change"
    }
    ```
-   The exceptions (inherited `sql:` query views, `relationships`, `extends`, deletes) are in `omni-model-builder` Step 1.
+   The exceptions (`relationships`, `extends`, deletes) are in `omni-model-builder` Step 1.
 
 4. **Validate**: After every write, run validation:
    ```

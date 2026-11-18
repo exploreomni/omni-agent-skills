@@ -13,3 +13,37 @@ This works with either a `query:` block (field-mapped virtual table) or a `sql:`
 To scope a query view to one topic, see [Topic-Scoped View Definitions](topic-scoped-definitions.md#topic-scoped-view-definitions).
 
 `sql:` versus `query:` for a rollup. Field references (`${view.field}`) work inside a `sql:` block, but Omni expands them once, when the file is saved, into alias-qualified columns, so the `FROM` must be aliased to the view's reference name (`FROM ${order_items} AS "order_items"`). Validation does not catch a missing alias; a query does. The `query:` form (`fields:` mapping view fields and measures to column names, plus `base_view` and `topic`) compiles through the model on every run, so later changes to those fields flow through. A `sql:` query view gets no automatic `count` measure; declare one if it is needed. Examples in `references/query-view-examples.md`.
+
+Filters on a `query:` view. The inner query applies only its own `filters:` unless outer filters are bound to it. `bind_all_filters: true` under `query:` forwards outer filters on fields the inner topic can join ([bind_all_filters](https://docs.omni.co/modeling/query-views/parameters/bind-all-filters.md)); `bind:` on one inner filter forwards a named outer field ([bind](https://docs.omni.co/modeling/query-views/parameters/bind.md)). In a topic built only on query views, `bind_all_filters` forwards nothing: it skips filters on the query view's own fields, and the inner topic can't join another query view's fields. Give the query view a filter-only field ([templated-filters.md](templated-filters.md)) and bind the inner filter to it; users filter on that field:
+
+```yaml
+query:
+  fields:
+    order_items.created_at[month]: created_month
+    order_items.total_sale_price: sales
+  base_view: order_items
+  topic: order_items
+  filters:
+    order_items.created_at:
+      bind: sales_by_month.reporting_window
+dimensions:
+  created_month:
+    primary_key: true
+  sales: {}
+filters:
+  reporting_window:
+    type: timestamp
+```
+
+## Dimensions
+
+A file that includes `sql:` or `query:` also sets which columns are dimensions:
+- With a `dimensions:` section, only the columns listed there are. Omni stores every other column as `ignored: true`, and `dimensions: {}` ignores them all.
+- With no section, a new view gets one dimension per column, none of them a primary key.
+
+Create a query view with every column it should expose listed, the primary key included.
+
+To change one, read it with `--mode combined`, which lists every dimension and, on a `sql:` view, each column's `sql:` (`'"ID"'` on Snowflake). Edit that read, write the whole file back with `"mode": "combined"`, and query the changed fields.
+- New column: add it to the SQL or `fields:` and add its dimension. A column the section doesn't list is ignored.
+- `sql:` view: give every dimension you add a `sql:` in the form the read shows. A dimension sent without its `sql:` loses it, and the column no longer resolves.
+- On a branch, a column the shared model ignores can't be exposed by a `combined` or `extension` write. Read the file with `--mode merged`, add the dimension, and write it with `"mode": "merged"`. A later `combined` save of that file on the branch hides it again; once the branch is merged, it stays.
