@@ -199,7 +199,7 @@ Reach for `level_of_detail` when a measure has to be computed at a grain other t
 
 ### Window measures
 
-A window measure is a measure whose `sql` applies a window function to other measures, with a `window:` block for `partition_by`, `order_by` and the frame. Where each case goes:
+A window measure is a measure whose `sql` applies a window function to other measures, with a `window:` block for `partition_by`, `order_by` and the frame. Omni builds the window, but unlike `aggregate_type` it doesn't supply the function: use one the connection's dialect supports as a window function ([Determine SQL Dialect](#determine-sql-dialect)). Where each case goes:
 - One query or tile: a table calculation (`omni-query` → `references/table-calculations.md`) for a running total, moving average, rank, prior-period value or share of total.
 - The same window in more than one tile or query, or over rows past the row limit: a window measure.
 - History a tile's filters remove, such as months before a date filter: a [query view](references/window-measures.md#history-a-filter-removes) that selects the window measure. The window measure alone starts at the first row the filters keep.

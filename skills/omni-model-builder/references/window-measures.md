@@ -2,7 +2,7 @@
 
 Docs: [window](https://docs.omni.co/modeling/measures/parameters/window)
 
-A measure with a `window:` block is a window function over other measures. Each aggregate call in its `sql` (`SUM`, `AVG`, `MIN`, `MAX`) runs as a window function over the query's aggregated rows, and so do `RANK()` and `LAG()`. Nothing is aggregated for the window measure itself: define the aggregate as its own measure first, then window over it.
+A measure with a `window:` block is a window function over other measures. Each aggregate call in its `sql` (`SUM`, `AVG`, `MIN`, `MAX`) runs as a window function over the query's aggregated rows, and so do `RANK()` and `LAG()`. Nothing is aggregated for the window measure itself: define the aggregate as its own measure first, then window over it. Users edit window measures in the model IDE; the workbook's field editor can't.
 
 When to use one instead of a table calculation: *Window measures* in [SKILL.md](../SKILL.md#window-measures).
 
@@ -10,6 +10,7 @@ When to use one instead of a table calculation: *Window measures* in [SKILL.md](
 
 - [Shape](#shape)
 - [Validation](#validation)
+- [Functions](#functions)
 - [Querying](#querying)
 - [History a filter removes](#history-a-filter-removes)
 
@@ -76,9 +77,31 @@ A measure from a joined view (`${users.count}`) keeps its fanout protection.
 
 `omni models validate` names each of these mistakes: a dimension or column in the `sql`, a nested aggregate, `DISTINCT`, an offset key on `RANK()` or `LAG()`, and a `window` whose `sql` has no window function. One limit shapes the design: no other measure, window measure or not, can reference a window measure, so build a ratio from the input measures, as `cumulative_avg_sale_price` does.
 
+## Functions
+
+Every aggregate call in the `sql` is windowed, and a function name Omni doesn't recognise is sent to the warehouse as written. Whether a function exists as a window function, and which frames it accepts, is up to the dialect. These run on Snowflake:
+
+| Need | `sql` |
+|---|---|
+| Rank or bucket (`order_by` a measure, no offset keys) | `DENSE_RANK()`, `ROW_NUMBER()`, `NTILE(4)`, `PERCENT_RANK()`, `CUME_DIST()` |
+| Change from the previous row | `(${total_revenue} - LAG(${total_revenue}, 1)) / NULLIF(LAG(${total_revenue}, 1), 0)` |
+| Last row's value on every row | `FIRST_VALUE(${total_revenue})`, with the `order_by` entry `desc: true` |
+| Flag against the window | `CASE WHEN ${total_revenue} > AVG(${total_revenue}) THEN 1 ELSE 0 END`, with `window: {}` |
+| Running "ever reached" or count over a threshold | `MAX(CASE WHEN ${total_revenue} > 400000 THEN 1 ELSE 0 END)`, `COUNT_IF(${total_revenue} > 400000)` |
+| True when every row passes | `BOOL_AND(${total_revenue} > 100000)` |
+| Trailing volatility | `STDDEV(${total_revenue})`, with `offset_start: -2` |
+| Trend line | `REGR_INTERCEPT(${total_revenue}, ${month_index}) + REGR_SLOPE(${total_revenue}, ${month_index}) * ${month_index}`, with `window: {}` |
+| Correlation | `COVAR_POP(${total_revenue}, ${count}) / (STDDEV_POP(${total_revenue}) * STDDEV_POP(${count}))` |
+
+What Omni adds on any dialect:
+- Arguments are measures, so a regression's x axis is its own measure: `month_index` with `sql: YEAR(${created_at}) * 12 + MONTH(${created_at})` and `aggregate_type: min`.
+- With an `order_by` and no offset keys, Omni writes a range frame up to the current row. A function the warehouse can't run on that frame needs offsets: Snowflake needs both on `LAST_VALUE` and `NTH_VALUE`, and rejects `REGR_SLOPE` with offsets.
+- A `WITHIN GROUP` aggregate such as `PERCENTILE_CONT` has its sort moved into the window's `order_by`, which Snowflake rejects. Use the dialect's median function (`MEDIAN` on Snowflake).
+- `CORR` is not windowed (validation error); use the covariance form above.
+
 ## Querying
 
-- Every `partition_by` and `order_by` dimension must be in the query: selected, pivoted, or filtered to one value with an equality filter. Otherwise the query fails and names the missing field.
+- Every `partition_by` and `order_by` dimension must be in the query: selected, pivoted, or filtered to one value with an equality filter. The workbook adds them when a user picks the measure; an API query without them fails and names the missing field.
 - The `order_by` dimension can't be pivoted. A pivot splits the window per pivot column, whether or not `partition_by` names it.
 - A selected row dimension that `partition_by` doesn't name does not split the window. Under the default frame, rows with the same `order_by` value then show the same value. Add the dimension to `partition_by` or pivot it.
 - The window runs at the query's timeframe (`created_at[month]` gives a monthly running total) and in its own `order_by`, not the query's sort. It starts at the first row the query's filters keep and covers every kept row, including rows past the row limit. A table calculation covers only the returned rows, in their order.

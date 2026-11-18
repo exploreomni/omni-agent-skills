@@ -13,8 +13,8 @@ Since 1.11.0 both plugins share one version, held in `versions.json` and stamped
 _Summary: window measures (a measure with a `window:` block over other measures), tested on a live instance._
 
 **Added**
-- **`omni-model-builder` — *Window measures*.** When to model one instead of a table calculation, and why never in a dimension.
-- **`omni-model-builder` — `window-measures.md`.** Shape, offset keys, validation, query requirements, and a query view for history a filter removes.
+- **`omni-model-builder` — *Window measures*.** When to model one instead of a table calculation; the function must be the dialect's; never in a dimension.
+- **`omni-model-builder` — `window-measures.md`.** Shape, offset keys, validation, functions beyond `SUM` and `LAG`, query requirements, and a query view for history a filter removes.
 - **`omni-model-builder` evals.** A case for a reusable cumulative revenue measure.
 
 **Changed**
