@@ -126,7 +126,7 @@ Since the binding is server-owned on the PATCH surface, changing a tile's query-
   "automaticVis": false,                    // see the warning below
   "query": { /* see required fields */ },
   "visConfig": { "chartType": "kpi", "fields": [...], "version": 0, "visConfig": { /* inner */ } },
-  "resultConfig": { /* table display, conditional formatting */ },
+  "resultConfig": { /* the workbook's Results table; a tile's table formatting goes in visConfig */ },
   "subTitle": "…"
 }
 ```

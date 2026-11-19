@@ -273,7 +273,7 @@ A line/area series mark takes a `line` style object — `dash` makes it dotted. 
 **Projection as a ghost *column* (not a line).** The same run-rate calc works on a `barLine`/`column` chart: add the projected measure as a **second bar series** that **overlays** the actual at the same x (both from baseline 0; the ghost peeks above the shorter actual). Draw order = series-array order, so list the projected bar **first** (behind) and the solid actual **second** (front); give the ghost a translucent fill (e.g. 8-digit hex `"#94A3B8A6"` slate to match the gray "projected" convention) so only its run-rate *cap* shows above the actual partial bar.
 - **Two same-mark bar series default to STACK — you must force overlay** (classic compiler; on a layer chart they overlay and cannot be stacked without a Measure values fold, see [layers.md](layers.md)). `behaviors.stackMultiMark:false` is *not* enough: when an axis has ≥2 series of the same stackable mark (bar/area) and no explicit stack, the compiler defaults to `STACK`, so the ghost stacks *on top of* the actual (gray top = actual + projected) instead of overlapping. Set **`config.color._stack: "overlay"`** (enum: `group`/`stack`/`stack_percentage`/`overlay`) — the compiler returns that explicit value before falling through to the same-mark STACK default, and `OVERLAY` skips the stacking-field encodings so both bars draw from zero. Tell-tale of the bug: the dependent axis auto-scales to ~`actual+projected` instead of ~`projected`.
 - **Watch the anchor branch.** A run-rate projection table-calc (the `OMNI_OFFSET_MULTI`/`OMNI_FX_ROW`/`COUNT_A` "is-this-the-last-row" pattern) is typically non-null on the **last *two*** rows: the current month gets the projected value, and the **second-to-last** gets its *actual* value as an anchor — necessary so a projection **line** visibly connects from the last complete point. For a **column** overlay that anchor paints an unwanted ghost cap on the prior month. Strip it: the calc's outer `CASE` has the shape `CASE(isLastRow, projection, CASE(isSecondToLast, actual, null))` — replace `operand[2]` (the inner anchor `CASE`) with a `null` literal so only the current month projects.
-- A run-rate projection needs a date-extent measure (`max(timestamp)` cast through the session timezone, like `last_order_date`/`last_session_date`) **on the topic's own base view** — it can't reach a `max-date` measure on a view the topic doesn't join. **Select that measure into the query and hide it** (`resultConfig.hiddenColumns`), keeping it out of `visConfig.fields`/`series` so it isn't plotted — then the calc references a *selected* field. **Do NOT hand-set `allow_refs_to_unselected_fields:true`** to reference it while unselected — it's an **AI-SQL-gen-only marker**, not a hand-authoring knob: the SQL runs, but the calc shows `#ERROR — No such field … in query` and is **uneditable in the workbook formula editor** (the observable tell — set it, then open the tile's formula editor). Selecting the date **measure** does *not* change grain (it's an aggregate, not a `GROUP BY` key — confirm row count is unchanged); selecting a **dimension** or a new-join field *would* change grain/fan out, so reframe carefully.
+- A run-rate projection needs a date-extent measure (`max(timestamp)` cast through the session timezone, like `last_order_date`/`last_session_date`) **on the topic's own base view** — it can't reach a `max-date` measure on a view the topic doesn't join. **Select that measure into the query** and keep it out of `visConfig.fields`/`series` so it isn't plotted — then the calc references a *selected* field. **Do NOT hand-set `allow_refs_to_unselected_fields:true`** to reference it while unselected — it's an **AI-SQL-gen-only marker**, not a hand-authoring knob: the SQL runs, but the calc shows `#ERROR — No such field … in query` and is **uneditable in the workbook formula editor** (the observable tell — set it, then open the tile's formula editor). Selecting the date **measure** does *not* change grain (it's an aggregate, not a `GROUP BY` key — confirm row count is unchanged); selecting a **dimension** or a new-join field *would* change grain/fan out, so reframe carefully.
 
 ### Small multiples (faceting)
 
@@ -541,11 +541,11 @@ Each tile's `visConfig` shows the persisted `chartType`, `fields`, and inner `vi
 
 ## resultConfig
 
-Optional field on `queryPresentation` controlling result display independent of the visualization. Commonly includes `columnOrder` (array), `hiddenColumns` (array), `columnWidths` (object of field → pixel width).
+Optional field on `queryPresentation` holding the workbook's Results table settings, in the same shape as the omni-table inner config below.
 
 ### Table display & conditional formatting
 
-**Table display and conditional formatting go in the omni-table's inner config** (`visConfig.visConfig.config`); a config placed in `resultConfig` is ignored with no error. To confirm a setup, write the table on a draft and read it back with `omni documents v2-get-draft`: the formatters come back under the inner `config`. The inner config carries: `tableType` (`"stretch"` fills the tile; default `"spreadsheet"` hugs left), `rowBanding` (`{enabled, bandSize}`), `hideIndexColumn`, `columnFormats` (`{ "<view.field>": { align: "left"|"right" } }`), and **`conditionalFormatters`**:
+**Table display and conditional formatting go in the omni-table's inner config** (`visConfig.visConfig.config`); a config placed in `resultConfig` is ignored with no error. To confirm a setup, write the table on a draft and read it back with `omni documents v2-get-draft`: the formatters come back under the inner `config`. The inner config carries: `tableType` (`"stretch"` fills the tile; default `"spreadsheet"` hugs left), `rowBanding` (`{enabled, bandSize}`), `hideIndexColumn`, `columnFormats` (`{ "<view.field>": { align: "left"|"right" } }`), `fieldVisibility` (`{ "<view.field>": false }` hides that field's column), and **`conditionalFormatters`**:
 
 ```jsonc
 // visConfig.visConfig = { visType: "omni-table", config: {
@@ -558,9 +558,32 @@ Optional field on `queryPresentation` controlling result display independent of 
   // reversed scale = reverse the `range`. Scale formatters take NO backgroundColor (source strips it).
   { "id": "days_high", "type": "single",
     "selection": { "type": "field", "field": "view.avg_days", "target": "view.avg_days" },
-    "rule":   { "type": "greater-than", "value": 5, "valueType": "number" },   // also less-than; valueType number|date|text
+    "rule":   { "type": "greater-than", "value": 5, "valueType": "number" },   // rule types: table below
     "format": { "backgroundColor": "#ffeeee", "color": "#990000", "fontWeight": "bold", "fontStyle": "italic" } }
 ] }
+```
+
+`rule.type` must come from this table. The API stores any other name without an error, and that rule never matches, so the cells stay plain; check the colors in a rendered dashboard ([downloads.md](downloads.md)).
+
+| `valueType` | `rule.type` | Value keys |
+|---|---|---|
+| `number`, `date` | `equal-to`, `not-equal-to`, `greater-than`, `greater-than-or-equal-to`, `less-than`, `less-than-or-equal-to` | `value` |
+| `number`, `date` | `between`, `not-between` | `min`, `max` |
+| `number`, `date` | `null`, `not-null` | none |
+| `text` | `text-equal-to`, `text-not-equal-to`, `contains`, `does-not-contain`, `starts-with`, `ends-with` | `value` |
+| `text` | `empty`, `not-empty` | none |
+
+Text rules compare the cell's raw value, case-sensitive. A banded text column takes one `text-equal-to` rule per label:
+
+```jsonc
+{ "id": "bucket_0_30", "type": "single",
+  "selection": { "type": "field", "field": "view.days_bucket", "target": "view.days_bucket" },
+  "rule":   { "type": "text-equal-to", "value": "0-30", "valueType": "text" },
+  "format": { "backgroundColor": "#e6f4ea" } },
+{ "id": "bucket_31_60", "type": "single",
+  "selection": { "type": "field", "field": "view.days_bucket", "target": "view.days_bucket" },
+  "rule":   { "type": "text-equal-to", "value": "31-60", "valueType": "text" },
+  "format": { "backgroundColor": "#fff4e5" } }
 ```
 
 `selection.type` may be `field`, `row`, or `cellRange`; **`selection` carries both `field` and `target`** (same value for a field selection). With **`automaticVis: true`**, conditional formatting still renders as long as the formatters are in this inner `config`. The whole spec sits under `config`, on write and on read.
