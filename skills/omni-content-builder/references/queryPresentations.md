@@ -121,7 +121,7 @@ The allowed tile keys — anything else is a 400:
 | `subTitle` | No | Tile subtitle (≤ 250 characters). Shown only when the tile's container stack has a `{ "as": "metadata", "format": "subtitle" }` child after the name child. When `v2-create` builds the containers itself, it adds that child to every tile **except the first in `order`**, so the first tile's subtitle is stored but not shown; send your own `containers`, or patch the first tile's stack to add the child. |
 | `filterOrder` | No | Ordering of tile-level filters. |
 | `isSql` | No | `true` for SQL-mode tiles. |
-| `resultConfig` | No | Result display: `columnOrder`, `hiddenColumns`, `columnWidths`, `tableType`, `conditionalFormatters` — see [visConfig.md](visConfig.md). |
+| `resultConfig` | No | Settings for the workbook's Results table. A dashboard tile's table display and conditional formatting go in the inner `visConfig` config: [visConfig.md](visConfig.md#table-display--conditional-formatting). |
 | `aiConfig` | No | AI-generated description/subtitle settings — see [visConfig.md](visConfig.md). |
 | `sourceQueryPresentationKey` | `linked` only | The record key of the source tile whose query a `linked` tab reuses. Required on `type: "linked"`, rejected on every other type. |
 | `foreignModelId` | `foreign` only | The shared model the tab's query runs against. Required when creating a `foreign` tab; ignored on an existing one. |

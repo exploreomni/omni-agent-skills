@@ -6,6 +6,21 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.26.6] - 2026-11-18
+
+### omni-analytics
+
+_Summary: `omni-content-builder` documents table pagination, lists every conditional-format rule type, says how to show a `#` at the start of a markdown label, and stops pointing a tile's table formatting at `resultConfig`. `omni-query` hides a selected field the same way._
+
+**Added**
+- **`omni-content-builder` — *Paging a table*.** `enablePagination: true` in the `omni-table` inner config (off by default) lets viewers page past `limit`, which becomes the page size; each page re-runs the query with `query.offset`. Size the page to the tile and sort on every dimension. Downloads never show the bar.
+
+**Fixed**
+- **`omni-content-builder` — *Table display & conditional formatting*.** Every valid `rule.type` for number, date and text rules, with the value keys each takes. An unknown type is stored without an error and never matches. A banded text column takes one `text-equal-to` rule per label.
+- **`omni-content-builder` — *Text & AI tile config*.** A label that starts with `#` renders as a heading or loses the `#`; the full-width `＃` (U+FF03) renders.
+- **`omni-content-builder` — `documents-v2.md`, `queryPresentations.md`, *resultConfig*.** `resultConfig` holds the workbook's Results table settings; a tile's table display and conditional formatting go in the inner `visConfig` config. Removed `columnOrder`, `hiddenColumns` and `columnWidths`, which aren't `resultConfig` keys.
+- **`omni-content-builder` — *Table display & conditional formatting*; `omni-query` — *Validation rules and gotchas*.** A table tile hides a selected field's column with `fieldVisibility` in its inner config; a chart tile plots only the fields in `visConfig.fields`.
+
 ## [1.26.5] - 2026-11-11
 
 ### omni-analytics
