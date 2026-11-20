@@ -49,7 +49,7 @@ Topics can define or override views inline using a `views:` block — controllin
 
 > Before adding any topic-scoped field to an existing view:
 > 1. Read the view YAML (`omni models yaml-get`) and confirm the field doesn't already exist. If it does with the same definition, skip it.
-> 2. If a field with the same name exists but uses different SQL, this is an override. Confirm explicitly with the modeler — queries through this topic will use the topic-scoped definition; all other topics keep the shared one.
+> 2. If a field with the same name exists but uses different SQL, this is an override. On a schema-layer dimension, add a new field instead ([Changing the values of a schema dimension](model-layers.md#changing-the-values-of-a-schema-dimension)). On any other field, confirm explicitly with the modeler — queries through this topic will use the topic-scoped definition; all other topics keep the shared one.
 
 ```yaml
 # Example: display order + topic-specific filtered measure

@@ -231,6 +231,20 @@
         "The agent does not merge without explicit confirmation"
       ],
       "expected_skill": "omni-model-builder"
+    },
+    {
+      "id": "18",
+      "question": "In the users view, the state dimension is null for some customers. Make the model show 'Unknown' for those customers.",
+      "ground_truth": "The agent leaves the schema-layer state dimension's sql unset and adds a new dimension on a branch, for example state_or_unknown with sql COALESCE(${state}, 'Unknown'), its own label and a description. It may hide state or set presentation keys on it, but does not change its values, since existing fields, filters and dashboards that use state would change. It validates, queries the new field, and does not merge without explicit confirmation.",
+      "expected_behavior": [
+        "The agent works on a branch",
+        "The agent adds a new dimension whose sql wraps ${state} in COALESCE (or an equivalent) with 'Unknown'",
+        "The agent does not set sql on the existing state dimension",
+        "The agent gives the new dimension its own label and description",
+        "The agent validates and queries the new field",
+        "The agent does not merge without explicit confirmation"
+      ],
+      "expected_skill": "omni-model-builder"
     }
   ]
 }

@@ -6,6 +6,19 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.26.7] - 2026-11-20
+
+### omni-analytics
+
+_Summary: `omni-model-builder` leaves schema-layer dimensions' values as stored and puts a value change in a new dimension._
+
+**Changed**
+- **`omni-model-builder` — *Understanding Schema Layer vs Extension Layer*.** Don't set `sql:` on a schema-layer dimension; replacing nulls, buckets, trims and casts go in a new dimension.
+- **`omni-model-builder` — *Topic-Scoped View Definitions*.** A topic-scoped override of a schema-layer dimension becomes a new field too.
+
+**Added**
+- **`omni-model-builder` evals.** Case 18: showing 'Unknown' for null states adds a new dimension.
+
 ## [1.26.5] - 2026-11-11
 
 ### omni-analytics

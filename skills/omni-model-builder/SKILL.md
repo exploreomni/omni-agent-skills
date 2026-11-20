@@ -175,7 +175,7 @@ measures:
 
 ### Understanding Schema Layer vs Extension Layer
 
-Your extension YAML can override a schema-layer field of the same name, and the field keeps its schema-layer type; when a column has no schema-layer base dimension yet, refresh the schema first. Examples and `yaml-get --mode` read-back: [model-layers.md](references/model-layers.md#understanding-schema-layer-vs-extension-layer).
+Don't set `sql:` on a schema-layer dimension; set only keys that leave its values unchanged, such as `label` or `hidden`, and it keeps its schema-layer type. A change to its values, such as replacing nulls, goes in a new dimension: [Changing the values of a schema dimension](references/model-layers.md#changing-the-values-of-a-schema-dimension). When a column has no schema-layer base dimension yet, refresh the schema first. Examples and `yaml-get --mode` read-back: [model-layers.md](references/model-layers.md#understanding-schema-layer-vs-extension-layer).
 
 ### Dimension Parameters
 
