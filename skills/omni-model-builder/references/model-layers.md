@@ -14,9 +14,9 @@ The schema layer is the source of truth for table/column structure (refreshed wh
 When you create a view, Omni separates schema (database structure) from model (your business logic):
 
 - Schema layer: Auto-generated base dimensions, one per column. Types come from the database. Read-only, synced via schema refresh.
-- Extension layer: Your custom YAML. Can override base dimensions, add new dimensions/measures, hide columns, add business logic.
+- Extension layer: Your custom YAML. Labels, describes or hides base dimensions, and adds new dimensions, measures and business logic.
 
-When both layers exist for a field with the same name, your extension definition wins but type information comes from the schema layer.
+When both layers define a field with the same name, your extension's keys win and the type comes from the schema layer.
 
 Example: Table has columns `created_at` (DATE) and `revenue` (NUMERIC).
 
@@ -45,6 +45,23 @@ measures:
 Result: `created_at` inherits its type from the schema layer (DATE with automatic week/month/year granularities) but gets your label. The raw `revenue` column is hidden, only exposed through the `total_revenue` measure.
 
 If your extension defines a dimension but there's no schema layer base dimension to provide type information, Omni can't infer granularities or types. Trigger a schema refresh to auto-generate the schema layer first.
+
+### Changing the values of a schema dimension
+
+A dimension the schema layer generates takes only keys that leave its values unchanged, such as `label`, `group_label`, `description`, `hidden`, `format`, `synonyms`, `ai_context`, `drill_fields` and `primary_key`, in every layer: shared model, extension, branch, workbook model and a topic's `views:` block. A change to its values (replacing nulls, CASE buckets, trimming, padding, casting) goes in a new dimension whose `sql:` references the column, with its own label and description; hiding the column is optional. A `sql:` on the schema dimension itself would give every field, filter and dashboard that uses it the new values (an `is null` filter stops matching once nulls become 'Unknown'), and no field would return the stored value.
+
+```yaml
+dimensions:
+  state:                 # schema dimension: no sql:
+    group_label: Customer
+  state_or_unknown:
+    sql: COALESCE(${state}, 'Unknown')
+    label: State (with Unknown)
+    group_label: Customer
+    description: Customer state, with 'Unknown' where none was recorded.
+```
+
+When a model already sets `sql:` on a schema dimension, tell the user and leave it in place: removing it ([Removing an override](editing-existing-files.md#removing-an-override)) changes what existing content shows.
 
 Reading back what you wrote — `--mode`. `yaml-get` returns the combined result by default: the schema base merged with your extension. To see only the deltas you authored, without the auto-generated base columns, read with `--mode extension`:
 

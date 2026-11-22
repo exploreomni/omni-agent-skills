@@ -4,7 +4,7 @@
 
 Cross-view fields (dimensions or measures whose `sql` references `${other_view.field}`) in a global view file are evaluated in every topic that exposes the host view. A global relationship can make the dependency reachable in topics that inherit the global join graph, but it does not override a topic's explicit/frozen `joins:` map. If that map omits the dependency, validation returns a blocking `field_broken_in_topic` issue and queries using the field fail to plan.
 
-Placement follows intended availability and resolved join context, not field namespace. Define the field in the topic's `views.<host_view>` block (see "Topic-Scoped View Definitions") when it is meaningful only in that topic or depends on a topic-specific, aliased, or frozen join. The field remains queryable as `<host_view>.<field>`; topic scoping limits where it is available, not the namespace the user requested.
+Placement follows intended availability and resolved join context, not field namespace. Define the field in the topic's `views.<host_view>` block (see "Topic-Scoped View Definitions") when it is meaningful only in that topic or depends on a topic-specific, aliased, or frozen join. The field remains queryable as `<host_view>.<field>`; topic scoping limits where it is available, not the namespace the user requested. A view-file field whose `sql:` or `filters:` names another view fails validation with `referenced_view_not_joinable` when that view is joined only in a topic's `relationships:`; it validates once the relationship is in the shared relationships file.
 
 Use the global view file when the field is universally meaningful and its dependency resolves the same way in every topic that exposes the host view. Validation already checks every one of those topics (the `field_broken_in_topic` issue above names the field and the topic), so validate the branch rather than inspecting each topic by hand. A field that resolves through a different join in some topic (an alias, or another path) is not an error, so validation won't show it: when the host view's topics join the dependency differently, compare those topics' `get-topic` `join_via_map`. Topics without explicit joins may inherit a global relationship; topics with explicit joins may exclude it.
 
@@ -49,7 +49,7 @@ Topics can define or override views inline using a `views:` block — controllin
 
 > Before adding any topic-scoped field to an existing view:
 > 1. Read the view YAML (`omni models yaml-get`) and confirm the field doesn't already exist. If it does with the same definition, skip it.
-> 2. If a field with the same name exists but uses different SQL, this is an override. Confirm explicitly with the modeler — queries through this topic will use the topic-scoped definition; all other topics keep the shared one.
+> 2. If a field with the same name exists but uses different SQL, this is an override. On a schema-layer dimension, add a new field instead ([Changing the values of a schema dimension](model-layers.md#changing-the-values-of-a-schema-dimension)). On any other field, confirm explicitly with the modeler — queries through this topic will use the topic-scoped definition; all other topics keep the shared one.
 
 ```yaml
 # Example: display order + topic-specific filtered measure

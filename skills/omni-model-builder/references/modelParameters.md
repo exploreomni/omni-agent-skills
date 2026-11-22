@@ -147,7 +147,7 @@ dimensions:
 | `count_distinct` | Count of distinct values |
 | `average` | Average of values |
 | `min` | Minimum value |
-| `max` | Maximum value |
+| `max` | Maximum value; on a boolean `sql:`, true when any row is true |
 | `median` | Median value |
 | `list` | Concatenated list of values |
 | `percentile` | Percentile (requires `percentile` parameter, e.g., `percentile: 75`) |

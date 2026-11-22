@@ -6,6 +6,30 @@ Changelog tracking begins with the next release. Historical releases are not bac
 
 Since 1.11.0 both plugins share one version, held in `versions.json` and stamped into the manifests by CI. Entries below 1.11.0 use the older scheme, where the heading number belonged to whichever plugin that release was for — which is why those version numbers do not read in order.
 
+## [1.26.7] - 2026-11-21
+
+### omni-analytics
+
+_Summary: `omni-model-builder` keeps schema-layer dimensions as stored, documents every `join_type`, says where a query view needs `topic:`, and notes what LOD fields and `not:` filters compile to._
+
+**Added**
+- **`omni-model-builder` — *Join types*, *Directional joins*.** What each `join_type` keeps; `right_left` and `left_right` keep one named side in every topic.
+- **`omni-model-builder` — *Cross joins*.** A grid of expected combinations, paired in `where_sql` and laid against the fact with a composite, shows the missing ones.
+- **`omni-model-builder` — *Query views*.** `topic:` is optional in the shared model; a workbook query view needs `query:` with `topic:`.
+- **`omni-model-builder` — *Before writing a `sql:` view*.** The modeled forms to rule out first.
+- **`omni-model-builder` — *Level of detail*.** One subquery per LOD field; a `sum` returns 0 for an empty key; `cancel_query_filters` applies.
+- **`omni-model-builder` — *YAML filter syntax*, *Parameters*.** `not: <value>` keeps NULL rows; `max` on a boolean is true when any row is.
+- **`omni-model-builder` evals.** Case 18: showing 'Unknown' for null states adds a new dimension.
+
+**Changed**
+- **`omni-model-builder` — *Understanding Schema Layer vs Extension Layer*.** No `sql:` on a schema-layer dimension; a value change goes in a new dimension.
+- **`omni-model-builder` — *Topic-Scoped View Definitions*.** A topic-scoped override of a schema-layer dimension becomes a new field too.
+
+**Fixed**
+- **`omni-model-builder` — *Cross-View Fields in Views*.** A view field joined only through a topic's `relationships:` fails validation (`referenced_view_not_joinable`).
+- **`omni-model-explorer` — *Key Concepts*.** The `join_type` list adds `left_right`, `right_left` and `cross`.
+- **`omni-model-builder` — *Query view examples*.** A shared `query:` view no longer "needs a topic".
+
 ## [1.26.5] - 2026-11-11
 
 ### omni-analytics
