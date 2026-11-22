@@ -48,13 +48,11 @@ If your extension defines a dimension but there's no schema layer base dimension
 
 ### Changing the values of a schema dimension
 
-Don't set `sql:` on a dimension the schema layer generates, in any layer: shared model, extension, branch, workbook model or a topic's `views:` block. Every field, filter and dashboard that uses the dimension would silently get the new values (an `is null` filter stops matching once nulls become 'Unknown'), and the stored value would no longer be available as a field.
-
-In place, set only keys that leave the values unchanged, such as `label`, `group_label`, `description`, `hidden`, `format`, `synonyms`, `ai_context`, `drill_fields` and `primary_key`. A change to the values (replacing nulls, CASE buckets, trimming, padding, casting) goes in a new dimension whose `sql:` references the column, with its own label and description. Hiding the column is optional.
+A dimension the schema layer generates takes only keys that leave its values unchanged, such as `label`, `group_label`, `description`, `hidden`, `format`, `synonyms`, `ai_context`, `drill_fields` and `primary_key`, in every layer: shared model, extension, branch, workbook model and a topic's `views:` block. A change to its values (replacing nulls, CASE buckets, trimming, padding, casting) goes in a new dimension whose `sql:` references the column, with its own label and description; hiding the column is optional. A `sql:` on the schema dimension itself would give every field, filter and dashboard that uses it the new values (an `is null` filter stops matching once nulls become 'Unknown'), and no field would return the stored value.
 
 ```yaml
 dimensions:
-  state:                 # schema dimension: keys that leave its values unchanged
+  state:                 # schema dimension: no sql:
     group_label: Customer
   state_or_unknown:
     sql: COALESCE(${state}, 'Unknown')
@@ -63,7 +61,7 @@ dimensions:
     description: Customer state, with 'Unknown' where none was recorded.
 ```
 
-When a model already sets `sql:` on a schema dimension, report it to the user. Removing it ([Removing an override](editing-existing-files.md#removing-an-override)) changes what existing content shows, so that is the user's call.
+When a model already sets `sql:` on a schema dimension, tell the user and leave it in place: removing it ([Removing an override](editing-existing-files.md#removing-an-override)) changes what existing content shows.
 
 Reading back what you wrote — `--mode`. `yaml-get` returns the combined result by default: the schema base merged with your extension. To see only the deltas you authored, without the auto-generated base columns, read with `--mode extension`:
 

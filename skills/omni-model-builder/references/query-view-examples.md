@@ -130,7 +130,7 @@ dimensions:
   line_count: {}
 ```
 
-Either way the relationship is `one_to_one` from `users`, and a measure on `users` filters on `user_flags.has_return`. Prefer `query:`, which follows changes to the line view's measures; write `sql:` only after [Before writing a `sql:` view](query-views.md#before-writing-a-sql-view) rules out the modeled forms.
+Either way the relationship is `one_to_one` from `users`, and a measure on `users` filters on `user_flags.has_return`. Prefer `query:`, which follows changes to the line view's measures.
 
 ## Mapping / lookup view (CLI stand-in for an Omni Input Table)
 

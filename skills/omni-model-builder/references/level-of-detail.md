@@ -171,7 +171,7 @@ Give the template a typed placeholder, not `NULL`. A `min`/`max` child takes its
 ## What a LOD dimension compiles to
 
 - Each LOD field is its own subquery grouped by its `fixed:` key and inner-joined back on that key, so a query scans the fact once per LOD field it uses. A shared `query:` view grouped by that key computes several such fields in one scan ([query-views.md](query-views.md)); prefer it when both return the right rows.
-- A `sum` reads 0, not NULL, for a key with no qualifying rows. Guard a comparison of two LOD sums, for example `${shipped_qty} = ${ordered_qty}`, with `${ordered_qty} > 0 AND`.
+- A `sum` returns 0, not NULL, for a key with no qualifying rows. Guard a comparison of two LOD sums, for example `${shipped_qty} = ${ordered_qty}`, with `${ordered_qty} > 0 AND`.
 - [`cancel_query_filters: true`](https://docs.omni.co/modeling/dimensions/parameters/level-of-detail.md) works on a LOD dimension: its subquery reads the tables without the query's filters.
 
 ## Related: `omni_dimensionalize()`

@@ -10,25 +10,25 @@ Since 1.11.0 both plugins share one version, held in `versions.json` and stamped
 
 ### omni-analytics
 
-_Summary: `omni-model-builder` leaves schema-layer dimensions' values as stored, lists all six relationship `join_type` values with a worked `cross` grid, says where a query view's `topic:` is optional or required and what to rule out before a `sql:` view, and notes what LOD fields and `not:` filters compile to. `omni-model-explorer` lists all six `join_type` values._
+_Summary: `omni-model-builder` keeps schema-layer dimensions as stored, documents every `join_type`, says where a query view needs `topic:`, and notes what LOD fields and `not:` filters compile to._
 
 **Added**
-- **`omni-model-builder` — *Join types*.** What each `join_type` keeps and when to use it, including `left_right` and `right_left`.
-- **`omni-model-builder` — *Cross joins*.** Omni drops `on_sql` on `cross`; pair rows in `where_sql`; set `many_to_many`; lay the fact on with a composite and `always_join_all_topics: true`.
-- **`omni-model-builder` — *Query views*.** Shared `query:` views may omit `topic:`; a workbook query view needs `query:` with `topic:`, or restricted queriers lose that workbook model.
-- **`omni-model-builder` — *Before writing a `sql:` view*.** Rule out `cross`, `nested_on_field`, one-to-one `query:` views with a CASE dimension, and `query:` re-aggregation first.
-- **`omni-model-builder` — *Level of detail*.** Each LOD field compiles to its own subquery (one scan per field); a `sum` reads 0 for an empty key; `cancel_query_filters` works on a LOD dimension.
-- **`omni-model-builder` — *YAML filter syntax*, *Parameters*.** `not: <value>` keeps NULL rows (add `not: null`); `max` on a boolean is true when any row is.
+- **`omni-model-builder` — *Join types*, *Directional joins*.** What each `join_type` keeps; `right_left` and `left_right` keep one named side in every topic.
+- **`omni-model-builder` — *Cross joins*.** A grid of expected combinations, paired in `where_sql` and laid against the fact with a composite, shows the missing ones.
+- **`omni-model-builder` — *Query views*.** `topic:` is optional in the shared model; a workbook query view needs `query:` with `topic:`.
+- **`omni-model-builder` — *Before writing a `sql:` view*.** The modeled forms to rule out first.
+- **`omni-model-builder` — *Level of detail*.** One subquery per LOD field; a `sum` returns 0 for an empty key; `cancel_query_filters` applies.
+- **`omni-model-builder` — *YAML filter syntax*, *Parameters*.** `not: <value>` keeps NULL rows; `max` on a boolean is true when any row is.
 - **`omni-model-builder` evals.** Case 18: showing 'Unknown' for null states adds a new dimension.
 
 **Changed**
-- **`omni-model-builder` — *Understanding Schema Layer vs Extension Layer*.** Don't set `sql:` on a schema-layer dimension; replacing nulls, buckets, trims and casts go in a new dimension.
+- **`omni-model-builder` — *Understanding Schema Layer vs Extension Layer*.** No `sql:` on a schema-layer dimension; a value change goes in a new dimension.
 - **`omni-model-builder` — *Topic-Scoped View Definitions*.** A topic-scoped override of a schema-layer dimension becomes a new field too.
 
 **Fixed**
 - **`omni-model-builder` — *Cross-View Fields in Views*.** A view field joined only through a topic's `relationships:` fails validation (`referenced_view_not_joinable`).
 - **`omni-model-explorer` — *Key Concepts*.** The `join_type` list adds `left_right`, `right_left` and `cross`.
-- **`omni-model-builder` — *Query view examples*.** A `query:` view no longer "needs a topic" in the shared model; `sql:` follows the new rule-out list.
+- **`omni-model-builder` — *Query view examples*.** A shared `query:` view no longer "needs a topic".
 
 ## [1.26.5] - 2026-11-11
 
