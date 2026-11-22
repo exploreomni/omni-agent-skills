@@ -84,6 +84,14 @@ Exceptions: `and`, `or`, and `is` do not support `not_` prefix. Use the `not` op
 not: California
 ```
 
+`not: <value>` keeps NULL rows: it compiles to `NOT col = 'California' OR col IS NULL`. To leave NULLs out, add `not: null`:
+```yaml
+state:
+  and:
+    - not: California
+    - not: null
+```
+
 Null checks — use `not: null` for IS NOT NULL, `is: null` for IS NULL:
 ```yaml
 # IS NOT NULL

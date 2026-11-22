@@ -10,6 +10,8 @@
 
 ## Single Primary Key (query: block)
 
+In the shared model, without `topic:` ([`topic:` and where the view lives](query-views.md#topic-and-where-the-view-lives)):
+
 ```yaml
 schema: PUBLIC
 query:
@@ -18,7 +20,6 @@ query:
     order_items.count: order_count
     order_items.total_revenue: lifetime_value
   base_view: order_items
-  topic: order_items
 
 dimensions:
   user_id:
@@ -29,6 +30,8 @@ dimensions:
 ```
 
 ## Concatenated Primary Key (query: block)
+
+With `topic:`, which a workbook-model query view needs:
 
 ```yaml
 schema: PUBLIC
@@ -53,7 +56,7 @@ dimensions:
 
 ## Raw SQL Variant
 
-The `sql:` block can be used in place of `query:`. The same primary key rules apply.
+The `sql:` block can be used in place of `query:` once [Before writing a `sql:` view](query-views.md#before-writing-a-sql-view) rules out the modeled forms. The same primary key rules apply.
 
 Use `${view_name}` to reference a view's underlying table rather than a manual `CATALOG.SCHEMA.TABLE` reference — this is the preferred form as it stays correct if the underlying table is renamed or moved.
 
@@ -98,7 +101,7 @@ dimensions:
     sql: '"line_count"'
 ```
 
-`query:` from a topic. The measures live on the line view and the binding is live: a change to `has_return` on `order_items` flows into the rollup on the next run. It needs a topic over the line view to run in.
+`query:` from a topic. The measures live on the line view and the binding is live: a change to `has_return` on `order_items` flows into the rollup on the next run.
 
 ```yaml
 # order_items.view (addition)
@@ -127,7 +130,7 @@ dimensions:
   line_count: {}
 ```
 
-Either way the relationship is `one_to_one` from `users`, and a measure on `users` filters on `user_flags.has_return`. Prefer `query:` when the line view already carries the measures; prefer `sql:` when the rollup needs SQL the model cannot express or will later become a warehouse table.
+Either way the relationship is `one_to_one` from `users`, and a measure on `users` filters on `user_flags.has_return`. Prefer `query:`, which follows changes to the line view's measures; write `sql:` only after [Before writing a `sql:` view](query-views.md#before-writing-a-sql-view) rules out the modeled forms.
 
 ## Mapping / lookup view (CLI stand-in for an Omni Input Table)
 

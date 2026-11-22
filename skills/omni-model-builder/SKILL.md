@@ -227,7 +227,7 @@ One query over two facts that share dimensions but no join, or one fact under tw
 
 ### Global Relationships
 
-Global relationships are defined in the shared relationships file and are available across all topics. Use these for standard, reusable joins, and set `relationship_type` (`many_to_one`, `one_to_many`, `one_to_one`, `many_to_many`) to match the data, which prevents fanout. Example and when to use each type: [global-relationships.md](references/global-relationships.md).
+Global relationships are defined in the shared relationships file and are available across all topics. Use these for standard, reusable joins, and set `relationship_type` (`many_to_one`, `one_to_many`, `one_to_one`, `many_to_many`) to match the data, which prevents fanout. Example, when to use each type, and the `join_type` values, including `cross` for a grid of every combination of two lists: [global-relationships.md](references/global-relationships.md).
 
 ### Topic-Scoped Relationships
 
@@ -239,7 +239,7 @@ A topic's `views:` block can set `display_order`, override labels, and add topic
 
 ## Query Views
 
-A query view needs a primary key (`primary_key: true` on one dimension) or joins to it fan out; confirm which field is unique before writing unless the query makes it clear, and ask the user when they are unsure. Rules, including the `FROM` alias a `sql:` block with `${view.field}` references needs: [query-views.md](references/query-views.md) · examples: [query-view-examples.md](references/query-view-examples.md).
+A query view needs a primary key (`primary_key: true` on one dimension) or joins to it fan out; confirm which field is unique before writing unless the query makes it clear, and ask the user when they are unsure. A workbook-model query view uses `query:` with `topic:` set; a `sql:` view or a missing `topic:` there stops restricted queriers from querying that workbook model. Before any `sql:` view, rule out the modeled forms. Rules, including the `FROM` alias a `sql:` block with `${view.field}` references needs: [query-views.md](references/query-views.md) · examples: [query-view-examples.md](references/query-view-examples.md).
 
 ## Common Validation Errors
 

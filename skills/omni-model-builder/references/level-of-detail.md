@@ -16,6 +16,7 @@ Docs: [Level of detail](https://docs.omni.co/modeling/dimensions/parameters/leve
 - [Header amounts across line detail: LOD or composite](#header-amounts-across-line-detail-lod-or-composite)
 - [A grain chosen per query](#a-grain-chosen-per-query)
 - [Reusing an exclusion list across measures](#reusing-an-exclusion-list-across-measures)
+- [What a LOD dimension compiles to](#what-a-lod-dimension-compiles-to)
 - [Related: `omni_dimensionalize()`](#related-omni_dimensionalize)
 - [Verifying what a LOD does](#verifying-what-a-lod-does)
 - [Related references](#related-references)
@@ -166,6 +167,12 @@ shipping_fee_total:
 The child inherits `aggregate_type` and the whole `level_of_detail` block and overrides only `sql`; the list is stored once. YAML anchors (`&list` / `*list`) are not an alternative — they are expanded on save into independent copies.
 
 Give the template a typed placeholder, not `NULL`. A `min`/`max` child takes its result type from the parent's `sql` expression rather than its own, and formatting follows type: a `max` child of a `sql: "NULL"` parent returns unformatted numbers even with `format: currency_2` declared, while a `sum` child of the same parent formats correctly. `sql: "0"` avoids it. The same applies to any field-level `extends` where a `min`/`max` child aggregates a different type than its parent.
+
+## What a LOD dimension compiles to
+
+- Each LOD field is its own subquery grouped by its `fixed:` key and inner-joined back on that key, so a query scans the fact once per LOD field it uses. A shared `query:` view grouped by that key computes several such fields in one scan ([query-views.md](query-views.md)); prefer it when both return the right rows.
+- A `sum` reads 0, not NULL, for a key with no qualifying rows. Guard a comparison of two LOD sums, for example `${shipped_qty} = ${ordered_qty}`, with `${ordered_qty} > 0 AND`.
+- [`cancel_query_filters: true`](https://docs.omni.co/modeling/dimensions/parameters/level-of-detail.md) works on a LOD dimension: its subquery reads the tables without the query's filters.
 
 ## Related: `omni_dimensionalize()`
 

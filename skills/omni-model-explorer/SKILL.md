@@ -134,7 +134,7 @@ When exploring, use the `combined` view to see everything available, fully resol
 
 **Topics** join views together into queryable units — curated starting points for analysis. A topic has a base view, joined views, default filters, and AI context.
 
-**Relationships** define joins: `join_from_view`, `join_to_view`, `on_sql`, `relationship_type` (one_to_one, many_to_one, one_to_many, many_to_many), and `join_type` (always_left, inner, full_outer).
+**Relationships** define joins: `join_from_view`, `join_to_view`, `on_sql`, `relationship_type` (one_to_one, many_to_one, one_to_many, many_to_many), and `join_type` (always_left, inner, full_outer, left_right, right_left, cross; which rows each keeps: `omni-model-builder` → `references/global-relationships.md` → *Join types*).
 
 **Field naming**: `view_name.field_name` with bracket notation for date granularity: `orders.created_at[week]`.
 
